@@ -10,7 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { postgres } from 'weifuwu'
+import { postgres , buildQuery } from 'weifuwu'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import {
@@ -40,11 +40,8 @@ test.before(async () => {
   await apiAs(BASE, owner, `/api/departments/${dept.department.id}/members`, { method: 'POST', body: JSON.stringify({ agent_id: agent.agent.id, role: 'member' }) })
   await mkdir(join(resolve(process.cwd(), 'data/workspaces'), dept.department.id), { recursive: true })
   await writeFile(join(resolve(process.cwd(), 'data/workspaces'), dept.department.id, 't.png'), PNG_1x1)
-  await pg.sql`
-    INSERT INTO messages (department_id, sender_id, content, msg_type)
-    VALUES (${dept.department.id}, ${agent.agent.id},
-      '海报已生成：/ws/t.png（已存入部门共享目录，交付物中心可见）', 'text')
-  `
+  await pg.query(buildQuery().insert('messages').rows([{ department_id: dept.department.id, sender_id: agent.agent.id,
+      content: '海报已生成：/ws/t.png（已存入部门共享目录，交付物中心可见）', msg_type: 'text' }]).toQuery())
   ;(globalThis as any).__imgPrev = { deptId: dept.department.id }
 })
 

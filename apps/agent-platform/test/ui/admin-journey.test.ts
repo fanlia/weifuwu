@@ -10,6 +10,7 @@
  * 管理员账号：admin@demo.com（.env ADMIN_EMAILS 引导——演示真实形态）。
  * 操作对象：registerTenant 造的测试租户（不污染演示数据）。
  */
+import { buildQuery } from 'weifuwu'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
@@ -106,7 +107,7 @@ test('套餐联动付费墙：admin 设免费+试用过期 → 租户 AI 回复�
   const { postgres } = await import('weifuwu')
   const pg = testDb(BASE)
   try {
-    await pg.sql`UPDATE _weifuwu_apps SET trial_ends_at = NOW() - INTERVAL '1 day' WHERE id = ${tenant.app.id}`
+    await pg.query(buildQuery().update('_weifuwu_apps').set({ trial_ends_at: { __interval: [-1, 'day'] } as never }).where({ id: { eq: tenant.app.id } }).toQuery())
   } finally { await pg.close() }
   // 租户用户发消息 → 消息 201（入库）但 AI 回复被付费墙拦截（planBlockReason 文案落库）
   await apiAs(BASE, tenant, `/api/departments/${deptId}/messages`, {
@@ -118,10 +119,7 @@ test('套餐联动付费墙：admin 设免费+试用过期 → 租户 AI 回复�
     let blocked = ''
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 500))
-      const [row] = await pg3.sql`
-        SELECT content FROM messages
-        WHERE department_id = ${deptId} AND content LIKE '%暂停%'
-        ORDER BY created_at DESC LIMIT 1`
+      const [row] = await pg3.query(buildQuery().from('messages').select('content').where({ department_id: { eq: deptId }, content: { like: '%暂停%' } }).orderBy('created_at', 'desc').limit(1).toQuery())
       if (row) { blocked = String(row.content); break }
     }
     assert.ok(blocked.includes('免费版试用已到期'), `AI 回复应被付费墙拦截（实际：${blocked.slice(0, 60) || '无拦截文案'}）`)

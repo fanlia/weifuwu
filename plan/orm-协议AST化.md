@@ -57,6 +57,26 @@
   （事实源读法）——W1 全切后 compileSchemaDDL 字符串面删除
 - W2 探针：126 点分布（INSERT 27/SELECT 13/UPDATE 6/DELETE 6/CREATE 3/DROP 1）
   ——schema.sql 8 文件——whereRaw 6 处（全 month 面——monthStart 覆盖）
+- W2 收尾实录（本批）：
+  - **13 ui 测试文件**播种/断言 → `buildQuery().toQuery()` AST 面（`testDb.query`
+    → `/api/test/orm`——Query JSON 传输——协议层 = AST）；`shared.ts` SQL 网关面
+    删净（seedSql/send/unsafe/tag/array——端点已删零引用——`/api/test/sql` 全库 0）
+  - **6 whereRaw 月面 → `ops.monthStart()`**（plan/chat/quota-alert/agents/stats×2——
+    admin.ts 先例同款 `{ gte: ops.monthStart() }`）——平台 src whereRaw 清零
+  - **memory-sql IF NOT EXISTS 补列语义**：已存在表只补缺列（不覆盖列集）——
+    跨模块扩展（weifuwu-users 建表 + 平台 APP_EXT 补列）对齐真库
+  - **框架协议面暴露**：`orm.execute(q)` + `buildQuery()/toQuery()`（Query 纯数据可
+    序列化——构建无执行面 throw 守卫）
+  - 回归数字：**平台非 ui 465 绿（0 fail · 14 skip=docker 专项）· ui 155/155 绿**
+    （首跑 6 fail 实证为残留进程级联污染——杀净后全绿）· 平台/框架 tsc 0
+  - **顺带修复（预存缺陷——HEAD 即存在）**：
+    - `orm.test.ts` wire 面模块级**挂起**（`pool.runMigration` 前缺 `pool.migrate()`
+      ——`_weifuwu_migrations` 不存在 → SELECT 42P01——memory 面 isMigrated 有容错、
+      wire 面无）——补前置后 23/23
+    - `D1 复合冲突目标` fixture 走文本面：parser 对表级 `UNIQUE (a,b)` **跳读丢弃**
+      （列 579-586 skip 分支——parseColumnDef 的表级分支是死代码）——复合 groups
+      永不落地——改 `compileSchemaDdl`（uniques 组）AST 面——db 域 **236/236**
+  - 留底：`scripts/seed.mjs`（dev 工具——非 src+test 面）随 W3 `mw.sql` 删除一并迁移
 
 ## 验收标准
 

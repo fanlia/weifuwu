@@ -27,6 +27,7 @@ export { compileSchemaDDL, compileSchemaDdl, ddlToSql, type SchemaModule, type T
 export { createOrm, memoryAdapter, postgresAdapter, type Orm, type CtxOrm, type OrmTable, type RowOf, type OrmTenant, type DbAdapter } from './db/orm.ts'
 export { eq, ne, gt, gte, lt, lte, inArray, notInArray, between, like, ilike, contains, startsWith, endsWith, eqCol, isNull, isNotNull, and, or, not, cols, type ColRef, type ShapeCols } from './db/ops.ts'
 export type { WhereExpr, Query } from './db/query.ts'
+export { buildQuery, createQueryBuilder } from './db/query-builder.ts'
 export * as ops from './db/ops.ts'
 export { hashPassword, verifyPassword } from './user/password.ts'
 // Token 工具（2026-08——下载直链 ?token= 验签——应用层复用同一 secret）

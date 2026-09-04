@@ -6,6 +6,7 @@
  * ai_approved NULL）→ UI 批准/拒绝断言。
  * admin 权限：requireDeptManager（部门 admin/owner）——member 无审批
  */
+import { buildQuery } from 'weifuwu'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
@@ -53,11 +54,7 @@ test('审批流：种子草稿 → 批准 → pending 消失（消息发布）',
   const { postgres } = await import('weifuwu')
   const pg = testDb(BASE)
   try {
-    const [msg] = await pg.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
-      VALUES (${deptId}::uuid, ${agentId}::uuid, '[AI 生成中...]', 'text', '审批草稿内容', NULL)
-      RETURNING id
-    `
+    const [msg] = await pg.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: agentId, content: '[AI 生成中...]', msg_type: 'text', ai_draft: '审批草稿内容' }]).returning('id').toQuery())
     const msgId = String(msg.id)
     const page = await browser.newPage()
     await injectAuth(page, owner)

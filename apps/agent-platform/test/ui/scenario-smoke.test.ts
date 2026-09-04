@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
-import { postgres } from 'weifuwu'
+import { postgres , buildQuery } from 'weifuwu'
 import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs, fatalErrors,
   waitForText,
@@ -139,10 +139,7 @@ test('J4: 编排数据面正确 + Reports 任务链渲染（W3——G-F 修复�
   const dept = await apiAs(BASE, owner, '/api/departments', { method: 'POST', body: JSON.stringify({ name: '编排部' }) })
   const deptId = dept.department.id
   const orch = await apiAs(BASE, owner, '/api/agents', { method: 'POST', body: JSON.stringify({ type: 'ai', name: '编排经理', model: 'deepseek-chat' }) })
-  await pg.sql`
-    INSERT INTO agent_runs (app_id, department_id, orchestrator_id, kind, plan_json, worker_results, status)
-    VALUES (${owner.app.id}, ${deptId}, ${orch.agent.id}, 'orchestration', ${JSON.stringify([{ agent: 'A' }])}, ${JSON.stringify([{ agent: '数据分析员', status: 'ok', result: '报告已产出' }])}, 'done')
-  `
+  await pg.query(buildQuery().insert('agent_runs').rows([{ app_id: owner.app.id, department_id: deptId, orchestrator_id: orch.agent.id, kind: 'orchestration', plan_json: [{ agent: 'A' }], worker_results: [{ agent: '数据分析员', status: 'ok', result: '报告已产出' }], status: 'done' }]).toQuery())
   const runs = await apiAs(BASE, owner, '/api/stats/runs')
   assert.ok(runs.runs?.length >= 1, '数据面返回种子任务链')
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })

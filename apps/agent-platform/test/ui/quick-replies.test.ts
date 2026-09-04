@@ -7,6 +7,7 @@
  * 3. 刷新恢复：GET 带列值 → 未答复时 chip 仍在；AI 消息后已有用户回复 → chip 不渲染
  * 4. 普通消息（无 quick_replies）零影响（渐进增强回归）
  */
+import { buildQuery } from 'weifuwu'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
@@ -27,10 +28,7 @@ let agentId = ''
 async function seedAiMsg(content: string, quickReplies: string[] | null): Promise<string> {
   const pg = testDb(BASE)
   try {
-    const [row] = await pg.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved, quick_replies)
-      VALUES (${deptId}, ${agentId}, ${content}, 'text', TRUE, ${quickReplies ? JSON.stringify(quickReplies) : null})
-      RETURNING id`
+    const [row] = await pg.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: agentId, content, msg_type: 'text', ai_approved: true, quick_replies: quickReplies ?? null }]).returning('id').toQuery())
     return String(row.id)
   } finally { await pg.close() }
 }
@@ -109,11 +107,8 @@ test('刷新恢复：GET 列值 → 未答复 chip 恢复；用户已答复的 A
   // 场景 B：AI 选项之后用户已回复（直插 user 消息）→ chip 不渲染
   const pg = testDb(BASE)
   try {
-    const [me] = await pg.sql`
-      SELECT id FROM agents WHERE app_id = ${owner.app.id}::uuid AND type = 'user' LIMIT 1`
-    await pg.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
-      VALUES (${deptId}::uuid, ${me.id}, '继续', 'text', TRUE)`
+    const [me] = await pg.query(buildQuery().from('agents').select('id').where({ app_id: { eq: owner.app.id }, type: { eq: 'user' } }).limit(1).toQuery())
+    await pg.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: me.id, content: '继续', msg_type: 'text', ai_approved: true }]).toQuery())
   } finally { await pg.close() }
   {
     const { page } = await openDept()

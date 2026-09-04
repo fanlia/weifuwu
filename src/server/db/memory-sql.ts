@@ -612,8 +612,18 @@ export class MemorySql {
       // 列定义（table-constraint 不是列——不进屋列序/类型——只贡献约束）
       const defs = (stmt.columns ?? []).filter((c) => c.type !== 'table-constraint')
       // 表列序（无列名 INSERT 按序映射——CREATE 时覆盖）+ 列类型（Describe OID）
-      t.columns = defs.map((c) => c.name)
-      for (const c of defs) t.columnTypes[c.name] = c.type.toLowerCase()
+      // IF NOT EXISTS 语义（对齐真库：已存在表 skip 建表——只补缺列，不覆盖既有列集
+      // ——跨模块扩展场景（weifuwu-users 建表 + 平台 APP_EXT 补列）依赖此语义）
+      if (t.columns.length === 0) {
+        t.columns = defs.map((c) => c.name)
+        for (const c of defs) t.columnTypes[c.name] = c.type.toLowerCase()
+      } else {
+        for (const c of defs) if (!t.columns.includes(c.name)) {
+          t.columns.push(c.name)
+          t.columnTypes[c.name] = c.type.toLowerCase()
+        }
+        for (const r of t.rows) for (const c of defs) if (!(c.name in r) && c.defaultVal !== undefined) r[c.name] = c.defaultVal
+      }
       for (const col of stmt.columns ?? []) {
         if (col.type === 'table-constraint') {
           // 复合唯一目标（UNIQUE (a,b) / PRIMARY KEY (a,b)）——全组等值才冲突——

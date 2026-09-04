@@ -11,6 +11,7 @@
  * - viewer：部门消息可读 → 发送被拒（现状 toast「发送失败」——P0 改进时
  *   更新为前置禁用+原因透出）→ 交付物可下载（只读可下载——设计意图）
  */
+import { buildQuery } from 'weifuwu'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync, mkdirSync } from 'node:fs'
@@ -83,12 +84,8 @@ test('owner 旅程：工作台审批 CTA → 审批页 → 批准 → toast「�
   const { postgres } = await import('weifuwu')
   const pg = testDb(BASE)
   try {
-    const [aiAgent] = await pg.sql`
-      SELECT id FROM agents WHERE app_id = ${owner.app.id} AND type = 'ai' LIMIT 1`
-    await pg.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
-      VALUES (${deptId}, ${aiAgent.id}, '旅程草稿正文', 'text', '旅程待审草稿内容', NULL)
-    `
+    const [aiAgent] = await pg.query(buildQuery().from('agents').select('id').where({ app_id: { eq: owner.app.id }, type: { eq: 'ai' } }).limit(1).toQuery())
+    await pg.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: aiAgent.id, content: '旅程草稿正文', msg_type: 'text', ai_draft: '旅程待审草稿内容' }]).toQuery())
   } finally { await pg.close() }
 
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } })

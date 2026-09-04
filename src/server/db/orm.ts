@@ -98,6 +98,8 @@ export interface Orm {
   gql<S extends ZodRawShape>(table: OrmTable<S>, opts?: GqlShapeOptions): unknown
   /** 事务（fn 内同连接执行——commit 可见/rollback 撤销；memory 单线程 no-op 等价） */
   transaction<T>(fn: (tx: Orm) => Promise<T>): Promise<T>
+  /** AST 执行面（协议层 = AST——Query 纯数据可序列化；测试播种/嵌入执行入口） */
+  execute(q: Query): Promise<QueryResult>
 }
 
 // ── 实现 ──────────────────────────────────────────────────
@@ -272,6 +274,7 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
       return gqlFromShape((t as { __shape: Parameters<typeof gqlFromShape>[0] }).__shape, bound)
     },
     withCtx: scoped,
+    execute: (q: Query) => adapter.executeQuery(q),
     transaction: <T2>(fn: (tx: Orm) => Promise<T2>) => {
       if (!adapter.transaction) {
         // memory/无事务面：单线程直跑（无并发交错——no-op 等价·诚实标注）

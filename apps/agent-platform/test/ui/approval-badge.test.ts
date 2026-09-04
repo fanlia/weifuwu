@@ -11,6 +11,7 @@
  * - 时机：挂载 + 导航拉取（无轮询定时器）
  * - 草稿种子：SQL 直插（审批测试既有先例——不走真实 LLM）
  */
+import { buildQuery } from 'weifuwu'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
@@ -51,11 +52,7 @@ async function seedDraft(content: string): Promise<string> {
   const { postgres } = await import('weifuwu')
   const pg = testDb(BASE)
   try {
-    const [msg] = await pg.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
-      VALUES (${deptId}::uuid, ${agentId}::uuid, ${content}, 'text', ${content}, NULL)
-      RETURNING id
-    `
+    const [msg] = await pg.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: agentId, content, msg_type: 'text', ai_draft: content }]).returning('id').toQuery())
     return String(msg.id)
   } finally {
     await pg.close()

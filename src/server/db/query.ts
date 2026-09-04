@@ -211,6 +211,8 @@ export interface SelectBuilder<T = Row> {
   offset(n: number): this
   run(): Promise<QueryResult<T>>
   one(): Promise<T | undefined>
+  /** AST 面：返回纯数据 Query（协议层 = AST——可序列化传输/嵌入执行） */
+  toQuery(): SelectQuery
 }
 
 export interface InsertBuilder<T = Row> {
@@ -219,6 +221,8 @@ export interface InsertBuilder<T = Row> {
   returning(...cols: (string | '*')[]): this
   onConflict(col?: string | string[], update?: boolean, merge?: Record<string, unknown>): this
   run(): Promise<QueryResult<T>>
+  /** AST 面：返回纯数据 Query（协议层 = AST——可序列化传输/嵌入执行） */
+  toQuery(): InsertQuery
 }
 
 export interface UpdateBuilder<T = Row> {
@@ -227,6 +231,8 @@ export interface UpdateBuilder<T = Row> {
   whereRaw(sql: string, params?: unknown[]): this
   returning(...cols: (string | '*')[]): this
   run(): Promise<QueryResult<T>>
+  /** AST 面：返回纯数据 Query（协议层 = AST——可序列化传输/嵌入执行） */
+  toQuery(): UpdateQuery
 }
 
 export interface DeleteBuilder<T = Row> {
@@ -234,6 +240,8 @@ export interface DeleteBuilder<T = Row> {
   whereRaw(sql: string, params?: unknown[]): this
   returning(...cols: (string | '*')[]): this
   run(): Promise<QueryResult<T>>
+  /** AST 面：返回纯数据 Query（协议层 = AST——可序列化传输/嵌入执行） */
+  toQuery(): DeleteQuery
 }
 
 export interface QueryBuilder {

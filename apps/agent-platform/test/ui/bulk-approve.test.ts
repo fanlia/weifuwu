@@ -9,6 +9,7 @@
  * 5. 判负锁定：批量拒绝不提供（拒绝清 ai_draft 不可逆——误拒无挽回）
  * 6. 上限 50
  */
+import { buildQuery } from 'weifuwu'
 import {
   test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -43,10 +44,7 @@ async function closePg() {
 
 async function seedDraft(deptId: string, draft: string): Promise<string> {
   const conn = await getPg()
-  const [row] = await conn.sql`
-    INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
-    VALUES (${deptId}, ${agentA}, '[AI 生成中...]', 'text', ${draft}, NULL)
-    RETURNING id`
+  const [row] = await conn.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: agentA, content: '[AI 生成中...]', msg_type: 'text', ai_draft: draft }]).returning('id').toQuery())
   return String(row.id)
 }
 
@@ -55,10 +53,7 @@ async function seedDrafts(deptId: string, n: number): Promise<string[]> {
   const conn = await getPg()
   const ids: string[] = []
   for (let i = 1; i <= n; i++) {
-    const [row] = await conn.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
-      VALUES (${deptId}, ${agentA}, ${'上限草稿 ' + i}, 'text', ${'上限草稿 ' + i}, NULL)
-      RETURNING id`
+    const [row] = await conn.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: agentA, content: '上限草稿 ' + i, msg_type: 'text', ai_draft: '上限草稿 ' + i }]).returning('id').toQuery())
     ids.push(String(row?.id))
   }
   return ids
@@ -100,8 +95,8 @@ test('批量批准：同部门 3 条 → 全部发布（content=ai_draft + ai_ap
   const ids = [await seedDraft(deptA, '批量草稿一'), await seedDraft(deptA, '批量草稿二'), await seedDraft(deptA, '批量草稿三')]
   // owner 先成为部门 A 管理员（走 seedDeptAdmin 同路径——user agent 入部门 + role=admin）
   const conn = await getPg()
-  const [ua] = await conn.sql`SELECT id FROM agents WHERE app_id = ${owner.app.id}::uuid AND type = 'user' AND user_id = ${owner.user!.id}`
-  await conn.sql`INSERT INTO department_members (department_id, agent_id, role) VALUES (${deptA}::uuid, ${String(ua.id)}::uuid, 'admin') ON CONFLICT DO NOTHING`
+  const [ua] = await conn.query(buildQuery().from('agents').select('id').where({ app_id: { eq: owner.app.id }, type: { eq: 'user' }, user_id: { eq: owner.user!.id } }).toQuery())
+  await conn.query(buildQuery().insert('department_members').rows([{ department_id: deptA, agent_id: String(ua.id), role: 'admin' }]).onConflict(undefined, false).toQuery())
   const r = await apiAs(BASE, owner, '/api/messages/pending-approvals/bulk', {
     method: 'POST', body: JSON.stringify({ ids }),
   })
@@ -111,7 +106,7 @@ test('批量批准：同部门 3 条 → 全部发布（content=ai_draft + ai_ap
   const conn2 = await getPg()
   const rows: any[] = []
   for (const id of ids) {
-    rows.push(...(await conn2.sql`SELECT content, ai_approved FROM messages WHERE id = ${id}`))
+    rows.push(...(await conn2.query(buildQuery().from('messages').select('content', 'ai_approved').where({ id: { eq: id } }).toQuery())))
   }
   for (const row of rows) {
     assert.equal(row.ai_approved, true, '应已批准')

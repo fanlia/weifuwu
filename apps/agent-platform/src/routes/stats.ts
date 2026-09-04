@@ -135,8 +135,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     const [aiMsgRow] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .count('*', 'cnt')
-      .where({ 'a.app_id': { eq: String(appId) }, 'a.type': { eq: 'ai' }, 'm.ai_approved': { isNull: false } })
-      .whereRaw("m.created_at >= DATE_TRUNC('month', NOW())")
+      .where({ 'a.app_id': { eq: String(appId) }, 'a.type': { eq: 'ai' }, 'm.ai_approved': { isNull: false }, 'm.created_at': { gte: ops.monthStart() } })
       .run()
     const aiRepliesMonth = Number((aiMsgRow as any)?.cnt ?? 0)
     const savedYuan = Math.max(0, aiRepliesMonth * COST_PER_AI_REPLY - estCostYuan).toFixed(2)
@@ -162,7 +161,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     const [app] = await ctx.orm.query.from('_weifuwu_apps').select('name', 'plan', 'trial_ends_at').where({ id: { eq: String(ctx.appId) } }).limit(1).run()
     const [used] = await ctx.orm.query.from('agent_logs')
       .sum('tokens_total', 'used')
-      .whereRaw("app_id = $1 AND created_at >= DATE_TRUNC('month', NOW())", [String(ctx.appId)])
+      .where({ app_id: { eq: String(ctx.appId) }, created_at: { gte: ops.monthStart() } })
       .run()
     const appName = String(app?.name ?? '本应用')
     const planLabel = String(app?.plan ?? 'free') === 'pro' ? '专业版' : '免费试用'

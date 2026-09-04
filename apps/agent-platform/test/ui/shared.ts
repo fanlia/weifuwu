@@ -93,58 +93,30 @@ export function getSharedServer(): Promise<AgentServer> {
   return sharePromise
 }
 
-/** 测试种子 SQL（发服务端库——memory 模式下唯一一致面；仅 WF_TEST_HOOKS=1 服务端开放） */
-export async function seedSql(base: string, sql: string): Promise<any[]> {
-  const res = await fetch(`${base}/api/test/sql`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sql }),
-  })
-  if (!res.ok) throw new Error(`seedSql 失败 ${res.status}: ${(await res.text()).slice(0, 200)}`)
-  const data = await res.json() as { rows?: any[] }
-  return data.rows ?? []
-}
-
 /**
  * 测试直插 DB 代理（POSTGRES_MEMORY=1 时）：服务端库唯一一致面——
  * 测试进程的 postgres(url) 直连在 memory 模式下与服务端不同库——统一转发
- * /api/test/sql（仅 WF_TEST_HOOKS=1 开放）。零模板改动（tag/unsafe/array/close 全支持）。
+ * /api/test/orm（Query AST——仅 WF_TEST_HOOKS=1 开放）。协议层 = AST——零 SQL 文本面。
  */
 export function testDb(base?: string): any {
   const b = base ?? process.env.PG_TEST_PROXY ?? ''
-  const send = async (sql: string, params: unknown[] = []): Promise<any[]> => {
-    if (typeof sql !== 'string' || /^\s*undefined/.test(sql)) console.error('[testDb] BAD SQL:', JSON.stringify(String(sql).slice(0, 100)), 'params:', JSON.stringify(params), new Error().stack?.split('\n').slice(2, 6).join(' | '))
-    const res = await fetch(`${b}/api/test/sql`, {
+  const exec = async (query: unknown): Promise<any[]> => {
+    const res = await fetch(`${b}/api/test/orm`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sql, params }),
+      body: JSON.stringify({ query }),
     })
-    if (!res.ok) throw new Error(`testDb 失败 ${res.status}: ${(await res.text()).slice(0, 200)}`)
+    if (!res.ok) throw new Error(`testDb.query 失败 ${res.status}: ${(await res.text()).slice(0, 200)}`)
     const d = await res.json() as { rows?: any[] }
     return d.rows ?? []
   }
-  const arr = (vals: unknown[]) => ({ __pgArray: vals })
-  const proxy = new Proxy({} as any, {
+  return new Proxy({} as any, {
     get(_t, k) {
       if (k === 'then') return undefined // thenable 化防护（await proxy 不当 Promise）
-      if (k === 'array') return arr
-      if (k === 'close' || k === 'end' || k === 'cancel' || k === 'subscribe' || k === 'listen') return async () => {}
-      if (k === 'unsafe') return (sql: string, params: unknown[] = []) => send(sql, params)
-      if (k === 'begin' || k === 'tx' || k === 'transaction') return async () => ({ close: async () => {} })
-      if (typeof k === 'string') {
-        const tag = (sqlTemplate: TemplateStringsArray, ...params: unknown[]) => {
-          // 模板参数 → $n 参数化（服务端 memory 解析——值面零文本插值）
-          let sql = ''
-          for (let i = 0; i < params.length; i++) sql += sqlTemplate[i] + `$${i + 1}`
-          sql += sqlTemplate[params.length]
-          return send(sql, params)
-        }
-        ;(tag as any).array = (vals: unknown[]) => ({ __pgArray: vals })
-        ;(tag as any).unsafe = (sql: string, params: unknown[] = []) => send(sql, params)
-        return tag
-      }
+      if (k === 'query') return exec // AST 执行面（协议层 = AST——Query JSON 传输）
+      if (k === 'close' || k === 'end' || k === 'cancel' || k === 'subscribe' || k === 'listen' || k === 'transaction') return async () => {}
       return undefined
     },
   })
-  return proxy
 }
 
 /** 打开页面（goto + 等 #root 渲染）——返回 console/page 错误列表（页面零错误红线） */

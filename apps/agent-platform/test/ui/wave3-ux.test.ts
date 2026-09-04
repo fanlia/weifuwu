@@ -8,6 +8,7 @@
  *    viewer「你是只读成员」身份卡（原零引导空白）/ member「等待所有者创建
  *    项目空间」/ owner 三步引导不变（回归对照）
  */
+import { buildQuery } from 'weifuwu'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
@@ -57,12 +58,8 @@ test('403 原因透出：member 点审批 → toast 含服务端原因（不再�
   const pg = testDb(BASE)
   try {
     // app_id 过滤：agents 表跨租户同名——不限定会命中其它测试租户的同名 agent
-    const [aiAgent] = await pg.sql`
-      SELECT id FROM agents WHERE name = '波次3AI' AND app_id = ${owner.app.id} LIMIT 1`
-    await pg.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
-      VALUES (${deptId}, ${aiAgent.id}, '[AI 生成中...]', 'text', '波次3透出验证草稿', NULL)
-    `
+    const [aiAgent] = await pg.query(buildQuery().from('agents').select('id').where({ name: { eq: '波次3AI' }, app_id: { eq: owner.app.id } }).limit(1).toQuery())
+    await pg.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: aiAgent.id, content: '[AI 生成中...]', msg_type: 'text', ai_draft: '波次3透出验证草稿' }]).toQuery())
   } finally { await pg.close() }
 
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } })

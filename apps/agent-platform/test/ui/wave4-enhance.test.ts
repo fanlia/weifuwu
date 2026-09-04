@@ -15,6 +15,7 @@
  *
  * 锁定契约见每断言注释。
  */
+import { buildQuery } from 'weifuwu'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
@@ -55,10 +56,7 @@ async function seedMessages(n: number): Promise<void> {
   const pg = testDb(BASE)
   try {
     for (let i = 1; i <= n; i++) {
-      await pg.sql`
-        INSERT INTO messages (department_id, sender_id, content, msg_type)
-        VALUES (${deptId}, ${agentId}, ${'填充 ' + i}, 'text')
-      `
+      await pg.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: agentId, content: '填充 ' + i, msg_type: 'text' }]).toQuery())
     }
   } finally {
     await pg.close()
@@ -143,12 +141,8 @@ test('E4 重新生成透传 reply_to（引用上下文不丢）', async () => {
   const pg = testDb(BASE)
   let msgB = ''
   try {
-    const [a] = await pg.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type)
-      VALUES (${deptId}::uuid, ${agentId}::uuid, '被引用的消息 A', 'text') RETURNING id`
-    const [b] = await pg.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, reply_to)
-      VALUES (${deptId}::uuid, ${agentId}::uuid, '引用 A 的消息 B', 'text', ${a.id}) RETURNING id`
+    const [a] = await pg.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: agentId, content: '被引用的消息 A', msg_type: 'text' }]).returning('id').toQuery())
+    const [b] = await pg.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: agentId, content: '引用 A 的消息 B', msg_type: 'text', reply_to: a.id }]).returning('id').toQuery())
     msgB = String(b.id)
   } finally {
     await pg.close()

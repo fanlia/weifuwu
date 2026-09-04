@@ -226,7 +226,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     try {
       const [usedRow] = await orm.query.from('agent_logs')
         .sum('tokens_total', 'used')
-        .whereRaw("agent_id = $1 AND created_at >= DATE_TRUNC('month', NOW())", [params.id])
+        .where({ agent_id: { eq: params.id }, created_at: { gte: ops.monthStart() } })
         .run()
       quota_used = Number((usedRow as Record<string, unknown> | undefined)?.used ?? 0)
     } catch { /* 尽力 */ }

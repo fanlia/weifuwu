@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
-import { postgres } from 'weifuwu'
+import { postgres , buildQuery } from 'weifuwu'
 import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs, fatalErrors,
   waitForText,
@@ -60,7 +60,7 @@ test('W2b: 创建 → 角色池/活动落库 → 列表出现活动行', async (
   const agents = await apiAs(BASE, owner, '/api/agents?type=ai')
   const surveyAgents = (agents.agents ?? []).filter((a: { name: string }) => a.name.startsWith('问卷-'))
   assert.ok(surveyAgents.length >= 5, `角色池 created——found ${surveyAgents.length}`)
-  const [cnt] = await pg.sql`SELECT COUNT(*)::int AS n FROM survey_campaigns WHERE app_id = ${owner.app.id}`
+  const [cnt] = await pg.query(buildQuery().from('survey_campaigns').count('*', 'n', { app_id: { eq: owner.app.id } }).toQuery())
   assert.ok(cnt.n >= 1, 'campaign 落库')
   assert.deepEqual(fatalErrors(errors), [], `页面零错误——发现: ${errors.join(' | ')}`)
   await page.close()

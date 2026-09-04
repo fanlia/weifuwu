@@ -490,7 +490,7 @@ async function runAgentStreamForAgent(
     if (quota > 0) {
       const [usedRow] = await orm.query.from('agent_logs')
         .sum('tokens_total', 'used')
-        .whereRaw("agent_id = $1 AND created_at >= DATE_TRUNC('month', NOW())", [String(agent.id)])
+        .where({ agent_id: { eq: String(agent.id) }, created_at: { gte: ops.monthStart() } })
         .run()
       const used = Number((usedRow as Record<string, unknown> | undefined)?.used ?? 0)
       if (used >= quota) {

@@ -16,6 +16,7 @@ import { createOrm, memoryAdapter, postgresAdapter } from './orm.ts'
 import { f } from './shape.ts'
 import { z } from '../../shared/zod.ts'
 import { compileQuery } from './query.ts'
+import { compileSchemaDdl } from './schema.ts'
 import { MemoryPostgresServer } from './postgres-server.ts'
 import { postgres } from '../postgres/client.ts'
 import { eq, ilike, and, gt } from './ops.ts'
@@ -72,6 +73,9 @@ const pgServer = new MemoryPostgresServer()
 await pgServer.start()
 after(async () => { await pgServer.close() })
 const pool = postgres({ connection: pgServer.url })
+// wire 面迁移表前置（对齐真库启动链路：pg.migrate() 建 _weifuwu_migrations——
+// 缺失时 isMigrated 的 SELECT 直接 42P01（memory 面有容错——wire 面无））
+await pool.migrate()
 await pool.runMigration('orm-test-agents', 'CREATE TABLE agents (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, name TEXT, type TEXT, created_at TEXT)')
 // adapter 直连（wire 面——compileQuery → SQL → 服务器；与 client 注入同口径）
 const pgOrm = pool.orm
@@ -92,7 +96,13 @@ test('orm：D1 onConflict（insert().onConflict——DO UPDATE 内存面/编译�
 })
 
 test('orm：D1 复合冲突目标（onConflict([a,b])——compile 面申明·内存/编译同语义）', async () => {
-  await mem.unsafe('CREATE TABLE dm (dept TEXT, agent TEXT, role TEXT, UNIQUE (dept, agent))')
+  // 建表走 AST 声明面（compileSchemaDdl→executeDdl：uniques 组提取唯一正门）——
+  // unsafe 文本面的 parser 对表级 UNIQUE (a,b) 是跳读丢弃（面本身 W3 删除）
+  const [ddl] = compileSchemaDdl({
+    name: 'dm',
+    tables: [{ name: 'dm', columns: { dept: z.string(), agent: z.string(), role: z.string() }, uniques: [['dept', 'agent']] }],
+  })
+  await mem.executeQuery(ddl)
   const Dm = orm.table('dm', { dept: z.string(), agent: z.string(), role: z.string() })
   await Dm.insert({ dept: 'd1', agent: 'a1', role: 'member' }).run()
   const [r] = await Dm.insert({ dept: 'd1', agent: 'a1', role: 'admin' }).onConflict(['dept', 'agent'], true).returning('*').run()

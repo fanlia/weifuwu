@@ -1,3 +1,5 @@
+import { ops } from 'weifuwu'
+
 /**
  * 订阅计划服务 — 商业化 G1 付费墙状态机
  *
@@ -74,7 +76,7 @@ export async function planBlockReason(
   if (row.monthly_token_limit > 0) {
     const [usedRow] = await orm.query.from('agent_logs')
       .sum('tokens_total', 'used')
-      .whereRaw("app_id = $1 AND created_at >= DATE_TRUNC('month', NOW())", [appId])
+      .where({ app_id: { eq: appId }, created_at: { gte: ops.monthStart() } })
       .run()
     const used = Number((usedRow as any)?.used ?? 0)
     if (used >= row.monthly_token_limit) {

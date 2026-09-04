@@ -16,7 +16,7 @@ export async function maybeAlertQuota(ctx: AppCtx, appId: string): Promise<void>
     if (last && Date.now() - last.getTime() < 24 * 3600 * 1000) return
     const [usedRow] = await orm.query.from('agent_logs')
       .sum('tokens_total', 'used')
-      .whereRaw("app_id = $1 AND created_at >= DATE_TRUNC('month', NOW())", [appId])
+      .where({ app_id: { eq: appId }, created_at: { gte: ops.monthStart() } })
       .run()
     const used = Number((usedRow as any)?.used ?? 0)
     if (used < limit * 0.8) return

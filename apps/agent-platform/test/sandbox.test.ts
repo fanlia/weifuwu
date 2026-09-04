@@ -389,7 +389,7 @@ test('T-M6-3: ephemeral——每次调用一次性容器（调用即焚 + 卷持
   const out = execFileSync('docker', ['ps', '-a', '--filter', 'name=ap-sandbox-e-', '--format', '{{.Names}}'], { timeout: 5000 }).toString()
   assert.equal(out.trim(), '', `ephemeral 容器应调用即焚，残留: ${out.trim()}`)
   // 记录状态：ephemeral 每次调用即焚——runTool 成功标记 running（最近执行过）
-  const [row2] = await sql`SELECT * FROM sandboxes WHERE id = ${row.id}`
+  const [row2] = await sql.orm.query.from('sandboxes').select('*').where({ id: { eq: row.id } }).run()
   assert.equal(String(row2.status), 'running', 'ephemeral 调用成功后标记运行')
   await m.terminate(row.id, TEST_APP)
 })

@@ -1031,11 +1031,11 @@ async function main() {
     // 测试种子 SQL（仅钩子模式——测试直插改发服务端库（memory 模式下测试进程与
     // 服务端不共享库——直插真库失效）；生产无此面（WF_TEST_HOOKS 未设））
     // 认证：仅本机测试约定（无 token——与 wf 钩子同信任面；端点不接受查询/结构性外传）
-    app.post('/api/test/sql', async (req: Request) => {
+    app.post('/api/test/orm', async (req: Request) => {
       try {
-        const body = await req.json() as { sql?: string; params?: unknown[] }
-        if (!body.sql || typeof body.sql !== 'string') return Response.json({ error: 'sql 必填' }, { status: 400 })
-        const rows = await pg.sql.unsafe(body.sql, body.params ?? [])
+        const body = await req.json() as { query?: unknown }
+        if (!body.query || typeof body.query !== 'object') return Response.json({ error: 'query 必填（Query AST）' }, { status: 400 })
+        const rows = await pg.orm.execute(body.query as never)
         return Response.json({ ok: true, rows })
       } catch (e: any) {
         return Response.json({ error: String(e?.message ?? e) }, { status: 500 })

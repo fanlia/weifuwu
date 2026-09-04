@@ -119,6 +119,9 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
         const rows = await exec(ast)
         return rows[0]
       },
+      toQuery(): SelectQuery {
+        return structuredClone(ast) as typeof ast
+      },
     }
     return b
   }
@@ -144,6 +147,9 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
       },
       async run(): Promise<Row[]> {
         return exec(ast)
+      },
+      toQuery(): InsertQuery {
+        return structuredClone(ast) as typeof ast
       },
     }
     return b
@@ -172,6 +178,9 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
         if (!ast.where) throw new ValidationError('weifuwu/db: UPDATE 必须带 WHERE（全表更新用 unsafe 显式）')
         return exec(ast)
       },
+      toQuery(): UpdateQuery {
+        return structuredClone(ast) as typeof ast
+      },
     }
     return b
   }
@@ -195,6 +204,9 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
         if (!ast.where) throw new ValidationError('weifuwu/db: DELETE 必须带 WHERE（全表删除用 unsafe 显式）')
         return exec(ast)
       },
+      toQuery(): DeleteQuery {
+        return structuredClone(ast) as typeof ast
+      },
     }
     return b
   }
@@ -215,3 +227,8 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
 }
 
 type JoinOn = Parameters<SelectBuilder['join']>[1]
+
+/** AST 构建工厂（协议层 = AST——无执行：toQuery() 产出纯数据 Query 供传输/嵌入执行） */
+export function buildQuery(): QueryBuilder {
+  return createQueryBuilder((() => { throw new Error('buildQuery 无执行面——协议层只构建 AST') }) as never)
+}

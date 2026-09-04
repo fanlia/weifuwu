@@ -64,9 +64,9 @@ before(async () => {
 })
 
 after(async () => {
-  const sql = (pg as any)?.sql
-  try { await sql?.unsafe(`DELETE FROM survey_answers WHERE campaign_id = '${CAMP_1}' OR campaign_id = '${CAMP_2}'`) } catch (e: any) { console.error('[survey-ws] answers 清理失败:', e?.message) }
-  try { await sql?.unsafe(`DELETE FROM survey_submissions WHERE campaign_id = '${CAMP_1}' OR campaign_id = '${CAMP_2}'`) } catch (e: any) { console.error('[survey-ws] submissions 清理失败:', e?.message) }
+  // 清理走 orm.query AST（零 SQL 文本面——in 算子）
+  try { await pg?.orm.query.from('survey_answers').delete().where({ campaign_id: { in: [CAMP_1, CAMP_2] } }).run() } catch (e: any) { console.error('[survey-ws] answers 清理失败:', e?.message) }
+  try { await pg?.orm.query.from('survey_submissions').delete().where({ campaign_id: { in: [CAMP_1, CAMP_2] } }).run() } catch (e: any) { console.error('[survey-ws] submissions 清理失败:', e?.message) }
   try { await (pg as any)?.close?.() } catch { /* */ }
 })
 

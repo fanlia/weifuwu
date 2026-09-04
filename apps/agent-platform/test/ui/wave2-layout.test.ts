@@ -11,6 +11,7 @@
  *
  * 锁定契约见每断言注释。
  */
+import { buildQuery } from 'weifuwu'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
@@ -51,10 +52,7 @@ async function seedMessage(content: string, senderType: string, aiStep?: object)
   const { postgres } = await import('weifuwu')
   const pg = testDb(BASE)
   try {
-    await pg.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_step)
-      VALUES (${deptId}::uuid, ${agentId}::uuid, ${content}, ${senderType}, ${aiStep ? JSON.stringify(aiStep) : null})
-    `
+    await pg.query(buildQuery().insert('messages').rows([{ department_id: deptId, sender_id: agentId, content, msg_type: senderType, ai_step: aiStep ?? null }]).toQuery())
   } finally {
     await pg.close()
   }
