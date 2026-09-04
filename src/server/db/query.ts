@@ -150,7 +150,7 @@ export interface DeleteQuery {
 /** DDL 语句（SQL parser 产出——内存执行提取约束；真库走 raw 字符串） */
 export interface DdlQuery {
   kind: 'ddl'
-  op: 'createTable' | 'dropTable' | 'dropEnum' | 'createIndex' | 'alter' | 'alterAddColumn' | 'createEnum' | 'createExtension' | 'doBlock'
+  op: 'createTable' | 'dropTable' | 'dropEnum' | 'createIndex' | 'alter' | 'alterAddColumn' | 'createEnum' | 'alterEnumAddValue' | 'createExtension' | 'doBlock'
   table?: string
   ifNotExists?: boolean
   /** 列定义（createTable）——约束提取（PK/UNIQUE/DEFAULT now） */
