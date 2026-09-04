@@ -76,7 +76,22 @@
     - `D1 复合冲突目标` fixture 走文本面：parser 对表级 `UNIQUE (a,b)` **跳读丢弃**
       （列 579-586 skip 分支——parseColumnDef 的表级分支是死代码）——复合 groups
       永不落地——改 `compileSchemaDdl`（uniques 组）AST 面——db 域 **236/236**
-  - 留底：`scripts/seed.mjs`（dev 工具——非 src+test 面）随 W3 `mw.sql` 删除一并迁移
+  - 留底：`scripts/seed.mjs`（dev 工具——非 src+test 面）随 W3 `mw.sql` 删除一并
+    迁移（unsafe 2 处——`npm run seed` 播种面）
+- W3 探针（读数——消费者清册）：
+  - `unsafe` 引用 **146 行 / 14 文件**——测试面 130（memory-semantics 51 /
+    user-multitenant 21 / query-language 16 / orm.test 14 / compile-fuzz 12 /
+    ops.test 10 / user.test 3 / messager 1 / schema-ast 1）；src 面 15（client.ts
+    mw.sql 10 + memory-sql 3 + postgres-server 1）+ seed.mjs 2 + showcase demo 1
+  - parser 引用：memory-sql（文本壳）+ 3 测试文件（deadlock-fuzz / ops.test /
+    query-language——全是 parser 契约——随面消亡或重写 AST 面对账）
+  - whereRaw：query.ts（接口+compile）/ query-builder（3 方法）/ memory-sql（exec）/
+    orm.ts（CHAIN 清单）——全链路删（4 文件联动）；平台 src 已 0（W2 清）
+  - MemoryPostgresServer：postgres-server.ts + server.ts/index.ts 导出 + 3 测试
+    （servers / memory-pg-platform / departments-pilot / orm.test wire 段）——
+    wire 面删后 orm.test/departments-pilot 转 memory 直执行（判负已定）
+  - W3 断言方向：db 域测试 fixture 全切 AST 面（mem.executeDdl/executeQuery + orm.query）
+    ——文本面契约（query-language/compile-fuzz/servers）重写或删除
 
 ## 验收标准
 
