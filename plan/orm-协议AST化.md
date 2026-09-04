@@ -1,4 +1,4 @@
-# orm-协议AST化（2026-09）
+# orm-协议AST化（2026-09）——✅ 完成（2027-xx 批次末——五域 + 七线 audit 全绿）
 
 > 一句话目标：**协议层从 SQL 文本改为 ORM AST**——删 sql-parser 全链
 > （parser/unsafe/tag/MemoryPostgresServer 线协议替身）——DB 操作**封闭、可控、
@@ -142,12 +142,42 @@
   - 判负登记：PgPool.tag/frag/begin（postgres.js 兼容驱动 API——wire 层非协议层——
     零消费者零测试——W4 审计可再议，本波不扩疆）；pool.unsafe/query 保留（迁移
     DDL/编译 SQL 执行面——驱动原生）
+- **W4-1 完成（审计升级 + 文档规则生效——已提交 71bab184）**：
+  - audit-orm-migration 升级三域（平台 src / 平台 test / 框架 src）——每域 baseline
+    0——**双范围 0 防回流**（sql 模板只降不升·白名单逃生舱语义不变）全绿
+  - docs/server.md 数据层章节重写：**协议层 = AST 生效规则**（builder/execute/
+    createMemoryOrm/迁移面边界——runMigration 为 DDL 唯一合法文本面）
+  - 陈旧 ctx.sql 文档注记全改 ctx.orm（response/types/app-auth/workflows/
+    contracts/gql-from-shape——gqlFromShape 默认取数 ctx.orm——旧默认 ctx.sql
+    已无消费者——改默认零破坏）
+  - 回归：server 796/796 · db 域 231/231 · 契约层 433/433 · shared 25/25 · tsc 0
+
+## 全量回归门（批次末——五域 + 七线audit）
+
+| 域 | 数字 |
+| --- | --- |
+| 框架契约层（node 直跑） | 433/433 |
+| 场景层（playwright） | 123/123 |
+| showcase 组件 | 328/328 |
+| server 域 | 796/796 |
+| shared/router | 25/25 |
+| audit:all 七线 | semantics/interactivity/vdom/theme/api/bundle/showcase 全绿（showcase 135 页 / 227 点击零问题） |
+| 平台非 ui | 451 绿（14 skip = docker 网关）· **ui 155/155** |
+| audit-orm 双范围 | 三域 0 |
+| tsc | 框架 + 平台 0（showcase 仅预存 ai-chat 2 错——HEAD 即存在与本计划无关） |
+
+## 收尾
+
+- 生效规则已并入 docs/server.md §5（协议层 = AST）+ audit-orm 三域防回流
+- CHANGELOG 由 release.mjs 发布时自动生成（[Unreleased] 手写红线——不手写）
+- 本计划随收尾融入 git 历史（git log --follow 可追溯全部波次实录）
 
 ## 验收标准
 
 ```
-□ src+test 全库零 sql 模板 / unsafe / parser 引用（audit-orm 双范围 0）
-□ 平台非 ui 46 文件 309 绿 + ui 45 文件 155 绿（零 docker）
-□ db 域 126 绿（无 parser 依赖）+ root tsc 0
-□ 计划收尾：AST 协议层规则并入 docs/server.md 数据库章节
+☑ src+test 全库零 sql 模板 / unsafe / parser 引用（audit-orm 双范围 0——三域全绿）
+☑ 平台非 ui 451 绿（14 skip=docker 专项）+ ui 155/155 绿
+☑ db 域 231 绿（无 parser 依赖）+ server 796 + 契约 433 + 场景 123 + showcase 328 + shared 25
+☑ audit:all 七线全绿（semantics/interactivity/vdom/theme/api/bundle/showcase）
+☑ 计划收尾：AST 协议层规则并入 docs/server.md 数据库章节（§5 数据层）+ audit 防回流
 ```
