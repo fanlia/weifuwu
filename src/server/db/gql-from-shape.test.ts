@@ -42,7 +42,7 @@ const gqlDef = gqlFromShape(Departments, {
   tenant: { field: 'appId', value: (ctx: any) => ctx.appId },
 })
 const schema = makeExecutableSchema({ typeDefs: gqlDef.typeDefs, resolvers: gqlDef.resolvers })
-const ctx = { sql: db.orm, appId: 'a1000000-0000-4000-8000-000000000001' }
+const ctx = { orm: db.orm, appId: 'a1000000-0000-4000-8000-000000000001' }
 async function run(source: string, variableValues: Record<string, unknown> = {}) {
   const r = await graphql({ schema, source, variableValues, contextValue: ctx })
   if (r.errors) throw new Error(`[gql] ${r.errors.map((e) => e.message).join('; ')}`)

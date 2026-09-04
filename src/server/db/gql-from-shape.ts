@@ -28,7 +28,7 @@ import {
 export interface GqlShapeOptions {
   /** 生成类型名（默认表名 PascalCase） */
   name?: string
-  /** 上下文取 sql（默认 ctx.sql） */
+  /** 执行面取数（默认 ctx.orm——协议层 = AST；orm.gql 内部绑定 ormBase） */
   sql?: (ctx: unknown) => unknown
   /** 租户 scope：字段名 + 上下文取值（自动注入 where/insert——跨租户隔离） */
   tenant?: { field: string; value: (ctx: unknown) => string }
@@ -186,7 +186,7 @@ function buildResolvers<S extends ZodRawShape>(
   const cols = Object.keys(shapeDef.fields as Record<string, unknown>)
   const dbCols = cols.map((c) => shapeDef.dbFields[c]?.column ?? c)
   const rowOf = (r: Record<string, unknown>) => (shapeDef as unknown as { fromDb: (x: Record<string, unknown>) => Record<string, unknown> }).fromDb(r)
-  const sqlOf = opts.sql ?? ((ctx: unknown) => (ctx as { sql: unknown }).sql)
+  const sqlOf = opts.sql ?? ((ctx: unknown) => (ctx as { orm?: unknown }).orm)
   const tenantCol = opts.tenant ? (shapeDef.dbFields[opts.tenant.field]?.column ?? opts.tenant.field) : undefined
 
   function db(ctx: unknown): any {

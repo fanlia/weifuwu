@@ -8,7 +8,7 @@
  * 编译门：wfjs → compileWfjs → engine.validate → 通过才入库（LLM 生成/编辑共用闸门）。
  *
  * ```
- * const wfs = workflowSystem({ sql, redis })   // redis 可选（store 步骤）
+ * const wfs = workflowSystem({ orm, redis })   // redis 可选（store 步骤）
  * app.use(wfs)                                  // ctx.wf 注入（execute/compileGate/views）
  * await wfs.migrate()                           // 幂等建表 _weifuwu_workflows / _weifuwu_workflow_runs
  * wfs.routes(app, { appId: (ctx) => ctx.auth.appId })  // 内置 API（可选挂载）

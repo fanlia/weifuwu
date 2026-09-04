@@ -1,14 +1,13 @@
 /**
  * weifuwu/db — 自研数据库引擎契约层（接口与实现分离）
  *
- * 三个接口：消费方（ctx.sql / ctx.redis / 业务模块）只依赖接口类型，
- * 自研引擎（src/db/postgres|redis 的 class）实现它们：
+ * 三个接口族：消费方只依赖接口类型，自研引擎（src/db/postgres|redis 的 class）实现：
  *
  *   PoolConnection     通用连接（pg/redis 池中连接项：生命周期 + 健康）
  *     ├─ PostgresPoolConnection  特化：参数化查询（PgConnection 实现）
  *     └─ RedisPoolConnection     特化：命令执行（RedisClient 实现）
- *   Sql                 SQL 标签模板（ctx.sql）——makeSql(PgPool) 实现
- *   Redis               Redis 命令面（ctx.redis）——RedisPool 实现
+ *   Redis（+Pipeline/Subscriber）  Redis 命令面（ctx.redis）——命令面封闭无 parser
+ *   DbAdapter / Orm               ORM AST 协议层（业务唯一数据入口——ctx.orm）
  *
  * 变更纪律（ 协议层）：改契约须 TDD 先行 + 真库验证（CS-04/CS-05）。
  */

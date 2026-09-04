@@ -119,14 +119,41 @@ index.ts       模块 re-export（OpenAi/MemoryAi/AiClientModule——选择器�
 
 消费端：`ctx.ai.chat()`（服务端流式）与 `useChat`（客户端会话语义层）。
 
-## 5. 数据层
+## 5. 数据层（协议层 = AST——零 SQL 文本面）
 
-- **postgres**：`src/server/middleware/postgres.ts`——自研 PG v3 wire protocol
-  （无第三方客户端依赖）——`ctx.sql.query/transaction`
-- **redis**：`src/server/middleware/redis.ts`——自研 RESP2——`ctx.redis.get/set/pub`
-- **Query Language**：`src/server/core/query-lang*`——AST 双后端（pg/内存——
-  测试零外部依赖）——`Memory` 实现零数据库跑测试
-- schema 迁移：`src/server/core/migrate*`
+> **生效规则（2026-09 协议 AST 化收口）**：业务/测试**禁止** SQL 文本面——
+> sql 模板 / unsafe / whereRaw / SQL parser 已全链消亡（W3 删净——audit-orm
+> 双范围 0 防回流）。唯一数据入口 = **ORM AST 面**（Query 纯数据——可序列化、
+> 可契约断言）：
+>
+> ```ts
+> // 查询（builder 构建 → AST 执行；协议传输 = toQuery() 纯数据）
+> const rows = await ctx.orm.query.from('users')
+>   .where({ age: { gt: 18 } }).orderBy('created_at', 'desc').limit(10).run()
+> // 写：insert（多行/returning/onConflict EXCLUDED）/ update / delete（必须带 where）
+> await ctx.orm.query.insert('users').rows([{ email: 'a@b.c', role: 'member' }])
+>   .onConflict('email', true).returning('id').run()
+> // 表绑定（shape 类型安全）与派生：ctx.orm.table('users', shape).select(...)
+> // 测试播种/嵌入执行：orm.execute(query)（AST 直执行）+ createMemoryOrm()
+> //   （内存引擎——零数据库测试）
+> ```
+>
+> 全局规则：写入必须表达式化（merge 值 RawSql 仅限 `__now`/`__interval`/`__inc`
+> 等内置算子——`query.ts` compileMergeVal 单一编码面）；DDL 走
+> `migrateModule(name, SchemaModule)`（声明式——零 SQL 字符串）；迁移面
+> `runMigration(name, sql)` 是 DDL 唯一合法文本面（业务查询禁）。
+
+- **postgres**：`src/server/postgres/client.ts`——自研 PG v3 wire protocol
+  （无第三方客户端依赖）——`postgres()` 返回 PostgresClient：`ctx.orm` 注入
+  （ORM 唯一数据入口）+ migrate/migrateModule/runMigration/transaction
+- **redis**：`src/server/db/memory-redis.ts` + `src/server/db/redis-server.ts`——
+  自研 RESP2——`ctx.redis.get/set/pub`（命令面本身封闭——无 parser——保留）
+- **Query Language（协议层 = AST）**：`src/server/db/`——`query.ts`（Query 类型 + compileQuery
+  单向 SQL 编译——封闭输出）/ `query-builder.ts`（buildQuery——构建无执行面）/
+  `orm.ts`（shape+operator+adapter 组合体）/ `memory-sql.ts`（MemorySql——AST 直执行
+  双后端同构）——`createMemoryOrm()` 零数据库跑测试
+- schema 迁移：`src/server/db/schema.ts`（SchemaModule → compileSchemaDdl 声明式 DDL）
+  + `migrateModule` 执行记录（幂等——已迁移名跳过）
 
 ## 6. 实时与渲染
 
@@ -144,7 +171,7 @@ index.ts       模块 re-export（OpenAi/MemoryAi/AiClientModule——选择器�
 > **框架系统**（对齐 messager/user 模式）：`workflowSystem({ sql, redis })`——存储/编排层（`src/server/workflows/`）：
 >
 > ```ts
-> const wfs = workflowSystem({ sql: pg.sql, redis: redisClient?.redis })
+> const wfs = workflowSystem({ orm: pg.orm, redis: redisClient?.redis })
 > app.use(wfs)                     // 中间件：ctx.wf 注入（compileGate/execute/validate/dag/schema/defToWfjs）
 > await wfs.migrate()              // 幂等建表：_weifuwu_workflows（def_json 真相 + src_wfjs 视图）/ _weifuwu_workflow_runs
 > wfs.routes(app)                  // 可选内置 API（缺省 /api/workflows + ctx.auth.appId——user 会话透传——默认即安全）
