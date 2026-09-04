@@ -310,8 +310,25 @@ export function postgresAdapter(
 /** memory adapter：Query AST → 内存引擎直执行（fuzz 对账保证与 PG 等价） */
 export function memoryAdapter(engine: {
   executeQuery(q: Query): QueryResult
+  /** 事务快照/回滚（MemorySql 提供——无则 no-op 等价标注） */
+  snapshot?(): unknown
+  restore?(snap: unknown): void
 }): DbAdapter {
+  const txNs = new Map<string, unknown>()
   return {
     executeQuery: (q) => Promise.resolve(engine.executeQuery(q)),
+    // 快照回滚事务（W2——memory 单线程；snapshot → fn → catch restore + 重抛）
+    // 与真库语义对齐：事务内失败 → 事务外观察不到部分写入
+    transaction: <T>(fn: (execute: (q: Query) => Promise<QueryResult>) => Promise<T>) => {
+      if (!engine.snapshot || !engine.restore) {
+        // 无事务面（无快照能力）——no-op 等价（诚实标注）
+        return fn((q) => Promise.resolve(engine.executeQuery(q)))
+      }
+      const snap = engine.snapshot()
+      return fn((q) => Promise.resolve(engine.executeQuery(q))).catch((e: unknown) => {
+        engine.restore!(snap)
+        throw e
+      })
+    },
   }
 }

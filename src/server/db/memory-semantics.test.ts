@@ -409,3 +409,46 @@ describe('W1 未知列校验（两端一致——不再静默）', () => {
     assert.equal(rows.length, 1)
   })
 })
+
+describe('W2 memory 事务快照回滚（失败 → 事务外不可见部分写入）', () => {
+  it('事务内失败 → 全部回滚（insert/update 都不留）', async () => {
+    const { orm, mem } = createMemoryOrm()
+    await mem.unsafe('CREATE TABLE tx (id text, val text)')
+    await orm.query.insert('tx').values({ id: 'pre', val: '1' }).run()
+    await assert.rejects(
+      () => orm.transaction(async (tx) => {
+        await tx.query.insert('tx').values({ id: 'a', val: 'x' }).run()
+        await tx.query.update('tx').set({ val: '2' }).where({ id: { eq: 'pre' } }).run()
+        throw new Error('模拟中途失败')
+      }),
+      /模拟中途失败/,
+    )
+    const rows = await orm.query.from('tx').run()
+    assert.deepEqual(rows.map((r) => r.id).sort(), ['pre'], '部分写入不可见')
+    assert.equal((rows[0] as any).val, '1', 'update 也被回滚')
+  })
+
+  it('事务内成功 → 提交可见（快照不误伤）', async () => {
+    const { orm, mem } = createMemoryOrm()
+    await mem.unsafe('CREATE TABLE tx2 (id text)')
+    await orm.transaction(async (tx) => {
+      await tx.query.insert('tx2').values({ id: 'ok' }).run()
+    })
+    const rows = await orm.query.from('tx2').run()
+    assert.equal(rows.length, 1)
+  })
+
+  it('DB 生成列（defaultVals）快照恢复对齐（快照条目含默认值内存）', async () => {
+    const { orm, mem } = createMemoryOrm()
+    await mem.unsafe("CREATE TABLE tx3 (id text DEFAULT 'd', val text)")
+    await assert.rejects(
+      () => orm.transaction(async (tx) => {
+        await tx.query.insert('tx3').values({ val: 'v' }).run()
+        throw new Error('rollback')
+      }),
+      /rollback/,
+    )
+    const rows = await orm.query.from('tx3').run()
+    assert.equal(rows.length, 0)
+  })
+})
