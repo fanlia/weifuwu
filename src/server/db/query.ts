@@ -147,20 +147,36 @@ export interface DeleteQuery {
   returning?: string[] | '*'
 }
 
-/** DDL 语句（SQL parser 产出——内存执行提取约束；真库走 raw 字符串） */
+/** DDL 语句（协议层 = DDL AST——memory 直执行；真库 ddlToSql 单向编译输出 SQL） */
 export interface DdlQuery {
   kind: 'ddl'
   op: 'createTable' | 'dropTable' | 'dropEnum' | 'createIndex' | 'alter' | 'alterAddColumn' | 'createEnum' | 'alterEnumAddValue' | 'createExtension' | 'doBlock'
   table?: string
   ifNotExists?: boolean
   /** 列定义（createTable）——约束提取（PK/UNIQUE/DEFAULT now） */
-  columns?: { name: string; type: string; pk: boolean; unique: boolean; defaultNow: boolean; defaultUuid: boolean; defaultVal?: unknown; constraintCols?: string[] }[]
+  columns?: { name: string; type: string; pk: boolean; unique: boolean; defaultNow: boolean; defaultUuid: boolean; defaultVal?: unknown; constraintCols?: string[]; nullable?: boolean; ref?: { table: string; col?: string; onDelete?: string } }[]
+  /** createTable 表级 CHECK（声明枚举 IN 约束——ddlToSql 重建；内存 no-op 语义同 parser 面） */
+  checks?: { col: string; vals: string[] }[]
+  /** createIndex：索引声明（ddlToSql 重建；内存索引 no-op） */
+  index?: {
+    name: string
+    cols: string
+    unique: boolean
+    using?: string
+    opclass?: string
+    with?: string
+    where?: string
+  }
+  /** alter：DROP NOT NULL（老库升级——内存 no-op） */
+  dropNotNull?: string[]
   /** createEnum：枚举值清单 */
   enumValues?: string[]
   /** alterAddColumn：增量列（列名/类型/默认值——对齐声明式迁移 ADD COLUMN IF NOT EXISTS） */
   column?: string
   columnType?: string
   defaultVal?: unknown
+  /** 列可空性（alterAddColumn/createTable 列——NOT NULL 重建面） */
+  nullable?: boolean
 }
 
 export type Query = SelectQuery | InsertQuery | UpdateQuery | DeleteQuery | DdlQuery

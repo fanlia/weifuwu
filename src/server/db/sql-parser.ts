@@ -665,7 +665,7 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
         }
         continue
       }
-      if (up === 'REFERENCES') { // FK——内存无 FK 语义（忽略到逗号/顶层右括号——括号深度跟踪）
+      if (up === 'REFERENCES' || up === 'CHECK') { // FK/列内 CHECK——内存无约束语义（忽略到逗号/顶层右括号——括号深度跟踪）
         let depth = 0
         for (;;) {
           const t = peek()

@@ -16,7 +16,7 @@ import { HttpError } from '../types.ts'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { PostgresOptions, PostgresClient } from './types.ts'
 import { compileQuery } from '../db/query.ts'
-import { compileSchemaDDL } from '../db/schema.ts'
+import { compileSchemaDdl, ddlToSql, type SchemaModule } from '../db/schema.ts'
 import { createOrm, memoryAdapter, postgresAdapter } from '../db/orm.ts'
 import { MemorySql } from '../db/memory-sql.ts'
 
@@ -122,8 +122,10 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
   }
 
   // 声明式 Schema 迁移（DDL 算子化：业务零 SQL 字符串——声明 → 框架内部生成 → 执行记录）
-  mw.migrateModule = async <M extends import('../db/schema.ts').SchemaModule>(name: string, mod: M): Promise<void> => {
-    await mw.runMigration(name, compileSchemaDDL(mod))
+  mw.migrateModule = async <M extends SchemaModule>(name: string, mod: M): Promise<void> => {
+    // memory：DDL AST 直执行（零 parse——协议层 = AST）
+    for (const stmt of compileSchemaDdl(mod)) mem.executeQuery(stmt)
+    if (mw.isMigrated && !(await mw.isMigrated(name))) await mw.markMigrated(name)
   }
 
   // ORM 面事务（同连接——orm 内部走 adapter.transaction → pool 同连接）
@@ -176,7 +178,8 @@ function createMemoryPostgres(): PostgresClient {
     applied.add(name)
   }
   mw.migrateModule = async (name: string, mod: import('../db/schema.ts').SchemaModule): Promise<void> => {
-    await mw.runMigration(name, compileSchemaDDL(mod))
+    // 真库：DDL AST → SQL 单向输出（compileSchemaDdl 产物永远经 ddlToSql——无文本回流）
+    await mw.runMigration(name, ddlToSql(compileSchemaDdl(mod)))
   }
   mw.transaction = orm.transaction as never
   mw.poolStats = () => ({ active: 0, idle: 0, waiting: 0, max: 1 })

@@ -631,10 +631,14 @@ export class MemorySql {
       if (!t.columns.includes(stmt.column)) {
         t.columns.push(stmt.column)
         if (stmt.columnType) t.columnTypes[stmt.column] = stmt.columnType
-        // 默认值记忆 + 既有行填充（对齐真库 ALTER ADD COLUMN ... DEFAULT 语义）
+        // 默认值记忆 + 既有行填充（对齐真库 ALTER ADD COLUMN ... DEFAULT 语义；
+        // {__now} 编码 → 当前时间——声明面 ast 与真库 DEFAULT NOW() 等价）
         if (stmt.defaultVal !== undefined) {
-          t.defaultVals.set(stmt.column, stmt.defaultVal)
-          for (const row of t.rows) if (!(stmt.column in row)) row[stmt.column] = stmt.defaultVal
+          const fillVal = typeof stmt.defaultVal === 'object' && stmt.defaultVal !== null && '__now' in (stmt.defaultVal as object)
+            ? new Date().toISOString()
+            : stmt.defaultVal
+          t.defaultVals.set(stmt.column, fillVal)
+          for (const row of t.rows) if (!(stmt.column in row)) row[stmt.column] = fillVal
         }
       }
     } else if (stmt.op === 'dropTable' && stmt.table) {

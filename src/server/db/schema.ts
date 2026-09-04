@@ -101,8 +101,170 @@ function pgDefault(v: unknown): string {
   return `'${JSON.stringify(v).replace(/'/g, "''")}'::JSONB`
 }
 
-// ── DDL 生成器（框架内部——业务零字符串） ─────────────────
+// ── DDL 生成器（协议层 = DDL AST——memory 直执行；真库 ddlToSql 单向编译输出） ─────
 
+/** 声明模块 → DDL AST（封闭面：memory executeDdl 直执行——零 parse） */
+export function compileSchemaDdl(mod: SchemaModule): DdlQuery[] {
+  const out: DdlQuery[] = []
+  for (const ext of mod.extensions ?? []) out.push({ kind: 'ddl', op: 'createExtension', table: ext })
+  for (const e of mod.enums ?? []) {
+    out.push({ kind: 'ddl', op: 'createEnum', table: e.name, enumValues: e.values })
+    for (const v of e.values) out.push({ kind: 'ddl', op: 'alterEnumAddValue', table: e.name, enumValues: [v] })
+  }
+  for (const t of mod.tables) out.push(...compileTableDdl(t))
+  return out
+}
+
+/** DDL AST → SQL（真库单向输出——封闭：AST 永远是输入，SQL 只有流出） */
+export function ddlToSql(stmts: DdlQuery[]): string {
+  const out: string[] = []
+  for (const s of stmts) out.push(...ddlStmtToSql(s))
+  return out.join('\n')
+}
+
+function ddlStmtToSql(s: DdlQuery): string[] {
+  switch (s.op) {
+    case 'createExtension':
+      return [`CREATE EXTENSION IF NOT EXISTS ${s.table};`]
+    case 'createEnum':
+      return [`DO $$ BEGIN\n  CREATE TYPE ${s.table} AS ENUM (${(s.enumValues ?? []).map((v) => `'${v.replace(/'/g, "''")}'`).join(', ')});\nEXCEPTION WHEN duplicate_object THEN NULL;\nEND $$;`]
+    case 'alterEnumAddValue':
+      return [(s.enumValues ?? []).map((v) => `ALTER TYPE ${s.table} ADD VALUE IF NOT EXISTS '${v.replace(/'/g, "''")}';`).join('\n')].filter(Boolean)
+    case 'createTable':
+      return [tableDdlToSql(s)]
+    case 'alterAddColumn':
+      return [`ALTER TABLE ${s.table} ADD COLUMN IF NOT EXISTS ${s.column} ${s.columnType}${alterDefaultSql(s)}${s.columnType && !isNullableAlter(s) ? ' NOT NULL' : ''};`]
+    case 'alter':
+      return (s.dropNotNull ?? []).length ? [`ALTER TABLE ${s.table} ALTER COLUMN ${(s.dropNotNull ?? []).join(', ')} DROP NOT NULL;`] : []
+    case 'createIndex':
+      return [indexDdlToSql(s)]
+    default:
+      return []
+  }
+}
+
+function alterDefaultSql(s: Extract<DdlQuery, { op: 'alterAddColumn' }>): string {
+  if (s.defaultVal === undefined) return ''
+  if (typeof s.defaultVal === 'object' && s.defaultVal !== null && '__now' in (s.defaultVal as object)) return ' DEFAULT NOW()'
+  return ` DEFAULT ${pgDefault(s.defaultVal)}`
+}
+
+function isNullableAlter(s: Extract<DdlQuery, { op: 'alterAddColumn' }>): boolean {
+  // NOT NULL 判定镜像 compileTableDdl：默认值存在 → 存量行可填充→无 NOT NULL；否则列声明层可空性
+  return s.defaultVal !== undefined || s.nullable === true
+}
+
+function tableDdlToSql(t: Extract<DdlQuery, { op: 'createTable' }>): string {
+  const colDefs: string[] = []
+  const inlineUniques: string[] = []
+  const checks: string[] = []
+  for (const c of t.columns ?? []) {
+    if (c.type === 'table-constraint') {
+      if (c.constraintCols && c.constraintCols.length > 1) inlineUniques.push(`  UNIQUE (${c.constraintCols.join(', ')})`)
+      continue
+    }
+    const parts: string[] = [c.name, c.type]
+    if (c.pk) {
+      parts.push('PRIMARY KEY')
+      if (c.defaultUuid) parts.push('DEFAULT gen_random_uuid()')
+    } else {
+      if (c.defaultUuid) parts.push('DEFAULT gen_random_uuid()')
+      else if (c.defaultNow) parts.push('DEFAULT NOW()')
+      else if (c.defaultVal !== undefined) parts.push(`DEFAULT ${pgDefault(c.defaultVal)}`)
+      if (!c.nullable) parts.push('NOT NULL')
+      if (c.unique) parts.push('UNIQUE')
+    }
+    if (c.ref) parts.push(`REFERENCES ${c.ref.table} (${c.ref.col ?? 'id'})${c.ref.onDelete ? ` ON DELETE ${c.ref.onDelete}` : ''}`)
+    colDefs.push(`  ${parts.join(' ')}`)
+  }
+  for (const chk of t.checks ?? []) checks.push(`CONSTRAINT ${t.table}_${chk.col}_check CHECK (${chk.col} IN (${chk.vals.map((v) => `'${v.replace(/'/g, "''")}'`).join(', ')}))`)
+  return `CREATE TABLE IF NOT EXISTS ${t.table} (\n${[...colDefs, ...inlineUniques, ...checks].join(',\n')}\n);`
+}
+
+function indexDdlToSql(s: Extract<DdlQuery, { op: 'createIndex' }>): string {
+  const ix = s.index
+  if (!ix) return ''
+  const unique = ix.unique ? 'UNIQUE ' : ''
+  const using = ix.using ? ` USING ${ix.using}` : ''
+  const opclass = ix.opclass ? ` ${ix.opclass}` : ''
+  const with_ = ix.with ? ` WITH (${ix.with})` : ''
+  const where = ix.where ? ' WHERE ' + ix.where : ''
+  return `CREATE ${unique}INDEX IF NOT EXISTS ${ix.name} ON ${s.table}${using} (${ix.cols}${opclass})${with_}${where};`
+}
+
+/** 表 → DDL AST（封闭面：memory executeDdl 直执行——零 parse；真库经 ddlToSql） */
+function compileTableDdl(t: TableDecl): DdlQuery[] {
+  const out: DdlQuery[] = []
+  const stmts: DdlQuery = { kind: 'ddl', op: 'createTable', table: t.name, ifNotExists: true, columns: [], checks: [] }
+  const notNull = (zt: ZodType): boolean => {
+    const tn = zt._typeName()
+    if (tn === 'nullable' || tn === 'optional') return false
+    if (tn === 'default' || tn === 'effects' || tn === 'transform') return notNull(innerOf(zt) ?? zt)
+    return true
+  }
+  const colMeta: { col: string; pgType: string; zt: ZodType; pk: boolean; nullable: boolean }[] = []
+  for (const [field, ztRaw] of Object.entries(t.columns)) {
+    const zt = ztRaw as unknown as ZodType
+    const meta = zt.metaInfo
+    const col = (meta.column as string) ?? field
+    const pgType = t.columnTypes?.[col] ?? zodTypeOf(zt)
+    colMeta.push({ col, pgType, zt, pk: !!meta.pk, nullable: !notNull(zt) })
+    const tref = t.refs?.[col]
+    const ref = meta.references as string | undefined
+    const parts: { name: string; type: string; pk: boolean; unique: boolean; defaultNow: boolean; defaultUuid: boolean; defaultVal?: unknown; nullable: boolean; ref?: { table: string; col?: string; onDelete?: string } } = {
+      name: col, type: pgType, pk: !!meta.pk, unique: !!meta.unique,
+      defaultNow: meta.default === 'now', defaultUuid: meta.default === 'random',
+      defaultVal: meta.default !== undefined && meta.default !== 'now' && meta.default !== 'random' ? meta.default : undefined,
+      nullable: !notNull(zt),
+    }
+    if (tref) parts.ref = { table: tref.table, col: tref.col, onDelete: tref.onDelete }
+    else if (ref) {
+      const [rtable, rcol] = ref.includes('.') ? ref.split('.') : [ref, 'id']
+      parts.ref = { table: rtable, col: rcol, onDelete: meta.onDelete as string | undefined }
+    }
+    stmts.columns!.push(parts)
+    const enumVals = enumValuesOf(zt)
+    if (enumVals && enumVals.length > 1) stmts.checks!.push({ col, vals: enumVals })
+  }
+  for (const u of t.uniques ?? []) {
+    stmts.columns!.push({ name: u[0], type: 'table-constraint', pk: false, unique: true, defaultNow: false, defaultUuid: false, constraintCols: u })
+  }
+  for (const [col, vals] of Object.entries(t.checks ?? {})) stmts.checks!.push({ col, vals })
+  // 表级 refs 列存在性校验（对齐 text 面抛错）
+  for (const [col] of Object.entries(t.refs ?? {})) {
+    if (!colMeta.some((m) => m.col === col)) throw new Error(`schema: ${t.name}.${col} refs 声明的列不存在`)
+  }
+  if (t.dropNotNull) out.push({ kind: 'ddl', op: 'alter', table: t.name, dropNotNull: t.dropNotNull })
+  out.push(stmts)
+  // 老库增量：ADD COLUMN IF NOT EXISTS 逐列（幂等——新库全 skip）
+  for (const m of colMeta) {
+    if (m.pk) continue
+    const entry = Object.entries(t.columns).find(([field, z]) => (((z as unknown as ZodType).metaInfo?.column as string) ?? field) === m.col)
+    const meta = (entry?.[1] as unknown as ZodType | undefined)?.metaInfo
+    const defaultVal = meta?.default
+    const hasDefault = defaultVal !== undefined && defaultVal !== 'now' && defaultVal !== 'random'
+    out.push({
+      kind: 'ddl', op: 'alterAddColumn', table: t.name, column: m.col, columnType: m.pgType,
+      defaultVal: defaultVal === 'now' ? { __now: true } : hasDefault ? defaultVal : undefined,
+      nullable: m.nullable,
+    })
+  }
+  // 索引（唯一/部分/ivfflat/opclass/WITH）
+  for (const ix of t.indexes ?? []) {
+    const cols = ix.cols.map((c) => typeof c === 'string' ? c : `${c.col}${c.desc ? ' DESC' : ''}`).join(', ')
+    const name = ix.name ?? `idx_${t.name}_${ix.cols.map((c) => typeof c === 'string' ? c : c.col).join('_')}`
+    const where = ix.where ? ix.where.map((w) => {
+      if (w.isNull !== undefined) return `${w.col} IS ${w.isNull ? '' : 'NOT '}NULL`
+      if (w.eq !== undefined) return `${w.col} = '${w.eq.replace(/'/g, "''")}'`
+      if (w.ne !== undefined) return `${w.col} <> '${w.ne.replace(/'/g, "''")}'`
+      return ''
+    }).filter(Boolean).join(' AND ') : undefined
+    out.push({ kind: 'ddl', op: 'createIndex', table: t.name, index: { name, cols, unique: !!ix.unique, using: ix.using, opclass: ix.opclass, with: ix.with, where } })
+  }
+  return out
+}
+
+/** @deprecated 兼容面——W3 删除；真库面统一 ddlToSql(compileSchemaDdl(mod)) */
 export function compileSchemaDDL(mod: SchemaModule): string {
   const out: string[] = []
   for (const ext of mod.extensions ?? []) out.push(`CREATE EXTENSION IF NOT EXISTS ${ext};`)

@@ -23,7 +23,7 @@ export { userSystem, BUILTIN_APP_ID, WEIFUWU_USER_SCHEMA } from './user/index.ts
 export { appAuth } from './user/app-auth.ts'
 export { z, type Infer, type ZodType, type ZodRawShape } from '../shared/zod.ts'
 export { shape, f, type Shape, type FieldDbMeta } from './db/shape.ts'
-export { compileSchemaDDL, type SchemaModule, type TableDecl, type IndexDecl, type EnumDecl } from './db/schema.ts'
+export { compileSchemaDDL, compileSchemaDdl, ddlToSql, type SchemaModule, type TableDecl, type IndexDecl, type EnumDecl } from './db/schema.ts'
 export { createOrm, memoryAdapter, postgresAdapter, type Orm, type CtxOrm, type OrmTable, type RowOf, type OrmTenant, type DbAdapter } from './db/orm.ts'
 export { eq, ne, gt, gte, lt, lte, inArray, notInArray, between, like, ilike, contains, startsWith, endsWith, eqCol, isNull, isNotNull, and, or, not, cols, type ColRef, type ShapeCols } from './db/ops.ts'
 export type { WhereExpr, Query } from './db/query.ts'
