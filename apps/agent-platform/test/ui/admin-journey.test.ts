@@ -16,6 +16,7 @@ import { chromium, type Browser } from 'playwright'
 import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs, fatalErrors,
   type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 let server: AgentServer
@@ -103,7 +104,7 @@ test('套餐联动付费墙：admin 设免费+试用过期 → 租户 AI 回复�
   assert.equal(String(planRow.plan ?? ''), 'free', 'admin 设套餐后租户 /api/plan 应读到 free')
   // 时间流逝（试用过期——planBlockReason 第一拦截分支）
   const { postgres } = await import('weifuwu')
-  const pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 1 })
+  const pg = testDb(BASE)
   try {
     await pg.sql`UPDATE _weifuwu_apps SET trial_ends_at = NOW() - INTERVAL '1 day' WHERE id = ${tenant.app.id}`
   } finally { await pg.close() }
@@ -112,8 +113,7 @@ test('套餐联动付费墙：admin 设免费+试用过期 → 租户 AI 回复�
     method: 'POST', body: JSON.stringify({ content: '付费墙联动探针' }),
   })
   // 轮询 DB：AI 占位消息 content 应被拦截文案回填（runAgentStreamForAgent → emitWf done）
-  const { postgres: pg2 } = await import('weifuwu')
-  const pg3 = pg2(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 1 })
+  const pg3 = testDb(BASE)
   try {
     let blocked = ''
     for (let i = 0; i < 20; i++) {

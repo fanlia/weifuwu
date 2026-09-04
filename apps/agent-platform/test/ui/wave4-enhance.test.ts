@@ -21,6 +21,7 @@ import { chromium, type Browser } from 'playwright'
 import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs, fatalErrors,
   type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 let server: AgentServer
@@ -51,13 +52,14 @@ test.after(async () => {
 
 async function seedMessages(n: number): Promise<void> {
   const { postgres } = await import('weifuwu')
-  const pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 5 })
+  const pg = testDb(BASE)
   try {
-    await pg.sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type)
-      SELECT ${deptId}::uuid, ${agentId}::uuid, '填充 ' || i, 'text'
-      FROM generate_series(1, ${n}) AS i
-    `
+    for (let i = 1; i <= n; i++) {
+      await pg.sql`
+        INSERT INTO messages (department_id, sender_id, content, msg_type)
+        VALUES (${deptId}, ${agentId}, ${'填充 ' + i}, 'text')
+      `
+    }
   } finally {
     await pg.close()
   }
@@ -138,7 +140,7 @@ test('E2 草稿 sessionStorage：输入即存 → 刷新恢复（按部门 key�
 test('E4 重新生成透传 reply_to（引用上下文不丢）', async () => {
   // 种子：用户消息 A（被引用）→ 用户消息 B → 出错 AI 消息（重试按钮）
   const { postgres } = await import('weifuwu')
-  const pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 5 })
+  const pg = testDb(BASE)
   let msgB = ''
   try {
     const [a] = await pg.sql`

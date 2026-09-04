@@ -134,14 +134,6 @@ async function main() {
   // ── Schema 迁移（声明式——DDL 算子化：零 SQL 字符串；幂等记录 + 老库逐列增量） ──
   await pg.migrate()
   await pg.migrateModule('agent-platform', AGENT_PLATFORM_SCHEMA)
-  // 框架 app 表平台扩展列（商业化/沙盒配额——幂等 ALTER——真库老库增量面/内存同语义）
-  await pg.runMigration('agent-platform-app-cols', `
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS monthly_token_limit INT NOT NULL DEFAULT 50000;
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS sandbox_quota INT NOT NULL DEFAULT 5;
-  `)
   console.log('[agent-platform] DB schema 已初始化')
 
   // ── Redis（框架自研客户端）────────────────────────────
@@ -220,6 +212,16 @@ async function main() {
     },
   })
   await pg.migrateModule('weifuwu-users', WEIFUWU_USER_SCHEMA)
+  // 框架 app 表平台扩展列（商业化/沙盒配额/企业归属——幂等 ALTER——须在框架建表后
+  // （memory 下 CREATE TABLE 覆盖列集——先 ALTER 会被覆盖（调试发现））；真库老库同语义）
+  await pg.runMigration('agent-platform-app-cols-v2', `
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS monthly_token_limit INT NOT NULL DEFAULT 50000;
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS sandbox_quota INT NOT NULL DEFAULT 5;
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS enterprise_id UUID;
+  `)
   await users.migrate()          // _weifuwu_users / _weifuwu_sessions / _weifuwu_apps / _weifuwu_app_members（播种段）
   // 系统域初始引导（USERSYSTEM-V2 定案）：ADMIN_EMAILS（逗号分隔）→ _builtin 成员任命——
   //   首个 = owner（超级管理员·唯一）· 其余 = admin（系统管理员）——幂等 seed——
@@ -228,6 +230,15 @@ async function main() {
   if (sysEmails.length) {
     await users.seedBuiltinOwners(sysEmails)
     console.log(`[agent-platform] 系统域 seed: ${sysEmails.length} 个管理员（_builtin owner/admin——ADMIN_EMAILS 引导）`)
+    // UI 测试登录需要（seedBuiltinOwners 建号无密码——同 SSO 语义；钩子模式设默认密码）
+    if (process.env.WF_TEST_HOOKS === '1' && process.env.ADMIN_TEST_PASSWORD) {
+      const { hashPassword } = await import('weifuwu')
+      const rows = await pg.orm.query.from('_weifuwu_users').select('id').where({ email: { eq: sysEmails[0] } }).run()
+      if (rows[0]) {
+        const h = await hashPassword(process.env.ADMIN_TEST_PASSWORD!) as unknown as string
+        await pg.orm.query.update('_weifuwu_users').set({ password_hash: h } as any).where({ id: { eq: String(rows[0].id) } }).run()
+      }
+    }
   }
   // 单应用模式（定案）：agent-platform = _default 应用——开放自助注册（注册即加入平台）——
   //   _builtin 恒不开放（管理面）· 个人默认应用流（register-app）保留为通用能力（测试种子用）
@@ -1029,9 +1040,9 @@ async function main() {
     // 认证：仅本机测试约定（无 token——与 wf 钩子同信任面；端点不接受查询/结构性外传）
     app.post('/api/test/sql', async (req: Request) => {
       try {
-        const body = await req.json() as { sql?: string }
+        const body = await req.json() as { sql?: string; params?: unknown[] }
         if (!body.sql || typeof body.sql !== 'string') return Response.json({ error: 'sql 必填' }, { status: 400 })
-        const rows = await pg.sql.unsafe(body.sql)
+        const rows = await pg.sql.unsafe(body.sql, body.params ?? [])
         return Response.json({ ok: true, rows })
       } catch (e: any) {
         return Response.json({ error: String(e?.message ?? e) }, { status: 500 })

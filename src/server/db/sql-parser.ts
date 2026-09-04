@@ -218,7 +218,7 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
         next() // FROM
       }
       const table = peek().type === 'ident' ? expect('ident', '表名').value : ''
-      const alias = peek().type === 'ident' && !['WHERE', 'ORDER', 'LIMIT'].includes(peek().value.toUpperCase()) ? next().value : undefined
+      const alias = peek().type === 'ident' && !['WHERE', 'ORDER', 'LIMIT', 'LEFT', 'JOIN', 'INNER'].includes(peek().value.toUpperCase()) ? next().value : undefined
       let whereClause: string | undefined
       if (isKeyword(peek(), 'WHERE')) {
         next()
@@ -241,7 +241,7 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
     if (proj.length === 1 && /^count\s*\(\s*\*\s*\)\s*(::\w+)?$/i.test(proj[0].expr)) {
       next() // FROM
       const table = expect('ident', '表名').value
-      const alias = peek().type === 'ident' && !['WHERE', 'ORDER', 'LIMIT'].includes(peek().value.toUpperCase()) ? next().value : undefined
+      const alias = peek().type === 'ident' && !['WHERE', 'ORDER', 'LIMIT', 'LEFT', 'JOIN', 'INNER'].includes(peek().value.toUpperCase()) ? next().value : undefined
       let whereClause: string | undefined
       if (isKeyword(peek(), 'WHERE')) {
         next()
@@ -280,7 +280,7 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
     }
     const table = expect('ident', '表名').value
     const t = peek()
-    const alias = t.type === 'ident' && !['WHERE', 'ORDER', 'LIMIT', 'GROUP', 'HAVING'].includes(t.value.toUpperCase()) ? next().value : undefined
+    const alias = t.type === 'ident' && !['WHERE', 'ORDER', 'LIMIT', 'GROUP', 'HAVING', 'LEFT', 'JOIN', 'INNER', 'ON'].includes(t.value.toUpperCase()) ? next().value : undefined
 
     let whereClause: string | undefined
     let orderBy: SelectQuery['orderBy']

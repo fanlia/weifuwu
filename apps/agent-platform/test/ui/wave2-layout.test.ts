@@ -17,6 +17,7 @@ import { chromium, type Browser } from 'playwright'
 import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs, fatalErrors,
   type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 let server: AgentServer
@@ -48,7 +49,7 @@ test.after(async () => {
 /** SQL 直插消息（审批测试既有先例——直连测试库） */
 async function seedMessage(content: string, senderType: string, aiStep?: object): Promise<void> {
   const { postgres } = await import('weifuwu')
-  const pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 5 })
+  const pg = testDb(BASE)
   try {
     await pg.sql`
       INSERT INTO messages (department_id, sender_id, content, msg_type, ai_step)

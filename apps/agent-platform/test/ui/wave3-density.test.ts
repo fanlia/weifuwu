@@ -15,6 +15,7 @@ import { chromium, type Browser } from 'playwright'
 import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs, fatalErrors,
   type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 let server: AgentServer
@@ -46,7 +47,7 @@ test.after(async () => {
 /** SQL 直插消息（可指定 created_at——日期分隔线需要跨日种子） */
 async function seedMessage(content: string, createdAt?: string): Promise<void> {
   const { postgres } = await import('weifuwu')
-  const pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 5 })
+  const pg = testDb(BASE)
   try {
     if (createdAt) {
       await pg.sql`

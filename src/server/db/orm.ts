@@ -171,8 +171,16 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
         return fromDbBuilder(b.returning(...dbCols))
       },
       update: (patch: Record<string, unknown>) => {
-        // 校验面（updateSchema——部分更新——非法值拒绝）+ 列名翻译
-        const data = (sh as unknown as { updateSchema: () => { parse: (v: unknown) => unknown } }).updateSchema().parse(patch) as Record<string, unknown>
+        // merge 编码对象（__jsonbAppend/__inc/__now/__interval/__colRef/__monthStart）——
+        // 值面原生对象（非 DB 值）——校验面放行（schema 不感知编码）+ 原样透传 toDb
+        const mergeKeys = Object.entries(patch)
+          .filter(([, v]) => typeof v === 'object' && v !== null && ['__jsonbAppend', '__inc', '__now', '__interval', '__colRef', '__monthStart'].some((k) => k in (v as Record<string, unknown>)))
+          .map(([k]) => k)
+        const plain = Object.fromEntries(Object.entries(patch).filter(([k]) => !mergeKeys.includes(k)))
+        const data = {
+          ...((sh as unknown as { updateSchema: () => { parse: (v: unknown) => unknown } }).updateSchema().parse(plain) as Record<string, unknown>),
+          ...Object.fromEntries(mergeKeys.map((k) => [k, patch[k]])),
+        }
         // 默认 returning 全列（行视图可读——与 insert 统一；显式 returning 覆盖）
         return fromDbBuilder(query.update(name).set(sh.toDb(data)).returning(...dbCols))
       },

@@ -219,14 +219,23 @@ export class MemorySql {
     for (const j of q.joins ?? []) {
       const right = this.table(j.table).rows
       const jAlias = j.alias ?? j.table
+      const left = j.type === 'left'
       const joined: Row[] = []
       for (const l of rows) {
+        let matched = false
         for (const r of right) {
           const merged: Row = {}
-          for (const [k, v] of Object.entries(l)) merged[`${tableAlias}.${k}`] = v
+          // l 已带前缀（后续轮次）则原样——首轮无前缀才加 tableAlias（join 链前缀保持）
+          for (const [k, v] of Object.entries(l)) merged[k.includes('.') ? k : `${tableAlias}.${k}`] = v
           for (const [k, v] of Object.entries(r)) merged[`${jAlias}.${k}`] = v
           if (isRaw(j.on)) throw new ProtocolError('raw JOIN', 'memory-sql: raw JOIN ON 不支持（诚实裁剪——用真库）')
-          if (matchWhereExpr(merged, j.on, undefined)) joined.push(merged)
+          if (matchWhereExpr(merged, j.on, undefined)) { joined.push(merged); matched = true }
+        }
+        // LEFT JOIN：主行无匹配保留（右列缺键——投影已补 null——对齐真库外连接语义）
+        if (!matched && left) {
+          const m: Row = {}
+          for (const [k, v] of Object.entries(l)) m[k.includes('.') ? k : `${tableAlias}.${k}`] = v
+          joined.push(m)
         }
       }
       rows = joined

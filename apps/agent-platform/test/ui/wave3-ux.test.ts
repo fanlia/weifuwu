@@ -14,6 +14,7 @@ import { chromium, type Browser } from 'playwright'
 import {
   startAgentServer, openAgentPage, registerTenant, seedRoleMember, injectAuth, fatalErrors,
   type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 let server: AgentServer
@@ -53,13 +54,15 @@ test('403 原因透出：member 点审批 → toast 含服务端原因（不再�
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${owner.token}` },
     body: JSON.stringify({ agent_id: agents.agent.id, role: 'member' }),
   })
-  const pg = (await import('weifuwu')).postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 1 })
+  const pg = testDb(BASE)
   try {
     // app_id 过滤：agents 表跨租户同名——不限定会命中其它测试租户的同名 agent
+    const [aiAgent] = await pg.sql`
+      SELECT id FROM agents WHERE name = '波次3AI' AND app_id = ${owner.app.id} LIMIT 1`
     await pg.sql`
       INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
-      SELECT ${deptId}::uuid, a.id, '[AI 生成中...]', 'text', '波次3透出验证草稿', NULL
-      FROM agents a WHERE a.name = '波次3AI' AND a.app_id = ${owner.app.id} LIMIT 1`
+      VALUES (${deptId}, ${aiAgent.id}, '[AI 生成中...]', 'text', '波次3透出验证草稿', NULL)
+    `
   } finally { await pg.close() }
 
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } })

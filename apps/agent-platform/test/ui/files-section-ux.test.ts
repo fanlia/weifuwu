@@ -15,6 +15,7 @@ import { join, resolve } from 'node:path'
 import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs,
   fatalErrors, type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 const PNG_1x1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
@@ -31,7 +32,7 @@ test.before(async () => {
   BASE = server.base
   browser = await chromium.launch()
   owner = await registerTenant(BASE, 'filesux')
-  pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 2, closeTimeout: 1 })
+  pg = testDb(BASE)
   const dept = await apiAs(BASE, owner, '/api/departments', { method: 'POST', body: JSON.stringify({ name: '文件组' }) })
   deptId = dept.department.id
   const agent = await apiAs(BASE, owner, '/api/agents', { method: 'POST', body: JSON.stringify({ type: 'ai', name: '文员', model: 'm', description: 'd' }) })

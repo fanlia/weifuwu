@@ -9,9 +9,17 @@
  * 5. 判负锁定：批量拒绝不提供（拒绝清 ai_draft 不可逆——误拒无挽回）
  * 6. 上限 50
  */
-import { test } from 'node:test'
+import {
+  test } from 'node:test'
 import assert from 'node:assert/strict'
-import { startAgentServer, registerTenant, seedRoleMember, apiAs, type AgentServer, type TenantAuth } from './shared.ts'
+import { startAgentServer,
+  registerTenant,
+  seedRoleMember,
+  apiAs,
+  type AgentServer,
+  type TenantAuth,
+  testDb,
+} from './shared.ts'
 import { chromium } from 'playwright'
 
 let server: AgentServer
@@ -23,13 +31,13 @@ let agentA = ''
 
 // 共享池（每用例自建池 = 每次真实 PG 握手 + 池创建/销毁——55 次 seed 即 20s+——
 // 上一版慢的根因；池复用后单条 INSERT <10ms）
-let pg: import('weifuwu').Sql | null = null
+let pg: any = null
 async function getPg() {
-  if (!pg) pg = (await import('weifuwu')).postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 1 })
+  if (!pg) pg = testDb(BASE)
   return pg
 }
 async function closePg() {
-  await pg?.close().catch(() => {})
+  try { await pg?.close() } catch { /* 尽力 */ }
   pg = null
 }
 
@@ -37,21 +45,23 @@ async function seedDraft(deptId: string, draft: string): Promise<string> {
   const conn = await getPg()
   const [row] = await conn.sql`
     INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
-    SELECT ${deptId}::uuid, a.id, '[AI 生成中...]', 'text', ${draft}, NULL
-    FROM agents a WHERE a.id = ${agentA}::uuid
+    VALUES (${deptId}, ${agentA}, '[AI 生成中...]', 'text', ${draft}, NULL)
     RETURNING id`
   return String(row.id)
 }
 
-/** 批量 seed（单条 multi-values SQL——上限用例 52 条一次插入） */
+/** 批量 seed（逐条——memory 不支持 generate_series/||——诚实循环） */
 async function seedDrafts(deptId: string, n: number): Promise<string[]> {
   const conn = await getPg()
-  const rows = await conn.sql`
-    INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
-    SELECT ${deptId}::uuid, a.id, '[AI 生成中...] ' || g, 'text', '上限草稿 ' || g, NULL
-    FROM agents a, generate_series(1, ${n}) AS g WHERE a.id = ${agentA}::uuid
-    RETURNING id`
-  return rows.map((r) => String(r.id))
+  const ids: string[] = []
+  for (let i = 1; i <= n; i++) {
+    const [row] = await conn.sql`
+      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
+      VALUES (${deptId}, ${agentA}, ${'上限草稿 ' + i}, 'text', ${'上限草稿 ' + i}, NULL)
+      RETURNING id`
+    ids.push(String(row?.id))
+  }
+  return ids
 }
 
 test.before(async () => {
@@ -97,9 +107,12 @@ test('批量批准：同部门 3 条 → 全部发布（content=ai_draft + ai_ap
   })
   assert.equal(r.approved, 3, `批量批准应全部成功（实际 ${JSON.stringify(r)}）`)
   assert.equal((r.failed ?? []).length, 0)
-  // 权威断言：草稿已发布
+  // 权威断言：草稿已发布（逐 id——ANY 数组形态内存 parser 不支持——诚实逐查）
   const conn2 = await getPg()
-  const rows = await conn2.sql`SELECT content, ai_approved FROM messages WHERE id = ANY(${conn2.sql.array(ids)}::uuid[])`
+  const rows: any[] = []
+  for (const id of ids) {
+    rows.push(...(await conn2.sql`SELECT content, ai_approved FROM messages WHERE id = ${id}`))
+  }
   for (const row of rows) {
     assert.equal(row.ai_approved, true, '应已批准')
     assert.ok(['批量草稿一', '批量草稿二', '批量草稿三'].includes(String(row.content)), `草稿应发布为正式消息（实际 ${row.content}）`)

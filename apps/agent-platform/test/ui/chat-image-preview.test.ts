@@ -16,6 +16,7 @@ import { join, resolve } from 'node:path'
 import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs,
   fatalErrors, type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 // 1x1 合法 PNG（img decode 兜底——fetch/render 链路真实）
@@ -32,7 +33,7 @@ test.before(async () => {
   BASE = server.base
   browser = await chromium.launch()
   owner = await registerTenant(BASE, 'imgprev')
-  pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 2, closeTimeout: 1 })
+  pg = testDb(BASE)
   // 部门 + AI agent + 工作区图片 + AI 消息（content 含 /ws/ 路径——工具实际回复形态）
   const dept = await apiAs(BASE, owner, '/api/departments', { method: 'POST', body: JSON.stringify({ name: '图像组' }) })
   const agent = await apiAs(BASE, owner, '/api/agents', { method: 'POST', body: JSON.stringify({ type: 'ai', name: '画师', model: 'deepseek-v4-flash', description: '画图' }) })

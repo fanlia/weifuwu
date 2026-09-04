@@ -13,6 +13,7 @@ import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs, fatalErrors,
   waitForText,
   type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 let server: AgentServer
@@ -26,7 +27,7 @@ test.before(async () => {
   BASE = server.base
   browser = await chromium.launch()
   owner = await registerTenant(BASE, 'demo')
-  pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 2, closeTimeout: 1 })
+  pg = testDb(BASE)
 })
 
 test.after(async () => {

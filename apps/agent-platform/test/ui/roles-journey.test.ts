@@ -20,6 +20,7 @@ import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs,
   seedRoleMember, fatalErrors,
   type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 let server: AgentServer
@@ -80,13 +81,13 @@ async function sendViaUi(page: import('playwright').Page, text: string): Promise
 test('owner 旅程：工作台审批 CTA → 审批页 → 批准 → toast「已批准发布」', async () => {
   // 种子待审草稿（approval-badge 先例——SQL 直插）
   const { postgres } = await import('weifuwu')
-  const pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 1 })
+  const pg = testDb(BASE)
   try {
+    const [aiAgent] = await pg.sql`
+      SELECT id FROM agents WHERE app_id = ${owner.app.id} AND type = 'ai' LIMIT 1`
     await pg.sql`
       INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)
-      VALUES (${deptId}::uuid,
-              (SELECT a.id FROM agents a WHERE a.app_id = ${owner.app.id} AND a.type = 'ai' LIMIT 1)::uuid,
-              '旅程草稿正文', 'text', '旅程待审草稿内容', NULL)
+      VALUES (${deptId}, ${aiAgent.id}, '旅程草稿正文', 'text', '旅程待审草稿内容', NULL)
     `
   } finally { await pg.close() }
 

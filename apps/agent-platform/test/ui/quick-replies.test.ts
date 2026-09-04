@@ -13,6 +13,7 @@ import { chromium, type Browser } from 'playwright'
 import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, fatalErrors,
   type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 let server: AgentServer
@@ -24,12 +25,11 @@ let agentId = ''
 
 /** seed 一条带选项的 AI 消息（DB 直插——真实渲染链） */
 async function seedAiMsg(content: string, quickReplies: string[] | null): Promise<string> {
-  const pg = (await import('weifuwu')).postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 1 })
+  const pg = testDb(BASE)
   try {
     const [row] = await pg.sql`
       INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved, quick_replies)
-      SELECT ${deptId}::uuid, a.id, ${content}, 'text', TRUE, ${quickReplies ? JSON.stringify(quickReplies) : null}::jsonb
-      FROM agents a WHERE a.id = ${agentId}::uuid AND a.app_id = ${owner.app.id}
+      VALUES (${deptId}, ${agentId}, ${content}, 'text', TRUE, ${quickReplies ? JSON.stringify(quickReplies) : null})
       RETURNING id`
     return String(row.id)
   } finally { await pg.close() }
@@ -107,7 +107,7 @@ test('刷新恢复：GET 列值 → 未答复 chip 恢复；用户已答复的 A
     await page.close()
   }
   // 场景 B：AI 选项之后用户已回复（直插 user 消息）→ chip 不渲染
-  const pg = (await import('weifuwu')).postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 1 })
+  const pg = testDb(BASE)
   try {
     const [me] = await pg.sql`
       SELECT id FROM agents WHERE app_id = ${owner.app.id}::uuid AND type = 'user' LIMIT 1`

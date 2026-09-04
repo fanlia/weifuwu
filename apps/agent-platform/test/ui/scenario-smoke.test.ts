@@ -20,6 +20,7 @@ import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs, fatalErrors,
   waitForText,
   type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -36,7 +37,7 @@ test.before(async () => {
   BASE = server.base
   browser = await chromium.launch()
   owner = await registerTenant(BASE, 'scenario')
-  pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 4, closeTimeout: 1 })
+  pg = testDb(BASE)
 })
 
 test.after(async () => {

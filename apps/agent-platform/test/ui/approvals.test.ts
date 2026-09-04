@@ -13,6 +13,7 @@ import {
   startAgentServer, openAgentPage, registerTenant, injectAuth, apiAs,
   seedRoleMember, waitForBodyText, waitForText,
   type AgentServer, type TenantAuth,
+  testDb,
 } from './shared.ts'
 
 let server: AgentServer
@@ -50,7 +51,7 @@ test('审批流：种子草稿 → 批准 → pending 消失（消息发布）',
   // API 造草稿（直接 messages 表？——审计器……用 messages API?——直插 SQL 不可——用内部?）
   // 经 HTTP 发消息不会产生草稿（无 AI 执行）——用 pg 直插（测试基建——auth 测试已有 pg 先例）
   const { postgres } = await import('weifuwu')
-  const pg = postgres(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL, { max: 5 })
+  const pg = testDb(BASE)
   try {
     const [msg] = await pg.sql`
       INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved)

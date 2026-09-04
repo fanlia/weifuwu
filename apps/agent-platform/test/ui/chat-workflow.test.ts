@@ -92,6 +92,9 @@ function startIsolated(extras: Record<string, string>): Promise<AgentServer> {
       env: {
         ...process.env,
         PORT: '39218',
+        POSTGRES_MEMORY: '1',
+        WF_TEST_HOOKS: '1',
+        ADMIN_TEST_PASSWORD: 'admin123',
         DATABASE_POOL_MAX: '8',
         RATE_LIMIT_MAX: '100000',
         REGISTER_LIMIT_MAX: '100000',
