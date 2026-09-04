@@ -108,7 +108,7 @@ export function compileSchemaDDL(mod: SchemaModule): string {
   for (const ext of mod.extensions ?? []) out.push(`CREATE EXTENSION IF NOT EXISTS ${ext};`)
   for (const e of mod.enums ?? []) {
     out.push(`DO $$ BEGIN\n  CREATE TYPE ${e.name} AS ENUM (${e.values.map((v) => `'${v.replace(/'/g, "''")}'`).join(', ')});\nEXCEPTION WHEN duplicate_object THEN NULL;\nEND $$;`)
-    for (const v of e.values) out.push(`ALTER TYPE ${e.name} ADD VALUE IF NOT EXISTS '${v.replace(/'/g, "''")}'`)
+    for (const v of e.values) out.push(`ALTER TYPE ${e.name} ADD VALUE IF NOT EXISTS '${v.replace(/'/g, "''")}';`)
   }
   for (const t of mod.tables) out.push(...compileTableDDL(t))
   return out.join('\n')

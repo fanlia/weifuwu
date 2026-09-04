@@ -487,7 +487,7 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
         if (ifExists) { next(); expectKeyword('EXISTS') }
         const name = expect('ident', '类型名').value
         if (isKeyword(peek(), 'CASCADE')) next()
-        return { kind: 'ddl', op: 'dropEnum', name, ifNotExists: ifExists }
+        return { kind: 'ddl', op: 'dropEnum', table: name, ifNotExists: ifExists }
       }
       expectKeyword('TABLE')
       const ifExists = isKeyword(peek(), 'IF')
@@ -496,6 +496,16 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
       return { kind: 'ddl', op: 'dropTable', table, ifNotExists: ifExists }
     }
     if (kw === 'ALTER') {
+      // ALTER TYPE x ADD VALUE [IF NOT EXISTS] 'v'——枚举加值（内存：值集合记忆——幂等）
+      if (isKeyword(peek(), 'TYPE')) {
+        next()
+        const name = expect('ident', '类型名').value
+        expectKeyword('ADD')
+        expectKeyword('VALUE')
+        if (isKeyword(peek(), 'IF')) { next(); expectKeyword('NOT'); expectKeyword('EXISTS') }
+        const v = expect('string', '枚举值').value
+        return { kind: 'ddl', op: 'alterEnumAddValue', table: name, enumValues: [v] }
+      }
       // ALTER TABLE x ADD COLUMN [IF NOT EXISTS] c type（增量列——对齐声明式迁移面）
       expectKeyword('TABLE')
       if (isKeyword(peek(), 'IF')) { next(); expectKeyword('EXISTS') }
@@ -507,11 +517,25 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
         if (ifNotExists) { next(); expectKeyword('NOT'); expectKeyword('EXISTS') }
         const col = expect('ident', '列名').value
         let type = ''
-        while (!['comma', 'rparen'].includes(peek().type) && peek().type !== 'eof') {
+        while (!['comma', 'rparen'].includes(peek().type) && peek().type !== 'eof' &&
+               !isKeyword(peek(), 'NOT') && !isKeyword(peek(), 'DEFAULT') && !isKeyword(peek(), 'REFERENCES')) {
           const t = next()
           type += (type ? ' ' : '') + String(t.value)
         }
-        return { kind: 'ddl', op: 'alterAddColumn', table, column: col, columnType: type.trim().toUpperCase() }
+        if (isKeyword(peek(), 'NOT')) { next(); expectKeyword('NULL') }
+        let defaultVal: unknown
+        if (isKeyword(peek(), 'DEFAULT')) {
+          next()
+          const dv = next()
+          if (isKeyword(dv, 'NOW') && peek().value === '(') { next(); next(); defaultVal = undefined }
+          else if (isKeyword(dv, 'GEN_RANDOM_UUID')) { next(); next(); defaultVal = undefined }
+          else {
+            const t = dv.value
+            defaultVal = t === 'TRUE' ? true : t === 'FALSE' ? false : /^'.*'$/.test(t) ? t.slice(1, -1).replace(/''/g, "'") : Number.isNaN(Number(t)) ? t : Number(t)
+          }
+          if (peek().value === '::') { next(); if (peek().type === 'ident') next() }
+        }
+        return { kind: 'ddl', op: 'alterAddColumn', table, column: col, columnType: type.trim().toUpperCase(), defaultVal }
       }
       return { kind: 'ddl', op: 'alter' }
     }
@@ -547,23 +571,33 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
     // 列定义 token 流解析（逗号分隔）——约束提取
     const columns: DdlQuery['columns'] = []
     for (;;) {
-      const col = parseColumnDef()
-      if (col) columns.push(col)
-      if (peek().type === 'comma') { next(); continue }
-      // 表级约束（CHECK/CONSTRAINT/FOREIGN KEY/PRIMARY KEY 表级）——内存无结构语义
-      // （吞到逗号/顶层右括号——括号深度跟踪——与列定义 REFERENCES 同模式）
-      if (isKeyword(peek(), 'CHECK') || isKeyword(peek(), 'CONSTRAINT') ||
-          isKeyword(peek(), 'FOREIGN') || (isKeyword(peek(), 'PRIMARY') || isKeyword(peek(), 'UNIQUE'))) {
+      // 表级约束（CHECK/CONSTRAINT/FOREIGN KEY/表级 PRIMARY|UNIQUE (…)）——先于列解析拦截
+      // （否则 CONSTRAINT 被当列名吃出噪音——CHECK (type IN ('ai','user'…)) 崩解析）
+      if (isKeyword(peek(), 'CHECK') || isKeyword(peek(), 'CONSTRAINT') || isKeyword(peek(), 'FOREIGN')) {
+        // peek 先判（break 不预消费终止 token——表级约束后可能直接收表 ））
         let dep = 0
         for (;;) {
+          if (dep === 0 && (peek().type === 'comma' || peek().type === 'rparen' || peek().type === 'eof')) break
           const t = next()
-          if (t.type === 'eof') break
-          if (dep === 0 && (t.type === 'comma' || t.type === 'rparen')) break
           if (t.type === 'lparen') dep++
           if (t.type === 'rparen') dep--
         }
         continue
       }
+      // 表级 PRIMARY KEY (a,b) / UNIQUE (a,b)：括号表单先拦截（列内 PRIMARY KEY 无括号——列表尾）
+      if ((isKeyword(peek(), 'PRIMARY') || isKeyword(peek(), 'UNIQUE')) && peekNext().type === 'lparen') {
+        let dep = 0
+        for (;;) {
+          if (dep === 0 && (peek().type === 'comma' || peek().type === 'rparen' || peek().type === 'eof')) break
+          const t = next()
+          if (t.type === 'lparen') dep++
+          if (t.type === 'rparen') dep--
+        }
+        continue
+      }
+      const col = parseColumnDef()
+      if (col) columns.push(col)
+      if (peek().type === 'comma') { next(); continue }
       break
     }
     expect('rparen', ')')

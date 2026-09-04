@@ -44,6 +44,12 @@ let pg: any
 before(async () => {
   pg = postgres({ memory: true })
   await pg.sql.unsafe('DROP TABLE IF EXISTS video_tasks CASCADE')
+  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS video_tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID NOT NULL, department_id UUID,
+    agent_id UUID, task_id TEXT NOT NULL, prompt TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', filename TEXT NOT NULL, path TEXT, error TEXT, params JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`)
   // W5 通知链路最小表（FK 链：messages ↔ departments/agents——同 chat 语义）
   await pg.sql.unsafe(`
     CREATE TABLE IF NOT EXISTS departments (id UUID PRIMARY KEY, app_id UUID NOT NULL, name TEXT NOT NULL);

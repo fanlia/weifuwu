@@ -98,6 +98,8 @@ async function main() {
     // （实测单实例 idle 49）——重启叠加期 49+50 > PG max=100 → 启动失败。
     // 30s 收缩 + dev 单人低并发——碰撞窗口结构性消除（框架 client 已透传 reaper）
     idle_timeout: parseInt(process.env.DATABASE_POOL_IDLE_TIMEOUT ?? '30000', 10),
+    // W4：平台测试 memory 模式（POSTGRES_MEMORY=1——零 wire 直执行——ui 共享 server 用）
+    ...(process.env.POSTGRES_MEMORY === '1' ? { memory: true } : {}),
   })
   app.use(pg)
   // 事件日志独立池（2026-08——沙盒事件专用）
@@ -132,6 +134,14 @@ async function main() {
   // ── Schema 迁移（声明式——DDL 算子化：零 SQL 字符串；幂等记录 + 老库逐列增量） ──
   await pg.migrate()
   await pg.migrateModule('agent-platform', AGENT_PLATFORM_SCHEMA)
+  // 框架 app 表平台扩展列（商业化/沙盒配额——幂等 ALTER——真库老库增量面/内存同语义）
+  await pg.runMigration('agent-platform-app-cols', `
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS monthly_token_limit INT NOT NULL DEFAULT 50000;
+    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS sandbox_quota INT NOT NULL DEFAULT 5;
+  `)
   console.log('[agent-platform] DB schema 已初始化')
 
   // ── Redis（框架自研客户端）────────────────────────────

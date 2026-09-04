@@ -292,6 +292,9 @@ export class MemorySql {
       }
     } else if (q.cols?.length) {
       // 投影：直接从前缀行取列（JOIN 同名列精确——不先 unqualified 丢前缀）
+      // 列集已知但行缺键 → null（对齐真库 SELECT 语义——缺失列 = NULL）
+      const knownCols = new Set(this.table(q.table).columns)
+      for (const j of q.joins ?? []) for (const c of this.table(j.table).columns) knownCols.add(c)
       out = filtered.map((r) => {
         const proj: Row = {}
         for (const c of q.cols!) {
@@ -299,7 +302,11 @@ export class MemorySql {
           // 'expr AS alias'（parser 产出）——按 expr 取值·输出键=alias
           const asm = /^(.+?)\s+AS\s+([\w.]+)$/i.exec(c)
           if (asm) proj[asm[2]] = resolveCol(r, asm[1].trim())
-          else proj[stripTable(c)] = resolveCol(r, c)
+          else {
+            const bare = stripTable(c)
+            const v = resolveCol(r, c)
+            proj[bare] = v === undefined && knownCols.has(bare) ? null : v
+          }
         }
         if (q.vector) {
           // pgvector 等价：相似度 = 余弦（`1 - (a <=> b)`）——vectorScore 面
@@ -614,11 +621,23 @@ export class MemorySql {
       if (!t.columns.includes(stmt.column)) {
         t.columns.push(stmt.column)
         if (stmt.columnType) t.columnTypes[stmt.column] = stmt.columnType
+        // 默认值记忆 + 既有行填充（对齐真库 ALTER ADD COLUMN ... DEFAULT 语义）
+        if (stmt.defaultVal !== undefined) {
+          t.defaultVals.set(stmt.column, stmt.defaultVal)
+          for (const row of t.rows) if (!(stmt.column in row)) row[stmt.column] = stmt.defaultVal
+        }
       }
     } else if (stmt.op === 'dropTable' && stmt.table) {
       this.tables.delete(stmt.table)
     } else if (stmt.op === 'dropEnum' && stmt.table) {
       this.enums.delete(stmt.table)
+    } else if (stmt.op === 'alterEnumAddValue' && stmt.table) {
+      // 枚举加值：值集合追加（createEnum 定义 + 后续 ADD VALUE——幂等）
+      const vals = this.enums.get(stmt.table) ?? []
+      for (const v of stmt.enumValues ?? []) {
+        if (!vals.includes(v)) vals.push(v)
+      }
+      this.enums.set(stmt.table, vals)
     } else if (stmt.op === 'createEnum' && stmt.table) {
       // 枚举注册（幂等——DO 块 EXCEPTION duplicate_object 语义 = 已存在跳过）
       if (!this.enums.has(stmt.table)) this.enums.set(stmt.table, stmt.enumValues ?? [])

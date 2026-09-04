@@ -157,9 +157,10 @@ export interface DdlQuery {
   columns?: { name: string; type: string; pk: boolean; unique: boolean; defaultNow: boolean; defaultUuid: boolean; defaultVal?: unknown; constraintCols?: string[] }[]
   /** createEnum：枚举值清单 */
   enumValues?: string[]
-  /** alterAddColumn：增量列（列名/类型——对齐声明式迁移 ADD COLUMN IF NOT EXISTS） */
+  /** alterAddColumn：增量列（列名/类型/默认值——对齐声明式迁移 ADD COLUMN IF NOT EXISTS） */
   column?: string
   columnType?: string
+  defaultVal?: unknown
 }
 
 export type Query = SelectQuery | InsertQuery | UpdateQuery | DeleteQuery | DdlQuery

@@ -27,20 +27,7 @@ const BUSINESS_TABLES = [
 const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
   { file: 'server.ts', match: 'information_schema', reason: '元数据检查（表存在性）' },
   { file: 'server.ts', match: 'ALTER TABLE', reason: 'DDL migration（schema 级）' },
-  { file: 'server.ts', match: 'CREATE TABLE', reason: 'DDL migration（schema 级）' },
-  { file: 'server.ts', match: 'CREATE INDEX', reason: 'DDL migration（schema 级）' },
-  { file: 'server.ts', match: 'CREATE UNIQUE INDEX', reason: 'DDL migration（schema 级）' },
-  { file: 'server.ts', match: 'DROP TABLE', reason: 'DDL migration（schema 级）' },
-  { file: 'server.ts', match: 'ALTER COLUMN', reason: 'DDL migration（schema 级）' },
-  { file: 'server.ts', match: 'FROM agents WHERE template_slug IS NOT NULL', reason: '平台级模板使用统计（不返回租户数据）' },
-  { file: 'server.ts', match: "SELECT id, name, webhook_platform, webhook_url, im_bind_dept, webhook_secret FROM agents WHERE type = 'webhook'", reason: 'IM 入站机器人查询（G8 补强）——平台级路由：回调无租户上下文，机器人绑定部门显式配置（返回单行供消息路由，不泄漏）' },
-  { file: 'server.ts', match: 'name = ANY(string_to_array', reason: '问卷一键派单（demo 端点）——按角色名查部门 id 供消息路由（demo 专用，不泄漏数据）' },
-  { file: 'server.ts', match: 'WHERE id::text = ANY(string_to_array(', reason: '沙盒监控容器→agent 名映射（管理员端点）——按容器 id 反查名字，不返回租户数据' },
-  { file: 'server.ts', match: 'SELECT template_slug', reason: '平台级模板使用统计（role_templates usage_count）' },
-  { file: 'server.ts', match: 'FROM department_members dm JOIN agents a ON a.id = dm.agent_id WHERE dm.department_id = ${params.id}', reason: '执行面板成员——department_id 上游已校验归属（间接隔离）' },
-  { file: 'server.ts', match: 'SELECT MAX(m.created_at) as at FROM messages m JOIN agents a', reason: '执行面板任务起点——department_id 上游已校验归属（间接隔离）' },
-  { file: 'server.ts', match: 'WHERE a.user_id = ${uid}', reason: 'R10 用户维度隔离——uid 来自会话 token（auth.userId），只能查/改自己' },
-  { file: 'server.ts', match: 'UPDATE agents SET is_active = FALSE', reason: 'R10 用户维度隔离——账号删除仅匿名化自己的 Agent' },
+
   // ── 间接隔离批量登记（外键归属上游已校验——逐条审查过） ──
 ]
 
@@ -64,7 +51,7 @@ function scanFiles(): Array<{ file: string; src: string }> {
  *  防「正则字符类内反引号」类误报（2027-10 迁移后 P3 实录：PATH_RE 含 ` 被旧扫描器当模板） */
 function extractSqlBlocks(src: string): Array<{ sql: string; index: number }> {
   const blocks: Array<{ sql: string; index: number }> = []
-  const re = /(?:^\s*sql\s*`|\bsql\s*`|\.unsafe\(\s*`)/g
+  const re = /(?:^\s*sql\s*`|\bsql\s*`|\.unsafe\(\s*`|runMigration\(\s*[^,]+,\s*`)/g
   let m: RegExpExecArray | null
   while ((m = re.exec(src))) {
     const start = src.indexOf('`', m.index)

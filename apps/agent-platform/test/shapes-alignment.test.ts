@@ -15,13 +15,15 @@ import { fileURLToPath } from 'node:url'
 import { SHAPES } from '../src/db/shapes.ts'
 // E4：解析器单源共享（scripts/ddl-parse.ts——shape-check.mjs 同源）
 import { collectTables } from '../scripts/ddl-parse.ts'
+import { compileSchemaDDL } from 'weifuwu'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const SCHEMA = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
-const RUNTIME = readFileSync(resolve(__dirname, '..', 'server.ts'), 'utf-8')
+// 事实源 = 声明式 Schema（server.ts migrateModule：AGENT_PLATFORM_SCHEMA——schema.sql 已卸任）
+const DDL_TEXT = compileSchemaDDL(AGENT_PLATFORM_SCHEMA)
 
-test('shapes ↔ schema.sql + server.ts 运行时 DDL：29 表逐列对齐（双向无差）', () => {
-  const schema = collectTables(SCHEMA, RUNTIME)
+test('shapes ↔ 声明式 DDL（AGENT_PLATFORM_SCHEMA=server.ts 运行时唯一事实源）：29 表逐列对齐（双向无差）', () => {
+  const schema = collectTables(DDL_TEXT, "")
   const shapeNames = Object.keys(SHAPES)
   assert.equal(shapeNames.length, 29, 'shape 表数 = 29')
   for (const name of shapeNames) {

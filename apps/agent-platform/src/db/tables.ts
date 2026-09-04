@@ -37,6 +37,13 @@ export const AGENT_PLATFORM_SCHEMA: import('weifuwu').SchemaModule = {
         webhook_platform: z.string().meta({ notNull: true, default: "generic" }),
         risk_policy: z.string().meta({ notNull: true, default: "auto" }),
         light_model: z.string().nullable(),
+        workspace_path: z.string().nullable(),
+        allow_file_tools: z.boolean().meta({ notNull: true, default: false }),
+        allow_command_exec: z.boolean().meta({ notNull: true, default: false }),
+        allow_network: z.boolean().meta({ notNull: true, default: true }),
+        approval_policy: z.string().meta({ notNull: true, default: 'auto' }),
+        kb_id: z.uuid().nullable(),
+        template_slug: z.string().nullable(),
       },
       columnTypes: {
         type: 'agent_type',

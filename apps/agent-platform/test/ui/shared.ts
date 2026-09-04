@@ -66,6 +66,7 @@ export function getSharedServer(): Promise<AgentServer> {
         ...process.env,
         PORT: String(SHARED_PORT),
         DATABASE_POOL_MAX: '8',
+        POSTGRES_MEMORY: '1',
         RATE_LIMIT_MAX: '100000',
         REGISTER_LIMIT_MAX: '100000',
         WF_TEST_HOOKS: '1',
