@@ -95,7 +95,7 @@ export class MemoryPostgresServer implements DBServer {
   port = 0
   url = ''
   private server: net.Server | null = null
-  private engine = new MemorySql()
+  private engine = new MemorySql({ validateCols: false })
   private opts: Required<Pick<PostgresServerOptions, 'port' | 'password'>>
   private closed = false
   private queryLog: string[] = []

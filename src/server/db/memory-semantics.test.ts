@@ -18,6 +18,7 @@ import { MemoryRedis } from './memory-redis.ts'
 import { MemorySql, createMemoryOrm } from './memory-sql.ts'
 import * as ops from './ops.ts'
 import { compileQuery } from './query.ts'
+import { and } from './ops.ts'
 import { ProtocolError } from './errors.ts'
 import { HttpError } from '../types.ts'
 
@@ -353,5 +354,58 @@ describe('raw 取消（2027-xx）— 细算子 now/nowInterval/colRef 的 memory
     const sql = compileQuery({ kind: 'update', table: 'm', sets: { content: ops.colRef('ai_draft') }, where: { id: { eq: 'x' } } })
     assert.ok(sql.sql.includes('content = ai_draft'), sql.sql)
     assert.equal(sql.params.length, 1) // 仅 where 参数
+  })
+})
+
+describe('W1 未知列校验（两端一致——不再静默）', () => {
+  it('memory：未知列 where → ProtocolError 带合法列清单', async () => {
+    const { orm, mem } = createMemoryOrm()
+    await mem.unsafe('CREATE TABLE t1 (id text, name text)')
+    await orm.query.insert('t1').values({ id: 'a', name: 'x' }).run()
+    await assert.rejects(
+      () => orm.query.from('t1').where({ no_such: { eq: 1 } }).run(),
+      /未知列 'no_such'——t1 合法列：id, name/,
+    )
+    // 合法列不误伤（别名/裸列/算子 col/表达式投影）
+    const ok = await orm.query.from('t1 t')
+      .where(and({ 't.id': { eq: 'a' } }, { name: { ilike: '%x%' } }))
+      .select("id AS xid", 'name').run()
+    assert.equal(ok.length, 1)
+    // and/or 组合（合法列不误伤）
+  })
+
+  it('memory：未知列 select/orderBy/groupBy → 报错', async () => {
+    const { orm, mem } = createMemoryOrm()
+    await mem.unsafe('CREATE TABLE t2 (id text, name text)')
+    await orm.query.insert('t2').values({ id: 'a', name: 'x' }).run()
+    await assert.rejects(() => orm.query.from('t2').select('no_such').run(), /未知列 'no_such'/)
+    await assert.rejects(() => orm.query.from('t2').orderBy('no_such').run(), /未知列 'no_such'/)
+    await assert.rejects(() => orm.query.from('t2').groupBy('no_such').run(), /未知列 'no_such'/)
+  })
+
+  it('join 列集双侧合法（on 键 + col 值、join 表投影）', async () => {
+    const { orm, mem } = createMemoryOrm()
+    await mem.unsafe('CREATE TABLE a (id text, user_id text)')
+    await mem.unsafe('CREATE TABLE u (id text, name text)')
+    await orm.query.insert('a').values({ id: 'a1', user_id: 'u1' }).run()
+    await orm.query.insert('u').values({ id: 'u1', name: '张' }).run()
+    const rows = await orm.query.from('a')
+      .join('u', { 'u.id': { col: 'a.user_id' } })
+      .select('a.id', 'u.name').run()
+    assert.equal(rows.length, 1)
+    assert.equal((rows[0] as any).name, '张') // join 投影输出裸键（stripTable——平台惯例）
+    // join 错误列 → 报错
+    await assert.rejects(() => orm.query.from('a')
+      .join('u', { 'u.no_such': { col: 'a.user_id' } }).run(), /未知列 'u.no_such'/)
+  })
+
+  it('whereRaw 不误伤（__raw 键豁免）', async () => {
+    const { orm, mem } = createMemoryOrm()
+    await mem.unsafe('CREATE TABLE t3 (id text)')
+    await orm.query.insert('t3').values({ id: 'a' }).run()
+    const rows = await orm.query.from('t3 t').where({
+      __raw: { __raw: "t.id = 'a'", params: [] },
+    } as never).select('*').run()
+    assert.equal(rows.length, 1)
   })
 })

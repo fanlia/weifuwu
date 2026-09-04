@@ -60,6 +60,10 @@ export interface MemorySnapshotEntry {
 export type MemorySnapshot = Map<string, MemorySnapshotEntry>
 
 export class MemorySql {
+  /** 客户端路径列校验开关（wire 服务器端关闭——它是 PG 替身：列错由真库语义 42703 报） */
+  private opts: { validateCols?: boolean } | undefined
+  constructor(opts?: { validateCols?: boolean }) { this.opts = opts }
+
   private tables = new Map<string, MemoryTable>()
   /** CREATE TYPE AS ENUM 注册（幂等——DO 块 EXCEPTION duplicate_object 语义） */
   private enums = new Map<string, string[]>()
@@ -123,7 +127,34 @@ export class MemorySql {
     }
   }
 
+  /** 合法列集：DDL columns ∪ 观测行键（insert 建表无 DDL——行键即事实列） */
+  private tableCols(name: string): Set<string> {
+    const t = this.table(name)
+    const set = new Set(t.columns)
+    for (const row of t.rows) for (const k of Object.keys(row)) set.add(stripTable(k))
+    return set
+  }
+
+  /** W1 列校验：where/join-on/投影/orderBy/groupBy 纯列引用 ∈ 表列集（未知列不再静默） */
+  private assertKnownCols(ctx: string, q: SelectQuery, outerCtx?: { row: Row; alias: string }): void {
+    if (this.opts?.validateCols === false) return // wire 服务器端（PG 替身——真库 42703 语义）
+    if (outerCtx) return // 子查询关联引用（外层列）——降级（主查询面已覆盖）
+    const tables: { alias: string; cols: Set<string> }[] = [
+      { alias: q.alias ?? q.table, cols: this.tableCols(q.table) },
+    ]
+    for (const j of q.joins ?? []) tables.push({ alias: j.alias ?? j.table, cols: this.tableCols(j.table) })
+    const aggAs = new Set((q.aggregate ?? []).map((a) => a.as))
+    const colRefs: string[] = []
+    if (q.where) colRefs.push(...collectWhereCols(q.where))
+    for (const j of q.joins ?? []) if (!isRaw(j.on)) colRefs.push(...collectWhereCols(j.on))
+    for (const c of q.cols ?? []) if (typeof c === 'string') colRefs.push(c)
+    for (const o of q.orderBy ?? []) if (!aggAs.has(o.col)) colRefs.push(o.col)
+    if (q.groupBy) for (const g of q.groupBy) if (!aggAs.has(g)) colRefs.push(g)
+    if (colRefs.length) assertColRefs(ctx, colRefs, tables, q.table, aggAs)
+  }
+
   private execSelect(q: SelectQuery, outerCtx?: { row: Row; alias: string }): QueryResult<Row> {
+    if (q.table) this.assertKnownCols('SELECT', q, outerCtx)
     // count(*) 聚合：过滤后行数 → 单行 { count }
     if (q.count) {
       const t = this.table(q.table)
@@ -171,7 +202,7 @@ export class MemorySql {
           const merged: Row = {}
           for (const [k, v] of Object.entries(l)) merged[`${tableAlias}.${k}`] = v
           for (const [k, v] of Object.entries(r)) merged[`${jAlias}.${k}`] = v
-          if (isRaw(j.on)) throw new ProtocolError('memory-sql: raw JOIN ON 不支持（诚实裁剪——用真库）')
+          if (isRaw(j.on)) throw new ProtocolError('raw JOIN', 'memory-sql: raw JOIN ON 不支持（诚实裁剪——用真库）')
           if (matchWhereExpr(merged, j.on, undefined)) joined.push(merged)
         }
       }
@@ -241,7 +272,7 @@ export class MemorySql {
       out = filtered.map((r) => {
         const proj: Row = {}
         for (const c of q.cols!) {
-          if (isRaw(c)) throw new ProtocolError('memory-sql: raw 投影不支持（诚实裁剪——用真库）')
+          if (isRaw(c)) throw new ProtocolError('raw 投影', 'memory-sql: raw 投影不支持（诚实裁剪——用真库）')
           // 'expr AS alias'（parser 产出）——按 expr 取值·输出键=alias
           const asm = /^(.+?)\s+AS\s+([\w.]+)$/i.exec(c)
           if (asm) proj[asm[2]] = resolveCol(r, asm[1].trim())
@@ -395,7 +426,7 @@ export class MemorySql {
           } else if (isRaw(v)) {
             // raw SET 值：now() 特判（编辑/软删时间戳）；其余裁剪
             if (/^now\(\)$/i.test((v as RawSql).__raw.trim())) next[k] = new Date().toISOString()
-            else throw new ProtocolError('memory-sql: raw SET 值不支持（诚实裁剪——用真库）')
+            else throw new ProtocolError('raw SET', 'memory-sql: raw SET 值不支持（诚实裁剪——用真库）')
           } else {
             next[k] = v
           }
@@ -711,6 +742,38 @@ function pick(row: Row, cols: string[]): Row {
 }
 
 /** 从行解析列引用（支持 alias.col 与裸列） */
+/**
+ * 列引用校验（W1——未知列不再静默：memory 与真库 42703 行为对齐）。
+ * 只校验纯列引用形态（/^[\w.]+$/）——表达式面（'lower(x)'/'count(*) AS…'）跳过不误伤。
+ * 合法域：from 表列集 ∪ join 表列集（别名拆 `.` 后段）。
+ */
+function assertColRefs(ctx: string, colRefs: Iterable<string>, tables: { alias: string; cols: Set<string> }[], tname: string, aggAs?: Set<string>): void {
+  for (const c of colRefs) {
+    if (c === '*' || c === '' || /^\d+$/.test(c) || !/^[\w.]+$/.test(c)) continue
+    if (aggAs?.has(c) || aggAs?.has(c.slice(c.lastIndexOf('.') + 1))) continue
+    const bare = c.includes('.') ? c.slice(c.lastIndexOf('.') + 1) : c
+    if (tables.some((t) => t.cols.has(bare))) continue
+    const all = [...new Set(tables.flatMap((t) => [...t.cols]))].sort()
+    throw new ProtocolError('未知列', `memory-sql: ${ctx} 未知列 '${c}'——${tname} 合法列：${all.join(', ')}`)
+  }
+}
+
+function collectWhereCols(expr: WhereExpr): string[] {
+  const out: string[] = []
+  for (const [k, v] of Object.entries(expr)) {
+    if (k === 'or' || k === 'and') {
+      for (const sub of v as WhereExpr[]) out.push(...collectWhereCols(sub))
+      continue
+    }
+    if (k === '__raw') continue // whereRaw 文本面——合法（协议层）
+    out.push(k)
+    if (typeof v === 'object' && v !== null && !Array.isArray(v) && 'col' in (v as Record<string, unknown>)) {
+      out.push(String((v as { col: unknown }).col))
+    }
+  }
+  return out
+}
+
 function resolveCol(row: Row, ref: string, _alias?: string): unknown {
   if (ref in row) return row[ref]
   const dot = ref.indexOf('.')
@@ -812,7 +875,7 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
           if (unit === 'minute') return new Date(d.setUTCSeconds(0, 0)).toISOString()
           return new Date(d).toISOString()
         }
-        throw new ProtocolError(`memory-sql: WHERE 值表达式不支持（诚实裁剪——用真库）：${t}`)
+        throw new ProtocolError('WHERE 值表达式', `memory-sql: WHERE 值表达式不支持（诚实裁剪——用真库）：${t}`)
       }
       if (ops.col !== undefined && !deepEq(actual, resolveCol(row, ops.col, alias))) return false
       if (ops.eq !== undefined && !deepEq(actual, rv(ops.eq))) return false
@@ -833,7 +896,7 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
       continue
     }
     if (process.env.PGDBG2) console.error('[mmw where]', JSON.stringify({col, field}))
-    throw new ProtocolError(`memory-sql: WHERE 列 ${col} 值必须为算子对象（裸标量/数组/null 形态已移除——用 { eq: v } / { in: [...] } / { isNull: true }）`)
+    throw new ProtocolError('WHERE 值形态', `memory-sql: WHERE 列 ${col} 值必须为算子对象（裸标量/数组/null 形态已移除——用 { eq: v } / { in: [...] } / { isNull: true }）`)
   }
   return true
 }
