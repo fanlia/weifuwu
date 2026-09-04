@@ -92,6 +92,17 @@
     wire 面删后 orm.test/departments-pilot 转 memory 直执行（判负已定）
   - W3 断言方向：db 域测试 fixture 全切 AST 面（mem.executeDdl/executeQuery + orm.query）
     ——文本面契约（query-language/compile-fuzz/servers）重写或删除
+- **W3a 完成（whereRaw 全链删——已提交 d6f7441e）**：
+  - 删除：builder 3 方法（query-builder）/ 3 接口声明 / orm CHAIN 项 / memory
+    resolveRawWhere + matchWhereExpr raw 分支（parseWhereToExpr 依赖面）/ compileWhere
+    顶层+算子值 raw 分支 / mergeWhere raw 检查 / WhereField 联合剔除 RawSql
+  - 保留：RawSql 数据面（merge 值/select 列/join on——interpRaw 无 parser 依赖）
+  - 判负生效：推翻条件「无法算子表达且非月面」未出现（平台 6 处全 monthStart 覆盖）
+  - 测试处置：query-language 3 处（raw 编译删·双 raw AND 改结构化 where 合并·
+    时间窗改 nowAgo）/ memory-semantics 4 处（E2 三测改 monthStart/结构化·
+    __raw 豁免删）——删除 3 测（raw 编译/坏 raw/__raw 豁免）
+  - 数字：db 域 233/233 · 平台非 ui 451 绿（14 skip docker）· 全库 `.whereRaw(` 零引用
+    · tsc 0
 
 ## 验收标准
 
