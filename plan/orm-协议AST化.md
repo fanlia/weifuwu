@@ -103,6 +103,17 @@
     __raw 豁免删）——删除 3 测（raw 编译/坏 raw/__raw 豁免）
   - 数字：db 域 233/233 · 平台非 ui 451 绿（14 skip docker）· 全库 `.whereRaw(` 零引用
     · tsc 0
+- **W3b 完成（MemoryPostgresServer 消亡——已提交）**：
+  - 删除：postgres-server.ts（676 行）/ servers.test（198）/ test-servers（41——零消费者）
+    / server.ts+index.ts 导出
+  - 契约处置：connection.test + client.test（2 describe）→ 真库 gate（RUN_DOCKER_TESTS=1
+    + DATABASE_URL——与 sandbox 同口径）；protocol.test 保留（纯编解码单元——零服务器）
+  - 重写：memory-pg-platform → memory 引擎 + compileQuery SQL 形状静态契约（FILTER
+    参数序先于 WHERE——诚实锁定）；departments-pilot / gql-from-shape / orm.test wire
+    段 → MemorySql.applySchema + createMemoryOrm 直执；orm.test 2 wire 测删 1 换内存
+  - 数字：src/server 全域 **800/800** · db 域 209/209 · tsc 0
+  - 判负兑现：wire 金丝雀随文本面消亡（PgPool client 协议契约转真库 gate——推翻
+    条件未触发：业务零 PgPool 直连确证）
 
 ## 验收标准
 
