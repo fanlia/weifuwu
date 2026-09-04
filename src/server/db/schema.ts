@@ -15,6 +15,7 @@
  */
 import type { ZodType } from '../../shared/zod.ts'
 import type { ZodRawShape } from '../../shared/zod.ts'
+import type { DdlQuery } from './query.ts'
 
 // ── 声明 ──────────────────────────────────────────────────
 
