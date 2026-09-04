@@ -43,21 +43,18 @@ export async function searchKnowledgeBase(
   query: string,
   topK = 5,
 ): Promise<SearchResult[]> {
-  const { sql, ai } = ctx
+  const { orm, ai } = ctx
 
   const queryEmbedding = await ai.embed(query)
-  const vecStr = `[${queryEmbedding.join(',')}]`
 
-  const results = await sql`
-    SELECT
-      kc.id, kc.content, kc.document_id, kd.filename,
-      1 - (kc.embedding <=> ${vecStr}::vector) as similarity
-    FROM kb_chunks kc
-    JOIN kb_documents kd ON kd.id = kc.document_id
-    WHERE kc.agent_id = ${agentId}
-    ORDER BY kc.embedding <=> ${vecStr}::vector
-    LIMIT ${topK}
-  `
+  // orm-pg-vector 判负修订：vectorScore 特化（框架编译 `1-(col<=>vec) as as` + ORDER BY）
+  const results = await orm.query.from('kb_chunks kc')
+    .join('kb_documents kd', { 'kd.id': { col: 'kc.document_id' } })
+    .select('kc.id', 'kc.content', 'kc.document_id', 'kd.filename')
+    .vectorScore('kc.embedding', queryEmbedding, 'similarity')
+    .where({ 'kc.agent_id': { eq: String(agentId) } })
+    .limit(topK)
+    .run()
 
   return results.map((r: any) => ({
     id: r.id,

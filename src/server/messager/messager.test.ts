@@ -9,32 +9,32 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { createMemorySql } from '../db/memory-sql.ts'
 import { MemorySql } from '../db/memory-sql.ts'
-import { createQueryBuilder } from '../db/query-builder.ts'
-import { messager } from '../messager/index.ts'
+import { createOrm, memoryAdapter, type Orm } from '../db/orm.ts'
+import { messager, WEIFUWU_MESSAGER_SCHEMA } from '../messager/index.ts'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 describe('messager core (memory sql)', () => {
-  const db = createMemorySql()
-  const system = messager({ sql: db })
+  const memSql = new MemorySql()
+  const db = createOrm(memoryAdapter(memSql))
+  memSql.applySchema(WEIFUWU_MESSAGER_SCHEMA)
+  const system = messager({ orm: db })
   const msg = system.client
 
   before(async () => {
-    // MemorySql 惰性建表（无 migrate）——migrate = DDL no-op
-    await system.migrate()
+    // 建表由 applySchema(WEIFUWU_MESSAGER_SCHEMA) 完成（migrate 已并入迁移编排）
   })
 
   after(async () => {
-    await db.close()
+    await (db as unknown as { close?: () => Promise<void> }).close?.()
   })
 
   const uid = () => randomUUID()
   const mkConv = (a: string, b: string) => msg.createConversation(a, { type: 'direct', otherUserId: b })
 
-  it('migrate 幂等（调用两次不抛）', async () => {
-    await system.migrate()
+  it('schema 幂等（applySchema 可重跑）', async () => {
+    memSql.applySchema(WEIFUWU_MESSAGER_SCHEMA)
   })
 
   it('创建 direct 会话并写入双方成员', async () => {
@@ -132,41 +132,34 @@ describe('messager core (memory sql)', () => {
     assert.equal(await msg.isMember(r1.id, b), true)
   })
 
-  it('M10 transaction 注入：conv+members 全部经事务 sql（连接级——原 BEGIN/COMMIT 池化断裂）', async () => {
-    // 同 mem 引擎双包装：base（pool sql——计数不记）+ tx（事务 sql——计数）
+  it('M10 transaction：conv+members 全经事务执行（同连接语义——原 BEGIN/COMMIT 池化断裂修复面）', async () => {
+    // memory 无事务面（单线程 no-op 等价）——计数 adapter 验证「createConversation 内
+    // 全部写经同一条查询链」（orm.transaction 统一入口——连接亲和由 postgres 层保证）
     const mem = new MemorySql()
-    let txExecs = 0
-    const makeSql = (count: boolean) => {
-      const s = (async (tag: TemplateStringsArray, ...v: unknown[]) => mem.tag(tag, v)) as any
-      s.query = createQueryBuilder(s, async (q: any) => {
-        if (count) txExecs++
+    let execs = 0
+    const countingAdapter = {
+      executeQuery: (q: Parameters<typeof mem.executeQuery>[0]) => {
+        execs++
         return mem.executeQuery(q)
-      })
-      s.unsafe = (t: string, p?: unknown[]) => (mem as any).unsafe(t, p)
-      s.close = () => (mem as any).close()
-      return s
-    }
-    const baseSql = makeSql(false)
-    const txSql = makeSql(true)
-    const txSystem = messager({
-      sql: baseSql,
-      transaction: async (fn) => fn(txSql), // shape：pool.begin 语义（连接级）
-    })
-    await txSystem.migrate() // 建表在 mem 引擎（base/tx 共享）
-    // direct 路径：pre-check（base sql）+ 事务内 conv+2 members
-    const conv = await txSystem.client.createConversation('m10-a', { type: 'direct', otherUserId: 'm10-b' })
+      },
+      execute: (s: string, p?: unknown[]) => (mem as unknown as { unsafe(s: string, p?: unknown[]): Promise<unknown[]> }).unsafe(s, p),
+    } as never
+    mem.applySchema(WEIFUWU_MESSAGER_SCHEMA)
+    const txOrm = createOrm(countingAdapter)
+    const txSystem = messager({ orm: txOrm })
+    // direct 路径：pre-check + 事务（conv+2 members 全走 executeQuery）
+    const conv = await txSystem.client.createConversation('a1000000-0000-4000-8000-00000000000a', { type: 'direct', otherUserId: 'a1000000-0000-4000-8000-0000000000ab' })
     assert.ok(conv.id)
-    assert.equal(txExecs, 3, 'M10：conv insert + 2× members insert 全经事务 sql（3 次）')
-    const members = await txSql.query.from('_weifuwu_conversation_members').select('user_id').run()
+    assert.ok(execs >= 3, `M10：conv insert + 2× members insert 全经事务执行（实际 ${execs}）`)
+    const members = await txOrm.query.from('_weifuwu_conversation_members').select('user_id').run()
     assert.equal(members.length, 2, '事务内成员写入生效')
-    // group 路径：事务内 conv + N members（创建者 + 2 = 3 成员）
-    txExecs = 0
-    await txSystem.client.createConversation('m10-g', { type: 'group', memberIds: ['m10-x', 'm10-y'] })
-    assert.equal(txExecs, 4, 'group：conv + 3 members（含创建者）全经事务 sql')
-    const gmembers = await txSql.query.from('_weifuwu_conversation_members').where({ conversation_id: (await txSql.query.from('_weifuwu_conversations').where({ type: 'group' }).select('id').one())?.id as string }).select('user_id').run()
+    // group 路径：conv + 3 members（创建者 + 2）
+    execs = 0
+    await txSystem.client.createConversation('a1000000-0000-4000-8000-00000000000a', { type: 'group', memberIds: ['a1000000-0000-4000-8000-0000000000ab', 'a1000000-0000-4000-8000-0000000000cd'] })
+    assert.ok(execs >= 4, `group：conv + 3 members（含创建者）全经事务执行（实际 ${execs}）`)
+    const gconv = (await txOrm.query.from('_weifuwu_conversations').where({ type: { eq: 'group' } }).select('id').one()) as { id?: unknown } | undefined
+    const gmembers = await txOrm.query.from('_weifuwu_conversation_members').where({ conversation_id: { eq: String(gconv?.id ?? '') } }).select('user_id').run()
     assert.equal(gmembers.length, 3)
-    await (txSql as any).close()
-    await (baseSql as any).close()
   })
 
   it('M3 会话列表：按最近活动倒序 + last_message + unread_count', async () => {

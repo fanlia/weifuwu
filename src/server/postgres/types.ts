@@ -1,20 +1,10 @@
 import type { Context, Middleware, Closeable } from '../types.ts'
-import type { Sql, Row } from '../db/contracts.ts'
-
-declare module '../types.ts' {
-  interface Context {
-    sql: Sql
-  }
-}
-
-/** 契约：SQL 标签模板（ctx.sql）——定义于 src/db/contracts.ts（自研引擎实现） */
-export type { Sql }
-
-/** 旧名兼容（SqlClient → Sql，契约单一来源 db/contracts.ts） */
-export type SqlClient = Sql
+import type { Row } from '../db/contracts.ts'
+import type { Orm } from '../db/orm.ts'
 
 export interface PostgresInjected {
-  sql: SqlClient
+  /** 声明式 ORM（shape+operator+adapter——业务唯一数据入口；ctx.sql 已删除） */
+  orm: import('../db/orm.ts').Orm
 }
 
 export interface PostgresOptions {
@@ -45,14 +35,20 @@ export interface PostgresOptions {
 }
 
 export interface PostgresClient extends Middleware<Context, Context & PostgresInjected>, Closeable {
-  sql: SqlClient
+  /** 声明式 ORM（shape+operator+adapter——表绑定/校验/类型收窄/gql） */
+  orm: Orm
   /** Creates the migration tracking table (_weifuwu_migrations). Called once at startup. */
   migrate: () => Promise<void>
   /** Record that a module's migration has been applied (idempotent). */
   markMigrated: (moduleName: string) => Promise<void>
   /** Check whether a module has already been migrated. */
   isMigrated: (moduleName: string) => Promise<boolean>
-  transaction: <T>(fn: (sql: SqlClient) => Promise<T>, retryOpts?: { maxRetries?: number }) => Promise<T>
+  /** 迁移面（DDL 唯一入口）：执行 + 记录（已迁移名跳过）。业务查询不 execute——全算子化。 */
+  runMigration: (name: string, sql: string) => Promise<void>
+  /** 声明式 Schema 迁移（SchemaModule → 生成 DDL → 执行+记录——业务零 SQL 字符串） */
+  migrateModule: (name: string, mod: import('../db/schema.ts').SchemaModule) => Promise<void>
+  /** ORM 面事务（fn 收 orm——含 orm.query/execute——连接级同连接） */
+  transaction: <T>(fn: (orm: Orm) => Promise<T>, retryOpts?: { maxRetries?: number }) => Promise<T>
   /** Connection pool configuration summary. */
   poolStats: () => { active: number; idle: number; waiting: number; max: number }
   close: () => Promise<void>

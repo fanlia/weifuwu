@@ -28,10 +28,12 @@ describe('userSystem timing 拉平（B3）', () => {
       },
     })
     const { userSystem } = await import('../user/index.ts')
-    const { createMemorySql } = await import('../db/memory-sql.ts')
+    const { createMemoryOrm } = await import('../db/memory-sql.ts')
+    const { WEIFUWU_USER_SCHEMA } = await import('../user/index.ts')
 
-    const db = createMemorySql()
-    const users = userSystem({ sql: db, secret: 'test-secret-0123456789abcdef' })
+    const db = createMemoryOrm()
+    db.mem.applySchema(WEIFUWU_USER_SCHEMA)
+    const users = userSystem({ orm: db.orm, secret: 'test-secret-0123456789abcdef' })
     await users.migrate()
 
     async function authCtx() {

@@ -86,12 +86,22 @@ test('appAuth：verifyToken 在线校验——false → 会话失效（分离即
   assert.equal(off.ctx.session, null)
 })
 
+test('AuthInterface：asAppAuth() === users（本地实现=this——装配语义化·与远程 appAuth 可互换）', async () => {
+  const { userSystem, WEIFUWU_USER_SCHEMA } = await import('./index.ts')
+  const { createMemoryOrm } = await import('../db/memory-sql.ts')
+  const users = userSystem({ orm: (() => { const o = createMemoryOrm(); o.mem.applySchema(WEIFUWU_USER_SCHEMA); return o.orm })(), secret: SECRET })
+  assert.equal(users.asAppAuth(), users)
+  assert.equal(typeof (users.asAppAuth() as any).routes, 'function')
+  assert.equal((users.asAppAuth() as any).__meta?.injects?.includes('auth'), true)
+})
+
 test('appAuth：跨进程对称——userSystem 签发（register-app 真 token）→ appAuth 验签解析', async () => {
-  const { userSystem } = await import('./index.ts')
-  const { createMemorySql } = await import('../db/memory-sql.ts')
+  const { userSystem, WEIFUWU_USER_SCHEMA } = await import('./index.ts')
+  const { createMemoryOrm } = await import('../db/memory-sql.ts')
   const { Router } = await import('../core/router.ts')
-  const sql = createMemorySql()
-  const users = userSystem({ sql, secret: SECRET })
+  const sql = createMemoryOrm()
+  sql.mem.applySchema(WEIFUWU_USER_SCHEMA)
+  const users = userSystem({ orm: sql.orm, secret: SECRET })
   await users.migrate()
   const app = new Router()
   app.use(users)

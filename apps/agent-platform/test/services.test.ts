@@ -81,6 +81,7 @@ function makeMockCtx(extra?: Record<string, unknown>): Context {
     query: {},
     ai: mockAiClient,
     sql: null as any,
+    orm: (pg as any)?.orm ?? null,
     appId: APP_ID,
     auth: { userId: 'test-user', appId: APP_ID, email: 'test@test.com', name: 'Test', role: 'member' },
     ...extra,
@@ -184,7 +185,7 @@ describe('Services', () => {
 
   describe('handleNewMessage()', () => {
     it('部门有 AI Agent 时触发自动回复', async () => {
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
 
       await handleNewMessage(ctx, DEPT_ID, USER_AGENT_ID, '测试消息')
 
@@ -201,7 +202,7 @@ describe('Services', () => {
       await pg.sql`INSERT INTO departments (id, app_id, name) VALUES ('00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000001', 'Empty')`
       await pg.sql`INSERT INTO department_members (department_id, agent_id) VALUES ('00000000-0000-0000-0000-000000000022', ${USER_AGENT_ID})`
 
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       await handleNewMessage(ctx, '00000000-0000-0000-0000-000000000022', USER_AGENT_ID, '无 AI 回复')
 
       const msgs = await pg.sql`
@@ -222,7 +223,7 @@ describe('Services', () => {
         INSERT INTO department_members (department_id, agent_id) VALUES (${DEPT_ID}, '00000000-0000-0000-0000-000000000032')
       `
 
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
 
       await handleNewMessage(ctx, DEPT_ID, USER_AGENT_ID, '需审批的消息')
 
@@ -242,7 +243,7 @@ describe('Services', () => {
       // onChunk 的并发调用——修复前 UPDATE 乱序完成覆盖为中间值）
       const chunks = ['今天是', ' **2026年8月10日**', '，星期一。']
       const ctx = makeMockCtx({
-        sql: await pg.sql as any,
+        sql: await pg.sql as any, orm: (pg as any).orm,
         msg: { broadcast: () => {} },
         ai: {
           ...mockAiClient,
@@ -274,7 +275,7 @@ describe('Services', () => {
       // 客户端 `ev.agentId ?? 'ai'` 关灯打在 'ai' 上 → 呼吸灯永久「干活中…」
       const broadcasts: Array<Record<string, any>> = []
       const ctx = makeMockCtx({
-        sql: await pg.sql as any,
+        sql: await pg.sql as any, orm: (pg as any).orm,
         msg: { broadcast: (_room: string, ev: Record<string, any>) => { broadcasts.push(ev) } },
         ai: {
           ...mockAiClient,
@@ -317,7 +318,7 @@ describe('Services', () => {
     })
 
     it('返回 AI 回复', async () => {
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       const result = await handleWebhookMessage(
         ctx as Context,
         '00000000-0000-0000-0000-000000000040',
@@ -328,7 +329,7 @@ describe('Services', () => {
     })
 
     it('支持 conversation_id', async () => {
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       const result = await handleWebhookMessage(
         ctx as Context,
         '00000000-0000-0000-0000-000000000040',
@@ -357,7 +358,7 @@ describe('Services', () => {
       // 配置出站 URL + secret
       await pg.sql`UPDATE agents SET webhook_url = ${`http://127.0.0.1:${port}/reply`}, webhook_secret = 'out-secret' WHERE id = '00000000-0000-0000-0000-000000000040'`
       try {
-        const ctx = makeMockCtx({ sql: await pg.sql as any })
+        const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
         // 入站也需签名（出站/入站共享 secret）
         const ts = String(Date.now())
         const raw = JSON.stringify({ content: '出站测试' })
@@ -387,7 +388,7 @@ describe('Services', () => {
       await pg.sql`UPDATE agents SET webhook_url = 'http://127.0.0.1:9/evil', webhook_secret = NULL WHERE id = '00000000-0000-0000-0000-000000000040'`
       const { handleWebhookMessage } = await import('../src/services/webhook.ts')
       try {
-        const ctx = makeMockCtx({ sql: await pg.sql as any })
+        const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
         const result = await handleWebhookMessage(
           ctx as Context,
           '00000000-0000-0000-0000-000000000040',
@@ -404,7 +405,7 @@ describe('Services', () => {
     })
 
     it('不存在的 agent 抛出错误', async () => {
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       await assert.rejects(
         () => handleWebhookMessage(ctx as Context, '00000000-0000-0000-0000-000000000000', { content: 'test' }),
         /not found/i,
@@ -412,7 +413,7 @@ describe('Services', () => {
     })
 
     it('有 appId 时验证应用隔离', async () => {
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       await assert.rejects(
         () => handleWebhookMessage(
           ctx as Context,
@@ -430,7 +431,7 @@ describe('Services', () => {
         VALUES ('00000000-0000-0000-0000-000000000041', ${APP_ID}, 'webhook', 'Tool WB', 'Use tools', '[{"type":"function","function":{"name":"get_info","description":"Get info","parameters":{}}}]'::jsonb)
       `
 
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       // 工具由框架 agent 引擎从 agents.tools 配置解析（src/tools/ 内置工具注册），
       // mock ai.agent 直接返回内容——验证带 tools 配置的 webhook 不崩溃且返回 reply
       const result = await handleWebhookMessage(
@@ -477,14 +478,14 @@ describe('Services', () => {
     })
 
     it('返回检索结果', async () => {
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       const results = await searchKnowledgeBase(ctx, AI_AGENT_ID, '人工智能', 5)
       assert.ok(Array.isArray(results))
       assert.ok(results.length >= 0)
     })
 
     it('返回结果包含必要字段', async () => {
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       const results = await searchKnowledgeBase(ctx, AI_AGENT_ID, '测试', 5)
       for (const r of results) {
         assert.ok(r.id)
@@ -495,7 +496,7 @@ describe('Services', () => {
     })
 
     it('不存在的 agent 返回空', async () => {
-      const ctx = makeMockCtx({ sql: await pg.sql as any })
+      const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       const results = await searchKnowledgeBase(ctx, '00000000-0000-0000-0000-000000000000', 'test', 5)
       assert.equal(results.length, 0)
     })

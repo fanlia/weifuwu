@@ -43,13 +43,25 @@ test('A5: buildVerifyMark 格式', () => {
   assert.ok(both.includes('✅') && both.includes('⚠️'), '两态并存')
 })
 
+
+/** 假 orm（workpace_path 查询假实现——返回预置部门行） */
+function mockSql(rows: Array<Record<string, unknown>>) {
+  return {
+    query: {
+      from: () => ({
+        select: () => ({ where: () => ({ limit: () => ({ run: async () => rows }) }) }),
+      }),
+    },
+  }
+}
+
 test('A6: verifyArtifacts 真实目录校验', async () => {
   const ws = await mkdtemp(join(tmpdir(), 'artifact-verify-'))
   await writeFile(join(ws, 'real.md'), 'x')
   try {
     // mock sql：返回部门 workspace_path=null（默认解析——但 verifyArtifacts 需要真实部门目录
     // ——这里用独立路径验证提取/标记链路；verifyArtifacts 的目录解析在集成测试覆盖）
-    const sql = async () => []
+    const sql = mockSql([])
     // 直接验证 extract+mark 组合（真实 AI 回复场景）
     const reply = '✅ 已完成：已创建文件 report.md' + buildVerifyMark(['report.md'], ['fake.xlsx'])
     assert.ok(reply.includes('产物已验证：report.md'), '已验证标记')
@@ -69,7 +81,7 @@ test('R1: approveArtifact 移动待审文件 → 共享目录（发布）', asyn
   await mkdir(pending, { recursive: true })
   await writeFile(join(pending, 'draft.md'), 'draft')
   // mock sql：部门 workspace_path = ws（直接返回）
-  const sql = async () => [{ workspace_path: ws }]
+  const sql = mockSql([{ workspace_path: ws }])
   const r = await approveArtifact(sql as any, 'dept-1', 'draft.md')
   assert.equal(r.ok, true, JSON.stringify(r))
   // 文件已在共享区、pending 消失
@@ -85,7 +97,7 @@ test('R2: rejectArtifact 删除待审文件', async () => {
   const pending = join(ws, '.pending')
   await mkdir(pending, { recursive: true })
   await writeFile(join(pending, 'bad.md'), 'bad')
-  const sql = async () => [{ workspace_path: ws }]
+  const sql = mockSql([{ workspace_path: ws }])
   const r = await rejectArtifact(sql as any, 'dept-1', 'bad.md')
   assert.equal(r.ok, true, JSON.stringify(r))
   const { access } = await import('node:fs/promises')
@@ -95,7 +107,7 @@ test('R2: rejectArtifact 删除待审文件', async () => {
 
 test('R3: 非法路径拒绝（../ 穿越）', async () => {
   const { approveArtifact, rejectArtifact } = await import('../src/services/artifact-review.ts')
-  const sql = async () => [{ workspace_path: '/tmp' }]
+  const sql = mockSql([{ workspace_path: '/tmp' }])
   const a = await approveArtifact(sql as any, 'dept-1', '../evil.md')
   assert.equal(a.ok, false, 'approve 拒绝穿越')
   const b = await rejectArtifact(sql as any, 'dept-1', '/abs.md')
@@ -109,7 +121,7 @@ test('R4: flushPendingArtifacts 关闭审批时全部发布', async () => {
   await mkdir(pending, { recursive: true })
   await writeFile(join(pending, 'a.md'), 'a')
   await writeFile(join(pending, 'b.md'), 'b')
-  const sql = async () => [{ workspace_path: ws }]
+  const sql = mockSql([{ workspace_path: ws }])
   const moved = await flushPendingArtifacts(sql as any, 'dept-1')
   assert.equal(moved, 2, '2 个待审全部发布')
   const { readdir } = await import('node:fs/promises')

@@ -6,19 +6,20 @@
  */
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { createMemorySql } from '../db/memory-sql.ts'
-import { workflowSystem } from './index.ts'
+import { createMemoryOrm } from '../db/memory-sql.ts'
+import { workflowSystem, WEIFUWU_WORKFLOW_SCHEMA } from './index.ts'
 
 const GOOD_WFJS = `const res = await log({ message: 'hello' })
 const n = res.data
 if (vars.n !== null) { const m = await log({ message: 'ok' }) }`
 
 describe('workflowSystem (memory sql)', () => {
-  const db = createMemorySql()
-  const sys = workflowSystem({ sql: db })
+  const db = createMemoryOrm()
+  db.mem.applySchema(WEIFUWU_WORKFLOW_SCHEMA)
+  const sys = workflowSystem({ orm: db.orm })
 
   before(async () => {
-    await sys.migrate() // memory：DDL no-op（惰性建表）
+    // 建表由 applySchema 完成（migrate 已并入迁移编排）
   })
   after(async () => {
     await db.close()

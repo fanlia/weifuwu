@@ -18,6 +18,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import type { AppCtx } from '../middleware/ctx.ts'
+import { ops } from 'weifuwu'
 import type { QueueClient, QueueWorker } from 'weifuwu'
 
 export const VIDEO_POLL_QUEUE = 'video-task.poll'
@@ -75,27 +76,9 @@ export function pollIntervalMs(): number {
 /* ── 表（惰性自建——模块级缓存——调用面在服务内） ────────────── */
 
 let tableEnsured = false
-export async function ensureVideoTasksTable(sql: any): Promise<void> {
-  if (tableEnsured) return
-  await sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS video_tasks (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      app_id UUID NOT NULL,
-      department_id UUID,
-      agent_id UUID,
-      task_id TEXT NOT NULL,
-      prompt TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      filename TEXT NOT NULL,
-      path TEXT,
-      error TEXT,
-      params JSONB,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS idx_video_tasks_task ON video_tasks(task_id);
-    ALTER TABLE video_tasks ADD COLUMN IF NOT EXISTS agent_id UUID;
-  `)
+export async function ensureVideoTasksTable(_orm?: any): Promise<void> {
+  // 建表已声明式化：video_tasks 属 AGENT_PLATFORM_SCHEMA（tables.ts）——由 server.ts
+  // pg.migrateModule 启动迁移——此处仅幂等 no-op（历史调用面保留）
   tableEnsured = true
 }
 
@@ -119,13 +102,15 @@ export async function createVideoTask(ctx: AppCtx, opts: VideoGenParams): Promis
   })
 
   const filename = pickFilename(opts.filename)
-  await ensureVideoTasksTable(ctx.sql)
-  const [row] = await ctx.sql`
-    INSERT INTO video_tasks (app_id, department_id, task_id, prompt, status, filename, params)
-    VALUES (${ctx.appId}, ${opts.departmentId}, ${taskId}, ${prompt}, 'pending', ${filename},
-      ${JSON.stringify({ resolution: opts.resolution, ratio: opts.ratio, duration: opts.duration, watermark: opts.watermark })})
-    RETURNING *
-  `
+  await ensureVideoTasksTable(ctx.orm as any)
+  const [row] = await ctx.orm.query.insert('video_tasks')
+    .values({
+      app_id: String(ctx.appId), department_id: opts.departmentId, task_id: taskId, prompt,
+      status: 'pending', filename,
+      params: { resolution: opts.resolution, ratio: opts.ratio, duration: opts.duration, watermark: opts.watermark },
+    })
+    .returning('*')
+    .run()
   const job: VideoPollJob = {
     rowId: String((row as any).id), appId: ctx.appId, taskId,
     prompt, filename, departmentId: opts.departmentId, agentId: opts.agentId ?? '',
@@ -148,10 +133,10 @@ function pickFilename(name: string | undefined): string {
 export async function handleVideoPoll(job: VideoPollJob, ctx: AppCtx, q: QueueClient): Promise<void> {
   const ai = ctx.ai
   if (!ai) throw new Error('AI 中间件未注入（ctx.ai）——无法查询视频任务')
-  const sql = ctx.sql
+  const orm = ctx.orm
   const st = await ai.videoStatus(job.taskId)
   if (st.status === 'pending' || st.status === 'running') {
-    await sql`UPDATE video_tasks SET status = ${st.status}, updated_at = NOW() WHERE id = ${job.rowId}`
+    await orm.query.update('video_tasks').set({ status: st.status, updated_at: ops.now() }).where({ id: { eq: job.rowId }}).run()
     await sleep(pollIntervalMs())
     await q.add(VIDEO_POLL_QUEUE, job, { attempts: 5 })
     return
@@ -163,12 +148,12 @@ export async function handleVideoPoll(job: VideoPollJob, ctx: AppCtx, q: QueueCl
     const { join } = await import('node:path')
     const ws = await resolveDepartmentWorkspace(job.departmentId, null, true)
     if (!ws) {
-      await sql`UPDATE video_tasks SET status = 'failed', error = '部门工作区不可用——无法保存视频', updated_at = NOW() WHERE id = ${job.rowId}`
+      await orm.query.update('video_tasks').set({ status: 'failed', error: '部门工作区不可用——无法保存视频', updated_at: ops.now() }).where({ id: { eq: job.rowId }}).run()
       return
     }
     const dest = join(ws, job.filename)
     await writeFile(dest, bytes)
-    await sql`UPDATE video_tasks SET status = 'succeeded', path = ${dest}, updated_at = NOW() WHERE id = ${job.rowId}`
+    await orm.query.update('video_tasks').set({ status: 'succeeded', path: dest, updated_at: ops.now() }).where({ id: { eq: job.rowId }}).run()
     console.log(`[video-gen] task ${job.taskId} 已生成并保存 ${dest}`)
     // W5 通知闭环：以发起 agent 身份发部门消息（失败不阻断——行已收口）
     try {
@@ -179,7 +164,7 @@ export async function handleVideoPoll(job: VideoPollJob, ctx: AppCtx, q: QueueCl
     return
   }
   // failed——终态（不再续链——provider 已含错误原因）
-  await sql`UPDATE video_tasks SET status = 'failed', error = ${st.error ?? null}, updated_at = NOW() WHERE id = ${job.rowId}`
+  await orm.query.update('video_tasks').set({ status: 'failed', error: st.error ?? null, updated_at: ops.now() }).where({ id: { eq: job.rowId }}).run()
 }
 
 /** 下载视频字节：http(s) 真实 URL / data: base64 / memory://模拟占位（测试替身交付物） */
@@ -200,14 +185,13 @@ async function downloadVideo(src: string): Promise<Buffer> {
 async function notifyVideoSucceeded(ctx: AppCtx, job: VideoPollJob): Promise<void> {
   if (!job.agentId || !job.departmentId || !job.filename) return
   // 租户隔离（tenant-isolation 审计）：agents 查询带 app_id——跨应用 agentId 不可见
-  const [agent] = await ctx.sql`SELECT name FROM agents WHERE id = ${job.agentId} AND app_id = ${job.appId}`
-  const agentName = String(agent?.name ?? 'AI')
+  const [agent] = await ctx.orm.query.from('agents').select('name').where({ id: { eq: String(job.agentId) }, app_id: { eq: String(job.appId) } }).limit(1).run()
+  const agentName = String((agent as any)?.name ?? 'AI')
   const content = `🎬 视频生成完成：/ws/${job.filename}——已保存到部门共享目录（交付物中心可见）`
-  const [m] = await ctx.sql`
-    INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
-    VALUES (${job.departmentId}, ${job.agentId}, ${content}, 'text', TRUE)
-    RETURNING id, created_at
-  `
+  const [m] = await ctx.orm.query.insert('messages')
+    .values({ department_id: job.departmentId, sender_id: String(job.agentId), content, msg_type: 'text', ai_approved: true })
+    .returning('id', 'created_at')
+    .run()
   ;(ctx as any).msg?.broadcast?.(String(job.departmentId), {
     type: 'new_message',
     message: {
@@ -228,9 +212,9 @@ export function createVideoPollWorker(q: QueueClient, getCtx: () => AppCtx): Que
 }
 
 /** 启动重排：处理完的链中断恢复（服务重启/DLQ/Redis 清空）——挂起行重新入队 */
-export async function requeuePendingVideoTasks(sql: any, q: QueueClient): Promise<number> {
-  await ensureVideoTasksTable(sql)
-  const rows = (await sql`SELECT * FROM video_tasks WHERE status IN ('pending', 'running')`) as any[]
+export async function requeuePendingVideoTasks(orm: any, q: QueueClient): Promise<number> {
+  await ensureVideoTasksTable(orm)
+  const rows = (await orm.query.from('video_tasks').select().where({ status: { in: ['pending', 'running'] } }).run()) as any[]
   let n = 0
   for (const r of rows ?? []) {
     await q.add(VIDEO_POLL_QUEUE, {
@@ -246,8 +230,8 @@ export async function requeuePendingVideoTasks(sql: any, q: QueueClient): Promis
 /* ── 查询面（video_generation_status 工具） ──────────────────── */
 
 export async function getVideoTask(ctx: AppCtx, taskId: string): Promise<VideoTaskRow | null> {
-  await ensureVideoTasksTable(ctx.sql)
-  const [row] = await ctx.sql`SELECT * FROM video_tasks WHERE task_id = ${taskId} AND app_id = ${ctx.appId}`
+  await ensureVideoTasksTable(ctx.orm as any)
+  const [row] = await ctx.orm.query.from('video_tasks').select().where({ task_id: { eq: taskId }, app_id: { eq: String(ctx.appId) } }).limit(1).run()
   return (row as unknown as VideoTaskRow | undefined) ?? null
 }
 

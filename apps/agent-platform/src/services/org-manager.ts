@@ -5,8 +5,9 @@
  * - 生成/刷新经理提示词（部门身份 + 成员名单——call_agent 分派用）
  *   成员增删后调用 refreshManagerPrompt——提示词不落快照（创建时成员名单会过期）
  */
-
-type Sql = any
+import type { Orm } from 'weifuwu'
+import { and, eq } from 'weifuwu'
+import { tables } from '../db/orm.ts'
 
 /** 生成经理系统提示词（部门名 + 当前成员名单） */
 function buildManagerPrompt(deptName: string, memberNames: string): string {
@@ -26,25 +27,36 @@ function buildManagerPrompt(deptName: string, memberNames: string): string {
 }
 
 /**
- * 刷新部门经理提示词（成员名单实时化）
+ * 刷新部门经理提示词（成员名单实时化——表绑定面）
  * 调用时机：部门成员添加/移除后；部门创建后
  */
-export async function refreshManagerPrompt(sql: Sql, appId: string, departmentId: string): Promise<void> {
+export async function refreshManagerPrompt(orm: Orm, appId: string, departmentId: string): Promise<void> {
   try {
-    const [mgr] = await sql`
-      SELECT id FROM agents WHERE department_id = ${departmentId} AND type = 'department' AND is_active = TRUE
-    `
+    const T = tables(orm)
+    const [mgr] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.department_id, departmentId), eq(T.agents.c.type, 'department'), eq(T.agents.c.is_active, true)))
+      .run()
     if (!mgr) return
-    const [dept] = await sql`SELECT name FROM departments WHERE id = ${departmentId} AND app_id = ${appId}`
+    const [dept] = await T.departments
+      .select('name')
+      .where(and(eq(T.departments.c.id, departmentId), eq(T.departments.c.app_id, appId)))
+      .run()
     if (!dept) return
-    const members = await sql`
-      SELECT a.name FROM department_members dm JOIN agents a ON a.id = dm.agent_id
-      WHERE dm.department_id = ${departmentId} AND a.type IN ('ai', 'knowledge_base') AND a.id != ${mgr.id}
-    `
-    const names = (members ?? []).map((m: any) => m.name).join('、')
-    await sql`
-      UPDATE agents SET system_prompt = ${buildManagerPrompt(String(dept.name), String(names))}
-      WHERE id = ${mgr.id}
-    `
+    // 成员名单（经理本人除外——ai/knowledge_base 类型入册）——一对一 JOIN 表绑定
+    const memberRows = await orm.query.from('department_members dm')
+      .select('a.name')
+      .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
+      .where(and(
+        { 'dm.department_id': { eq: departmentId }},
+        { 'a.type': { in: ['ai', 'knowledge_base'] } },
+        { 'a.id': { ne: String(mgr.id) } },
+      ))
+      .run()
+    const names = (memberRows ?? []).map((m) => String((m as Record<string, unknown>).name)).join('、')
+    await T.agents
+      .update({ system_prompt: buildManagerPrompt(String(dept.name), String(names)) })
+      .where(eq(T.agents.c.id, String(mgr.id)))
+      .run()
   } catch { /* 刷新失败不阻断成员变更 */ }
 }

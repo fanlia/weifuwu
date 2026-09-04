@@ -31,7 +31,7 @@
  * ```ts
  * const db = postgres()
  * await db.migrate()
- * const users = userSystem({ sql: db.sql, secret: process.env.AUTH_SECRET! })
+ * const users = userSystem({ orm: db.orm, secret: process.env.AUTH_SECRET! })
  * await users.migrate()
  * app.use(db)
  * app.use(users)
@@ -49,9 +49,13 @@ import type { Context, Handler, Middleware } from '../types.ts'
 import { HttpError, type User } from '../types.ts'
 import type { Router } from '../core/router.ts'
 import type { Row } from '../db/postgres/connection.ts'
-import type { SqlClient } from '../postgres/types.ts'
+import type { Orm } from '../db/orm.ts'
+import { z } from '../../shared/zod.ts'
+import { f } from '../db/shape.ts'
 import { hashPassword, verifyPassword } from './password.ts'
 import { signToken, verifyToken, generateRefreshToken, hashRefreshToken } from './token.ts'
+import type { AuthInjected, Session } from './app-auth.ts'
+export type { Session } from './app-auth.ts'
 import { ok, created, noContent, badRequest } from '../response.ts'
 import { randomBytes } from 'node:crypto'
 
@@ -69,8 +73,9 @@ export interface SsoOptions {
   renderCallback?: (session: { token: string; refreshToken: string; user: User }) => string | Response
 }
 export interface UserSystemOptions {
-  /** PostgreSQL SqlClient（postgres() 中间件的 .sql） */
-  sql: SqlClient
+  /** 声明式 ORM（postgres() 中间件的 .orm——表绑定/校验/事务） */
+  orm: Orm
+
   /** HMAC 签名密钥（至少 32 字符；默认读 AUTH_SECRET） */
   secret?: string
 /** 生命周期钩子（平台业务注入——默认 Agent/部门/审计等；框架不内置业务） */
@@ -217,21 +222,19 @@ export interface UserInjected {
   auth: AuthApi
 }
 
-/** 当前会话（token 解出的应用态——{ userId, appId, role }·平台账号 token = null） */
-export interface Session {
-  userId: string
-  appId: string
-  role: string
-}
-
 declare module '../types.ts' {
   interface Context {
-    auth?: AuthApi
+    // auth 面不再声明于 Context（2026-09 定案：中间件 Out 表态——UserInjected(auth:
+    // AuthApi 完整)/AuthInjected(auth: AuthPort 公共面)——框架路由内部显式 UserInjected
     session?: Session | null
   }
 }
 
 export interface UserSystemClient extends Middleware<Context, Context & UserInjected> {
+  /** 本地实现视图（AuthInterface 双向面）：业务侧 ctx 按 AuthInjected 表态——
+   *  运行时 = 完整 AuthApi（查库——角色/账号即时）+ AuthPort 公共面——
+   *  装配点与远程 appAuth 可互换（分离时一行切换） */
+  asAppAuth(): Middleware<Context, AuthInjected>
   /** 幂等建表（users + sessions + apps + app_members） */
   migrate: () => Promise<void>
   /** **系统域种子（幂等）**：ADMIN_EMAILS 类初始配置 → _builtin 成员任命——
@@ -248,6 +251,47 @@ export interface UserSystemClient extends Middleware<Context, Context & UserInje
     },
   ) => void
 }
+
+// 表 shape（字段名=列名（snake——公共接口契约对齐）；orm.table 包装→校验/类型/归一
+// 注：snake 与 messager 同决策——内部模块公共接口即 snake；camel 化留待接口演进
+export const USER_TABLES = {
+  users: {
+    id: f.pk(z.uuid()),
+    email: f.req(z.string()).meta({ unique: true }),
+    password_hash: z.string().nullable(),
+    name: z.string().nullable(),
+    role: z.string().nullable(),
+    tenant: z.string().nullable(),
+    email_verified: z.boolean().meta({ notNull: true, default: false }),
+    created_at: f.now(z.date()),
+  },
+  sessions: {
+    token_hash: f.req(z.string()),
+    user_id: f.req(z.uuid()),
+    app_id: z.string().nullable(),
+    expires_at: f.req(z.date()),
+    revoked_at: z.date().nullable(),
+    created_at: f.now(z.date()),
+  },
+  apps: {
+    id: f.pk(z.uuid()),
+    slug: f.req(z.string()).meta({ unique: true }),
+    name: f.req(z.string()),
+    owner_user_id: z.uuid().nullable(),
+    open_registration: z.boolean().meta({ notNull: true, default: false }),
+    app_key: z.string().nullable(),
+    created_at: f.now(z.date()),
+  },
+  members: {
+    app_id: f.req(z.uuid()),
+    user_id: f.req(z.uuid()),
+    role: z.string().meta({ notNull: true, default: 'member' }),
+    invited_by: z.uuid().nullable(),
+    joined_at: f.now(z.date()),
+    source: z.string().nullable(),
+    last_login_at: z.date().nullable(),
+  },
+} as const
 
 const USERS_TABLE = '_weifuwu_users'
 const SESSIONS_TABLE = '_weifuwu_sessions'
@@ -286,7 +330,12 @@ async function timingEqualize(password: string): Promise<void> {
 }
 
 export function userSystem(options: UserSystemOptions): UserSystemClient {
-  const sql = options.sql
+  const orm = options.orm
+  // 表绑定（工厂级——非事务面）
+  const U = orm.table(USERS_TABLE, USER_TABLES.users)
+  const S = orm.table(SESSIONS_TABLE, USER_TABLES.sessions)
+  const A = orm.table(APP_TABLE, USER_TABLES.apps)
+  const M = orm.table(MEMBER_TABLE, USER_TABLES.members)
   const secretRaw = options.secret ?? process.env.AUTH_SECRET
   if (!secretRaw) {
     throw new Error(
@@ -310,45 +359,42 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   const accessTtlSeconds = options.accessTtlSeconds ?? 3600
   const refreshTtlDays = options.refreshTtlDays ?? 30
   const prefix = options.prefix ?? '/api/auth'
+  // 行 → User（显式挑字段——防 password_hash 泄漏出入参返回）
+  const pickUser = (r: Record<string, unknown>): User => ({
+    id: String(r.id),
+    email: r.email as string,
+    name: r.name as string | undefined,
+    role: r.role as string | undefined,
+    tenant: r.tenant as string | undefined,
+  })
   const INVITE_TTL_SECONDS = 7 * 24 * 3600
 
 
   async function findUserById(id: string): Promise<User | null> {
-    const rows = await sql.query.from(USERS_TABLE)
-      .select('id', 'email', 'name', 'role', 'tenant')
-      .where({ id })
-      .run()
+    const rows = await U.select('id', 'email', 'name', 'role', 'tenant').where({ id: { eq: id } }).run()
     return rows.length ? (rows[0] as unknown as User) : null
   }
 
   /** 应用管理面入册（幂等）：用户成为 _builtin 成员——身份即资格（注册必经 _builtin）
    *   source: 'register' | 'sso' | 'migrate' */
   async function ensureBuiltinMember(userId: string, source: 'register' | 'sso' | 'migrate'): Promise<void> {
-    const existing = await sql.query.from(MEMBER_TABLE).select('role').where({ app_id: BUILTIN_APP_ID, user_id: userId }).run()
+    const existing = await M.select('role').where({ app_id: { eq: BUILTIN_APP_ID }, user_id: { eq: userId } }).run()
     if (existing.length) return
-    await sql.query.insert(MEMBER_TABLE).values({
-      app_id: BUILTIN_APP_ID, user_id: userId, role: 'member', invited_by: null, source,
-    }).onConflict().run()
+    await M.insert({ app_id: BUILTIN_APP_ID, user_id: userId, role: 'member', invited_by: null, source }).onConflict().run()
   }
 
   async function findMemberRole(appId: string, userId: string): Promise<string | null> {
-    const rows = await sql.query.from(MEMBER_TABLE)
-      .select('role')
-      .where({ app_id: appId, user_id: userId })
-      .run()
+    const rows = await M.select('role').where({ app_id: { eq: appId }, user_id: { eq: userId } }).run()
     return rows.length ? String(rows[0].role) : null
   }
 
   async function findAppIdBySlug(slug: string): Promise<string | null> {
-    const rows = await sql.query.from(APP_TABLE).select('id').where({ slug }).run()
+    const rows = await A.select('id').where({ slug: { eq: slug } }).run()
     return rows.length ? String(rows[0].id) : null
   }
 
   async function findUserByEmail(email: string): Promise<User | null> {
-    const rows = await sql.query.from(USERS_TABLE)
-      .select('id', 'email', 'name', 'role', 'tenant')
-      .where({ email })
-      .run()
+    const rows = await U.select('id', 'email', 'name', 'role', 'tenant').where({ email: { eq: email } }).run()
     return rows.length ? (rows[0] as unknown as User) : null
   }
 
@@ -356,10 +402,10 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   async function listAppsFor(userId: string): Promise<AppSummary[]> {
     // B4（2027-XX）：原 members 循环内每 app 一次查询（N 应用 = N+1 往返）——
     // JOIN 单查询（memory/真库双后端已验证：对象式 on 列-列比较 + 输出键无前缀）
-    const rows = await sql.query.from(`${MEMBER_TABLE} m`)
+    const rows = await orm.query.from(`${MEMBER_TABLE} m`)
       .select('m.app_id', 'm.role', 'a.id', 'a.slug', 'a.name')
       .join(`${APP_TABLE} a`, { 'a.id': { col: 'm.app_id' } })
-      .where({ 'm.user_id': userId })
+      .where({ 'm.user_id': { eq: userId } })
       .run()
     // 保留名（_builtin/_default——系统应用）不进"我的应用"列表——
     //  管理面/平台面有专属入口（_builtin 登录 / _default 直进），业务列表不外露
@@ -390,14 +436,12 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     )
     const refreshToken = generateRefreshToken()
     const expiresAt = new Date(Date.now() + refreshTtlDays * 24 * 3600 * 1000)
-    await sql.query.insert(SESSIONS_TABLE)
-      .values({
-        token_hash: hashRefreshToken(refreshToken),
-        user_id: user.id,
-        expires_at: expiresAt,
-        ...(session?.appId ? { app_id: session.appId } : {}),
-      })
-      .run()
+    await S.insert({
+      token_hash: hashRefreshToken(refreshToken),
+      user_id: user.id,
+      expires_at: expiresAt.toISOString(),
+      ...(session?.appId ? { app_id: session.appId } : {}),
+    }).run()
     return { token, refreshToken }
   }
 
@@ -408,14 +452,13 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     //  预检（revoked_at IS NULL）与 revoke 写入合并为一个原子语句（行锁互斥）——
     //  并发同 token 恰好一个成功、后到者 0 行 → 401（原 SELECT→revoke 两语句
     //  窗口双放行——实证 200+200）
-    const rows = await sql.query.update(SESSIONS_TABLE)
-      .set({ revoked_at: sql.raw`now()` })
-      .where({ token_hash: hashRefreshToken(refreshToken), revoked_at: { isNull: true } })
+    const rows = await S.update({ revoked_at: new Date().toISOString() })
+      .where({ token_hash: { eq: hashRefreshToken(refreshToken) }, revoked_at: { isNull: true } })
       .returning('user_id', 'expires_at', 'app_id')
       .run()
     if (!rows.length) throw new HttpError('Invalid refresh token', 401)
     const row = rows[0]
-    if (new Date(row.expires_at as Date) < new Date()) {
+    if (new Date(String(row.expires_at)) < new Date()) {
       // 过期：消费时已原子吊销——不可重放延长
       throw new HttpError('Refresh token expired', 401)
     }
@@ -497,7 +540,8 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       ? { userId: String(reqUser!.id), appId: String(payloadAppId), role: String(payloadRole ?? '') }
       : null
     if (payloadTenantId != null) (ctx as any).tenantId = String(payloadTenantId)
-    ctx.auth = {
+    // 显式类型（Context.auth 声明已收——auth 面由 UserInjected/上下文显式化）
+    const auth: AuthApi = {
       // ── 会话 payload 字段（来自 token，应用层签发时决定带什么） ──
       ...sessionPayload,
       async register(input: RegisterInput) {
@@ -505,16 +549,13 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         validatePassword(input.password)
         const email = normalizeEmail(input.email)
         const passwordHash = await hashPassword(input.password)
-        const rows = await sql.query.insert(USERS_TABLE)
-          .values({
-            email, password_hash: passwordHash,
-            // B5.2（2027-XX）：自助注册忽略自赋 role（防假 admin——授权一律
-            // 走应用成员表 role；平台 profile role 由应用层管理）
-            name: input.name ?? null, role: null, tenant: input.tenant ?? null,
-          })
-          .returning('id', 'email', 'name', 'role', 'tenant')
-          .run()
-        const user = rows[0] as unknown as User
+        const rows = await U.insert({
+          email, password_hash: passwordHash,
+          // B5.2（2027-XX）：自助注册忽略自赋 role（防假 admin——授权一律
+          // 走应用成员表 role；平台 profile role 由应用层管理）
+          name: input.name ?? null, role: null, tenant: input.tenant ?? null,
+        }).run()
+        const user = pickUser(rows[0])
         const session = await issueSession(user)
         // 应用管理面入册（定案：一切注册必经 _builtin——身份即资格——纯账号 register 同规则）
         await ensureBuiltinMember(user.id, 'register')
@@ -554,9 +595,8 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       },
 
       async login(email: string, password: string) {
-        const rows = await sql.query.from(USERS_TABLE)
-          .select('id', 'email', 'password_hash', 'name', 'role', 'tenant')
-          .where({ email: normalizeEmail(email) })
+        const rows = await U.select('id', 'email', 'password_hash', 'name', 'role', 'tenant')
+          .where({ email: { eq: normalizeEmail(email) } })
           .run()
         const row = rows[0]
         // 统一 401（不泄露邮箱是否存在——防枚举）
@@ -581,9 +621,8 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       },
 
       async logout(refreshToken: string) {
-        await sql.query.update(SESSIONS_TABLE)
-          .set({ revoked_at: sql.raw`now()` })
-          .where({ token_hash: hashRefreshToken(refreshToken) })
+        await S.update({ revoked_at: new Date().toISOString() })
+          .where({ token_hash: { eq: hashRefreshToken(refreshToken) } })
           .run()
       },
 
@@ -597,10 +636,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       async setPassword(userId: string, newPassword: string) {
         validatePassword(newPassword)
         const passwordHash = await hashPassword(newPassword)
-        await sql.query.update(USERS_TABLE)
-          .set({ password_hash: passwordHash })
-          .where({ id: userId })
-          .run()
+        await U.update({ password_hash: passwordHash }).where({ id: { eq: userId } }).run()
       },
 
       createToken(type: string, payload: Record<string, unknown>, opts: { ttlSeconds: number }) {
@@ -621,30 +657,22 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         }
         // appKey：随机 64 hex（应用级机器凭据——appId 即应用 id——分离沟通面）
         const appKey = randomBytes(32).toString('hex')
-        const rows = await sql.query.insert(APP_TABLE)
-          .values({
-            slug, name: input.name,
-            owner_user_id: currentUser.id,
-            open_registration: input.openRegistration ?? false,
-            app_key: appKey,
-          })
-          .returning('id', 'slug', 'name', 'owner_user_id', 'open_registration', 'app_key')
-          .run()
+        const rows = await A.insert({
+          slug, name: input.name,
+          owner_user_id: currentUser.id,
+          open_registration: input.openRegistration ?? false,
+          app_key: appKey,
+        }).run()
         const appInfo = rows[0] as unknown as AppInfo
         // owner 自动成为成员（role=owner）
-        await sql.query.insert(MEMBER_TABLE)
-          .values({ app_id: appInfo.id, user_id: currentUser.id, role: 'owner', invited_by: currentUser.id })
-          .run()
+        await M.insert({ app_id: appInfo.id, user_id: currentUser.id, role: 'owner', invited_by: currentUser.id }).run()
         return appInfo
       },
 
       async registerInApp(input: RegisterInAppInput) {
         if (!input.email || !input.password) throw new HttpError('email and password are required', 400)
         validatePassword(input.password)
-        const appRows = await sql.query.from(APP_TABLE)
-          .select('id', 'open_registration')
-          .where({ slug: input.appSlug })
-          .run()
+        const appRows = await A.select('id', 'open_registration').where({ slug: { eq: input.appSlug } }).run()
         if (!appRows.length) throw new HttpError('Application not found', 404)
         const appRow = appRows[0] as Row
         const appId = String(appRow.id)
@@ -669,17 +697,15 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         let user = await findUserByEmail(email)
         if (!user) {
           const passwordHash = await hashPassword(input.password)
-          const rows = await sql.query.insert(USERS_TABLE)
-            .values({
-              email, password_hash: passwordHash,
-              name: input.name ?? null, role: null, tenant: null,
-            })
+          const rows = await U.insert({
+            email, password_hash: passwordHash,
+            name: input.name ?? null, role: null, tenant: null,
+          })
             // B6（2027-XX）：并发同 email 建号竞态——唯一冲突 DO NOTHING + 再查
             // （幂等——非 409；先到者数据为准）
             .onConflict('email')
-            .returning('id', 'email', 'name', 'role', 'tenant')
             .run()
-          user = rows.length ? (rows[0] as unknown as User) : await findUserByEmail(email)
+          user = rows.length ? pickUser(rows[0]) : await findUserByEmail(email)
           if (!user) throw new HttpError('User creation failed', 500)
         }
 
@@ -688,27 +714,25 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         // 加成员（已存在则跳过——幂等）+ 并发 PK 冲突 DO NOTHING（B6）
         const member = await findMemberRole(appId, user.id)
         if (!member) {
-          await sql.query.insert(MEMBER_TABLE)
-            .values({ app_id: appId, user_id: user.id, role, invited_by: currentUser?.id ?? null, source: 'invite' })
+          await M.insert({ app_id: appId, user_id: user.id, role, invited_by: currentUser?.id ?? null, source: 'invite' })
             .onConflict()
             .run()
         }
 
         const session = await issueSession(user, { appId, role })
-        await sql.query.update(MEMBER_TABLE).set({ last_login_at: new Date() }).where({ app_id: appId, user_id: user.id }).run()
+        await M.update({ last_login_at: new Date().toISOString() }).where({ app_id: { eq: appId }, user_id: { eq: user.id } }).run()
         currentUser = user
         await hooks?.onJoinApp?.(user.id, appId, role)
         return { ...session, user }
       },
 
       async loginApp(appSlug: string, email: string, password: string) {
-        const appRows = await sql.query.from(APP_TABLE).select('id').where({ slug: appSlug }).run()
+        const appRows = await A.select('id').where({ slug: { eq: appSlug } }).run()
         if (!appRows.length) throw new HttpError('Application not found', 404)
         const appId = String(appRows[0].id)
 
-        const rows = await sql.query.from(USERS_TABLE)
-          .select('id', 'email', 'password_hash', 'name', 'role', 'tenant')
-          .where({ email: normalizeEmail(email) })
+        const rows = await U.select('id', 'email', 'password_hash', 'name', 'role', 'tenant')
+          .where({ email: { eq: normalizeEmail(email) } })
           .run()
         const row = rows[0]
         if (!row || row.password_hash == null) {
@@ -730,7 +754,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
           tenant: row.tenant as string | undefined,
         }
         const session = await issueSession(user, { appId, role })
-        await sql.query.update(MEMBER_TABLE).set({ last_login_at: new Date() }).where({ app_id: appId, user_id: user.id }).run()
+        await M.update({ last_login_at: new Date().toISOString() }).where({ app_id: { eq: appId }, user_id: { eq: user.id } }).run()
         currentUser = user
         // app 附带角色（2026-08——前端写操作防线需要 role——loginApp 此前
         // 无 app/role 字段——viewer 前端不禁用写按钮——「点击才 403」体验缺口）
@@ -743,13 +767,13 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         // 找或建平台账号（无密码——SSO 身份提供方已认证）
         let user = await findUserByEmail(normalized)
         if (!user) {
-          const rows = await sql.query.insert(USERS_TABLE)
-            .values({ email: normalized, password_hash: null, name: opts?.name ?? null, role: null, tenant: null })
+          const rows = await U.insert({
+            email: normalized, password_hash: null, name: opts?.name ?? null, role: null, tenant: null,
+          })
             // B6（2027-XX）：并发同 email 建号竞态——唯一冲突 DO NOTHING + 再查
             .onConflict('email')
-            .returning('id', 'email', 'name', 'role', 'tenant')
             .run()
-          user = rows.length ? (rows[0] as unknown as User) : await findUserByEmail(normalized)
+          user = rows.length ? pickUser(rows[0]) : await findUserByEmail(normalized)
           if (!user) throw new HttpError('User creation failed', 500)
         }
         // 应用管理面入册（SSO 建号同一规则）
@@ -759,13 +783,12 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         if (opts?.appId) {
           const member = await findMemberRole(opts.appId, user.id)
           if (!member) {
-            await sql.query.insert(MEMBER_TABLE)
-              .values({ app_id: opts.appId, user_id: user.id, role: 'member', invited_by: null, source: 'sso' })
+            await M.insert({ app_id: opts.appId, user_id: user.id, role: 'member', invited_by: null, source: 'sso' })
               .onConflict()
               .run()
           }
           appId = opts.appId
-          await sql.query.update(MEMBER_TABLE).set({ last_login_at: new Date() }).where({ app_id: opts.appId, user_id: user.id }).run()
+          await M.update({ last_login_at: new Date().toISOString() }).where({ app_id: { eq: opts.appId }, user_id: { eq: user.id } }).run()
         }
         const session = await issueSession(user, appId ? { appId, role: 'member' } : undefined)
         currentUser = user
@@ -800,15 +823,10 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         if (!currentUser) throw new HttpError('Unauthorized', 401)
         const callerRole = await findMemberRole(appId, currentUser.id)
         if (callerRole !== 'owner') throw new HttpError('Owner only', 403)
-        const target = await sql.query.from(USERS_TABLE)
-          .select('id')
-          .where({ email: normalizeEmail(email) })
-          .run()
+        const target = await U.select('id').where({ email: { eq: normalizeEmail(email) } }).run()
         if (!target.length) throw new HttpError('User not found — invite them to register first', 400)
         const memberRole = role && role !== 'owner' ? role : 'member'
-        await sql.query.insert(MEMBER_TABLE)
-          .values({ app_id: appId, user_id: String(target[0].id), role: memberRole, invited_by: currentUser.id })
-          .run()
+        await M.insert({ app_id: appId, user_id: String(target[0].id), role: memberRole, invited_by: currentUser.id }).run()
       },
 
       async setOpenRegistration(appId: string, open: boolean) {
@@ -817,7 +835,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         if (appId === BUILTIN_APP_ID) throw new HttpError('_builtin 注册开关恒 false', 403)
         const callerRole = await findMemberRole(appId, currentUser.id)
         if (callerRole !== 'owner') throw new HttpError('Owner only', 403)
-        await sql.query.update(APP_TABLE).set({ open_registration: open }).where({ id: appId }).run()
+        await A.update({ open_registration: open }).where({ id: { eq: appId } }).run()
       },
 
       async listMyApps() {
@@ -832,6 +850,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         return { userId: currentUser.id, appId, role }
       },
     }
+    ;(ctx as any).auth = auth
 
     return next(req, ctx)
   }) as unknown as UserSystemClient
@@ -847,16 +866,14 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
       let user = await findUserByEmail(email)
       if (!user) {
         // 账号不存在 → 自动建（无密码——同 SSO 建号语义；登录由 IdP/平台流程承接）
-        const rows = await sql.query.insert(USERS_TABLE)
-          .values({ email, password_hash: null, name: null, role: null, tenant: null })
+        const rows = await U.insert({ email, password_hash: null, name: null, role: null, tenant: null })
           .onConflict('email')
-          .returning('id', 'email', 'name', 'role', 'tenant')
           .run()
-        user = rows.length ? (rows[0] as unknown as User) : await findUserByEmail(email)
+        user = rows.length ? pickUser(rows[0]) : await findUserByEmail(email)
       }
       if (!user) continue
       // 已有成员：保持现状（owner 唯一性——后续邮箱不覆盖）
-      const existing = await sql.query.from(MEMBER_TABLE).select('role').where({ app_id: BUILTIN_APP_ID, user_id: user.id }).run()
+      const existing = await M.select('role').where({ app_id: { eq: BUILTIN_APP_ID }, user_id: { eq: user.id } }).run()
       if (existing.length) {
         const r = String(existing[0].role ?? '')
         if (r === 'owner') result.owner = String(user.id)
@@ -864,7 +881,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         continue
       }
       if (!result.owner) {
-        await sql.query.insert(MEMBER_TABLE).values({
+        await M.insert({
           app_id: BUILTIN_APP_ID, user_id: String(user.id), role: 'owner', invited_by: null, source: 'seed',
         }).run()
         result.owner = String(user.id)
@@ -874,13 +891,13 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         if (defId) {
           const defMember = await findMemberRole(defId, String(user.id))
           if (!defMember) {
-            await sql.query.insert(MEMBER_TABLE).values({
+            await M.insert({
               app_id: defId, user_id: String(user.id), role: 'owner', invited_by: null, source: 'seed',
             }).run()
           }
         }
       } else {
-        await sql.query.insert(MEMBER_TABLE).values({
+        await M.insert({
           app_id: BUILTIN_APP_ID, user_id: String(user.id), role: 'admin', invited_by: result.owner, source: 'seed',
         }).run()
         result.admins.push(String(user.id))
@@ -890,92 +907,41 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
   }
 
   mw.migrate = async () => {
-    await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS ${USERS_TABLE} (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        email TEXT NOT NULL UNIQUE,
-        password_hash TEXT,
-        name TEXT,
-        role TEXT,
-        tenant TEXT,
-        email_verified BOOLEAN NOT NULL DEFAULT false,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `)
-    // SSO 用户无密码——已有表放宽 NOT NULL（幂等）
-    await sql.unsafe(`ALTER TABLE ${USERS_TABLE} ALTER COLUMN password_hash DROP NOT NULL`)
-    await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS ${SESSIONS_TABLE} (
-        token_hash TEXT PRIMARY KEY,
-        user_id UUID NOT NULL REFERENCES ${USERS_TABLE}(id) ON DELETE CASCADE,
-        app_id TEXT,
-        expires_at TIMESTAMPTZ NOT NULL,
-        revoked_at TIMESTAMPTZ,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `)
-    // 旧库补列（幂等；memory no-op）
-    await sql.unsafe(`ALTER TABLE ${SESSIONS_TABLE} ADD COLUMN IF NOT EXISTS app_id TEXT`)
-    await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS ${APP_TABLE} (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        slug TEXT NOT NULL UNIQUE,
-        name TEXT NOT NULL,
-        owner_user_id UUID NOT NULL REFERENCES ${USERS_TABLE}(id) ON DELETE CASCADE,
-        open_registration BOOLEAN NOT NULL DEFAULT false,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `)
-    await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS ${MEMBER_TABLE} (
-        app_id UUID NOT NULL REFERENCES ${APP_TABLE}(id) ON DELETE CASCADE,
-        user_id UUID NOT NULL REFERENCES ${USERS_TABLE}(id) ON DELETE CASCADE,
-        role TEXT NOT NULL DEFAULT 'member',
-        invited_by UUID,
-        joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        PRIMARY KEY (app_id, user_id)
-      )
-    `)
+    // ── 播种段（DDL 由迁移编排（WEIFUWU_USER_SCHEMA）先行——幂等数据引导） ──
     // _builtin 系统应用：系统应用本身（migrate 幂等建——slug 固定）
     //   owner 可空（系统应用无自然人 owner——管理面另行授权）
-    await sql.unsafe(`ALTER TABLE ${APP_TABLE} ALTER COLUMN owner_user_id DROP NOT NULL`)
     // 固定 id（`00000000-0000-4000-8000-0000000000b1` 可读形态）——migrate 幂等唯一
     // （先查后插——query builder 双后端兼容——memory 不支持 ON CONFLICT）
-    const builtinRows = await sql.query.from(APP_TABLE).select('id').where({ slug: '_builtin' }).run()
+    const builtinRows = await A.select('id').where({ slug: { eq: '_builtin' } }).run()
     if (!builtinRows.length) {
-      await sql.query.insert(APP_TABLE).values({
-        id: BUILTIN_APP_ID,
-        slug: '_builtin',
-        name: 'System',
-        owner_user_id: null,
-        open_registration: false,
-      }).run()
+      // 固定 id 必须显式写入——insertSchema 自动省略 pk（default random）——
+      // 绕过变体校验面走 builder 原生（系统常量——非用户输入）
+      await orm.query.insert(APP_TABLE)
+        .values({ id: BUILTIN_APP_ID, slug: '_builtin', name: 'System', owner_user_id: null, open_registration: false })
+        .returning('id')
+        .run()
     }
     // 应用凭据（分离沟通面——业务应用 ↔ _builtin 机器认证）：
     //   appId（应用 id）+ appKey（随机 64 hex——createApp 生成/存量回填）
-    await sql.unsafe(`ALTER TABLE ${APP_TABLE} ADD COLUMN IF NOT EXISTS app_key TEXT`)
-    const keyless = await sql.query.from(APP_TABLE).select('id').where({ app_key: null }).run()
+    const keyless = await A.select('id').where({ app_key: { isNull: true } }).run()
     for (const a of keyless) {
-      await sql.query.update(APP_TABLE).set({ app_key: randomBytes(32).toString('hex') }).where({ id: String(a.id) }).run()
+      await A.update({ app_key: randomBytes(32).toString('hex') }).where({ id: { eq: String(a.id) } }).run()
     }
     // _default 平台业务应用（系统初始化三件套：_builtin + owner 用户 + _default 关联——
     //   migrate 先建（owner 空）· seedBuiltinOwners 首 owner 关联——普通应用属性
     //   （可配置开放注册——与 _builtin 恒 false 不同））
-    const defRows = await sql.query.from(APP_TABLE).select('id').where({ slug: '_default' }).run()
+    const defRows = await A.select('id').where({ slug: { eq: '_default' } }).run()
     if (!defRows.length) {
-      await sql.query.insert(APP_TABLE).values({
+      await A.insert({
         slug: '_default',
         name: 'Default',
         owner_user_id: null,
         open_registration: false,
       }).run()
     }
-    // members 元数据（USERSYSTEM-V2：注册来源 + 最后登录——幂等补列）
-    await sql.unsafe(`ALTER TABLE ${MEMBER_TABLE} ADD COLUMN IF NOT EXISTS source TEXT`)
-    await sql.unsafe(`ALTER TABLE ${MEMBER_TABLE} ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`)
-    // 存量补挂（定案：全员应用管理面入册——旧库 users 无 _builtin 成员行者补——
+    // 存量补挂（定案：全员应用管理面入册——旧库 users 无 _builtin 成员行着补——
     //   query builder 循环——memory/真库双后端一致——迁移期一次性 O(N) 可接受）
-    const leftover = await sql.query.from(USERS_TABLE).select('id').run()
+    const leftover = await U.select('id').run()
     for (const u of leftover) {
       await ensureBuiltinMember(String(u.id), 'migrate')
     }
@@ -1162,7 +1128,7 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         const appId = req.headers.get('x-wf-app-id')
         const appKey = req.headers.get('x-wf-app-key')
         if (!appId || !appKey) return badRequest('X-Wf-App-Id / X-Wf-App-Key required')
-        const rows = await sql.query.from(APP_TABLE).select('id', 'slug', 'name').where({ id: appId, app_key: appKey }).run()
+        const rows = await A.select('id', 'slug', 'name').where({ id: { eq: appId }, app_key: { eq: appKey } }).run()
         if (!rows.length) throw new HttpError('Invalid app credentials', 403)
         const a = rows[0] as Row
         return ok({ app: { id: String(a.id), slug: String(a.slug), name: String(a.name) } })
@@ -1184,5 +1150,69 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
     }
   }
 
+  // AuthInterface 本地实现：this（mw）即完整注入面（auth 运行时 AuthApi 超集——
+  // 类型面按 AuthInjected 表态——业务侧与远程 appAuth 同构）
+  ;(mw as UserSystemClient & { asAppAuth: () => Middleware<Context, AuthInjected> }).asAppAuth = () =>
+    mw as unknown as Middleware<Context, AuthInjected>
+
   return mw
 }
+
+// ── 声明式 Schema（DDL 算子化——业务零 SQL 字符串；迁移编排：pg.migrateModule('weifuwu-users', WEIFUWU_USER_SCHEMA)） ──
+export const WEIFUWU_USER_SCHEMA = {
+  tables: [
+    {
+      name: '_weifuwu_users',
+      columns: {
+        id: f.pk(z.uuid()),
+        email: f.req(z.string()).meta({ unique: true }),
+        password_hash: z.string(),
+        name: z.string(),
+        role: z.string(),
+        tenant: z.string(),
+        email_verified: z.boolean().meta({ default: false }),
+        created_at: z.date().meta({ default: 'now' }),
+      },
+      // SSO 用户无密码：老库 password_hash NOT NULL → 去掉（新库建表即可空）
+      dropNotNull: ['password_hash'],
+    },
+    {
+      name: '_weifuwu_sessions',
+      columns: {
+        token_hash: z.string().meta({ pk: true }),
+        user_id: f.req(z.uuid()).meta({ references: '_weifuwu_users', onDelete: 'cascade' }),
+        app_id: z.string(),
+        expires_at: z.date().meta({ notNull: true }),
+        revoked_at: z.date(),
+        created_at: z.date().meta({ default: 'now' }),
+      },
+    },
+    {
+      name: '_weifuwu_apps',
+      columns: {
+        id: f.pk(z.uuid()),
+        slug: f.req(z.string()).meta({ unique: true }),
+        name: f.req(z.string()),
+        owner_user_id: z.uuid().meta({ references: '_weifuwu_users', onDelete: 'cascade' }),
+        open_registration: z.boolean().meta({ default: false }),
+        created_at: z.date().meta({ default: 'now' }),
+        app_key: z.string(),
+      },
+    },
+    {
+      name: '_weifuwu_app_members',
+      columns: {
+        app_id: f.req(z.uuid()).meta({ references: '_weifuwu_apps', onDelete: 'cascade' }),
+        user_id: f.req(z.uuid()).meta({ references: '_weifuwu_users', onDelete: 'cascade' }),
+        role: z.string().meta({ default: 'member' }),
+        invited_by: z.uuid(),
+        joined_at: z.date().meta({ default: 'now' }),
+        source: z.string(),
+        last_login_at: z.date(),
+      },
+      // 复合主键（app_id, user_id）——声明面用 UNIQUE 等效（唯一性一致；PK 聚簇差异裁剪登记）
+      uniques: [['app_id', 'user_id']],
+    },
+  ],
+} satisfies import('../db/schema.ts').SchemaModule
+

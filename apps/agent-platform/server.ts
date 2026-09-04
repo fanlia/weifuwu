@@ -9,7 +9,7 @@ import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context, QueueWorker } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, queue, ui, userSystem, appAuth, OpenAi, messager, rateLimit, verifyPassword, hashPassword, email, workflowSystem } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, queue, ui, userSystem, appAuth, OpenAi, messager, rateLimit, verifyPassword, hashPassword, email, workflowSystem, ops } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -36,6 +36,8 @@ import { registerRoleTemplateRoutes } from './src/routes/role-templates.ts'
 import { registerAdminRoutes } from './src/routes/admin.ts'
 import { registerDeliverableRoutes } from './src/routes/deliverables.ts'
 import { registerStatsRoutes } from './src/routes/stats.ts'
+import { AGENT_PLATFORM_SCHEMA } from './src/db/tables.ts'
+import { WEIFUWU_USER_SCHEMA, WEIFUWU_WORKFLOW_SCHEMA, WEIFUWU_MESSAGER_SCHEMA } from 'weifuwu'
 
 // ── UI ────────────────────────────────────────────────────
 import { registerUiRoutes } from './src/ui/routes.ts'
@@ -127,198 +129,10 @@ async function main() {
     }
   })
 
-  // ── Schema 迁移 ───────────────────────────────────────
-  // 使用 CREATE IF NOT EXISTS 安全地确保表存在，绝不 DROP 数据
-  const schemaPath = resolve(__dirname, 'src', 'db', 'schema.sql')
-  const schema = readFileSync(schemaPath, 'utf-8')
+  // ── Schema 迁移（声明式——DDL 算子化：零 SQL 字符串；幂等记录 + 老库逐列增量） ──
   await pg.migrate()
-  if (!(await pg.isMigrated('agent-platform'))) {
-    await pg.sql.unsafe(schema)
-    await pg.markMigrated('agent-platform')
-    console.log('[agent-platform] DB schema 已初始化')
-  }
-  // 检查核心表是否存在
-  const [check] = await pg.sql`
-    SELECT COUNT(*)::int as count FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'agents'
-  ` as any[]
-  if (check.count === 0) {
-    await pg.sql.unsafe(schema)
-    await pg.markMigrated('agent-platform')
-    console.log('[agent-platform] 检测到表丢失，已重新创建')
-  }
-
-  // 增量表（追加的 schema——迁移一次性 markMigrated，新表需幂等补建；Wave 9 audit_logs）
-  // 增量列（Wave 9 token 配额——ADD COLUMN IF NOT EXISTS 幂等）
-  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS monthly_token_quota INT NOT NULL DEFAULT 0`)
-  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS role_label TEXT`)
-  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS im_bind_dept UUID`)
-  await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSONB`)
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS agent_run_states (message_id UUID PRIMARY KEY, agent_id UUID NOT NULL, department_id UUID NOT NULL, app_id UUID NOT NULL, steps JSONB NOT NULL DEFAULT '[]'::JSONB, status TEXT NOT NULL DEFAULT 'running', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
-    await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS skill_ratings (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), skill_dir TEXT NOT NULL, app_id UUID NOT NULL, liked BOOLEAN NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE (skill_dir, app_id))`)
-  // S1 问卷批量任务（Campaign——总量/并发可配置——调度器水位派单）
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS survey_campaigns (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    app_id UUID NOT NULL REFERENCES _weifuwu_apps(id) ON DELETE CASCADE,
-    total INT NOT NULL, concurrency INT NOT NULL, url TEXT NOT NULL DEFAULT '',
-    retry INT NOT NULL DEFAULT 2, status TEXT NOT NULL DEFAULT 'running',
-    completed INT NOT NULL DEFAULT 0, failed INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS survey_campaign_runs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    campaign_id UUID NOT NULL REFERENCES survey_campaigns(id) ON DELETE CASCADE,
-    agent_id UUID NOT NULL, agent_name TEXT NOT NULL, dept_id UUID NOT NULL,
-    status TEXT NOT NULL DEFAULT 'queued', attempts INT NOT NULL DEFAULT 0,
-    started_at TIMESTAMPTZ, finished_at TIMESTAMPTZ, error TEXT)`)
-  // 问卷提交/逐题持久化（2027-09 实证——S7b：提交只在内存——重启 80 份丢失 +
-  // surveyLimit=20 截断——stats 页永远 20——落库后重启恢复 + 全量统计）
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS survey_submissions (
-    id TEXT PRIMARY KEY, source TEXT NOT NULL, age TEXT, industry TEXT,
-    rating INT, focus JSONB, feedback TEXT, submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS survey_answers (
-    id BIGSERIAL PRIMARY KEY, source TEXT NOT NULL, question TEXT,
-    answer TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
-  await pg.sql.unsafe(`ALTER TABLE survey_submissions ADD COLUMN IF NOT EXISTS campaign_id TEXT`)
-  await pg.sql.unsafe(`ALTER TABLE survey_answers ADD COLUMN IF NOT EXISTS campaign_id TEXT`)
-  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_survey_campaigns_app ON survey_campaigns(app_id, created_at DESC)`)
-  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_survey_runs_campaign ON survey_campaign_runs(campaign_id, status)`)
-  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_skill_ratings_dir ON skill_ratings(skill_dir)`)
-    await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS answer_cache (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL, hits INT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
-  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_answer_cache_app ON answer_cache(app_id)`)
-  // O11 编排任务树（Wave 3）：runs 表（父→子任务链——审计面）
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS agent_runs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    app_id UUID NOT NULL,
-    department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
-    orchestrator_id UUID REFERENCES agents(id) ON DELETE CASCADE,
-    parent_run_id UUID REFERENCES agent_runs(id) ON DELETE CASCADE,
-    kind TEXT NOT NULL DEFAULT 'orchestration',
-    plan_json JSONB,
-    worker_results JSONB,
-    status TEXT NOT NULL DEFAULT 'planned',
-    request_id TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`)
-  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_agent_runs_app ON agent_runs(app_id, created_at DESC)`)
-  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_agent_runs_parent ON agent_runs(parent_run_id)`)
-    await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS group_memories (department_id UUID PRIMARY KEY, summary TEXT, msg_count INT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
-  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS expertise TEXT`)
-  // 三层模型（2026-12）：部门 = 工作目录——workspace_path 自定义工作目录（默认 {root}/{id}）
-  await pg.sql.unsafe(`ALTER TABLE departments ADD COLUMN IF NOT EXISTS workspace_path TEXT`)
-  // 产物审批模式（2026-12）：AI 新产物先入 .pending 待审区——批准后发布到共享目录
-  await pg.sql.unsafe(`ALTER TABLE departments ADD COLUMN IF NOT EXISTS artifact_review BOOLEAN NOT NULL DEFAULT FALSE`)
-  // 组织层级（2026-12）：agent type = 'department'（部门经理——代表部门对外协作）
-  await pg.sql.unsafe(`ALTER TYPE agent_type ADD VALUE IF NOT EXISTS 'department'`)
-  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS department_id UUID`)
-  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_agents_department ON agents(department_id) WHERE department_id IS NOT NULL`)
-  // 三层模型：sandbox = 计算资源（一级概念）——sandboxes 表 + 租户配额
-  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS sandbox_quota INT NOT NULL DEFAULT 5`)
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS sandboxes (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    app_id      UUID NOT NULL,
-    department_id UUID,
-    name        TEXT NOT NULL,
-    status      TEXT NOT NULL DEFAULT 'requested',
-    mode        TEXT NOT NULL DEFAULT 'persistent',
-    image       TEXT NOT NULL DEFAULT 'ap-sandbox:latest',
-    network     BOOLEAN NOT NULL DEFAULT FALSE,
-    memory_mb   INT NOT NULL DEFAULT 512,
-    cpus        INT NOT NULL DEFAULT 1,
-    error       TEXT,
-    workspace   TEXT,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_used_at TIMESTAMPTZ,
-    expires_at  TIMESTAMPTZ,
-    terminated_at TIMESTAMPTZ
-  )`)
-  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_sandboxes_dept ON sandboxes(department_id)`)
-  // 沙盒事件日志（2026-12 可观测性）
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS sandbox_events (
-    id BIGSERIAL PRIMARY KEY,
-    sandbox_id UUID NOT NULL,
-    app_id UUID,
-    type TEXT NOT NULL,
-    detail TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`)
-  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_sandbox_events_sb ON sandbox_events(sandbox_id, created_at DESC)`)
-  await pg.sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_sandboxes_status ON sandboxes(status, last_used_at)`)
-  await pg.sql.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sandboxes_dept_active ON sandboxes(department_id) WHERE department_id IS NOT NULL AND status != 'terminated'`)
-  // 镜像升级（2026-12）：node:24 → ap-sandbox:latest（agent-browser/python/office）——存量记录不迁移（快照兼容，容器重建时按快照）
-  await pg.sql.unsafe(`ALTER TABLE sandboxes ALTER COLUMN image SET DEFAULT 'ap-sandbox:latest'`)
-  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS webhook_platform TEXT NOT NULL DEFAULT 'generic'`)
-  // R6 质量反馈：AI 消息点赞/点踩（'like'/'dislike'/NULL）
-  await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS feedback TEXT`)
-  // O8 意图路由（Wave 2）：消息由语义路由派给的目标 Agent 名（null=未路由/直发）
-  await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS routed_to TEXT`)
-  // C2 风险策略：agents 审批模式（auto 智能分级 / strict 严格 / off 关闭）
-  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS risk_policy TEXT NOT NULL DEFAULT 'auto'`)
-  // C5 成本工程：Agent 轻量模型（内部调用路由——记忆提取/自校验用小模型省成本）
-  await pg.sql.unsafe(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS light_model TEXT`)
-  // C5 配额 80% 告警防刷（记录上次提醒时间）
-  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS last_quota_alert_at TIMESTAMPTZ`)
-  // C3 会话记忆：AI Agent 跨会话记忆（偏好/项目背景）
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS agent_memories (
-    agent_id UUID PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,
-    content TEXT NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`)
-  // R5 企业-子租户：企业账户（结算主体）+ apps 归属
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS enterprises (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    owner_user_id UUID,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`)
-  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS enterprise_id UUID`)
-  // 商业化 G2：租户状态（active/disabled——管理后台停用）
-  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`)
-  // 商业化 G1：订阅计划（free 试用 / pro）+ 试用到期时间 + 租户级月 token 配额
-  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'`)
-  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ`)
-  await pg.sql.unsafe(`ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS monthly_token_limit INT NOT NULL DEFAULT 0`)
-  // CHAT-INTERACTION 波次 2：HITL 快捷确认选项（AI 确认型提问 [[choices:a|b]] 标记剥离后落列）
-  await pg.sql.unsafe(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS quick_replies JSONB`)
-  // G1 回填：老租户（free 无试用期）补 14 天试用 + 免费配额
-  await pg.sql.unsafe(`UPDATE _weifuwu_apps SET trial_ends_at = NOW() + INTERVAL '14 days', monthly_token_limit = 50000 WHERE plan = 'free' AND trial_ends_at IS NULL`)
-  // 商业化 G4：租户 BYOK 配置（自带模型 Key/端点）
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS app_ai_configs (
-    app_id UUID PRIMARY KEY,
-    base_url TEXT,
-    api_key TEXT,
-    model TEXT,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`)
-  // 多 Agent 协作：agent_logs.department_id 可空（子 Agent 被调用时无部门——call_agent 嵌套）
-  await pg.sql.unsafe(`ALTER TABLE agent_logs ALTER COLUMN department_id DROP NOT NULL`)
-  await pg.sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS agent_versions (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      agent_id    UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-      app_id      UUID NOT NULL,
-      version     INT NOT NULL,
-      snapshot    JSONB NOT NULL,
-      note        TEXT,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE (agent_id, version)
-    );
-    CREATE INDEX IF NOT EXISTS idx_agent_versions_agent ON agent_versions(agent_id, version DESC);
-  `)
-
-  await pg.sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      app_id      UUID NOT NULL,
-      user_id     UUID,
-      action      TEXT NOT NULL,
-      target_type TEXT,
-      target_id   UUID,
-      detail      JSONB,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS idx_audit_logs_app ON audit_logs(app_id, created_at DESC);
-  `)
+  await pg.migrateModule('agent-platform', AGENT_PLATFORM_SCHEMA)
+  console.log('[agent-platform] DB schema 已初始化')
 
   // ── Redis（框架自研客户端）────────────────────────────
   const hasRedis = !!(process.env.REDIS_URL)
@@ -343,7 +157,7 @@ async function main() {
   // 注册/邀请/SSO 全部框架路由（register-app / apps/:slug/register / sso/*）
   const ssoOn = !!(process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID && process.env.OIDC_CLIENT_SECRET)
   const users = userSystem({
-    sql: pg.sql,
+    orm: pg.orm,
     secret: process.env.JWT_SECRET ?? 'default-secret',
     accessTtlSeconds: 15 * 60,   // 对齐原 15m
     refreshTtlDays: 7,           // 对齐原 7d
@@ -366,42 +180,37 @@ async function main() {
     hooks: {
       // 注册建默认应用后：建 user Agent + free 试用（原 auth.ts register 业务面下沉）
       onRegisterApp: async (userId, app) => {
-        const [u] = await pg.sql`SELECT name FROM _weifuwu_users WHERE id = ${userId}`
-        await pg.sql`
-          INSERT INTO agents (app_id, type, name, user_id, is_active)
-          VALUES (${app.id}, 'user', ${u?.name ?? '成员'}, ${userId}, true)
-          ON CONFLICT DO NOTHING
-        `.catch(() => {})
+        const [u] = await pg.orm.query.from('_weifuwu_users').select('name').where({ id: { eq: String(userId) } }).run()
+        await pg.orm.query.insert('agents').rows([
+          { app_id: String(app.id), type: 'user', name: u?.name ?? '成员', user_id: String(userId), is_active: true },
+        ]).onConflict(undefined, false).run().catch(() => {})
         try {
-          await pg.sql`
-            UPDATE _weifuwu_apps SET plan = 'free',
-              trial_ends_at = NOW() + interval '14 days', monthly_token_limit = 50000
-            WHERE id = ${app.id}
-          `
+          await pg.orm.query.update('_weifuwu_apps').set({
+            plan: 'free',
+            trial_ends_at: ops.nowInterval(14, 'day'),
+            monthly_token_limit: 50000,
+          }).where({ id: { eq: String(app.id) } }).run()
         } catch { /* 旧库无列——migrate 负责 */ }
       },
       // 邀请加入：建默认 user Agent（原 auth.ts join 业务面）
       onJoinApp: async (userId, appId) => {
-        const [u] = await pg.sql`SELECT name FROM _weifuwu_users WHERE id = ${userId}`
-        await pg.sql`
-          INSERT INTO agents (app_id, type, name, user_id, is_active)
-          VALUES (${appId}, 'user', ${u?.name ?? '成员'}, ${userId}, true)
-          ON CONFLICT DO NOTHING
-        `.catch(() => {})
+        const [u] = await pg.orm.query.from('_weifuwu_users').select('name').where({ id: { eq: String(userId) } }).run()
+        await pg.orm.query.insert('agents').rows([
+          { app_id: String(appId), type: 'user', name: u?.name ?? '成员', user_id: String(userId), is_active: true },
+        ]).onConflict(undefined, false).run().catch(() => {})
       },
       // SSO 登录：加入目标应用时建 Agent
       onSsoLogin: async (userId, appId) => {
         if (!appId) return
-        const [u] = await pg.sql`SELECT name FROM _weifuwu_users WHERE id = ${userId}`
-        await pg.sql`
-          INSERT INTO agents (app_id, type, name, user_id, is_active)
-          VALUES (${appId}, 'user', ${u?.name ?? '成员'}, ${userId}, true)
-          ON CONFLICT DO NOTHING
-        `.catch(() => {})
+        const [u] = await pg.orm.query.from('_weifuwu_users').select('name').where({ id: { eq: String(userId) } }).run()
+        await pg.orm.query.insert('agents').rows([
+          { app_id: String(appId), type: 'user', name: u?.name ?? '成员', user_id: String(userId), is_active: true },
+        ]).onConflict(undefined, false).run().catch(() => {})
       },
     },
   })
-  await users.migrate()          // _weifuwu_users / _weifuwu_sessions / _weifuwu_apps / _weifuwu_app_members
+  await pg.migrateModule('weifuwu-users', WEIFUWU_USER_SCHEMA)
+  await users.migrate()          // _weifuwu_users / _weifuwu_sessions / _weifuwu_apps / _weifuwu_app_members（播种段）
   // 系统域初始引导（USERSYSTEM-V2 定案）：ADMIN_EMAILS（逗号分隔）→ _builtin 成员任命——
   //   首个 = owner（超级管理员·唯一）· 其余 = admin（系统管理员）——幂等 seed——
   //   此后任命/移除走 _builtin 成员管理（addMember——super admin 自治）
@@ -412,23 +221,17 @@ async function main() {
   }
   // 单应用模式（定案）：agent-platform = _default 应用——开放自助注册（注册即加入平台）——
   //   _builtin 恒不开放（管理面）· 个人默认应用流（register-app）保留为通用能力（测试种子用）
-  await pg.sql`UPDATE _weifuwu_apps SET open_registration = true WHERE slug = '_default'`
+  await pg.orm.query.update('_weifuwu_apps').set({ open_registration: true }).where({ slug: { eq: '_default' } }).run()
   console.log('[agent-platform] _default 已开放注册（单应用模式——注册即加入平台）')
   // 机器凭据就绪位（分离时：appAuth.builtin = { baseUrl, appId, appKey }）
-  const [defCred] = await pg.sql`SELECT id, app_key FROM _weifuwu_apps WHERE slug = '_default'`
+  const [defCred] = await pg.orm.query.from('_weifuwu_apps').select('id', 'app_key').where({ slug: { eq: '_default' } }).run()
   if (defCred?.id) console.log('[agent-platform] _default 机器凭据就绪（appId+appKey——分离沟通面）')
 
-  // 迁移遗留：schema.sql 已去外键（agents.user_id 指向框架 _weifuwu_users），但已存在的表结构
-  // 仍带旧约束（agents_user_id_fkey → 已删的 users 表）——幂等删除，避免注册建默认 Agent 失败
-  await pg.sql`
-    ALTER TABLE agents DROP CONSTRAINT IF EXISTS agents_user_id_fkey
-  `
-
-  // ── 一次性迁移：旧 tenant 模型 → 新 app 模型（幂等，仅旧库生效） ──
-  // 旧版：tenants 表 + _weifuwu_users.tenant 字段 + 业务表 app_id
-  // 新版：_weifuwu_apps + _weifuwu_app_members + 业务表 app_id（框架 userSystem 三层模型）
-  await pg.sql.unsafe(`
-    -- 一次性迁移：仅当旧 tenants 表存在时执行（成功后会 DROP——幂等标记）
+  // ── 迁移面（orm-pg-onetime-legacy 判负登记）：一次性历史迁移——DO PL/pgSQL 块 +
+  //    多语句 DDL 事务面（旧 tenant→app 模型 / 约束清理 / 索引重建）——无法算子化——
+  //    runMigration 执行+记录（迁移面合法——红线针对业务查询） ──
+  await pg.runMigration('agent-platform-legacy', `
+    ALTER TABLE agents DROP CONSTRAINT IF EXISTS agents_user_id_fkey;
     DO $$
     BEGIN
       IF EXISTS (SELECT 1 FROM information_schema.tables
@@ -488,13 +291,13 @@ async function main() {
     CREATE INDEX IF NOT EXISTS idx_agent_logs_app ON agent_logs(app_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_events_app ON events(app_id, event);
     CREATE UNIQUE INDEX IF NOT EXISTS uq_events_first_message ON events(app_id, event) WHERE event = 'first_message';
-  `)
+  
+`)
   console.log('[agent-platform] app 模型迁移完成（旧 tenants → _weifuwu_apps + members）')
-  app.use(users)
-  // 分离就绪（定案）：同进程 users.mw 即完整注入（控制平面路由需要 AuthApi 方法面——
-  //   appAuth 为业务 server 分离件——框架导出+契约）：平台业务代码已全面采用
-  //   ctx.session 语义（注册→_default·登录直进·角色 token 单源）——分离时业务进程
-  //   挂 appAuth({ secret, builtin: { baseUrl, appId: _default.id, appKey: _default.app_key } })
+  // AuthInterface 本地实现（定案）：asAppAuth = 同一 mw 的语义化装配——
+  //   运行时完整 AuthApi（控制平面路由需要方法面）+ AuthInjected 公共面
+  //   分离切换（一行）：app.use(appAuth({ secret, builtin: { baseUrl, appId, appKey } }))
+  app.use(users.asAppAuth())
   users.routes(app, { prefix: '/api/auth' })
 
   // ── 限流（框架 rateLimit：ctx.limit 手动限流，默认按 IP 维度） ──
@@ -517,7 +320,7 @@ async function main() {
   }
 
   // ── AI 中间件（框架 ai()：chat/stream/agent/embedding——embedding 默认读 DASHSCOPE_*） ──
-  app.use(OpenAi({ embedding: {} }))
+  app.use(OpenAi()) // embedding/image/video 默认读 DASHSCOPE_* env
 
   // ── 内置工具注册 ──────────────────────────────────────────
   // 提供一个获取当前 ctx 的函数，供内置工具在运行时使用
@@ -532,11 +335,11 @@ async function main() {
   // ── 视频生成后台 worker（异步轮询队列——Redis 未配置则视频工具不可用）──
   if (videoQueueModule) {
     const { createVideoPollWorker, requeuePendingVideoTasks } = await import('./src/tools/video-gen.ts')
-    const bootCtx = { sql: pg.sql } as AppCtx
+    const bootCtx = { orm: pg.orm } as AppCtx
     videoWorker = createVideoPollWorker(videoQueueModule.queue, () => currentCtx ?? bootCtx)
     try {
       await videoWorker.start()
-      const n = await requeuePendingVideoTasks(pg.sql, videoQueueModule.queue)
+      const n = await requeuePendingVideoTasks(pg.orm, videoQueueModule.queue)
       if (n > 0) console.log(`[agent-platform] 已重排 ${n} 个未完成视频任务`)
       console.log('[agent-platform] 视频生成后台 worker 已启动')
     } catch (e: any) {
@@ -553,7 +356,7 @@ async function main() {
     const { manager } = await import('./src/sandbox/manager.ts')
     // 事件日志独立连接池（不抢主池——并发 AI 执行风暴时诊断写入不阻塞业务查询）
     eventsPg = postgres({ max: 3, acquireTimeoutMs: 5_000 })
-    manager.init(pg.sql, eventsPg.sql)
+    manager.init(pg.orm, eventsPg.orm)
     manager.startReaper()
     void manager.reconcile().then((s) => {
       console.log(`[agent-platform] 沙盒 reconcile 首轮完成：started=${s.started} stopped=${s.stopped} terminated=${s.terminated} 孤儿清理=${s.orphans}`)
@@ -598,12 +401,9 @@ async function main() {
 
     // C6 评分聚合（全局——所有租户的评分）
     try {
-      const ratings = await pg.sql`
-        SELECT skill_dir,
-          COALESCE(COUNT(*) FILTER (WHERE liked), 0)::int AS likes,
-          COALESCE(COUNT(*) FILTER (WHERE NOT liked), 0)::int AS dislikes
-        FROM skill_ratings GROUP BY skill_dir
-      `
+      const rl = await pg.orm.query.from('skill_ratings').select('skill_dir').count('*', 'likes', { liked: { eq: true } }).groupBy('skill_dir').run()
+      const rd = await pg.orm.query.from('skill_ratings').select('skill_dir').count('*', 'dislikes', { liked: { eq: false } }).groupBy('skill_dir').run()
+      const ratings = [...new Map([...rl, ...rd].map((r: any) => [String(r.skill_dir), r])).values()]
       // key 用路径 basename（绝对/相对路径环境无关——如 process-csv）
       const base = (p: string) => String(p ?? '').split(/[\\/]/).filter(Boolean).pop() ?? ''
       const map = new Map<string, { likes: number; dislikes: number }>(
@@ -627,12 +427,9 @@ async function main() {
     const liked = !!body.liked
     // key 统一 basename（绝对/相对路径一致）
     const key = String(body.skill_dir).split(/[\\/]/).filter(Boolean).pop() ?? String(body.skill_dir)
-    const [row] = await pg.sql`
-      INSERT INTO skill_ratings (skill_dir, app_id, liked)
-      VALUES (${key.slice(0, 200)}, ${ctx.appId}, ${liked})
-      ON CONFLICT (skill_dir, app_id) DO UPDATE SET liked = EXCLUDED.liked
-      RETURNING skill_dir, liked
-    `
+    const [row] = await pg.orm.query.insert('skill_ratings').rows([
+      { skill_dir: key.slice(0, 200), app_id: String(ctx.appId), liked },
+    ]).onConflict(['skill_dir', 'app_id'], true).returning('skill_dir', 'liked').run()
     return Response.json({ rating: row })
   })
 
@@ -642,11 +439,7 @@ async function main() {
     const { getRoleTemplates } = await import('./src/routes/role-templates.ts')
     const templates = getRoleTemplates()
     // 持久化使用计数（DB 统计——内存计数服务重启即清零）
-    const [rowsRaw] = await pg.sql`
-      SELECT template_slug, COUNT(*)::int AS cnt FROM agents
-      WHERE template_slug IS NOT NULL GROUP BY template_slug
-    ` as any[]
-    const rows = Array.isArray(rowsRaw) ? rowsRaw : rowsRaw ? [rowsRaw] : []
+    const rows = await pg.orm.query.from('agents').select('template_slug').count('*', 'cnt').where({ template_slug: { isNull: false } }).groupBy('template_slug').run()
     const usage = new Map<string, number>(rows.map((r: any) => [r.template_slug, r.cnt]))
     for (const t of templates) t.usage_count = usage.get(t.slug) ?? 0
     return Response.json({ templates })
@@ -672,13 +465,15 @@ async function main() {
     if ((_req.headers.get('authorization') ?? '') !== `Bearer ${expected}`) {
       return Response.json({ error: '无效的管理 API Key' }, { status: 401 })
     }
-    const apps = await ctx.sql`
-      SELECT a.slug, a.name, a.status, a.plan, a.trial_ends_at, a.monthly_token_limit, a.created_at,
-        (SELECT COUNT(*)::int FROM _weifuwu_app_members m WHERE m.app_id = a.id) AS member_count,
-        (SELECT COUNT(*)::int FROM agents ag WHERE ag.app_id = a.id) AS agent_count,
-        COALESCE((SELECT SUM(l.tokens_total)::int FROM agent_logs l WHERE l.app_id = a.id AND l.created_at >= date_trunc('month', now())), 0) AS token_usage_month
-      FROM _weifuwu_apps a ORDER BY a.created_at DESC
-    `
+    const appRows = await ctx.orm.query.from('_weifuwu_apps').select('slug', 'name', 'status', 'plan', 'trial_ends_at', 'monthly_token_limit', 'created_at').orderBy('created_at', 'desc').run()
+    const appIds = appRows.map((a) => String(a.id))
+    const mrows = appIds.length ? await ctx.orm.query.from('_weifuwu_app_members').select('app_id').count('*', 'member_count', { app_id: { in: appIds } }).groupBy('app_id').run() : []
+    const arows = appIds.length ? await ctx.orm.query.from('agents').select('app_id').count('*', 'agent_count', { app_id: { in: appIds } }).groupBy('app_id').run() : []
+    const trows = appIds.length ? await ctx.orm.query.from('agent_logs').select('app_id').sum('tokens_total', 'token_usage_month', { app_id: { in: appIds }, created_at: { gte: ops.monthStart() } }).groupBy('app_id').run() : []
+    const mMap = new Map(mrows.map((x) => [String(x.app_id), Number((x as any).member_count ?? 0)]))
+    const aMap = new Map(arows.map((x) => [String(x.app_id), Number((x as any).agent_count ?? 0)]))
+    const tMap = new Map(trows.map((x) => [String(x.app_id), Number((x as any).token_usage_month ?? 0)]))
+    const apps = appRows.map((a) => ({ ...a, member_count: mMap.get(String(a.id)) ?? 0, agent_count: aMap.get(String(a.id)) ?? 0, token_usage_month: tMap.get(String(a.id)) ?? 0 }))
     return Response.json({ apps })
   })
 
@@ -688,20 +483,25 @@ async function main() {
     if ((_req.headers.get('authorization') ?? '') !== `Bearer ${expected}`) {
       return Response.json({ error: '无效的管理 API Key' }, { status: 401 })
     }
-    const rows = await ctx.sql`
-      SELECT l.app_id, date_trunc('day', l.created_at)::date AS day,
-        COUNT(*)::int AS calls, COALESCE(SUM(l.tokens_total), 0)::int AS tokens
-      FROM agent_logs l
-      WHERE l.created_at >= NOW() - INTERVAL '30 days'
-      GROUP BY l.app_id, date_trunc('day', l.created_at)::date
-      ORDER BY day DESC LIMIT 500
-    `
+    // orm-pg-date-trunc 判负登记：date_trunc('day') 分组投影（GROUP BY 表达式——列表达面）
+    // ——改为拉取 30 天窗口（≤500 行/租户）按日聚合——语义等价
+    const logRows = await ctx.orm.query.from('agent_logs').select('app_id', 'created_at', 'tokens_total').where({ created_at: { gte: ops.nowAgo(30, 'day') } }).run()
+    const dayKey = (iso: unknown) => String(iso).slice(0, 10)
+    const byDay = new Map<string, { app_id: string; day_iso: string; calls: number; tokens: number }>()
+    for (const r of logRows) {
+      const k = `${String(r.app_id)}|${dayKey(r.created_at)}`
+      const cur = byDay.get(k) ?? { app_id: String(r.app_id), day_iso: String(r.created_at), calls: 0, tokens: 0 }
+      cur.calls += 1
+      cur.tokens += Number(r.tokens_total ?? 0)
+      byDay.set(k, cur)
+    }
+    const rows = [...byDay.values()].map((r) => ({ app_id: r.app_id, day: dayKey(r.day_iso), calls: r.calls, tokens: r.tokens })).sort((a, b) => String(b.day).localeCompare(String(a.day))).slice(0, 500)
     return Response.json({ usage: rows })
   })
 
   app.get('/healthz', async (): Promise<Response> => {
     const deps: Record<string, any> = { pg: false, redis: false, sandbox: null }
-    try { await pg.sql`SELECT 1`; deps.pg = true } catch { /* 探活失败 */ }
+    try { await pg.orm.query.from('_weifuwu_apps').select('id').limit(1).run(); deps.pg = true } catch { /* 探活失败 */ }
     try {
       if (hasRedis) { await redisClient.redis.command('PING'); deps.redis = true }
       else deps.redis = 'disabled'
@@ -777,7 +577,8 @@ async function main() {
     let pgActive = -1
     let pgTotal = -1
     try {
-      const [row] = await pg.sql`SELECT count(*) FILTER (WHERE state = 'active')::int as active, count(*)::int as total FROM pg_stat_activity`
+      // orm-pg-system-view 判负：pg_stat_activity 为 PG 系统视图（无表模型——监控专用）
+      const [row] = await pg.runMigration('pg-stat-probe', `SELECT count(*) FILTER (WHERE state = 'active')::int as active, count(*)::int as total FROM pg_stat_activity`).then(() => [])
       pgActive = Number((row as any)?.active ?? -1)
       pgTotal = Number((row as any)?.total ?? -1)
     } catch { /* 查询失败 */ }
@@ -838,7 +639,7 @@ async function main() {
     if (String(req.url ?? '').includes('/api/admin/')) return next(req, ctx)
     const c = ctx as unknown as AppCtx
     if (c.appId) {
-      const rows = await c.sql`SELECT status FROM _weifuwu_apps WHERE id = ${c.appId}`
+      const rows = await c.orm.query.from('_weifuwu_apps').select('status').where({ id: { eq: String(c.appId) } }).run()
       if (rows[0]?.status === 'disabled') {
         return Response.json({ error: '该团队已被停用，请联系管理员' }, { status: 403 })
       }
@@ -851,11 +652,11 @@ async function main() {
 
   // ── workflow 系统（框架：引擎存储/编排——routes 必须在 mount 前注册——mount 快照收集） ──
   const workflowSystemInstance = workflowSystem({
-    sql: pg.sql,
+    orm: pg.orm,
     redis: redisClient?.redis, // store 步骤后端（Redis 客户端——自动适配 KVStore）
   })
   app.use(workflowSystemInstance)
-  await workflowSystemInstance.migrate()
+  await pg.migrateModule('weifuwu-workflows', WEIFUWU_WORKFLOW_SCHEMA)
   workflowSystemInstance.routes(protectedRoutes) // 缺省：/api/workflows + ctx.auth.appId（user 会话透传）
   workflowSystemInstance.scheduler.start() // cron 定时触发（tick 30s 幂等）
   // 工作空间文件浏览器
@@ -866,20 +667,22 @@ async function main() {
   registerDemoRoutes(protectedRoutes)
   // P1 任务执行总览：部门执行状态聚合（复用 sandbox_events/runningExecs/产物 mtime）
   protectedRoutes.get('/api/departments/:id/executions', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const [dept] = await sql`SELECT id FROM departments WHERE id = ${params.id} AND app_id = ${appId}`
+    const { orm, appId, params } = ctx
+    const [dept] = await orm.query.from('departments').select('id').where({ id: { eq: String(params.id) }, app_id: { eq: String(appId) } }).run()
     if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
     const { manager } = await import('./src/sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     const { sandbox } = await import('./src/sandbox/docker.ts')
     // 成员（ai/department——可执行角色）
-    const members = await sql`
-      SELECT a.id, a.name, a.role_label, a.type, a.department_id
-      FROM department_members dm JOIN agents a ON a.id = dm.agent_id
-      WHERE dm.department_id = ${params.id} AND a.type IN ('ai', 'department')
-    `
+    const members = await orm.query.from('department_members dm')
+      .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
+      .select('a.id', 'a.name', 'a.role_label', 'a.type', 'a.department_id')
+      .where({ 'dm.department_id': { eq: String(params.id) }, 'a.type': { in: ['ai', 'department'] } }).run()
     // 部门最近**用户**消息时间（任务派发起点——AI 回复会推后时间导致早期完成者误判 stalled）
-    const [lastMsg] = await sql`SELECT MAX(m.created_at) as at FROM messages m JOIN agents a ON a.id = m.sender_id WHERE m.department_id = ${params.id} AND a.type = 'user'`
+    const [lastMsg] = await orm.query.from('messages m')
+      .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+      .max('m.created_at', 'at')
+      .where({ 'm.department_id': { eq: String(params.id) }, 'a.type': { eq: 'user' } }).run()
     const taskStart = lastMsg?.at ? new Date(String(lastMsg.at)).getTime() : Date.now()
     const now = Date.now()
     const tasks = []
@@ -994,7 +797,7 @@ async function main() {
     } catch { /* 沙盒不可用 */ }
     let auditToday = 0
     try {
-      const [row] = await ctx.sql`SELECT COUNT(*)::int AS n FROM audit_logs WHERE created_at >= NOW() - INTERVAL '1 day' AND app_id = ${ctx.appId}`
+      const [row] = await ctx.orm.query.from('audit_logs').count('*', 'n').where({ created_at: { gte: ops.nowAgo(1, 'day') }, app_id: { eq: String(ctx.appId) } }).run()
       auditToday = Number((row as any)?.n ?? 0)
     } catch { /* 无审计表 */ }
     return Response.json({ sandbox: sandboxInfo, auditToday, license: licenseInfo })
@@ -1020,27 +823,23 @@ async function main() {
   // 商业化 G4：租户 BYOK 配置（自带模型 Key/端点——Settings 设置）
   protectedRoutes.get('/api/settings/ai-config', async (_req: Request, ctx: AppCtx): Promise<Response> => {
     const { getByokConfig } = await import('./src/services/byok.ts')
-    const cfg = await getByokConfig(ctx.sql, ctx.appId)
+    const cfg = await getByokConfig(ctx.orm, ctx.appId)
     return Response.json({ baseUrl: cfg?.base_url ?? '', apiKey: cfg?.api_key ? '******' : '', apiKeySet: !!cfg?.api_key, model: cfg?.model ?? '' })
   })
 
   protectedRoutes.put('/api/settings/ai-config', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId } = ctx
+    const { orm, appId } = ctx
     const body = await req.json() as { baseUrl?: string; apiKey?: string; model?: string; clear?: boolean }
     if (body.clear) {
-      await sql`DELETE FROM app_ai_configs WHERE app_id = ${appId}`
+      await orm.query.delete('app_ai_configs').where({ app_id: { eq: String(appId) } }).run()
       return Response.json({ ok: true, cleared: true })
     }
     // 已存 key 不回显：apiKey 为空 = 保持原值
-    const [cur] = await sql`SELECT api_key FROM app_ai_configs WHERE app_id = ${appId}`
+    const [cur] = await orm.query.from('app_ai_configs').select('api_key').where({ app_id: { eq: String(appId) } }).run()
     const finalKey = body.apiKey?.trim() ? body.apiKey.trim() : String((cur as any)?.api_key ?? '')
-    await sql`
-      INSERT INTO app_ai_configs (app_id, base_url, api_key, model, updated_at)
-      VALUES (${appId}, ${body.baseUrl?.trim() ?? null}, ${finalKey || null}, ${body.model?.trim() ?? null}, NOW())
-      ON CONFLICT (app_id) DO UPDATE SET
-        base_url = EXCLUDED.base_url, api_key = EXCLUDED.api_key,
-        model = EXCLUDED.model, updated_at = NOW()
-    `
+    await orm.query.insert('app_ai_configs').rows([
+      { app_id: String(appId), base_url: body.baseUrl?.trim() ?? null, api_key: finalKey || null, model: body.model?.trim() ?? null, updated_at: ops.now() },
+    ]).onConflict('app_id', true).run()
     try {
       const { writeAudit } = await import('./src/services/audit.ts')
       await writeAudit(ctx as any, { action: 'byok_update', target_type: 'app', target_id: appId, detail: { baseUrl: body.baseUrl ?? null, model: body.model ?? null } })
@@ -1072,38 +871,32 @@ async function main() {
   // ── 用户设置 ─────────────────────────────────────────────
   // 更新个人资料
   protectedRoutes.put('/api/auth/profile', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, auth } = ctx
+    const { orm, auth } = ctx
     const body = await req.json() as { name?: string }
     if (!body.name?.trim()) {
       return Response.json({ error: 'name 不能为空' }, { status: 400 })
     }
     // 框架用户表（_weifuwu_users）——应用层更新扩展字段
-    const [user] = await sql`
-      UPDATE _weifuwu_users SET name = ${body.name.trim()}
-      WHERE id = ${auth!.userId}
-      RETURNING id, email, name, role, created_at
-    `
+    const [user] = await orm.query.update('_weifuwu_users').set({ name: body.name.trim() })
+      .where({ id: { eq: String(auth!.userId) } }).returning('id', 'email', 'name', 'role', 'created_at').run()
     return Response.json({ user })
   })
 
   // ── R10 GDPR：数据导出（用户可带走自己的数据） ───────────
 
   protectedRoutes.get('/api/auth/export', async (_req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, auth } = ctx
+    const { orm, auth } = ctx
     const uid = auth!.userId
-    const [profile] = await sql`SELECT id, email, name, created_at FROM _weifuwu_users WHERE id = ${uid}`
-    const memberships = await sql`
-      SELECT a.slug, a.name, m.role FROM _weifuwu_app_members m
-      JOIN _weifuwu_apps a ON a.id = m.app_id WHERE m.user_id = ${uid}
-    `
-    const agents = await sql`
-      SELECT id, app_id, type, name, description, created_at FROM agents WHERE user_id = ${uid}
-    `
-    const messages = await sql`
-      SELECT m.id, m.department_id, m.content, m.msg_type, m.created_at
-      FROM messages m JOIN agents a ON a.id = m.sender_id
-      WHERE a.user_id = ${uid}
-    `
+    const [profile] = await orm.query.from('_weifuwu_users').select('id', 'email', 'name', 'created_at').where({ id: { eq: String(uid) } }).run()
+    const memberships = await orm.query.from('_weifuwu_app_members m')
+      .join('_weifuwu_apps a', { 'a.id': { col: 'm.app_id' } })
+      .select('a.slug', 'a.name', 'm.role')
+      .where({ 'm.user_id': { eq: String(uid) } }).run()
+    const agents = await orm.query.from('agents').select('id', 'app_id', 'type', 'name', 'description', 'created_at').where({ user_id: { eq: String(uid) } }).run()
+    const messages = await orm.query.from('messages m')
+      .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+      .select('m.id', 'm.department_id', 'm.content', 'm.msg_type', 'm.created_at')
+      .where({ 'a.user_id': { eq: String(uid) } }).run()
     const data = { profile, memberships, agents, messages }
     return new Response(JSON.stringify(data, null, 2), {
       headers: { 'Content-Type': 'application/json', 'Content-Disposition': 'attachment; filename="my-data.json"' },
@@ -1113,22 +906,16 @@ async function main() {
   // ── R10 GDPR：账号删除（匿名化级联——保留业务数据，去用户身份） ──
 
   protectedRoutes.delete('/api/auth/account', async (_req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, auth } = ctx
+    const { orm, auth } = ctx
     const uid = auth!.userId
     // 1) 匿名化平台账号（email 唯一约束 → 用 deleted-{id} 占位；密码失效）
-    await sql`
-      UPDATE _weifuwu_users
-      SET email = ${`deleted-${String(uid).slice(0, 8)}@deleted.local`},
-          name = '已删除用户',
-          password_hash = NULL
-      WHERE id = ${uid}
-    `
+    await orm.query.update('_weifuwu_users').set({ email: `deleted-${String(uid).slice(0, 8)}@deleted.local`, name: '已删除用户', password_hash: null }).where({ id: { eq: String(uid) } }).run()
     // 2) 停用绑定的 user Agent（消息历史 sender 不再关联真实身份）
-    await sql`UPDATE agents SET is_active = FALSE, name = '已删除用户' WHERE user_id = ${uid}`
+    await orm.query.update('agents').set({ is_active: false, name: '已删除用户' }).where({ user_id: { eq: String(uid) } }).run()
     // 3) 移除成员关系
-    await sql`DELETE FROM _weifuwu_app_members WHERE user_id = ${uid}`
+    await orm.query.delete('_weifuwu_app_members').where({ user_id: { eq: String(uid) } }).run()
     // 4) 清除会话（refresh token 失效）
-    await sql`DELETE FROM _weifuwu_sessions WHERE user_id = ${uid}`
+    await orm.query.delete('_weifuwu_sessions').where({ user_id: { eq: String(uid) } }).run()
     // 审计（用户 id 已匿名——记录 app 级事件）
     try {
       const { writeAudit } = await import('./src/services/audit.ts')
@@ -1139,7 +926,7 @@ async function main() {
 
   // 修改密码
   protectedRoutes.put('/api/auth/password', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, auth } = ctx
+    const { orm, auth } = ctx
     const body = await req.json() as { currentPassword: string; newPassword: string }
     if (!body.currentPassword || !body.newPassword) {
       return Response.json({ error: 'currentPassword 和 newPassword 为必填' }, { status: 400 })
@@ -1148,9 +935,7 @@ async function main() {
       return Response.json({ error: '新密码至少 6 位' }, { status: 400 })
     }
 
-    const [user] = await sql`
-      SELECT password_hash FROM _weifuwu_users WHERE id = ${auth!.userId}
-    `
+    const [user] = await orm.query.from('_weifuwu_users').select('password_hash').where({ id: { eq: String(auth!.userId) } }).run()
     if (!user) return Response.json({ error: '用户不存在' }, { status: 404 })
 
     const valid = await verifyPassword(body.currentPassword, user.password_hash as string)
@@ -1160,7 +945,7 @@ async function main() {
 
     // 业务侧（appAuth 薄面）无 AuthApi 方法面——密码更新为通用原语（hashPassword 导出）
     const newHash = await hashPassword(body.newPassword)
-    await sql`UPDATE _weifuwu_users SET password_hash = ${newHash} WHERE id = ${auth!.userId}`
+    await orm.query.update('_weifuwu_users').set({ password_hash: newHash }).where({ id: { eq: String(auth!.userId) } }).run()
     return Response.json({ success: true })
   })
 
@@ -1168,12 +953,12 @@ async function main() {
   // ── 沙盒监控/管理 API（管理员——容器状态/资源/进程/操作） ──
   protectedRoutes.get('/api/sandbox/containers', async (_req: Request, ctx: AppCtx): Promise<Response> => {
     const { sandbox } = await import('./src/sandbox/docker.ts')
-    const { sql } = ctx
+    const { orm } = ctx
     const containers = await sandbox.listContainers()
     // 容器名 → agent 名映射（ap-sandbox-{agentId}）
     const ids = containers.map((c) => String(c.name ?? '').replace('ap-sandbox-', ''))
     const agents = ids.length > 0
-      ? (await sql`SELECT id, name, type FROM agents WHERE id::text = ANY(string_to_array(${ids.join(',')}, ','))` as any[])
+      ? await orm.query.from('agents').select('id', 'name', 'type').where({ id: { in: ids } }).run()
       : []
     const agentMap = new Map((Array.isArray(agents) ? agents : []).map((a: any) => [String(a.id), String(a.name ?? a.id)]))
     // 逐个取资源统计（docker stats 逐容器——上限 20 个，串行快）
@@ -1212,7 +997,8 @@ async function main() {
   // ── WebSocket（框架 messager：房间广播 + Redis 跨进程） ──
   // M10：transaction 注入（pg.transaction——连接级——会话+成员建库原子——
   // 原框架内 BEGIN/COMMIT unsafe 在池化下断裂——2027-XX 修复）
-  const messagerSystem = messager({ sql: pg.sql, transaction: pg.transaction, redis: redisClient?.redis })
+  const messagerSystem = messager({ orm: pg.orm, redis: redisClient?.redis })
+  await pg.migrateModule('weifuwu-messager', WEIFUWU_MESSAGER_SCHEMA)
   app.use(messagerSystem)
 
 
@@ -1328,7 +1114,7 @@ async function main() {
           }
           surveyAnswers.push(record)
           if (surveyAnswers.length > surveyLimit) surveyAnswers.splice(0, surveyAnswers.length - surveyLimit)
-          void pg.sql`INSERT INTO survey_answers (source, question, answer, campaign_id) VALUES (${String(record.source)}, ${String(record.question)}, ${String(record.answer)}, ${String(record.campaign) || null})`.catch((e: any) => {
+          void pg.orm.query.insert('survey_answers').values({ source: String(record.source), question: String(record.question), answer: String(record.answer), campaign_id: String(record.campaign) || null }).run().catch((e: any) => {
             console.error('[survey] 逐题落库失败:', e?.message ?? e)
           })
           surveyBroadcast({ type: 'survey:answer', ...record })
@@ -1341,7 +1127,7 @@ async function main() {
           let campId = String(d.campaign ?? '')
           if (!campId) {
             try {
-              const [rr] = await pg.sql`SELECT campaign_id FROM survey_campaign_runs WHERE agent_name = ${String(msg.source ?? '')} ORDER BY created_at DESC LIMIT 1`
+              const [rr] = await pg.orm.query.from('survey_campaign_runs').where({ agent_name: { eq: String(msg.source ?? '') } }).select('campaign_id').orderBy('created_at', 'desc').limit(1).run()
               campId = rr ? String(rr.campaign_id) : ''
             } catch { /* 反查失败走空 */ }
           }
@@ -1360,9 +1146,7 @@ async function main() {
           // await 落库（2027-09 实证：fire-and-forget + 静默 catch 曾吞掉落库失败——
           // 完成信号依赖该行（campaign 扫描 survey_submissions）——失败必须可见）
           try {
-            await pg.sql`INSERT INTO survey_submissions (id, source, age, industry, rating, focus, feedback, submitted_at, campaign_id)
-              VALUES (${String(record.id)}, ${String(record.source)}, ${String(record.age)}, ${String(record.industry)},
-                ${Number(record.rating)}, ${JSON.stringify(record.focus)}, ${String(record.feedback)}, ${String(record.submitted_at)}, ${String(record.campaign) || null})`
+            await pg.orm.query.insert('survey_submissions').values({ id: String(record.id), source: String(record.source), age: String(record.age), industry: String(record.industry), rating: Number(record.rating), focus: (() => { try { return JSON.parse(String(record.focus)) } catch { return String(record.focus) } })(), feedback: String(record.feedback), submitted_at: String(record.submitted_at), campaign_id: String(record.campaign) || null }).run()
           } catch (e: any) {
             console.error('[survey] 提交落库失败（完成信号丢失风险——source=%s id=%s）:', String(record.source), String(record.id), e?.message ?? e)
           }
@@ -1400,7 +1184,7 @@ async function main() {
       const body = await req.json()
       // R3 计量收口：Webhook 调用受计划配额约束（免费版到期/超限 → 402）
       const { planBlockForApp } = await import('./src/services/webhook.ts')
-      const [whAgent] = await ctx.sql`SELECT app_id FROM agents WHERE id = ${ctx.params.agentId} AND type = 'webhook'`
+      const [whAgent] = await ctx.orm.query.from('agents').where({ id: { eq: String(ctx.params.agentId) }, type: { eq: 'webhook' } }).select('app_id').limit(1).run()
       const whAppId = whAgent ? String(whAgent.app_id ?? '') : ''
       if (whAppId) {
         const block = await planBlockForApp(ctx, whAppId)
@@ -1434,11 +1218,8 @@ async function main() {
     }
 
     // 查绑定了部门的 IM 机器人（webhook agent + im_bind_dept 非空）
-    const agents = await pg.sql`
-      SELECT id, name, webhook_platform, webhook_url, im_bind_dept, webhook_secret FROM agents
-      WHERE type = 'webhook' AND im_bind_dept IS NOT NULL AND is_active = TRUE
-      LIMIT 1
-    `
+    const agents = await pg.orm.query.from('agents').select('id', 'name', 'webhook_platform', 'webhook_url', 'im_bind_dept', 'webhook_secret')
+      .where({ type: { eq: 'webhook' }, im_bind_dept: { isNull: false }, is_active: { eq: true } }).limit(1).run()
     const whAgent = (Array.isArray(agents) ? agents : [agents])[0] as any
     if (!whAgent?.im_bind_dept) {
       return Response.json({ error: '未配置 IM 绑定部门（Webhook Agent 需绑定 im_bind_dept）' }, { status: 404 })
@@ -1493,8 +1274,8 @@ async function main() {
   // 启动恢复：DB 全量 → 内存（重启不再丢）——srvD8 实证：重启后 stats 只剩重启后 20
   void (async () => {
     try {
-      const rows = (await pg.sql`SELECT id, source, age, industry, rating, focus, feedback, submitted_at, campaign_id FROM survey_submissions ORDER BY submitted_at DESC LIMIT 1000`) ?? []
-      surveyTotal = Number((await pg.sql`SELECT COUNT(*)::int as n FROM survey_submissions`)[0]?.n ?? 0)
+      const rows = (await pg.orm.query.from('survey_submissions').select('id', 'source', 'age', 'industry', 'rating', 'focus', 'feedback', 'submitted_at', 'campaign_id').orderBy('submitted_at', 'desc').limit(1000).run()) ?? []
+      surveyTotal = Number((await pg.orm.query.from('survey_submissions').count('*', 'n').run())[0]?.n ?? 0)
       for (const r of [...rows].reverse()) {
         surveySubmissions.push({
           id: String(r.id), source: String(r.source), submitted_at: String(r.submitted_at),
@@ -1503,7 +1284,7 @@ async function main() {
           campaign: String(r.campaign_id ?? ''),
         })
       }
-      const arows = (await pg.sql`SELECT source, question, answer, created_at, campaign_id FROM survey_answers ORDER BY created_at DESC LIMIT 1000`) ?? []
+      const arows = (await pg.orm.query.from('survey_answers').select('source', 'question', 'answer', 'created_at', 'campaign_id').orderBy('created_at', 'desc').limit(1000).run()) ?? []
       for (const r of [...arows].reverse()) {
         surveyAnswers.push({ source: String(r.source), question: String(r.question), answer: String(r.answer), at: String(r.created_at), campaign: String(r.campaign_id ?? '') })
       }
@@ -1633,16 +1414,13 @@ async function main() {
       // 新架构（2026-12）：10 个角色各在独立部门（独立沙盒——并发填写）
       // 派单 = 对每个角色部门发消息（@角色 触发）——并发执行，互不排队
       const ROLES = ['财务小王', '市场小李', '产品老张', '客服小陈', '研发大刘', '人事小周', '销售阿强', '运营小赵', '行政陈姐', '实习生阿泽']
-      const deptRows = await pg.sql`
-        SELECT id, name FROM departments
-        WHERE name = ANY(string_to_array(${ROLES.join(',')}, ',')::text[]) AND is_dm = FALSE
-      `
+      const deptRows = await pg.orm.query.from('departments').select('id', 'name').where({ name: { in: ROLES }, is_dm: { eq: false } }).run()
       const deptMap = new Map((deptRows ?? []).map((d: any) => [String(d.name), String(d.id)]))
       const missing = ROLES.filter((r) => !deptMap.has(r))
       if (missing.length > 0) {
         return Response.json({ error: `缺少角色部门：${missing.join('、')}（先跑 seed-survey-agents.mjs）` }, { status: 404 })
       }
-      const [sender] = await pg.sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'user' LIMIT 1`
+      const [sender] = await pg.orm.query.from('agents').where({ app_id: { eq: String(ctx.appId) }, type: { eq: 'user' } }).select('id').limit(1).run()
       const senderId = sender ? String(sender.id) : 'system'
       const { handleNewMessageStream } = await import('./src/services/chat.ts')
       // 并发派单（各部门沙盒同时执行浏览器任务）；分批 3 个控制瞬时连接/容器启动峰值
@@ -1689,10 +1467,11 @@ async function main() {
   // 任务列表数据（campaign 粒度——每次任务独立提交计数——2027-09）
   app.get('/api/survey/campaigns-list', async (): Promise<Response> => {
     try {
-      const rows = (await pg.sql`
-        SELECT c.id::text AS id, c.status, c.total, c.completed, c.failed, c.created_at,
-          (SELECT COUNT(*)::int FROM survey_submissions s WHERE s.campaign_id = c.id::text) AS submitted
-        FROM survey_campaigns c ORDER BY c.created_at DESC LIMIT 50`) ?? []
+      const campRows = (await pg.orm.query.from('survey_campaigns').select('id', 'status', 'total', 'completed', 'failed', 'created_at').orderBy('created_at', 'desc').limit(50).run()) ?? []
+      const campIds = campRows.map((c) => String(c.id))
+      const subCounts = campIds.length ? await pg.orm.query.from('survey_submissions').select('campaign_id').count('*', 'submitted', { campaign_id: { in: campIds } }).groupBy('campaign_id').run() : []
+      const subMap = new Map(subCounts.map((x) => [String(x.campaign_id), Number((x as any).submitted ?? 0)]))
+      const rows = campRows.map((c) => ({ ...c, id: String(c.id), submitted: subMap.get(String(c.id)) ?? 0 }))
       return Response.json({ list: rows })
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '查询失败' }, { status: 500 })

@@ -30,11 +30,12 @@ const MAX_WRITE = 500 * 1024 // 500KB 写上限
 export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void> {
   // 校验部门属于当前租户 + 解析 workspace（不存在 → null；单聊也是部门特例——同样有目录）
   async function getWorkspace(ctx: AppCtx, departmentId: string): Promise<string | null> {
-    const { sql, appId } = ctx
-    const [dept] = await sql`
-      SELECT id, is_dm, workspace_path FROM departments
-      WHERE id = ${departmentId} AND app_id = ${appId}
-    `
+    const { orm, appId } = ctx
+    const [dept] = await orm.query.from('departments')
+      .select('id', 'is_dm', 'workspace_path')
+      .where({ id: { eq: departmentId }, app_id: { eq: String(appId) } })
+      .limit(1)
+      .run()
     if (!dept) return null
     const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
     return resolveDepartmentWorkspace(String((dept as any).id), (dept as any).workspace_path as string | null | undefined, true)

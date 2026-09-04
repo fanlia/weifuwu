@@ -94,7 +94,7 @@ function stepView(
     return <div style={`margin-left: ${(depth + 1) * 16}px`} class="wf-stack wf-gap-sm">
       <div class="wf-row wf-gap-sm wf-items-center">
         {seg !== 'step' && <span class="wf-font-xs wf-semibold wf-text-secondary">{seg}</span>}
-        <Button size="sm" variant="ghost" onClick={() => onAdd(step.id, seg)}>＋ 添加步骤</Button>
+        <Button size="sm" variant="ghost" onClick={() => onAdd(step.id, [seg])}>＋ 添加步骤</Button>
       </div>
       {sub.steps.map((x, i) => (
         <div key={i}>
@@ -133,7 +133,7 @@ function stepView(
               <div key={k} class="wf-stack wf-gap-xs">
                 <label class="wf-font-xs wf-text-secondary">{String((meta2 as { title?: string })?.title ?? k)}</label>
                 {textArea
-                  ? <Textarea rows={3} value={val} onInput={(v) => onDraft(k, v)} />
+                  ? <Textarea rows={3} value={val} onInput={(e) => onDraft(k, String((e.target as HTMLTextAreaElement).value))} />
                   : <Input value={val} onInput={(e) => onDraft(k, (e as any).target?.value ?? '')} />}
               </div>
             )
@@ -169,7 +169,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
         ctx.api!.get<{ runs: RunRow[] }>(`/api/workflows/${id}/runs`),
       ])
       $.wf = d.workflow
-      $.cronDraft = String(d.workflow.cron ?? '')
+      $.cronDraft = String((d.workflow as { cron?: string }).cron ?? '')
       $.wfjsDraft = d.workflow.wfjs ?? ''
       $.inputFields = [...new Set((d.workflow.wfjs ?? '').match(/\binput\.([A-Za-z_$][\w$]*)/g)?.map((x) => x.slice(6)) ?? [])]
       $.schemas = m.schemas
@@ -271,7 +271,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
 
         <Card key="views">
           <Tabs
-            value={$.tab}
+            active={$.tab}
             onChange={(v) => { $.tab = String(v); rerender() }}
             items={[
               { key: 'dag', label: '流程', content: (
@@ -393,7 +393,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
             ) : (
               <div class="wf-font-xs wf-text-secondary">wfjs 里用 input.xxx 读取——值来自这里的 JSON（同名键）</div>
             )}
-            <Textarea value={$.args} rows={3} onChange={(v) => { $.args = String(v); rerender() }} placeholder='{"sku": "A-100"}' />
+            <Textarea value={$.args} rows={3} onInput={(e) => { $.args = String((e.target as HTMLTextAreaElement).value); rerender() }} placeholder='{"sku": "A-100"}' />
             {$.lastResult && (
               <Alert variant={($.lastResult as { status?: string }).status === 'success' ? 'success' : 'error'}>
                 执行 {($.lastResult as { status?: string }).status}
@@ -408,7 +408,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
             <Select
               value={$.addingType}
               placeholder="选择步骤类型"
-              options={Object.entries($.fieldMeta).map(([k, v]) => ({ value: k, label: v?.title ?? k }))}
+              options={Object.entries($.fieldMeta).map(([k, v]) => ({ value: k, label: (v as { title?: string })?.title ?? k }))}
               onChange={(v) => { $.addingType = String(v); rerender() }}
             />
             <div class="wf-row wf-gap-sm wf-justify-end">

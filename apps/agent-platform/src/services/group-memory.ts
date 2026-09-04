@@ -7,6 +7,8 @@
  * 成本控制：节流生成（每 N 条一次）+ 轻量模型 + 失败静默。
  */
 
+import { ops } from 'weifuwu'
+
 export const GROUP_MEMORY_INTERVAL = 20 // 每 20 条消息生成/刷新一次
 export const GROUP_MEMORY_MAX = 500 // 摘要上限字符
 
@@ -39,26 +41,22 @@ export async function updateGroupMemory(
   departmentId: string,
 ): Promise<void> {
   try {
-    const { sql } = ctx
-    // 计数（幂等 upsert 初始化）
-    const [row] = await sql`
-      INSERT INTO group_memories (department_id, msg_count)
-      VALUES (${departmentId}, 1)
-      ON CONFLICT (department_id) DO UPDATE SET msg_count = group_memories.msg_count + 1
-      RETURNING msg_count
-    `
+    const orm = ctx.orm
+    // orm-pg-merge 判负修订：msg_count+1 表达式 → merge 表达式（mergeInc——零 SQL）
+    const [row] = await orm.query.insert('group_memories').values({ department_id: departmentId, msg_count: 1 })
+      .onConflict('department_id', true, { msg_count: ops.mergeInc(1) })
+      .returning('msg_count').run()
     const count = Number(row?.msg_count ?? 0)
     if (!shouldGenerateGroupMemory(count)) return
 
     // 取最近消息（含署名——P1-1 格式复用）
-    const recent = (await sql`
-      SELECT a.name as sender_name, m.content
-      FROM messages m
-      JOIN agents a ON a.id = m.sender_id
-      WHERE m.department_id = ${departmentId} AND m.ai_approved != FALSE
-      ORDER BY m.created_at DESC
-      LIMIT 30
-    `) as unknown as Array<{ sender_name: string; content: string }>
+    const recent = (await orm.query.from('messages m')
+      .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+      .select('a.name as sender_name', 'm.content')
+      .where({ 'm.department_id': departmentId, 'm.ai_approved': { ne: false } })
+      .orderBy('m.created_at', 'desc')
+      .limit(30)
+      .run()) as unknown as Array<{ sender_name: string; content: string }>
     if (recent.length === 0) return
 
     const transcript = recent.reverse()
@@ -69,7 +67,7 @@ export async function updateGroupMemory(
     // 轻量模型优先（lightModel 配置在 agent 上——这里取部门任一 AI 的配置；无则主模型）
     let lightModel: string | undefined
     try {
-      const [anyAgent] = await sql`SELECT light_model FROM agents WHERE app_id = ${ctx.appId} AND light_model IS NOT NULL LIMIT 1`
+      const [anyAgent] = await orm.query.from('agents').select('light_model').where({ app_id: String(ctx.appId), light_model: { ne: null } }).limit(1).run()
       lightModel = anyAgent?.light_model ? String(anyAgent.light_model) : undefined
     } catch { /* 无轻量模型配置 */ }
 
@@ -84,11 +82,10 @@ export async function updateGroupMemory(
     })
     const summary = String(res?.choices?.[0]?.message?.content ?? '').trim()
     if (summary && summary.length > 10) {
-      await sql`
-        INSERT INTO group_memories (department_id, summary, updated_at)
-        VALUES (${departmentId}, ${summary.slice(0, GROUP_MEMORY_MAX)}, NOW())
-        ON CONFLICT (department_id) DO UPDATE SET summary = EXCLUDED.summary, updated_at = NOW()
-      `
+      await orm.query.insert('group_memories')
+        .values({ department_id: departmentId, summary: summary.slice(0, GROUP_MEMORY_MAX), updated_at: ops.now() })
+        .onConflict('department_id', true)
+        .run()
     }
   } catch { /* 群共识更新失败静默——不影响消息流 */ }
 }

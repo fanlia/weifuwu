@@ -68,7 +68,7 @@ export const CodeEditor: Component<CodeEditorProps> = (_init, ctx) => {
   }
   // **memo（opt-in shouldRender）**：value/lang/rows/readOnly 比较——onChange
   // 闭包引用豁免（回调变化不触发重渲染——高频输入下编辑器段零扰动）
-  render.shouldRender = (prev, next) =>
+  render.shouldRender = (prev: any, next: any) =>
     (prev as CodeEditorProps).value !== (next as CodeEditorProps).value ||
     (prev as CodeEditorProps).lang !== (next as CodeEditorProps).lang ||
     (prev as CodeEditorProps).rows !== (next as CodeEditorProps).rows ||

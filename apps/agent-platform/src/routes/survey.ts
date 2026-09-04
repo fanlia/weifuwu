@@ -27,14 +27,13 @@ export function registerSurveyRoutes(app: any): void {
 
   app.get('/api/survey/campaigns', async (_req: Request, ctx: AppCtx): Promise<Response> => {
     try {
-      const { sql, appId } = ctx
-      const rows = await sql`
-        SELECT id, status, total, completed, failed, url, retry, concurrency, created_at
-        FROM survey_campaigns
-        WHERE app_id = ${appId}
-        ORDER BY created_at DESC
-        LIMIT 50
-      `
+      const { orm, appId } = ctx
+      const rows = await orm.query.from('survey_campaigns')
+        .select('id', 'status', 'total', 'completed', 'failed', 'url', 'retry', 'concurrency', 'created_at')
+        .where({ app_id: { eq: String(appId) } })
+        .orderBy('created_at', 'desc')
+        .limit(50)
+        .run()
       return Response.json({ campaigns: rows ?? [] })
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '查询失败' }, { status: 400 })

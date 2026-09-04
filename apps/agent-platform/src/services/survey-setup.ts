@@ -31,30 +31,28 @@ export function surveyContract(url: string, name: string): string {
 }
 
 export async function setupSurveyRoster(
-  ctx: Pick<AppCtx, 'sql' | 'appId'>,
+  ctx: Pick<AppCtx, 'orm' | 'appId'>,
   opts: { url: string; personas: SurveyPersonaSpec[]; total?: number; concurrency?: number; retry?: number },
 ): Promise<{ campaignId: string; created: Array<{ name: string; deptId: string; agentId: string }> }> {
-  const { sql, appId } = ctx
+  const { orm, appId } = ctx
   const created: Array<{ name: string; deptId: string; agentId: string }> = []
   for (const p of opts.personas) {
     // 1) 独立部门（自己沙盒——并发填写）
-    const [dept] = await sql`
-      INSERT INTO departments (app_id, name, is_dm) VALUES (${appId}, ${p.name}, false)
-      RETURNING id
-    `
+    const [dept] = await orm.query.insert('departments')
+      .values({ app_id: String(appId), name: p.name, is_dm: false })
+      .returning('id')
+      .run()
     // 2) 角色 agent（name 前缀 问卷-——createCampaign 筛选协议）
-    const [agent] = await sql`
-      INSERT INTO agents (app_id, type, name, description, role_label, expertise, system_prompt,
-        model, department_id, is_active, tools, allow_file_tools, allow_command_exec, allow_network)
-      VALUES (${appId}, 'ai', ${'问卷-' + p.name}, ${p.roleLabel + '——' + p.expertise},
-        ${p.roleLabel}, ${p.expertise}, ${surveyContract(opts.url, p.name)},
-        'deepseek-chat', ${dept.id}, true, '[]', true, true, true)
-      RETURNING id
-    `
-    await sql`
-      INSERT INTO department_members (department_id, agent_id, role)
-      VALUES (${dept.id}, ${agent.id}, 'member')
-    `
+    const [agent] = await orm.query.insert('agents')
+      .values({ app_id: String(appId), type: 'ai', name: '问卷-' + p.name, description: p.roleLabel + '——' + p.expertise,
+        role_label: p.roleLabel, expertise: p.expertise, system_prompt: surveyContract(opts.url, p.name),
+        model: 'deepseek-chat', department_id: String(dept.id), is_active: true, tools: [],
+        allow_file_tools: true, allow_command_exec: true, allow_network: true })
+      .returning('id')
+      .run()
+    await orm.query.insert('department_members')
+      .values({ department_id: String(dept.id), agent_id: String(agent.id), role: 'member' })
+      .run()
     created.push({ name: p.name, deptId: String(dept.id), agentId: String(agent.id) })
   }
   // 3) 直接建活动（createCampaign 单源——角色名匹配 问卷- 前缀）

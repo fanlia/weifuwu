@@ -11,9 +11,11 @@
  */
 
 import type { Context } from 'weifuwu'
+import { and, eq, ne, inArray, isNotNull, ops } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { runAgent, streamAgent } from './agent-runner.ts'
 import { buildRosterText, buildHistoryContent, buildPersonaLayer, buildWorkspaceLayer, QUICK_REPLY_GUIDE, type RosterMember } from './persona.ts'
+import { tables } from '../db/orm.ts'
 
 /** CHAT-INTERACTION 波次 2：HITL 快捷确认选项解析——
  *  AI 确认型提问在回复末尾输出 [[choices:选项1|选项2|选项3]] 标记（persona 层指引）；
@@ -98,15 +100,12 @@ export function createSseEmitter(write: (chunk: string) => void): StreamEmitter 
 
 /** 部门内 knowledge_base 成员（@ 定向用——KB 机器人检索回复，不调 LLM） */
 async function loadKbMembers(ctx: AppCtx, departmentId: string): Promise<Array<Record<string, any>>> {
-  const { sql } = ctx
-  return (await sql`
-    SELECT a.id, a.name
-    FROM department_members dm
-    JOIN agents a ON a.id = dm.agent_id
-    WHERE dm.department_id = ${departmentId}
-      AND a.type = 'knowledge_base'
-      AND a.is_active = TRUE
-  `) as unknown as Array<Record<string, any>>
+  const rows = await ctx.orm.query.from('department_members dm')
+    .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
+    .select('a.id', 'a.name')
+    .where(and({ 'dm.department_id': { eq: departmentId }}, { 'a.type': { eq: 'knowledge_base' } }, { 'a.is_active': { eq: true } }))
+    .run()
+  return rows as unknown as Array<Record<string, any>>
 }
 
 /** @ 命中知识库机器人 → 检索 top3 拼接回复（纯确定性，不调 LLM）；无命中/相似度过低 → null */
@@ -115,27 +114,25 @@ async function kbReplyFor(ctx: AppCtx, kb: Record<string, any>, query: string, d
     const { sql } = ctx
     // R3 计量收口：KB 检索也受计划配额约束（免费版到期/超限 → 不检索）
     const { planBlockReason } = await import('./plan.ts')
-    const block = await planBlockReason(sql, ctx.appId)
+    const block = await planBlockReason(ctx.orm, ctx.appId)
     if (block) return block
     const embedding = await ctx.ai.embed(query)
-    const vecStr = `[${embedding.join(',')}]`
-    const chunks = (await sql`
-      SELECT kc.content, kd.filename,
-        1 - (kc.embedding <=> ${vecStr}::vector) as similarity
-      FROM kb_chunks kc
-      JOIN kb_documents kd ON kd.id = kc.document_id
-      WHERE kc.agent_id = ${kb.id}
-      ORDER BY kc.embedding <=> ${vecStr}::vector
-      LIMIT 3
-    `) as unknown as Array<Record<string, any>>
+    // orm-pg-vector 判负修订：vectorScore 特化（同上）
+    const chunks = (await ctx.orm.query.from('kb_chunks kc')
+      .join('kb_documents kd', { 'kd.id': { col: 'kc.document_id' } })
+      .select('kc.content', 'kd.filename')
+      .vectorScore('kc.embedding', embedding, 'similarity')
+      .where({ 'kc.agent_id': { eq: String(kb.id) } })
+      .limit(3)
+      .run()) as unknown as Array<Record<string, any>>
     const hits = chunks.filter((c) => Number(c.similarity) > 0.1)
     if (hits.length === 0) return null
     // R3：KB 检索计量（agent_logs 记录调用——配额/成本/ROI 口径一致）
     try {
-      await sql`
-        INSERT INTO agent_logs (agent_id, app_id, department_id, messages_count, steps_count, tokens_prompt, tokens_completion, tokens_total, elapsed_ms, success)
-        VALUES (${kb.id}, ${ctx.appId}, ${departmentId}, 1, 0, 0, 0, 0, 50, true)
-      `
+      const T = tables(ctx.orm)
+      await T.agent_logs
+        .insert({ agent_id: String(kb.id), app_id: String(ctx.appId), department_id: departmentId, messages_count: 1, steps_count: 0, tokens_prompt: 0, tokens_completion: 0, tokens_total: 0, elapsed_ms: 50, success: true })
+        .run()
     } catch { /* 计量失败不阻断检索 */ }
     return `📚 知识库检索结果（${kb.name}）：\n\n` + hits
       .map((c) => `【${c.filename}】${String(c.content).slice(0, 400)}`)
@@ -149,13 +146,12 @@ async function kbReplyFor(ctx: AppCtx, kb: Record<string, any>, query: string, d
 async function persistKbReply(
   ctx: AppCtx, departmentId: string, kb: Record<string, any>, content: string,
 ): Promise<void> {
-  const { sql } = ctx
+  const T = tables(ctx.orm)
   try {
-    const [msg] = await sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
-      VALUES (${departmentId}, ${kb.id}, ${content}, 'text', TRUE)
-      RETURNING id, created_at
-    `
+    const [msg] = await T.messages
+      .insert({ department_id: departmentId, sender_id: String(kb.id), content, msg_type: 'text', ai_approved: true })
+      .returning('id', 'created_at')
+      .run()
     ctx.msg.broadcast(String(departmentId), {
       type: 'ai_reply',
       message: { id: msg.id, agentId: kb.id, agentName: kb.name, content, departmentId, createdAt: msg.created_at },
@@ -168,17 +164,14 @@ export async function handleNewMessage(
   senderId: string,
   messageContent: string,
 ): Promise<void> {
-  const { sql } = ctx
+  const { sql, orm } = ctx
 
   // 查找部门中所有 AI Agent
-  const aiAgents = (await sql`
-    SELECT a.id, a.name, a.system_prompt, a.model, a.tools, a.human_in_the_loop, a.max_tokens
-    FROM department_members dm
-    JOIN agents a ON a.id = dm.agent_id
-    WHERE dm.department_id = ${departmentId}
-      AND a.type IN ('ai', 'department')
-      AND a.is_active = TRUE
-  `) as unknown as Array<Record<string, any>>
+  const aiAgents = (await orm.query.from('department_members dm')
+    .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
+    .select('a.id', 'a.name', 'a.system_prompt', 'a.model', 'a.tools', 'a.human_in_the_loop', 'a.max_tokens')
+    .where(and({ 'dm.department_id': { eq: departmentId }}, { 'a.type': { in: ['ai', 'department'] } }, { 'a.is_active': { eq: true } }))
+    .run()) as unknown as Array<Record<string, any>>
 
   // @ 定向发言：消息中 @Agent名 只触发目标 AI（无 @ 时全部回复）
   const mentioned: Record<string, string> = {}
@@ -224,11 +217,11 @@ export async function handleNewMessage(
   if (aiAgents.length === 0) {
     // 无 AI 成员——插入系统提示（消除静默失败，引导用户添加 AI 成员）
     try {
-      const [hint] = await sql`
-        INSERT INTO messages (department_id, sender_id, content, msg_type)
-        VALUES (${departmentId}, ${senderId}, '该群组暂无 AI 成员，消息不会得到自动回复。请到部门详情添加 AI 机器人。', 'system')
-        RETURNING id, created_at
-      `
+      const T = tables(ctx.orm)
+      const [hint] = await T.messages
+        .insert({ department_id: departmentId, sender_id: senderId, content: '该群组暂无 AI 成员，消息不会得到自动回复。请到部门详情添加 AI 机器人。', msg_type: 'system' })
+        .returning('id', 'created_at')
+        .run()
       const hintMsg = hint as any
       ctx.msg.broadcast(String(departmentId), {
         type: 'new_message',
@@ -250,17 +243,16 @@ export async function handleNewMessage(
   }
 
   // 获取最近消息历史（逆序还原为正序）
-  const recentMessages = (await sql`
-    SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type,
-      m.reply_to, r.content as reply_content, ra.name as reply_sender_name
-    FROM messages m
-    JOIN agents a ON a.id = m.sender_id
-    LEFT JOIN messages r ON r.id = m.reply_to
-    LEFT JOIN agents ra ON ra.id = r.sender_id
-    WHERE m.department_id = ${departmentId} AND m.ai_approved != FALSE
-    ORDER BY m.created_at DESC
-    LIMIT 20
-  `) as unknown as Array<Record<string, any>>
+  const recentMessages = (await orm.query.from('messages m')
+    .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+    .join('messages r', { 'r.id': { col: 'm.reply_to' } }, { type: 'left' })
+    .join('agents ra', { 'ra.id': { col: 'r.sender_id' } }, { type: 'left' })
+    .select('m.content', 'm.created_at', 'a.name as sender_name', 'a.type as sender_type',
+      'm.reply_to', 'r.content as reply_content', 'ra.name as reply_sender_name')
+    .where(and({ 'm.department_id': { eq: departmentId }}, { 'm.ai_approved': { ne: false } }))
+    .orderBy('m.created_at', 'desc')
+    .limit(20)
+    .run()) as unknown as Array<Record<string, any>>
 
   // 构建 ChatMessage[] — 包含历史上下文（P1-1 署名 / P1-2 引用）
   const chatMessages: import('../ai/types.ts').ChatMessage[] = []
@@ -280,12 +272,11 @@ export async function handleNewMessage(
   chatMessages.push({ role: 'user', content: messageContent })
 
   // P0-2 同事名单
-  const rosterMembers = (await sql`
-    SELECT a.id, a.type, a.name, dm.role, a.role_label, a.expertise
-    FROM department_members dm
-    JOIN agents a ON a.id = dm.agent_id
-    WHERE dm.department_id = ${departmentId}
-  `) as unknown as RosterMember[]
+  const rosterMembers = (await orm.query.from('department_members dm')
+    .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
+    .select('a.id', 'a.type', 'a.name', 'dm.role', 'a.role_label', 'a.expertise')
+    .where({ 'dm.department_id': { eq: departmentId }})
+    .run()) as unknown as RosterMember[]
 
   // 为每个 AI Agent 生成回复（@ 定向时只回复被 @ 的目标）
   for (const agent of targets) {
@@ -299,11 +290,11 @@ export async function handleNewMessage(
       // 加载 Agent 已启用的技能
       const preloadedSkills: import('./skills.ts').SkillContext[] = []
       try {
-        const agentSkills = (await sql`
-          SELECT ask.skill_dir, ask.skill_name
-          FROM agent_skills ask
-          WHERE ask.agent_id = ${agent.id} AND ask.enabled = TRUE
-        `) as unknown as Array<Record<string, any>>
+        const T = tables(ctx.orm)
+        const agentSkills = (await T.agent_skills
+          .select('skill_dir', 'skill_name')
+          .where(and(eq(T.agent_skills.c.agent_id, agent.id), eq(T.agent_skills.c.enabled, true)))
+          .run()) as unknown as Array<Record<string, any>>
         for (const as of agentSkills) {
           try {
             const skill = await loadSkill(as.skill_dir, () => ctx)
@@ -344,11 +335,12 @@ export async function handleNewMessage(
         // 执行归属部门（与流式路径一致）
         let verifyDeptId = String(departmentId)
         try {
-          const [agRow] = await sql`SELECT department_id FROM agents WHERE id = ${agent.id}`
+          const T = tables(ctx.orm)
+          const [agRow] = await T.agents.select('department_id').where(eq(T.agents.c.id, agent.id)).run()
           if ((agRow as any)?.department_id) verifyDeptId = String((agRow as any).department_id)
         } catch { /* 查询失败用当前部门 */ }
         if (claimed.length > 0) {
-          const { verified, missing, stale } = await verifyArtifacts(sql, verifyDeptId, claimed, taskStartedAt)
+          const { verified, missing, stale } = await verifyArtifacts(orm, verifyDeptId, claimed, taskStartedAt)
           if (verified.length > 0 || missing.length > 0 || stale.length > 0) {
             verifiedContent = content + buildVerifyMark(verified, missing, stale)
           }
@@ -357,11 +349,11 @@ export async function handleNewMessage(
 
       if (agent.human_in_the_loop) {
         // Human-in-the-Loop: 保存为草稿，待审批
-        const [draftMsg] = await sql`
-          INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved, ai_step)
-          VALUES (${departmentId}, ${agent.id}, '[AI 生成中...]', 'text', ${verifiedContent}, NULL, ${JSON.stringify({ steps: result.steps })})
-          RETURNING id, content, created_at
-        `
+        const T = tables(ctx.orm)
+        const [draftMsg] = await T.messages
+          .insert({ department_id: departmentId, sender_id: String(agent.id), content: '[AI 生成中...]', msg_type: 'text', ai_draft: verifiedContent, ai_approved: null, ai_step: { steps: result.steps } })
+          .returning('id', 'content', 'created_at')
+          .run()
 
         // WS 推送审批通知
         ctx.msg.broadcast(String(departmentId), {
@@ -371,11 +363,11 @@ export async function handleNewMessage(
 
         // 邮件通知租户 owner（商业化 G5——审批不打开页面也能收到提醒）
         try {
-          const owners = await sql`
-            SELECT u.email, u.name FROM _weifuwu_app_members m
-            JOIN _weifuwu_users u ON u.id = m.user_id
-            WHERE m.app_id = ${ctx.appId} AND m.role = 'owner'
-          `
+          const owners = await orm.query.from('_weifuwu_app_members m')
+            .join('_weifuwu_users u', { 'u.id': { col: 'm.user_id' } })
+            .select('u.email', 'u.name')
+            .where(and({ 'm.app_id': { eq: String(ctx.appId) } }, { 'm.role': { eq: 'owner' } }))
+            .run()
           for (const owner of owners as Array<{ email: string; name?: string }>) {
             if (!owner.email) continue
             const mailer = (ctx as any).email
@@ -391,11 +383,11 @@ export async function handleNewMessage(
         // 自动回复（O8：routed_to 落库——路由指示随消息持久化——前端显示）
         // B1（2026-08）：ai_step 持久化工具步骤——刷新后工具条恢复（此前仅 WS 内存态——
         // 刷新丢失——工具失败视觉只实时可见——闭环缺口）
-        const [replyMsg] = await sql`
-          INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved, routed_to, ai_step)
-          VALUES (${departmentId}, ${agent.id}, ${content}, 'text', TRUE, ${routedTo}, ${JSON.stringify({ steps: result.steps })}) 
-          RETURNING id, content, created_at
-        `
+        const T = tables(ctx.orm)
+        const [replyMsg] = await T.messages
+          .insert({ department_id: departmentId, sender_id: String(agent.id), content, msg_type: 'text', ai_approved: true, routed_to: routedTo, ai_step: { steps: result.steps } })
+          .returning('id', 'content', 'created_at')
+          .run()
 
         // C5 配额 80% 告警（用量达阈值邮件 owner——每日一次）
         try {
@@ -443,7 +435,8 @@ async function runAgentStreamForAgent(
   runMessageId = '',
   workspaceLayer = '',
 ): Promise<void> {
-  const { sql } = ctx
+  const { sql, orm } = ctx
+  const T = tables(orm)
   const isExternalMsg = !!initialMsgId
   // 2026-12：任务开始时间（产物验证区分新旧——旧文件不算「已验证」）
   const taskStartedAt = Date.now()
@@ -458,7 +451,7 @@ async function runAgentStreamForAgent(
     selfName: String(agent.name),
   }) + QUICK_REPLY_GUIDE + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (workspaceLayer ? '\n\n' + workspaceLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : '')
   const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
-  const preloadedSkills = await loadAgentSkills(sql, agent.id, ctx)
+  const preloadedSkills = await loadAgentSkills(ctx, String(agent.id))
 
   // 消息占位（SSE 路径在内部创建）——msgId 在 try 外声明（B.1 兜底 catch 可访问）
   let msgId = initialMsgId
@@ -471,11 +464,10 @@ async function runAgentStreamForAgent(
   }
   try {
   if (!msgId) {
-    const [replyMsg] = await sql`
-      INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
-      VALUES (${departmentId}, ${agent.id}, '', 'text', TRUE)
-      RETURNING id
-    `
+    const [replyMsg] = await T.messages
+      .insert({ department_id: departmentId, sender_id: String(agent.id), content: '', msg_type: 'text', ai_approved: true })
+      .returning('id')
+      .run()
     msgId = String(replyMsg.id)
   }
 
@@ -485,7 +477,7 @@ async function runAgentStreamForAgent(
   // ── 计划拦截（G1 付费墙：试用到期 / 月配额用尽——租户级，先于 Agent 级配额） ──
   try {
     const { planBlockReason } = await import('./plan.ts')
-    const reason = await planBlockReason(sql, ctx.appId)
+    const reason = await planBlockReason(ctx.orm, ctx.appId)
     if (reason) {
       emitWf({ type: 'wf:done', messageId: msgId, content: reason })
       return
@@ -496,11 +488,11 @@ async function runAgentStreamForAgent(
   try {
     const quota = Number(agent.monthly_token_quota ?? 0)
     if (quota > 0) {
-      const [usedRow] = await sql`
-        SELECT COALESCE(SUM(tokens_total), 0)::int AS used
-        FROM agent_logs WHERE agent_id = ${agent.id} AND created_at >= DATE_TRUNC('month', NOW())
-      `
-      const used = Number((usedRow as any)?.used ?? 0)
+      const [usedRow] = await orm.query.from('agent_logs')
+        .sum('tokens_total', 'used')
+        .whereRaw("agent_id = $1 AND created_at >= DATE_TRUNC('month', NOW())", [String(agent.id)])
+        .run()
+      const used = Number((usedRow as Record<string, unknown> | undefined)?.used ?? 0)
       if (used >= quota) {
         emitWf({ type: 'wf:done', messageId: msgId, content: `⚠️ 该 Agent 本月 token 配额（${quota.toLocaleString()}）已用尽，暂停自动回复。请在 Agent 详情调整配额或下月恢复。` })
         return
@@ -546,7 +538,7 @@ async function runAgentStreamForAgent(
         emitWf({ type: 'wf:token', messageId: msgId, text })
         // DB 写入串行化（防并发 UPDATE 乱序覆盖为中间值——流式截断根因）
         dbWriteChain = dbWriteChain.then(() =>
-          sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`
+          T.messages.update({ content: accumulatedContent }).where(eq(T.messages.c.id, msgId)).run()
         )
       },
       onToolCall: (toolCall: { name: string; args: string }) => {
@@ -577,7 +569,7 @@ async function runAgentStreamForAgent(
                 if (ctx.msg?.broadcast) {
                   // 产物审批模式（2026-12）：部门开启时 AI 写入在待审区——事件带 pending 标记
                   // （前端文件卡片显示「待审批」+ 聊天流内直接批准/拒绝）——异步查询后广播
-                  void sql`SELECT artifact_review FROM departments WHERE id = ${departmentId}`
+                  void T.departments.select('artifact_review').where(eq(T.departments.c.id, departmentId)).run()
                     .then((rows) => {
                       const pending = !!(rows?.[0] as any)?.artifact_review
                       if (ctx.msg?.broadcast) {
@@ -615,7 +607,7 @@ async function runAgentStreamForAgent(
   // 完成后更新 DB + 发射 complete/error
   if (streamFailed) {
     if (!accumulatedContent) {
-      await sql`DELETE FROM messages WHERE id = ${msgId} AND content = ''`
+      await T.messages.delete().where(and(eq(T.messages.c.id, msgId), eq(T.messages.c.content, ''))).run()
     }
     emitWf({ type: 'wf:error', messageId: msgId, code: 'provider_error', message: 'AI 回复失败' })
   } else {
@@ -624,14 +616,12 @@ async function runAgentStreamForAgent(
       const m = (globalThis as any).__platform_metrics
       if (m) { m.aiCalls++; m.aiTokens += finalUsage.total_tokens ?? 0 }
       try {
-        await sql`
-          INSERT INTO agent_logs (agent_id, app_id, department_id, messages_count, steps_count,
-            tokens_prompt, tokens_completion, tokens_total, elapsed_ms, success)
-          VALUES (${agent.id}, ${ctx.appId}, ${departmentId},
-            ${chatMessages.length}, 1,
-            ${finalUsage.prompt_tokens}, ${finalUsage.completion_tokens}, ${finalUsage.total_tokens},
-            0, TRUE)
-        `
+        await T.agent_logs
+          .insert({ agent_id: String(agent.id), app_id: String(ctx.appId), department_id: departmentId,
+            messages_count: chatMessages.length, steps_count: 1,
+            tokens_prompt: finalUsage.prompt_tokens ?? 0, tokens_completion: finalUsage.completion_tokens ?? 0, tokens_total: finalUsage.total_tokens ?? 0,
+            elapsed_ms: 0, success: true })
+          .run()
       } catch { /* 日志失败不影响主流程 */ }
     }
     // AI 执行验证（2026-12 幻觉治理）：回复完成后校验声称的产物是否存在——
@@ -642,16 +632,16 @@ async function runAgentStreamForAgent(
       // 执行归属部门（角色在问卷调研被 @ 时产物写在 agents.department_id 的部门——验证也查那里）
       let verifyDeptId = String(departmentId)
       try {
-        const [agRow] = await sql`SELECT department_id FROM agents WHERE id = ${agent.id}`
+        const [agRow] = await T.agents.select('department_id').where(eq(T.agents.c.id, agent.id)).run()
         if ((agRow as any)?.department_id) verifyDeptId = String((agRow as any).department_id)
       } catch { /* 查询失败用当前部门 */ }
       if (claimed.length > 0) {
-        const { verified, missing, stale } = await verifyArtifacts(sql, verifyDeptId, claimed, taskStartedAt)
+        const { verified, missing, stale } = await verifyArtifacts(orm, verifyDeptId, claimed, taskStartedAt)
         if (verified.length > 0 || missing.length > 0 || stale.length > 0) {
           const mark = buildVerifyMark(verified, missing, stale)
           accumulatedContent = accumulatedContent + mark
           emitWf({ type: 'wf:verify', messageId: msgId, verified, missing, stale })
-          await sql`UPDATE messages SET content = ${accumulatedContent} WHERE id = ${msgId}`.catch(() => {})
+          await T.messages.update({ content: accumulatedContent }).where(eq(T.messages.c.id, msgId)).run().catch(() => {})
         }
       }
     } catch { /* 验证失败不阻断 */ }
@@ -659,7 +649,7 @@ async function runAgentStreamForAgent(
     // B1（2026-08）：流式路径工具步骤持久化（ai_step——刷新后工具条恢复）
     if (streamTools.length > 0) {
       try {
-        await sql`UPDATE messages SET ai_step = ${JSON.stringify({ steps: streamTools })} WHERE id = ${msgId}`
+        await T.messages.update({ ai_step: { steps: streamTools } }).where(eq(T.messages.c.id, msgId)).run()
       } catch { /* 失败不阻断流 */ }
     }
 /** 任务消息检测（惰性回复重试的前置条件）：含任务指令词才重试——
@@ -675,12 +665,14 @@ function isTaskMessage(content: string): boolean {
     if (toolCallCount === 0 && accumulatedContent.trim() && !streamFailed && isTaskMessage(messageContent)) {
       try {
         if (canAutoRetry(String(agent.id))) {
-          const [sender] = await sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'user' LIMIT 1`
+          const [sender] = await T.agents.select('id')
+            .where(and(eq(T.agents.c.app_id, ctx.appId), eq(T.agents.c.type, 'user')))
+            .limit(1)
+            .run()
           const senderId = sender ? String(sender.id) : 'system'
           const retryContent = `@${agent.name} 【系统自动重试】你上一轮只回复了计划、没有实际调用任何工具执行。请立即实际执行任务（调用工具完成），不要只回复计划。`
           const { handleNewMessageStream } = await import('./chat.ts')
-          await sql`INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
-            VALUES (${departmentId}, ${senderId}, ${retryContent}, 'system', TRUE)`
+          await T.messages.insert({ department_id: departmentId, sender_id: senderId, content: retryContent, msg_type: 'system', ai_approved: true }).run()
           console.warn(`[chat] ${agent.name} 惰性回复（0 工具调用）——自动重试`)
           void handleNewMessageStream(ctx, String(departmentId), senderId, retryContent, '').catch(() => {})
         }
@@ -697,7 +689,7 @@ function isTaskMessage(content: string): boolean {
     } catch { /* 解析失败透传原文 */ }
     if (quickReplies.length > 0) {
       try {
-        await sql`UPDATE messages SET content = ${finalContent}, quick_replies = ${JSON.stringify(quickReplies)}::jsonb WHERE id = ${msgId}`
+        await T.messages.update({ content: finalContent, quick_replies: quickReplies }).where(eq(T.messages.c.id, msgId)).run()
       } catch { /* 列写入失败不阻断流（done 仍带 quickReplies——前端本次会话可见） */ }
     }
     emitWf({ type: 'wf:done', messageId: msgId, content: finalContent, usage: finalUsage, quickReplies })
@@ -739,7 +731,8 @@ async function runAllAgents(
   // 三层模型（2026-12）：部门 = 工作目录——附件/文件地图按部门 workspace 解析（单聊无目录）
   let deptWsInfo: { is_dm: boolean; workspace_path: string | null } | null = null
   try {
-    const [dept] = await sql`SELECT is_dm, workspace_path FROM departments WHERE id = ${departmentId}`
+    const T = tables(ctx.orm)
+    const [dept] = await T.departments.select('is_dm', 'workspace_path').where(eq(T.departments.c.id, departmentId)).run()
     if (dept) deptWsInfo = { is_dm: !!dept.is_dm, workspace_path: dept.workspace_path ? String(dept.workspace_path) : null }
   } catch { /* 查询失败 → 无工作空间 */ }
 
@@ -749,16 +742,12 @@ async function runAllAgents(
     return
   }
 
-  const aiAgents = (await sql`
-    SELECT a.id, a.name, a.system_prompt, a.model, a.tools, a.human_in_the_loop, a.max_tokens,
-      a.workspace_path, a.allow_file_tools, a.allow_command_exec, a.allow_network,
-      a.workspace_path, a.allow_file_tools, a.allow_command_exec
-    FROM department_members dm
-    JOIN agents a ON a.id = dm.agent_id
-    WHERE dm.department_id = ${departmentId}
-      AND a.type IN ('ai', 'department')
-      AND a.is_active = TRUE
-  `) as unknown as Array<Record<string, any>>
+  const aiAgents = (await ctx.orm.query.from('department_members dm')
+    .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
+    .select('a.id', 'a.name', 'a.system_prompt', 'a.model', 'a.tools', 'a.human_in_the_loop', 'a.max_tokens',
+      'a.workspace_path', 'a.allow_file_tools', 'a.allow_command_exec', 'a.allow_network')
+    .where(and({ 'dm.department_id': { eq: departmentId }}, { 'a.type': { in: ['ai', 'department'] } }, { 'a.is_active': { eq: true } }))
+    .run()) as unknown as Array<Record<string, any>>
   if (aiAgents.length === 0) return
 
   // @ 定向发言：消息中 @Agent名 只触发目标 AI（无 @ 或未命中时全部回复）
@@ -802,17 +791,16 @@ async function runAllAgents(
   // 「收到」文本（assistant 只回文字不调工具）→ 模型模仿历史惯例（自强化
   // 循环）→ 角色永不执行工具（单角色 45s 全链 → 卡死 10+ 分钟「收到」）——
   // campaign 每次运行独立上下文（零历史污染）
-  const recentMessages = attachmentMsgId.startsWith('campaign-') ? [] : (await sql`
-    SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type,
-      m.reply_to, r.content as reply_content, ra.name as reply_sender_name
-    FROM messages m
-    JOIN agents a ON a.id = m.sender_id
-    LEFT JOIN messages r ON r.id = m.reply_to
-    LEFT JOIN agents ra ON ra.id = r.sender_id
-    WHERE m.department_id = ${departmentId} AND m.ai_approved != FALSE
-    ORDER BY m.created_at DESC
-    LIMIT 20
-  `) as unknown as Array<Record<string, any>>
+  const recentMessages = attachmentMsgId.startsWith('campaign-') ? [] : (await ctx.orm.query.from('messages m')
+    .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+    .join('messages r', { 'r.id': { col: 'm.reply_to' } }, { type: 'left' })
+    .join('agents ra', { 'ra.id': { col: 'r.sender_id' } }, { type: 'left' })
+    .select('m.content', 'm.created_at', 'a.name as sender_name', 'a.type as sender_type',
+      'm.reply_to', 'r.content as reply_content', 'ra.name as reply_sender_name')
+    .where(and({ 'm.department_id': { eq: departmentId }}, { 'm.ai_approved': { ne: false } }))
+    .orderBy('m.created_at', 'desc')
+    .limit(20)
+    .run()) as unknown as Array<Record<string, any>>
 
   const chatMessages: import('../ai/types.ts').ChatMessage[] = []
   for (const msg of recentMessages.reverse()) {
@@ -830,18 +818,18 @@ async function runAllAgents(
   chatMessages.push({ role: 'user', content: messageContent })
 
   // P0-2 同事名单（注入所有 AI 的 systemPrompt——分工共识）
-  const rosterMembers = (await sql`
-    SELECT a.id, a.type, a.name, dm.role, a.role_label, a.expertise
-    FROM department_members dm
-    JOIN agents a ON a.id = dm.agent_id
-    WHERE dm.department_id = ${departmentId}
-  `) as unknown as RosterMember[]
+  const rosterMembers = (await ctx.orm.query.from('department_members dm')
+    .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
+    .select('a.id', 'a.type', 'a.name', 'dm.role', 'a.role_label', 'a.expertise')
+    .where({ 'dm.department_id': { eq: departmentId }})
+    .run()) as unknown as RosterMember[]
   const rosterText = buildRosterText(rosterMembers, '')
 
   // P4 群共识摘要（AI 记得群里决定过什么——记忆层闭环）
   let groupMemoryLayer = ''
   try {
-    const [gm] = await sql`SELECT summary FROM group_memories WHERE department_id = ${departmentId}`
+    const T = tables(ctx.orm)
+    const [gm] = await T.group_memories.select('summary').where(eq(T.group_memories.c.department_id, departmentId)).run()
     if (gm?.summary) groupMemoryLayer = buildGroupMemoryLayer(String(gm.summary))
   } catch { /* 表不存在/查询失败——无群共识 */ }
 
@@ -924,7 +912,7 @@ async function runAllAgents(
         tools: typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? []),
         maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,
         humanInTheLoop: true,
-        preloadedSkills: await loadAgentSkills(sql, agent.id, ctx),
+        preloadedSkills: await loadAgentSkills(ctx, String(agent.id)),
         allowFileTools: agent.allow_file_tools,
         allowCommandExec: agent.allow_command_exec,
     allowNetwork: agent.allow_network,
@@ -933,11 +921,11 @@ async function runAllAgents(
       const content = result.content
       if (!content) continue
 
-      const [draftMsg] = await sql`
-        INSERT INTO messages (department_id, sender_id, content, msg_type, ai_draft, ai_approved, ai_step)
-        VALUES (${departmentId}, ${agent.id}, '[AI 生成中...]', 'text', ${content}, NULL, ${JSON.stringify({ steps: result.steps })})
-        RETURNING id
-      `
+      const T = tables(ctx.orm)
+      const [draftMsg] = await T.messages
+        .insert({ department_id: departmentId, sender_id: String(agent.id), content: '[AI 生成中...]', msg_type: 'text', ai_draft: content, ai_approved: null, ai_step: { steps: result.steps } })
+        .returning('id')
+        .run()
       emit.emit({
         type: 'ai_draft' as any,
         message: { id: draftMsg.id, agentId: agent.id, agentName: agent.name, draft: content, departmentId, createdAt: new Date().toISOString() },
@@ -953,23 +941,24 @@ async function runAllAgents(
   void (async () => {
     try {
       if (!shouldCacheQuestion(messageContent)) return
-      const [aiReply] = await ctx.sql`
-        SELECT m.content FROM messages m
-        JOIN agents a ON a.id = m.sender_id
-        WHERE m.department_id = ${departmentId} AND a.type IN ('ai', 'department')
-          AND m.content != '' AND m.content NOT LIKE '%来自相似问题的快速回复%'
-        ORDER BY m.created_at DESC LIMIT 1
-      `
-      const answer = String(aiReply?.content ?? '').trim()
+      const T = tables(ctx.orm)
+      const rows = await ctx.orm.query.from('messages m')
+        .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+        .select('m.content')
+        .where(and({ 'm.department_id': { eq: departmentId }}, { 'a.type': { in: ['ai', 'department'] } }, { 'm.content': { ne: '' } }))
+        .orderBy('m.created_at', 'desc')
+        .limit(20)
+        .run()
+      const aiReply = rows.find((r) => !String((r as any).content ?? '').includes('来自相似问题的快速回复'))
+      const answer = String((aiReply as any)?.content ?? '').trim()
       // B2（2026-08）：失败/太短答案不入缓存（实证：AI 失败中间态被缓存——
       // 后续同类问题命中失败记录——毒化）——isFailureAnswer 锁定
       // 工具产物型（含 /ws/ 路径）不入缓存——每次应重新生成（B3 同源——
       // 画图类问题第二次命中旧图、工具不跑——2026-09 实证信号）
       if (answer.length < 10 || isFailureAnswer(answer) || isArtifactAnswer(answer)) return
-      await ctx.sql`
-        INSERT INTO answer_cache (app_id, question, answer)
-        VALUES (${ctx.appId}, ${messageContent.slice(0, 200)}, ${answer.slice(0, 2000)})
-      `
+      await T.answer_cache
+        .insert({ app_id: String(ctx.appId), question: messageContent.slice(0, 200), answer: answer.slice(0, 2000) })
+        .run()
     } catch { /* 缓存写入失败静默 */ }
   })()
 }
@@ -991,7 +980,8 @@ export async function handleNewMessageStream(
   // P1-3：读取消息附件元数据（uploads/{msgId}/xxx ——附件区相对路径）
   let attachments: Array<{ name: string; path: string; size: number }> = []
   try {
-    const rows = await ctx.sql`SELECT attachments FROM messages WHERE id = ${messageId}`
+    const T = tables(ctx.orm)
+    const rows = await T.messages.select('attachments').where(eq(T.messages.c.id, messageId)).run()
     if (rows[0]?.attachments) attachments = typeof rows[0].attachments === 'string' ? JSON.parse(rows[0].attachments) : rows[0].attachments
   } catch { /* 无附件字段/查询失败——按无附件处理 */ }
   // P4 群共识：消息落库后异步提取（节流——每 20 条一次，不阻塞消息流）
@@ -1004,22 +994,31 @@ export async function handleNewMessageStream(
     // B2/B3（2026-08）：统一判定源——shouldCacheQuestion（含 @/文件/数据类排除）——
     // 写侧与读侧同规则（此前读侧只查 @——文件类旧缓存记录持续命中——订单.csv 3 次实证）
     if (!attachments.length && shouldCacheQuestion(messageContent)) {
-      const cacheRows = (await ctx.sql`
-        SELECT question, answer, hits FROM answer_cache WHERE app_id = ${ctx.appId}
-        ORDER BY updated_at DESC LIMIT 200
-      `) as unknown as Array<{ question: string; answer: string; hits: number }>
+      const cacheRows = (await ctx.orm.query.from('answer_cache')
+        .select('question', 'answer', 'hits')
+        .where({ app_id: { eq: String(ctx.appId) } })
+        .orderBy('updated_at', 'desc')
+        .limit(200)
+        .run()) as unknown as Array<{ question: string; answer: string; hits: number }>
       const cached = findCachedAnswer(messageContent, cacheRows)
       // 产物型缓存不清除（历史已写入）——命中即弃（用户期望重新生成——工具不跑错）
       const hit = cached && !isArtifactAnswer(cached.answer) ? cached : null
       if (hit) {
-        await ctx.sql`UPDATE answer_cache SET hits = hits + 1, updated_at = NOW() WHERE app_id = ${ctx.appId} AND question = ${hit.question}`
-        const [anyAi] = await ctx.sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'ai' AND is_active = TRUE LIMIT 1`
+        // orm-pg-merge：hits 自增表达式（mergeInc/mergeNow——零 SQL）
+        await ctx.orm.query.update('answer_cache').set({
+          hits: ops.mergeInc(1),
+          updated_at: ops.mergeNow(),
+        }).where({ app_id: { eq: String(ctx.appId) }, question: { eq: hit.question } }).run()
+        const T = tables(ctx.orm)
+        const [anyAi] = await T.agents.select('id')
+          .where(and(eq(T.agents.c.app_id, ctx.appId), eq(T.agents.c.type, 'ai'), eq(T.agents.c.is_active, true)))
+          .limit(1)
+          .run()
         if (anyAi) {
-          const [cachedMsg] = await ctx.sql`
-            INSERT INTO messages (department_id, sender_id, content, msg_type, ai_approved)
-            VALUES (${departmentId}, ${anyAi.id}, ${buildCachedReply(hit.answer, hit.hits + 1)}, 'text', TRUE)
-            RETURNING id
-          `
+          const [cachedMsg] = await T.messages
+            .insert({ department_id: departmentId, sender_id: String(anyAi.id), content: buildCachedReply(hit.answer, hit.hits + 1), msg_type: 'text', ai_approved: true })
+            .returning('id')
+            .run()
           const evt = { type: 'wf:done', messageId: String(cachedMsg.id), content: buildCachedReply(hit.answer, hit.hits + 1) }
           ctx.msg.broadcast(String(departmentId), evt)
         }
@@ -1034,7 +1033,11 @@ export async function handleNewMessageStream(
       // HTTP/无 WS 路径：wf:done（配额/付费墙提示等非流式回复）直接落库——
       // 否则无 WS 连接时提示丢失，用户看到空回复（真实事故：demo 月配额用尽后 HTTP 测试全空）
       if (event.type === 'wf:done' && event.content) {
-        void ctx.sql`UPDATE messages SET content = ${event.content} WHERE id = ${event.messageId} AND content = ''`.catch(() => {})
+        const T = tables(ctx.orm)
+        void T.messages.update({ content: event.content })
+          .where(and(eq(T.messages.c.id, event.messageId), eq(T.messages.c.content, '')))
+          .run()
+          .catch(() => {})
       }
     },
   }))
@@ -1053,7 +1056,12 @@ export async function handleNewMessageStreamSSE(
   // P1-3 SSE 路径：从最近一条消息取附件
   let sseAttachments: Array<{ name: string; path: string; size: number }> = []
   try {
-    const rows = await ctx.sql`SELECT attachments FROM messages WHERE department_id = ${departmentId} AND sender_id IS NOT NULL ORDER BY created_at DESC LIMIT 1`
+    const T = tables(ctx.orm)
+    const rows = await T.messages.select('attachments')
+      .where(and(eq(T.messages.c.department_id, departmentId), isNotNull(T.messages.c.sender_id)))
+      .orderBy('created_at', 'desc')
+      .limit(1)
+      .run()
     if (rows[0]?.attachments) sseAttachments = typeof rows[0].attachments === 'string' ? JSON.parse(rows[0].attachments) : rows[0].attachments
   } catch { /* 无附件 */ }
   const sseEmitter: StreamEmitter = {
@@ -1072,13 +1080,14 @@ export async function handleNewMessageStreamSSE(
 /**
  * 加载 Agent 的技能
  */
-async function loadAgentSkills(sql: any, agentId: string, ctx: AppCtx): Promise<import('./skills.ts').SkillContext[]> {
+async function loadAgentSkills(ctx: AppCtx, agentId: string): Promise<import('./skills.ts').SkillContext[]> {
   const preloadedSkills: import('./skills.ts').SkillContext[] = []
   try {
-    const agentSkills = (await sql`
-      SELECT skill_dir, skill_name FROM agent_skills
-      WHERE agent_id = ${agentId} AND enabled = TRUE
-    `) as unknown as Array<Record<string, any>>
+    const T = tables(ctx.orm)
+    const agentSkills = (await T.agent_skills
+      .select('skill_dir', 'skill_name')
+      .where(and(eq(T.agent_skills.c.agent_id, agentId), eq(T.agent_skills.c.enabled, true)))
+      .run()) as unknown as Array<Record<string, any>>
     for (const as of agentSkills) {
       try {
         const skill = await loadSkill(as.skill_dir, () => ctx)

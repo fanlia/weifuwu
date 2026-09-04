@@ -56,7 +56,7 @@ after(async () => {
 })
 
 function makeCtx() {
-  return { sql: pg.sql, appId: APP_ID, user: { id: '00000000-0000-0000-0000-000000000099' } }
+  return { sql: pg.sql, orm: (pg as any).orm, appId: APP_ID, user: { id: '00000000-0000-0000-0000-000000000099' } }
 }
 
 describe('审计日志服务', () => {
@@ -76,7 +76,7 @@ describe('审计日志服务', () => {
   })
 
   it('listAudit 租户隔离（其他 app 查不到）', async () => {
-    const other = { sql: pg.sql, appId: '00000000-0000-0000-0000-000000000099' }
+    const other = { sql: pg.sql, orm: (pg as any).orm, appId: '00000000-0000-0000-0000-000000000099' }
     const { entries, total } = await listAudit(other as any, { limit: 10 })
     assert.equal(total, 0)
     assert.equal(entries.length, 0)

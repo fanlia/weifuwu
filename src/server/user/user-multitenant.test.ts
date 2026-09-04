@@ -15,18 +15,19 @@ import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import http from 'node:http'
-import { createMemorySql, MemorySql } from '../db/memory-sql.ts'
-import { createQueryBuilder } from '../db/query-builder.ts'
-import { userSystem } from '../user/index.ts'
+import { createMemoryOrm, MemorySql } from '../db/memory-sql.ts'
+import { createOrm } from '../db/orm.ts'
+import { userSystem, WEIFUWU_USER_SCHEMA } from '../user/index.ts'
 import { verifyToken, signToken } from '../user/token.ts'
 import { Router } from '../core/router.ts'
 
 const mkCtx = () => ({ params: {}, query: {} })
 
 describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
-  const db = createMemorySql()
+  const db = createMemoryOrm()
+  db.mem.applySchema(WEIFUWU_USER_SCHEMA)
   const secret = 'test-secret-0123456789abcdef'
-  const users = userSystem({ sql: db, secret })
+  const users = userSystem({ orm: db.orm, secret })
 
   const app = new Router()
   app.use(users)
@@ -149,11 +150,12 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
         new Promise((res) =>
           setTimeout(() => res((mem as any).executeQuery(q)), delayTables.has((q as any).table) ? 120 : 0),
         )
-      const slow = (async (s: TemplateStringsArray, ...v: unknown[]) => mem.tag(s, v)) as any
-      slow.query = createQueryBuilder(slow, slowExec as any)
-      slow.unsafe = (s: string, p?: unknown[]) => (mem as any).unsafe(s, p)
-      slow.close = () => (mem as any).close()
-      const slowUsers = userSystem({ sql: slow, secret })
+      const slowOrm = createOrm({
+        executeQuery: (q) => slowExec(q),
+        execute: (s: string, p?: unknown[]) => (mem as any).unsafe(s, p),
+      } as never)
+      mem.applySchema(WEIFUWU_USER_SCHEMA)
+      const slowUsers = userSystem({ orm: slowOrm, secret })
       await slowUsers.migrate()
       const slowHandler = (() => { const r = new Router(); r.use(slowUsers); slowUsers.routes(r); return r.handler() })()
       void slowHandler
@@ -188,7 +190,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const login = await ctxB.auth.loginApp(slugB, emailB, 'password123')
       assert.equal(login.user.email, emailB, 'B 能应用内登录（owner 成员归属正确）')
       assert.equal(login.role, 'owner', 'B 是 owner（非被覆盖成无角色）')
-      await (slow as any).close()
+      await (mem as any).close()
     })
   })
 
@@ -400,10 +402,12 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
         execs++
         return mem.executeQuery(q)
       }
-      counting.query = createQueryBuilder(counting, countingExec as any)
-      counting.unsafe = (s: string, p?: unknown[]) => (mem as any).unsafe(s, p)
-      counting.close = () => (mem as any).close()
-      const countingUsers = userSystem({ sql: counting, secret })
+      const countingOrm = createOrm({
+        executeQuery: (q: never) => countingExec(q),
+        execute: (s: string, p?: unknown[]) => (mem as any).unsafe(s, p),
+      } as never)
+      mem.applySchema(WEIFUWU_USER_SCHEMA)
+      const countingUsers = userSystem({ orm: countingOrm, secret })
       await countingUsers.migrate()
       const ctx: any = {}
       await countingUsers(new Request('http://localhost/'), ctx, async () => new Response('ok'))
@@ -416,7 +420,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       assert.equal(apps.length, 3)
       assert.equal(execs, 1, 'B4：3 应用 = 1 次查询（原 N+1 = 4 次）')
       assert.equal(apps.every((t) => t.id && t.slug && t.name && t.role), true)
-      await (counting as any).close()
+      await (mem as any).close()
     })
 
     it('B6 并发 registerInApp 同 email（open 应用）→ 均 201 且同一账号', async () => {
@@ -464,7 +468,8 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
 
     it('onRegisterApp hook 触发（平台 onboarding 注入点）', async () => {
       let hooked: { userId: string; appSlug: string } | null = null
-      const h = userSystem({ sql: db, secret, hooks: { onRegisterApp: async (userId, app) => { hooked = { userId, appSlug: app.slug } } } })
+      const h = userSystem({
+        orm: db.orm, secret, hooks: { onRegisterApp: async (userId, app) => { hooked = { userId, appSlug: app.slug } } } })
       await h.migrate()
       const hApp = new Router()
       hApp.use(h)
@@ -544,7 +549,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
 
     function ssoUsers(extra: Parameters<typeof userSystem>[0] = {}) {
       const h = userSystem({
-        sql: db, secret,
+        orm: db.orm, secret,
         sso: { issuer: 'http://127.0.0.1:9999', clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost' },
         ...extra,
       })
@@ -577,7 +582,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('callback：code → userinfo → ssoLogin 建号/加成员/签发 token（全链——真实 HTTP）', async () => {
       const idp = await startIdp({ email: 'sso-user@idp.test', name: 'SSO 用户' })
       const h = userSystem({
-        sql: db, secret,
+        orm: db.orm, secret,
         sso: { issuer: `http://127.0.0.1:${idp.port}`, clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost' },
       })
       await h.migrate()
@@ -598,7 +603,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('callback state=app slug → 自动加成员（成员表落行）', async () => {
       const idp = await startIdp({ email: `sso-member-${randomUUID()}@idp.test` })
       const h = userSystem({
-        sql: db, secret,
+        orm: db.orm, secret,
         sso: { issuer: `http://127.0.0.1:${idp.port}`, clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost' },
       })
       await h.migrate()
@@ -618,7 +623,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('token 交换失败 → 401（明确失败不静默）', async () => {
       const idp = await startIdp({ failToken: true })
       const h = userSystem({
-        sql: db, secret,
+        orm: db.orm, secret,
         sso: { issuer: `http://127.0.0.1:${idp.port}`, clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost' },
       })
       await h.migrate()
@@ -657,7 +662,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
   // ── 7.10 系统域（_builtin——定案：owner=超级管理员·admin=系统管理员） ─────────
   describe('系统域（_builtin）', () => {
     it('seedBuiltinOwners：首个邮箱=owner（超级管理员·唯一）·其余=admin（系统管理员）——幂等', async () => {
-      const h = userSystem({ sql: db, secret })
+      const h = userSystem({ orm: db.orm, secret })
       await h.migrate()
       const r1 = await h.seedBuiltinOwners(['root@sys.test', 'ops1@sys.test', 'ops2@sys.test'])
       assert.equal(r1.owner !== null, true)
@@ -674,7 +679,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     })
 
     it('addMember 系统域：viewer 禁（管理面无只读）·member 合法', async () => {
-      const h = userSystem({ sql: db, secret })
+      const h = userSystem({ orm: db.orm, secret })
       await h.migrate()
       await h.seedBuiltinOwners(['root@sys.test'])
       const p = new Router(); p.use(h); h.routes(p)
@@ -685,7 +690,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       }), mkCtx())
       void login
       // 通过 AuthApi（构造受控环境）验证特判——直接调方法
-      const h2 = userSystem({ sql: db, secret })
+      const h2 = userSystem({ orm: db.orm, secret })
       await h2.migrate()
       const mk = async (token: string | null) => {
         const req = new Request('http://localhost/x', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
@@ -705,7 +710,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     })
 
     it('createInvite 系统域禁止（任命制——不走邀请流）', async () => {
-      const h = userSystem({ sql: db, secret })
+      const h = userSystem({ orm: db.orm, secret })
       await h.migrate()
       await h.seedBuiltinOwners(['root3@sys.test'])
       const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
@@ -722,7 +727,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
   // ── 7.11 V4 定案（_builtin=应用管理面·_default=平台业务面·身份即资格） ──
   describe('V4 应用管理面定案', () => {
     it('migrate 建 _default（幂等·owner 空）· seed 首 owner 自动关联 _default', async () => {
-      const h = userSystem({ sql: db, secret })
+      const h = userSystem({ orm: db.orm, secret })
       await h.migrate()
       const [defApp] = await db.unsafe(`SELECT id, open_registration FROM _weifuwu_apps WHERE slug = '_default'`)
       assert.ok(defApp, '_default 存在')
@@ -734,7 +739,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     })
 
     it('createApp 资格：非 _builtin 成员 → 403（身份即资格）· _ 前缀 slug → 400', async () => {
-      const h = userSystem({ sql: db, secret })
+      const h = userSystem({ orm: db.orm, secret })
       await h.migrate()
       // 直接插一个无 _builtin 成员的用户（模拟历史异常数据——migrate 补挂前的场景）
       const [raw] = await db.unsafe(`INSERT INTO _weifuwu_users (email, password_hash) VALUES ($1, 'x') RETURNING id`, [`raw-${uniq()}@x.test`])
@@ -756,7 +761,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     })
 
     it('migrate 存量补挂：无 _builtin 成员的用户 → migrate 幂等补（source=migrate）', async () => {
-      const h = userSystem({ sql: db, secret })
+      const h = userSystem({ orm: db.orm, secret })
       await h.migrate()
       const reg = await (await post('/api/auth/register', { email: uniqEmail(), password: 'password123' })).json()
       // 模拟存量：删除其 _builtin 成员行 → 再 migrate → 补回
@@ -768,7 +773,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     })
 
     it('registerInApp / ssoLogin 均入册 _builtin（注册必经管理面——邀请/SSO 路径一致）', async () => {
-      const h = userSystem({ sql: db, secret })
+      const h = userSystem({ orm: db.orm, secret })
       await h.migrate()
       const owner = await (await post('/api/auth/register-app', { email: uniqEmail(), password: 'password123' })).json()
       const app = owner.app

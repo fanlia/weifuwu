@@ -32,10 +32,10 @@ export interface PlanStatus {
 
 /** 读租户计划行（幂等：老数据补默认 free） */
 export async function getAppPlan(
-  sql: AppCtx['sql'],
+  orm: any,
   appId: string,
 ): Promise<AppPlanRow> {
-  const rows = await sql`SELECT plan, trial_ends_at, monthly_token_limit FROM _weifuwu_apps WHERE id = ${appId}`
+  const rows = await orm.query.from('_weifuwu_apps').select('plan', 'trial_ends_at', 'monthly_token_limit').where({ id: appId }).limit(1).run()
   const row = rows[0] as unknown as AppPlanRow | undefined
   if (!row) return { plan: 'free', trial_ends_at: null, monthly_token_limit: PLANS.free.monthlyTokenLimit }
   return {
@@ -61,10 +61,10 @@ export function planStatusOf(row: AppPlanRow, usedThisMonth?: number): PlanStatu
 
 /** 计划拦截判定：返回拒绝原因（null = 放行） */
 export async function planBlockReason(
-  sql: AppCtx['sql'],
+  orm: any,
   appId: string,
 ): Promise<string | null> {
-  const row = await getAppPlan(sql, appId)
+  const row = await getAppPlan(orm, appId)
   // 1) 免费版试用到期 → 拒绝
   const st = planStatusOf(row)
   if (st.trialExpired) {
@@ -72,10 +72,10 @@ export async function planBlockReason(
   }
   // 2) 月配额超限（免费版 5 万 / Pro 100 万）→ 拒绝
   if (row.monthly_token_limit > 0) {
-    const [usedRow] = await sql`
-      SELECT COALESCE(SUM(tokens_total), 0)::int AS used
-      FROM agent_logs WHERE app_id = ${appId} AND created_at >= DATE_TRUNC('month', NOW())
-    `
+    const [usedRow] = await orm.query.from('agent_logs')
+      .sum('tokens_total', 'used')
+      .whereRaw("app_id = $1 AND created_at >= DATE_TRUNC('month', NOW())", [appId])
+      .run()
     const used = Number((usedRow as any)?.used ?? 0)
     if (used >= row.monthly_token_limit) {
       return `⚠️ 本月 token 配额（${row.monthly_token_limit.toLocaleString()}）已用尽，AI 回复已暂停。请联系管理员调整配额或下月恢复。`

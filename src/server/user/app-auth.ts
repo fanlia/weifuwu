@@ -18,9 +18,48 @@
  *   - 角色变更/停用即时性：TTL 后生效（诚实边界——需即时配 verifyToken 在线校验）
  *   - ctx.user 无查库——业务需要更多面用 ctx.sql 自查（共享 DB 模式）
  */
-import type { Middleware, Context } from '../types.ts'
+import type { Middleware, Context, User } from '../types.ts'
 import { verifyToken } from './token.ts'
 import { HttpError } from '../types.ts'
+/**
+ * AuthInterface 公共面（两实现同构视图）：
+ *   本地 = userSystem().asAppAuth()（查库——角色/账号即时）
+ *   远程 = appAuth()（token 验签快照——TTL 边界）
+ * 业务代码只见 AuthPort（薄面字段——两实现都真）——方法面（AuthApi）为
+ * 控制平面专属（本地超集——远程不存在——分离部署时业务侧不用） */
+/** 当前会话（token 解出的应用态——{ userId, appId, role }·平台账号 token = null） */
+export interface Session {
+  userId: string
+  appId: string
+  role: string
+}
+
+export interface AuthPort {
+  /** 未登录抛 HttpError(401)；返回当前会话三元组 */
+  requireAuth(): Session
+  readonly userId: string | undefined
+  readonly appId: string | undefined
+  readonly role: string | undefined
+}
+
+/** 中间件注入面（本地/远程同构） */
+export interface AuthInjected extends Context {
+  /** 当前用户（token 包内/查库——未登录 = null） */
+  user: User | null
+  /** 身份三元组（主面） */
+  session: Session | null
+  /** 便捷面（token 应用态） */
+  appId?: string
+  /** 公共薄面（方法面=控制平面专属——业务代码勿用） */
+  auth: AuthPort
+  /** 机器客户端（仅远程实现 appAuth·builtin 配置时） */
+  builtin?: BuiltinClient
+}
+
+export interface BuiltinClient {
+  get<T = unknown>(path: string): Promise<T>
+  post<T = unknown>(path: string, body?: unknown): Promise<T>
+}
 
 export interface AppAuthOptions {
   /** HMAC 共享密钥（与 _builtin 签发面一致） */
@@ -38,10 +77,10 @@ export interface AppAuthOptions {
   verifyToken?: (token: string) => Promise<boolean>
 }
 
-/** 业务侧认证中间件工厂（分离模式——解析 _builtin 签发的 token） */
-export function appAuth(options: AppAuthOptions): Middleware {
-  const mw = async (req: Request, ctx: Context, next: any) => {
-    let session: { userId: string; appId: string; role: string } | null = null
+/** 业务侧认证中间件工厂（分离模式——解析 _builtin 签发的 token——远程实现） */
+export function appAuth(options: AppAuthOptions): Middleware<Context, AuthInjected> {
+  const mw = async (req: Request, ctx: Context, next: any): Promise<Response> => {
+    let session: Session | null = null
     let rawToken: string | null = null
     const authHeader = req.headers.get('authorization')
     if (authHeader?.startsWith('Bearer ')) rawToken = authHeader.slice(7)
@@ -72,7 +111,7 @@ export function appAuth(options: AppAuthOptions): Middleware {
     // 会话/授权面（userSystem 同语义——业务侧主面为 ctx.session）
     ;(ctx as any).session = session
     ;(ctx as any).auth = {
-      requireAuth() {
+      requireAuth(): Session {
         if (!session) throw new HttpError('Unauthorized', 401)
         return session
       },
@@ -105,5 +144,5 @@ export function appAuth(options: AppAuthOptions): Middleware {
     }
     return next(req, ctx)
   }
-  return mw
+  return mw as Middleware<Context, AuthInjected>
 }

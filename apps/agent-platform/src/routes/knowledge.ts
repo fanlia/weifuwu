@@ -10,7 +10,9 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import { and, eq } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
+import { tables } from '../db/orm.ts'
 
 /** 支持的文件类型 */
 const SUPPORTED_MIME: Record<string, string> = {
@@ -26,20 +28,20 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   app.get('/api/agents/:id/knowledge', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params } = ctx
 
-    const [agent] = await sql`
-      SELECT id FROM agents
-      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
-    `
+    const T = tables(ctx.orm)
+    const [agent] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
+      .run()
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
     }
 
-    const documents = await sql`
-      SELECT id, filename, chunk_count, created_at
-      FROM kb_documents
-      WHERE agent_id = ${params.id}
-      ORDER BY created_at DESC
-    `
+    const documents = await T.kb_documents
+      .select('id', 'filename', 'chunk_count', 'created_at')
+      .where(eq(T.kb_documents.c.agent_id, params.id))
+      .orderBy('created_at', 'desc')
+      .run()
 
     return Response.json({ documents })
   })
@@ -51,24 +53,23 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
     const url = new URL(req.url)
     const includeChunks = url.searchParams.get('chunks') === 'true'
 
-    const [doc] = await sql`
-      SELECT d.id, d.filename, d.content, d.chunk_count, d.created_at
-      FROM kb_documents d
-      JOIN agents a ON a.id = d.agent_id
-      WHERE d.id = ${params.id} AND a.app_id = ${appId}
-    `
+    const [doc] = await ctx.orm.query.from('kb_documents d')
+      .join('agents a', { 'a.id': { col: 'd.agent_id' } })
+      .select('d.id', 'd.filename', 'd.content', 'd.chunk_count', 'd.created_at')
+      .where(and({ 'd.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
+      .run()
     if (!doc) {
       return Response.json({ error: '文档不存在' }, { status: 404 })
     }
 
     let chunks: any[] = []
     if (includeChunks) {
-      chunks = await sql`
-        SELECT id, content, chunk_index, created_at
-        FROM kb_chunks
-        WHERE document_id = ${params.id}
-        ORDER BY chunk_index ASC
-      `
+      const T = tables(ctx.orm)
+      chunks = await T.kb_chunks
+        .select('id', 'content', 'chunk_index', 'created_at')
+        .where(eq(T.kb_chunks.c.document_id, params.id))
+        .orderBy('chunk_index', 'asc')
+        .run()
     }
 
     return Response.json({ document: doc, chunks })
@@ -79,11 +80,11 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   app.post('/api/agents/:id/knowledge', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params, ai } = ctx
 
-    const [agent] = await sql`
-      SELECT id, chunk_size, chunk_overlap
-      FROM agents
-      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
-    `
+    const T = tables(ctx.orm)
+    const [agent] = await T.agents
+      .select('id', 'chunk_size', 'chunk_overlap')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
+      .run()
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
     }
@@ -106,11 +107,11 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   app.post('/api/agents/:id/knowledge/upload', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params, ai } = ctx
 
-    const [agent] = await sql`
-      SELECT id, chunk_size, chunk_overlap
-      FROM agents
-      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
-    `
+    const T = tables(ctx.orm)
+    const [agent] = await T.agents
+      .select('id', 'chunk_size', 'chunk_overlap')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
+      .run()
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
     }
@@ -179,11 +180,11 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   app.post('/api/agents/:id/knowledge/batch', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params, ai } = ctx
 
-    const [agent] = await sql`
-      SELECT id, chunk_size, chunk_overlap
-      FROM agents
-      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
-    `
+    const T = tables(ctx.orm)
+    const [agent] = await T.agents
+      .select('id', 'chunk_size', 'chunk_overlap')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
+      .run()
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
     }
@@ -226,14 +227,19 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   app.delete('/api/knowledge/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params } = ctx
 
-    const result = await sql`
-      DELETE FROM kb_documents d
-      USING agents a
-      WHERE d.id = ${params.id}
-        AND d.agent_id = a.id
-        AND a.app_id = ${appId}
-      RETURNING d.id
-    `
+    // 租户隔离：先查 doc.agent_id 归属再删（USING JOIN 拆两步——同语义）
+    const T = tables(ctx.orm)
+    const [own] = await ctx.orm.query.from('kb_documents d')
+      .join('agents a', { 'a.id': { col: 'd.agent_id' } })
+      .select('d.id')
+      .where(and({ 'd.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
+      .run()
+    if (!own) return Response.json({ error: '文档不存在' }, { status: 404 })
+    const result = await T.kb_documents
+      .delete()
+      .where(eq(T.kb_documents.c.id, params.id))
+      .returning('id')
+      .run()
 
     if (result.length === 0) {
       return Response.json({ error: '文档不存在' }, { status: 404 })
@@ -246,18 +252,19 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   app.post('/api/agents/:id/knowledge/reindex', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params } = ctx
 
-    const [agent] = await sql`
-      SELECT id, chunk_size, chunk_overlap
-      FROM agents
-      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
-    `
+    const T = tables(ctx.orm)
+    const [agent] = await T.agents
+      .select('id', 'chunk_size', 'chunk_overlap')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
+      .run()
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
     }
 
-    const docs = await sql`
-      SELECT id, filename, content FROM kb_documents WHERE agent_id = ${params.id}
-    `
+    const docs = await T.kb_documents
+      .select('id', 'filename', 'content')
+      .where(eq(T.kb_documents.c.agent_id, params.id))
+      .run()
 
     let reindexed = 0
     for (const doc of docs as unknown as Array<Record<string, any>>) {
@@ -279,16 +286,17 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
         // 检索全部失真——norm≈18.5 实证）——明确报错——管理员可见/可重试
         throw new Error(`知识库重新索引失败（Embedding 服务异常）——未写入任何数据: ${err?.message ?? 'unknown'}`)
       }
-      // 删旧 chunk → 存新
-      await sql`DELETE FROM kb_chunks WHERE document_id = ${doc.id}`
-      const [docRow] = await sql`
-        UPDATE kb_documents SET chunk_count = ${chunks.length} WHERE id = ${doc.id} RETURNING id
-      `
+      // 删旧 chunk → 存新（向量字面量——直插；embedding 语义不进 builder——保持逐文直写）
+      await T.kb_chunks.delete().where(eq(T.kb_chunks.c.document_id, doc.id)).run()
+      const [docRow] = await T.kb_documents
+        .update({ chunk_count: chunks.length })
+        .where(eq(T.kb_documents.c.id, doc.id))
+        .returning('id')
+        .run()
       for (let i = 0; i < chunks.length; i++) {
-        await sql`
-          INSERT INTO kb_chunks (document_id, agent_id, content, chunk_index, embedding)
-          VALUES (${doc.id}, ${params.id}, ${chunks[i]}, ${i}, ${`[${embeddings[i].join(',')}]`}::vector)
-        `
+        await T.kb_chunks
+          .insert({ document_id: String(doc.id), agent_id: String(params.id), content: chunks[i], chunk_index: i, embedding: `[${embeddings[i].join(',')}]` })
+          .run()
       }
       reindexed++
     }
@@ -301,10 +309,11 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
   app.post('/api/agents/:id/knowledge/search', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { sql, appId, params, ai } = ctx
 
-    const [agent] = await sql`
-      SELECT id FROM agents
-      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'knowledge_base'
-    `
+    const T = tables(ctx.orm)
+    const [agent] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
+      .run()
     if (!agent) {
       return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
     }
@@ -317,18 +326,14 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
     const topK = body.top_k ?? 5
     const queryEmbedding = await ai.embed(body.query)
 
-    const vecStr = `[${queryEmbedding.join(',')}]`
-    const results = await sql`
-      SELECT
-        kc.id, kc.content, kc.chunk_index, kc.document_id,
-        kd.filename,
-        1 - (kc.embedding <=> ${vecStr}::vector) as similarity
-      FROM kb_chunks kc
-      JOIN kb_documents kd ON kd.id = kc.document_id
-      WHERE kc.agent_id = ${params.id}
-      ORDER BY kc.embedding <=> ${vecStr}::vector
-      LIMIT ${topK}
-    `
+    // orm-pg-vector 判负修订：`<=>` 算子 → vectorScore 特化（框架编译 `1-(col<=>vec) as as` + ORDER BY）
+    const results = await ctx.orm.query.from('kb_chunks kc')
+      .join('kb_documents kd', { 'kd.id': { col: 'kc.document_id' } })
+      .select('kc.id', 'kc.content', 'kc.chunk_index', 'kc.document_id', 'kd.filename')
+      .vectorScore('kc.embedding', queryEmbedding, 'similarity')
+      .where({ 'kc.agent_id': { eq: String(params.id) } })
+      .limit(topK)
+      .run()
 
     return Response.json({ results })
   })
@@ -366,22 +371,22 @@ async function processDocument(
     throw new Error(`文档向量化失败（Embedding 服务异常）——未上传: ${err?.message ?? 'unknown'}`)
   }
 
-  const [doc] = await sql`
-    INSERT INTO kb_documents (agent_id, filename, content, chunk_count)
-    VALUES (${agentId}, ${filename}, ${content}, ${chunks.length})
-    RETURNING id, filename, chunk_count, created_at
-  `
+  const T = tables(ctx.orm)
+  const [doc] = await T.kb_documents
+    .insert({ agent_id: agentId, filename, content, chunk_count: chunks.length })
+    .returning('id', 'filename', 'chunk_count', 'created_at')
+    .run()
 
-  return storeChunks(sql, agentId, doc, chunks, embeddings)
+  return storeChunks(ctx.orm, agentId, doc, chunks, embeddings)
 }
 
 /** 存储文档分块 */
-async function storeChunks(sql: any, agentId: string, doc: any, chunks: string[], embeddings: number[][]) {
+async function storeChunks(orm: any, agentId: string, doc: any, chunks: string[], embeddings: number[][]) {
+  const T = tables(orm)
   for (let i = 0; i < chunks.length; i++) {
-    await sql`
-      INSERT INTO kb_chunks (document_id, agent_id, content, chunk_index, embedding)
-      VALUES (${doc.id}, ${agentId}, ${chunks[i]}, ${i}, ${embeddings.length > i ? `[${embeddings[i].join(',')}]` : '[]'}::vector)
-    `
+    await T.kb_chunks
+      .insert({ document_id: String(doc.id), agent_id: agentId, content: chunks[i], chunk_index: i, embedding: embeddings.length > i ? `[${embeddings[i].join(',')}]` : '[]' })
+      .run()
   }
   return { document: doc, chunk_count: chunks.length }
 }

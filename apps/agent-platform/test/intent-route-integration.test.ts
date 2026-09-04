@@ -59,7 +59,8 @@ after(async () => {
 
 function makeCtx(): any {
   return {
-    sql: pg.sql,
+    sql: pg.sql, orm: (pg as any).orm,
+    orm: (pg as any).orm,
     appId: APP_ID,
     auth: { userId: USER, appId: APP_ID, email: 't@t.com', name: 'T', role: 'owner' },
     ai: {

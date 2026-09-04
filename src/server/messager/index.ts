@@ -14,7 +14,9 @@
 
 import { HttpError, type Context, type Handler, type Middleware } from '../types.ts'
 import type { Router } from '../core/router.ts'
-import type { SqlClient } from '../postgres/types.ts'
+import type { Orm } from '../db/orm.ts'
+import { z } from '../../shared/zod.ts'
+import { f } from '../db/shape.ts'
 import type { Redis } from '../db/contracts.ts'
 import type { Row } from '../db/postgres/connection.ts'
 import type { WebSocketHandler } from '../core/ws.ts'
@@ -110,22 +112,13 @@ export interface MessagerSystem extends Middleware<Context, Context & MessagerIn
   /** 核心服务（测试/服务层直接调用；ctx.msg 同对象） */
   client: MessagerClient
   /** 幂等建表（conversations + members + messages） */
-  migrate: () => Promise<void>
   /** HTTP 路由（P3）：/api/messages/* */
   routes: (app: Router<any>, opts?: { prefix?: string }) => void
 }
 
 export interface MessagerOptions {
-  sql: SqlClient
-  /**
-   * 连接级事务（传 `pg.transaction` / `pool.begin`）——提供时会话创建原子。
-   * 不传 → 裸执行（回退面：成员 insert 失败时孤儿会话——低影响；并发唯一性由
-   * M9 direct_key 唯一约束兜底）。
-   * M10（2027-XX）：原实现 sql.unsafe('BEGIN'/'COMMIT') 在连接池下断裂——
-   * pool.query 每条 acquire/release 任意连接（BEGIN 在 A、INSERT 在 B、COMMIT 在 C）
-   * ——`pool.begin` 才是连接亲和的正途。
-   */
-  transaction?: <T>(fn: (sql: SqlClient) => Promise<T>) => Promise<T>
+  /** 声明式 ORM（postgres() 中间件的 .orm——表绑定/校验/事务） */
+  orm: Orm
   /** Redis（可选：多进程广播/实时推送需要；不传则仅本进程内广播）——
    * 传 `redis().redis`（中间件）或 `new RedisPool()`/`RedisPool.create()` */
   redis?: Redis
@@ -144,31 +137,65 @@ const CONVERSATIONS = '_weifuwu_conversations'
 const MEMBERS = '_weifuwu_conversation_members'
 const MESSAGES = '_weifuwu_messages'
 
+// 表 shape（字段名=列名（snake——公共接口契约对齐）；orm.table 包装→校验/类型/归一
+// 注：字段名蛇形是有意为之——Message/Conversation 公共接口（平台消费）即 snake
+// 形态；camel 化留待接口演进（不破契约）
+export const MESSAGER_TABLES = {
+  conversations: {
+    id: f.pk(z.uuid()),
+    type: z.string().meta({ notNull: true, default: 'direct' }),
+    created_by: z.uuid().nullable(),
+    direct_key: z.string().nullable(),
+    created_at: f.now(z.date()),
+  },
+  members: {
+    conversation_id: f.req(z.uuid()),
+    user_id: f.req(z.uuid()),
+    last_read_at: z.date().nullable(),
+    joined_at: f.now(z.date()),
+  },
+  messages: {
+    id: f.pk(z.uuid()),
+    conversation_id: f.req(z.uuid()),
+    sender_type: z.string().meta({ notNull: true, default: 'user' }),
+    sender_id: z.uuid().nullable(),
+    content: f.req(z.string()),
+    msg_type: z.string().meta({ notNull: true, default: 'text' }),
+    created_at: f.now(z.date()),
+    edited_at: z.date().nullable(),
+    deleted_at: z.date().nullable(),
+  },
+} as const
+
 // ── 工厂 ────────────────────────────────────────────────
 
 export function messager(options: MessagerOptions): MessagerSystem {
-  const sql = options.sql
+  const orm = options.orm
+  // 表绑定（工厂级——非事务面；事务内用 tx.table 重建（连接亲和）
+  const C = orm.table(CONVERSATIONS, MESSAGER_TABLES.conversations)
+  const MB = orm.table(MEMBERS, MESSAGER_TABLES.members)
+  const MSG = orm.table(MESSAGES, MESSAGER_TABLES.messages)
   const prefix = options.prefix ?? '/api/messages'
 
   // ── 会话 ──
   async function findDirectConversation(userId: string, otherUserId: string): Promise<Conversation | null> {
     // 同对用户唯一（顺序无关，恰好两名成员）——Query Language（真库编译/内存直执行）
-    const existing = await sql.query.from(`${CONVERSATIONS} c`)
-      .where({ 'c.type': 'direct' })
-      .exists({ kind: 'select', table: MEMBERS, alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': userId } })
-      .exists({ kind: 'select', table: MEMBERS, alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': otherUserId } })
-      .in('c.id', { kind: 'select', table: MEMBERS, alias: 'm', cols: ['conversation_id'], groupBy: ['conversation_id'], having: { 'count(*)': 2 } })
+    const existing = await orm.query.from(`${CONVERSATIONS} c`)
+      .where({ 'c.type': { eq: 'direct' } })
+      .exists({ kind: 'select', table: MEMBERS, alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': { eq: userId } } })
+      .exists({ kind: 'select', table: MEMBERS, alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': { eq: otherUserId } } })
+      .in('c.id', { kind: 'select', table: MEMBERS, alias: 'm', cols: ['conversation_id'], groupBy: ['conversation_id'], having: { 'count(*)': { eq: 2 } } })
       .select('c.id', 'c.type', 'c.created_by', 'c.created_at')
       .limit(1)
       .run()
     return existing.length ? (existing[0] as unknown as Conversation) : null
   }
 
-  /** 成员写入（幂等——PK 冲突 DO NOTHING；tx = 事务 sql 或裸 sql） */
-  async function insertMembers(exec: SqlClient, conversationId: string, memberIds: string[]): Promise<void> {
+  /** 成员写入（幂等——PK 冲突 DO NOTHING；exec = 事务 orm 或裸 orm——连接亲和） */
+  async function insertMembers(exec: Orm, conversationId: string, memberIds: string[]): Promise<void> {
+    const MBtx = exec.table(MEMBERS)
     for (const memberId of memberIds) {
-      await exec.query.insert(MEMBERS)
-        .values({ conversation_id: conversationId, user_id: memberId })
+      await MBtx.insert({ conversation_id: conversationId, user_id: memberId })
         .onConflict(undefined, false) // 无目标列：任意唯一冲突跳过（联合约束 (conversation_id, user_id)）
         .run()
     }
@@ -181,25 +208,21 @@ export function messager(options: MessagerOptions): MessagerSystem {
       if (existing) return existing
       // M9（2027-XX）：并发查-插窗口根治——unique(direct_key) + onConflict DO NOTHING
       // → 输家重查赢家（零窗口；原实现并发同对用户双会话——实证）
-      const run = async (tx: SqlClient): Promise<Conversation | null> => {
-        const rows = await tx.query.insert(CONVERSATIONS)
-          .values({ type: 'direct', created_by: userId, direct_key: directKey })
+      const run = async (tx: Orm): Promise<Conversation | null> => {
+        const Ctx = tx.table(CONVERSATIONS)
+        const rows = await Ctx.insert({ type: 'direct', created_by: userId, direct_key: directKey })
           .onConflict('direct_key')
-          .returning('id', 'type', 'created_by', 'created_at')
           .run()
         if (!rows.length) return null // 并发输家
         const conv = rows[0]
         await insertMembers(tx, String(conv.id), [userId, input.otherUserId])
         return conv as unknown as Conversation
       }
-      const created = options.transaction ? await options.transaction(run) : await run(sql)
+      const created = await orm.transaction(run)
       if (created) return created
       // 并发输家：重查赢家（按 direct_key——赢家事务提交后可见（PG 唯一索引
       // 阻塞等待保证顺序；EXISTS 查重需要成员完整——赢家事务未提交时必漏→按行查）
-      const winner = await sql.query.from(CONVERSATIONS)
-        .select('id', 'type', 'created_by', 'created_at')
-        .where({ type: 'direct', direct_key: directKey })
-        .run()
+      const winner = await C.select().where({ type: { eq: 'direct' }, direct_key: { eq: directKey } }).run()
       if (winner.length) return winner[0] as unknown as Conversation
       throw new HttpError('Conversation creation failed', 500) // 理论不可达（赢家必须存在）
     }
@@ -214,16 +237,14 @@ export function messager(options: MessagerOptions): MessagerSystem {
   ): Promise<Conversation> {
     // M10 修复（2027-XX）：事务注入（连接级——pool.begin 亲和）；原 BEGIN/COMMIT
     // unsafe 在连接池下断裂（每条语句任意连接的 acquire/release——实证）
-    const run = async (tx: SqlClient): Promise<Conversation> => {
-      const rows = await tx.query.insert(CONVERSATIONS)
-        .values({ type, created_by: createdBy })
-        .returning('id', 'type', 'created_by', 'created_at')
-        .run()
+    const run = async (tx: Orm): Promise<Conversation> => {
+      const Ctx = tx.table(CONVERSATIONS)
+      const rows = await Ctx.insert({ type, created_by: createdBy }).run()
       const conv = rows[0]
       await insertMembers(tx, String(conv.id), memberIds)
       return conv as unknown as Conversation
     }
-    return options.transaction ? await options.transaction(run) : run(sql)
+    return orm.transaction(run)
   }
 
   async function listConversations(userId: string): Promise<Conversation[]> {
@@ -231,22 +252,21 @@ export function messager(options: MessagerOptions): MessagerSystem {
     // last_message（索引命中 limit 1）+ unread（count）③ 最近活动倒序 JS 排序。
     // 原实现：真库专用 raw SQL（to_jsonb 标量子查询——memory 不可测——零测试盲区）
     // + ORDER BY created_at（与签名「按最近活动倒序」不符——旧会话收新消息不置顶）。
-    const convs = await sql.query.from(`${MEMBERS} m`)
+    const convs = await orm.query.from(`${MEMBERS} m`)
       .join(`${CONVERSATIONS} c`, { 'c.id': { col: 'm.conversation_id' } })
-      .where({ 'm.user_id': userId })
+      .where({ 'm.user_id': { eq: userId } })
       .select('c.id', 'c.type', 'c.created_by', 'c.created_at', 'm.last_read_at')
       .run()
     const out: Conversation[] = []
     for (const r of convs) {
       const convId = String(r.id)
-      const last = await sql.query.from(MESSAGES)
-        .where({ conversation_id: convId, deleted_at: { isNull: true } })
-        .orderBy('created_at', 'desc').orderBy('id', 'desc')
-        .limit(1)
-        .run()
+      const last = await MSG.select().where({
+        conversation_id: { eq: convId },
+        deleted_at: { isNull: true },
+      }).orderBy('created_at', 'desc').orderBy('id', 'desc').limit(1).run()
       // unread = 未删 + 非本人（sender_id IS DISTINCT FROM u——null 等价 or 表达）+ last_read_at 后
-      const unread = await sql.query.from(MESSAGES).where({
-        conversation_id: convId,
+      const unread = await MSG.select().where({
+        conversation_id: { eq: convId },
         deleted_at: { isNull: true },
         ...(r.last_read_at ? { created_at: { gt: String(r.last_read_at) } } : {}),
         or: [{ sender_id: { isNull: true } }, { sender_id: { ne: userId } }],
@@ -257,7 +277,7 @@ export function messager(options: MessagerOptions): MessagerSystem {
         created_by: r.created_by as string | null,
         created_at: new Date(r.created_at as Date).toISOString(),
         last_message: last.length ? normalizeMessage(last[0]) : null,
-        unread_count: Number(unread[0].count),
+        unread_count: Number((unread[0] as unknown as { count: string }).count),
       } as Conversation)
     }
     // 最近活动倒序（last message 时间；无消息 → 会话创建时间兜底）
@@ -271,30 +291,23 @@ export function messager(options: MessagerOptions): MessagerSystem {
 
   async function getConversationForUser(conversationId: string, userId: string): Promise<Conversation | null> {
     if (!(await isMember(conversationId, userId))) return null
-    const rows = await sql.query.from(CONVERSATIONS)
-      .select('id', 'type', 'created_by', 'created_at')
-      .where({ id: conversationId })
-      .run()
+    const rows = await C.select().where({ id: { eq: conversationId } }).run()
     return rows.length ? (rows[0] as unknown as Conversation) : null
   }
 
   async function isMember(conversationId: string, userId: string): Promise<boolean> {
-    const rows = await sql.query.from(MEMBERS).select('1').where({ conversation_id: conversationId, user_id: userId }).run()
-    return rows.length > 0
+    return MB.exists({ conversation_id: { eq: conversationId }, user_id: { eq: userId } })
   }
 
   // ── 消息 ──
   async function sendMessage(conversationId: string, input: SendMessageInput): Promise<Message> {
-    const rows = await sql.query.insert(MESSAGES)
-      .values({
-        conversation_id: conversationId,
-        sender_type: input.senderType,
-        sender_id: input.senderId ?? null,
-        content: input.content,
-        msg_type: input.msgType ?? 'text',
-      })
-      .returning('*')
-      .run()
+    const rows = await MSG.insert({
+      conversation_id: conversationId,
+      sender_type: input.senderType,
+      sender_id: input.senderId ?? null,
+      content: input.content,
+      msg_type: input.msgType ?? 'text',
+    }).run()
     return normalizeMessage(rows[0])
   }
 
@@ -303,15 +316,15 @@ export function messager(options: MessagerOptions): MessagerSystem {
     opts: { before?: string; limit?: number },
   ): Promise<Message[]> {
     const limit = opts.limit ?? 50
-    const q = sql.query.from(MESSAGES).where({ conversation_id: conversationId })
+    const q = MSG.select().where({ conversation_id: { eq: conversationId } })
     // 游标分页：无 before 全查；有 before → 元组比较 (created_at, id) < (b.created_at, b.id) 拆 OR 组
     if (opts.before) {
-      const [before] = await sql.query.from(MESSAGES).select('created_at', 'id').where({ id: opts.before }).run()
+      const [before] = await MSG.select('created_at', 'id').where({ id: { eq: opts.before } }).run()
       if (before) {
         q.where({
           or: [
             { created_at: { lt: before.created_at as string } },
-            { created_at: before.created_at as string, id: { lt: before.id as string } },
+            { created_at: { eq: before.created_at as string }, id: { lt: before.id as string } },
           ],
         })
       }
@@ -321,27 +334,24 @@ export function messager(options: MessagerOptions): MessagerSystem {
   }
 
   async function editMessage(messageId: string, content: string): Promise<Message | null> {
-    const rows = await sql.query.update(MESSAGES)
-      .set({ content, edited_at: sql.raw`now()` })
-      .where({ id: messageId, deleted_at: { isNull: true } })
+    const rows = await MSG.update({ content, edited_at: new Date().toISOString() })
+      .where({ id: { eq: messageId }, deleted_at: { isNull: true } })
       .returning('*')
       .run()
     return rows.length ? normalizeMessage(rows[0]) : null
   }
 
   async function deleteMessage(messageId: string): Promise<boolean> {
-    const rows = await sql.query.update(MESSAGES)
-      .set({ deleted_at: sql.raw`now()` })
-      .where({ id: messageId, deleted_at: { isNull: true } })
+    const rows = await MSG.update({ deleted_at: new Date().toISOString() })
+      .where({ id: { eq: messageId }, deleted_at: { isNull: true } })
       .returning('id')
       .run()
     return rows.length > 0
   }
 
   async function markRead(conversationId: string, userId: string): Promise<void> {
-    await sql.query.update(MEMBERS)
-      .set({ last_read_at: sql.raw`now()` })
-      .where({ conversation_id: conversationId, user_id: userId })
+    await MB.update({ last_read_at: new Date().toISOString() })
+      .where({ conversation_id: { eq: conversationId }, user_id: { eq: userId } })
       .run()
   }
 
@@ -539,47 +549,6 @@ export function messager(options: MessagerOptions): MessagerSystem {
   mw.client = client
   mw.__meta = { injects: ['msg'], depends: [] } // sql/redis 构造注入（options），非 ctx 读取
 
-  // ── 幂等建表 ──
-  mw.migrate = async () => {
-    await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS ${CONVERSATIONS} (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        type TEXT NOT NULL DEFAULT 'direct',
-        created_by UUID,
-        direct_key TEXT UNIQUE,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `)
-    // 旧库补列（幂等；PG：ADD COLUMN ... UNIQUE = 列 + 唯一约束——M9 并发窗口根治；
-    // NULL 多行不参与唯一（group 会话 direct_key 恒 NULL——PG 语义））
-    await sql.unsafe(`ALTER TABLE ${CONVERSATIONS} ADD COLUMN IF NOT EXISTS direct_key TEXT UNIQUE`)
-    await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS ${MEMBERS} (
-        conversation_id UUID NOT NULL REFERENCES ${CONVERSATIONS}(id) ON DELETE CASCADE,
-        user_id UUID NOT NULL,
-        last_read_at TIMESTAMPTZ,
-        joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        PRIMARY KEY (conversation_id, user_id)
-      )
-    `)
-    await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS ${MESSAGES} (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        conversation_id UUID NOT NULL REFERENCES ${CONVERSATIONS}(id) ON DELETE CASCADE,
-        sender_type TEXT NOT NULL DEFAULT 'user',
-        sender_id UUID,
-        content TEXT NOT NULL,
-        msg_type TEXT NOT NULL DEFAULT 'text',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        edited_at TIMESTAMPTZ,
-        deleted_at TIMESTAMPTZ
-      )
-    `)
-    await sql.unsafe(`
-      CREATE INDEX IF NOT EXISTS idx_messages_conv ON ${MESSAGES} (conversation_id, created_at DESC, id DESC)
-    `)
-  }
-
   // ── 路由（P3：HTTP API，鉴权依赖 userSystem） ──
   mw.routes = (app: Router<any>, routeOpts?: { prefix?: string }) => {
     const p = routeOpts?.prefix ?? prefix
@@ -659,9 +628,9 @@ export function messager(options: MessagerOptions): MessagerSystem {
       const body = (await req.json().catch(() => ({}))) as { content?: string }
       if (!body.content?.trim()) return badRequest('content is required')
       // 成员门控查询（JOIN members——仅成员可触达消息行）
-      const rows = await sql.query.from(`${MESSAGES} m`)
+      const rows = await orm.query.from(`${MESSAGES} m`)
         .join(`${MEMBERS} mem`, { 'mem.conversation_id': { col: 'm.conversation_id' } })
-        .where({ 'm.id': messageId, 'mem.user_id': ctx.user.id })
+        .where({ 'm.id': { eq: messageId }, 'mem.user_id': { eq: String(ctx.user.id) } })
         .select('m.conversation_id', 'm.sender_type', 'm.sender_id')
         .run()
       if (!rows.length) return badRequest('message not found')
@@ -679,9 +648,9 @@ export function messager(options: MessagerOptions): MessagerSystem {
     app.delete(`${p}/messages/:id`, async (req, ctx) => {
       if (!ctx.user) throw new HttpError('Unauthorized', 401)
       const messageId = ctx.params.id as string
-      const rows = await sql.query.from(`${MESSAGES} m`)
+      const rows = await orm.query.from(`${MESSAGES} m`)
         .join(`${MEMBERS} mem`, { 'mem.conversation_id': { col: 'm.conversation_id' } })
-        .where({ 'm.id': messageId, 'mem.user_id': ctx.user.id })
+        .where({ 'm.id': { eq: messageId }, 'mem.user_id': { eq: String(ctx.user.id) } })
         .select('m.conversation_id', 'm.sender_type', 'm.sender_id')
         .run()
       if (!rows.length) return badRequest('message not found')
@@ -697,3 +666,45 @@ export function messager(options: MessagerOptions): MessagerSystem {
 
   return mw
 }
+
+// ── 声明式 Schema（DDL 算子化——业务零 SQL 字符串；迁移编排：pg.migrateModule('weifuwu-messager', WEIFUWU_MESSAGER_SCHEMA)） ──
+export const WEIFUWU_MESSAGER_SCHEMA = {
+  tables: [
+    {
+      name: '_weifuwu_conversations',
+      columns: {
+        id: f.pk(z.uuid()),
+        type: z.string().meta({ default: 'direct' }),
+        created_by: z.uuid(),
+        direct_key: z.string().meta({ unique: true }),
+        created_at: z.date().meta({ default: 'now' }),
+      },
+    },
+    {
+      name: '_weifuwu_conversation_members',
+      columns: {
+        conversation_id: f.req(z.uuid()).meta({ references: '_weifuwu_conversations', onDelete: 'cascade' }),
+        user_id: f.req(z.uuid()),
+        last_read_at: z.date(),
+        joined_at: z.date().meta({ default: 'now' }),
+      },
+      uniques: [['conversation_id', 'user_id']],
+    },
+    {
+      name: '_weifuwu_messages',
+      columns: {
+        id: f.pk(z.uuid()),
+        conversation_id: f.req(z.uuid()).meta({ references: '_weifuwu_conversations', onDelete: 'cascade' }),
+        sender_type: z.string().meta({ default: 'user' }),
+        sender_id: z.uuid(),
+        content: z.string().meta({ notNull: true }),
+        msg_type: z.string().meta({ default: 'text' }),
+        created_at: z.date().meta({ default: 'now' }),
+        edited_at: z.date(),
+        deleted_at: z.date(),
+      },
+      indexes: [{ cols: ['conversation_id', { col: 'created_at', desc: true }, { col: 'id', desc: true }], name: 'idx_messages_conv' }],
+    },
+  ],
+} satisfies import('../db/schema.ts').SchemaModule
+

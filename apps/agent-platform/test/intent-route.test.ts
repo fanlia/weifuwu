@@ -51,7 +51,7 @@ after(async () => {
 })
 
 function ctx() {
-  return { sql: pg.sql, appId: APP_ID, ai: { embed: async (t: string) => mockEmbed(String(t)) } } as any
+  return { sql: pg.sql, orm: (pg as any).orm, appId: APP_ID, ai: { embed: async (t: string) => mockEmbed(String(t)) } } as any
 }
 
 const aiAgents = [

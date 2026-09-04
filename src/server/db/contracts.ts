@@ -65,28 +65,6 @@ export interface PostgresPoolConnection extends PoolConnection {
   query(sql: string, params?: unknown[]): Promise<QueryResult>
 }
 
-/**
- * SQL 标签模板（ctx.sql）：`sql\`SELECT * FROM t WHERE id = ${id}\`` + 方法面。
- * 事务能力走中间件面 `pg.transaction`（PostgresClient）——不在 Sql 接口。
- *
- * 三条执行路径（同一契约双实现）：
- *   标签模板 / unsafe —— 原生 SQL 字符串（Postgres 生态面、DDL、复杂原生查询）
- *   query —— Query Language（结构化对象 → 真库编译 SQL / 内存直执行 AST）
- */
-export interface Sql {
-  (strings: TemplateStringsArray, ...values: unknown[]): Promise<Row[]>
-  /** 原生 SQL（DDL / 动态表名）；$1 占位符 + 参数 */
-  unsafe(sql: string, params?: unknown[]): Promise<Row[]>
-  /** Query Language 入口：`sql.query.from('users').where({...}).run()` */
-  query: import('../db/query.ts').QueryBuilder
-  /** raw 逃生舱：`sql.raw\`NOW() - interval '7 days'\``——真库透传/内存裁剪 */
-  raw(strings: TemplateStringsArray, ...values: unknown[]): import('../db/query.ts').RawSql
-  /** PG 数组参数：`ANY(\${sql.array(ids)}::uuid[])`——默认数组插值是 jsonb 语义
-   *  （object → JSON），PG 数组语义需显式标记（两义并存零破坏——2027-10 批量审批实证） */
-  array(values: unknown[]): { __pgArray: unknown[] }
-  close(): Promise<void>
-}
-
 // ── Redis 契约 ─────────────────────────────────────────────
 
 /** Redis 连接（PoolConnection 特化：命令执行） */

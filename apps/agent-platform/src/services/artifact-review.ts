@@ -13,7 +13,7 @@ type Sql = any
 export async function pendingDirOf(sql: Sql, departmentId: string): Promise<string | null> {
   try {
     const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
-    const [dept] = await sql`SELECT workspace_path FROM departments WHERE id = ${departmentId}`
+    const [dept] = await (sql as any).query.from('departments').select('workspace_path').where({ id: departmentId }).limit(1).run()
     const ws = await resolveDepartmentWorkspace(departmentId, dept?.workspace_path, true)
     if (!ws) return null
     const { join } = await import('node:path')
@@ -72,7 +72,7 @@ export async function approveArtifact(sql: Sql, departmentId: string, relPath: s
   }
   try {
     const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
-    const [dept] = await sql`SELECT workspace_path FROM departments WHERE id = ${departmentId}`
+    const [dept] = await (sql as any).query.from('departments').select('workspace_path').where({ id: departmentId }).limit(1).run()
     const ws = await resolveDepartmentWorkspace(departmentId, dept?.workspace_path, true)
     if (!ws) return { ok: false, error: '工作目录不可用' }
     const { rename, mkdir, access } = await import('node:fs/promises')

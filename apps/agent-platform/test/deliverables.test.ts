@@ -28,14 +28,25 @@ function captureApp(): { handlers: Map<string, Handler> } {
   return { handlers }
 }
 
-/** 假 sql（tagged template——捕获插值参数——返回预置部门行） */
+/** 假 sql + 假 orm（orm.query.from → 预置部门行；捕获 SQL 参数——隔离意图锁定） */
 function makeSql(depts: Array<Record<string, unknown>>) {
   const captured: unknown[][] = []
   const sql = (_strings: TemplateStringsArray, ...values: unknown[]) => {
     captured.push(values)
     return Promise.resolve(depts)
   }
-  return { sql, captured }
+  const orm = {
+    query: {
+      from: () => ({
+        select: () => ({ where: (w: any) => ({ run: async () => { captured.push([w]); return depts } }) }),
+      }),
+      insert: () => ({ values: () => ({ run: async () => [] }) }),
+      update: () => ({ set: () => ({ where: () => ({ run: async () => [] }) }) }),
+      delete: () => ({ where: () => ({ run: async () => [] }) }),
+    },
+    execute: async () => [],
+  }
+  return { sql, orm, captured }
 }
 
 async function call(handlers: Map<string, Handler>, query: string, ctx: any): Promise<Response> {
@@ -72,9 +83,9 @@ test('G1a: 聚合 + mtime 降序 + 部门元信息', async () => {
     { rel: 'old.md', content: 'old', mtime: new Date('2026-01-01T00:00:00Z') },
     { rel: 'new.md', content: 'new', mtime: new Date('2026-06-01T00:00:00Z') },
   ])
-  const { sql } = makeSql([{ id: 'd1', name: '技术部', workspace_path: null }])
+  const { sql, orm } = makeSql([{ id: 'd1', name: '技术部', workspace_path: null }])
   const { handlers } = captureApp()
-  const res = await call(handlers, '', { sql, appId: 'app-1' })
+  const res = await call(handlers, '', { sql, orm, appId: 'app-1' })
   assert.equal(res.status, 200)
   const { files } = await res.json()
   assert.equal(files.length, 2)
@@ -93,9 +104,9 @@ test('G1b: 隐藏文件过滤（. 前缀不列）', async () => {
     { rel: '.hidden', content: 'h' },
     { rel: 'sub/.also-hidden', content: 'h' },
   ])
-  const { sql } = makeSql([{ id: 'd2', name: 'D2', workspace_path: null }])
+  const { sql, orm } = makeSql([{ id: 'd2', name: 'D2', workspace_path: null }])
   const { handlers } = captureApp()
-  const { files } = await (await call(handlers, '', { sql, appId: 'app-1' })).json()
+  const { files } = await (await call(handlers, '', { sql, orm, appId: 'app-1' })).json()
   const names = files.map((f: any) => f.name)
   assert.deepEqual(names, ['visible.md'], '隐藏文件（根层 + 子目录）全部过滤')
 })
@@ -105,9 +116,9 @@ test('G1c: 深度 1——子目录文件收录（路径前缀）+ 更深层排�
     { rel: 'outputs/report.md', content: 'r' },
     { rel: 'outputs/nested/deep.md', content: 'd' }, // 深度 2——排除
   ])
-  const { sql } = makeSql([{ id: 'd3', name: 'D3', workspace_path: null }])
+  const { sql, orm } = makeSql([{ id: 'd3', name: 'D3', workspace_path: null }])
   const { handlers } = captureApp()
-  const { files } = await (await call(handlers, '', { sql, appId: 'app-1' })).json()
+  const { files } = await (await call(handlers, '', { sql, orm, appId: 'app-1' })).json()
   assert.equal(files.length, 1, '仅深度 1 子目录文件')
   assert.equal(files[0].path, 'outputs/report.md', '子目录文件 path = 子目录/文件名')
   assert.equal(files[0].name, 'report.md')
@@ -118,9 +129,9 @@ test('G1d: 50MB 占位拒绝（大文件不进统计面）', async () => {
     { rel: 'big.bin', size: 50 * 1024 * 1024 + 1 },
     { rel: 'ok.md', content: 'ok' },
   ])
-  const { sql } = makeSql([{ id: 'd4', name: 'D4', workspace_path: null }])
+  const { sql, orm } = makeSql([{ id: 'd4', name: 'D4', workspace_path: null }])
   const { handlers } = captureApp()
-  const { files } = await (await call(handlers, '', { sql, appId: 'app-1' })).json()
+  const { files } = await (await call(handlers, '', { sql, orm, appId: 'app-1' })).json()
   assert.deepEqual(files.map((f: any) => f.name), ['ok.md'], '>50MB 文件跳过')
 })
 
@@ -130,9 +141,9 @@ test('G1e: limit 夹紧（默认 200——显式值生效）', async () => {
     { rel: 'b.md', mtime: new Date('2026-02-01') },
     { rel: 'c.md', mtime: new Date('2026-01-01') },
   ])
-  const { sql } = makeSql([{ id: 'd5', name: 'D5', workspace_path: null }])
+  const { sql, orm } = makeSql([{ id: 'd5', name: 'D5', workspace_path: null }])
   const { handlers } = captureApp()
-  const { files } = await (await call(handlers, '?limit=2', { sql, appId: 'app-1' })).json()
+  const { files } = await (await call(handlers, '?limit=2', { sql, orm, appId: 'app-1' })).json()
   assert.deepEqual(files.map((f: any) => f.name), ['a.md', 'b.md'], 'limit=2 截断（mtime 降序头部）')
 })
 
@@ -142,13 +153,13 @@ test('G1f: 多部门聚合 + 失败部门跳过（不炸整体）', async () => 
   // d8 workspace_path 指向文件（readdir 失败）→ 跳过
   const badPath = join(wsRoot, 'not-a-dir')
   await writeFile(badPath, 'x')
-  const { sql } = makeSql([
+  const { sql, orm } = makeSql([
     { id: 'd6', name: 'D6', workspace_path: null },
     { id: 'd7', name: 'D7', workspace_path: null },
     { id: 'd8', name: 'D8', workspace_path: badPath },
   ])
   const { handlers } = captureApp()
-  const res = await call(handlers, '', { sql, appId: 'app-1' })
+  const res = await call(handlers, '', { sql, orm, appId: 'app-1' })
   assert.equal(res.status, 200, '失败部门不炸整体')
   const { files } = await res.json()
   assert.deepEqual(files.map((f: any) => f.deptId), ['d6'], '仅存活部门产出')
@@ -157,17 +168,17 @@ test('G1f: 多部门聚合 + 失败部门跳过（不炸整体）', async () => 
 test('G1g: 自定义 workspace_path 优先（部门级配置）', async () => {
   const custom = await mkdtemp(join(tmpdir(), 'ap-deliv-custom-'))
   await writeFile(join(custom, 'custom.md'), 'c')
-  const { sql } = makeSql([{ id: 'd9', name: 'D9', workspace_path: custom }])
+  const { sql, orm } = makeSql([{ id: 'd9', name: 'D9', workspace_path: custom }])
   const { handlers } = captureApp()
-  const { files } = await (await call(handlers, '', { sql, appId: 'app-1' })).json()
+  const { files } = await (await call(handlers, '', { sql, orm, appId: 'app-1' })).json()
   assert.deepEqual(files.map((f: any) => f.name), ['custom.md'])
   await rm(custom, { recursive: true, force: true })
 })
 
 test('G1h: 无部门 → 空列表；无 appId → 401', async () => {
-  const { sql } = makeSql([])
+  const { sql, orm } = makeSql([])
   const { handlers } = captureApp()
-  const empty = await call(handlers, '', { sql, appId: 'app-1' })
+  const empty = await call(handlers, '', { sql, orm, appId: 'app-1' })
   assert.deepEqual(await empty.json(), { files: [] })
 
   const unauth = await call(handlers, '', { sql: makeSql([]).sql, appId: null })
@@ -175,9 +186,10 @@ test('G1h: 无部门 → 空列表；无 appId → 401', async () => {
 })
 
 test('G1i: 租户隔离——app_id 以 ctx.appId 参数化（SQL 值捕获）', async () => {
-  const { sql, captured } = makeSql([])
+  const { sql, orm, captured } = makeSql([])
   const { handlers } = captureApp()
-  await call(handlers, '', { sql, appId: 'app-isolated' })
+  await call(handlers, '', { sql, orm, appId: 'app-isolated' })
   assert.ok(captured.length >= 1, '部门查询已执行')
-  assert.ok(captured[0].includes('app-isolated'), 'app_id = ctx.appId 入参（隔离意图——防跨租户泄漏）')
+  const paramDump = JSON.stringify(captured)
+  assert.ok(paramDump.includes('app-isolated'), 'app_id = ctx.appId 入参（隔离意图——防跨租户泄漏）')
 })

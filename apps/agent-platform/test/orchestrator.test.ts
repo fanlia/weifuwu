@@ -58,7 +58,7 @@ before(async () => {
   await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES (${WORKER_C}, ${APP_ID}, 'ai', '文档助手', '你是文档助手')`
 
   ctx = {
-    sql: pg.sql,
+    sql: pg.sql, orm: (pg as any).orm,
     appId: APP_ID,
     ai: mockAiClient,
     auth: { userId: 't', appId: APP_ID, email: 't@t.com', name: 'T', role: 'member' },

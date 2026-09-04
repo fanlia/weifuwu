@@ -17,20 +17,27 @@
  * ⚠️ 仅供开发/测试/单实例——持久化/并发/事务由真实 Postgres 承担（文档红线）。
  */
 import { randomUUID } from 'node:crypto'
-import type { Sql, Row, QueryResult } from './contracts.ts'
+import type { Row, QueryResult } from './contracts.ts'
 import { ProtocolError } from './errors.ts'
 import { HttpError } from '../types.ts'
 import type { Query, SelectQuery, WhereExpr, RawSql, ColOps } from './query.ts'
 import { createQueryBuilder } from './query-builder.ts'
+import { zodTypeOf } from './schema.ts'
+import type { ZodType } from '../../shared/zod.ts'
 import { parseSqlToAst, parseWhereToExpr } from './sql-parser.ts'
+import { createOrm, memoryAdapter } from './orm.ts'
 
 interface MemoryTable {
   rows: Row[]
   nextId: number
-  /** DDL 解析的约束：pk（DEFAULT 生成列）、unique 列、DEFAULT now() 列 */
+  /** DDL 解析的约束：pk（DEFAULT 生成列）、unique 列、复合唯一组、DEFAULT now() 列 */
   pk?: { col: string; defaultUuid: boolean }
   uniques: Set<string>
+  /** 复合唯一/主键组（PK (a,b) / UNIQUE (a,b)——全组等值才冲突） */
+  groups: string[][]
   defaultNow: Set<string>
+  /** 字面量默认值（DEFAULT FALSE/0/'x'）——注入对齐真库 */
+  defaultVals: Map<string, unknown>
   /** 表列序（CREATE TABLE 定义）——无列名 INSERT 按序映射 */
   columns: string[]
   /** 列类型（CREATE TABLE 定义）——PG 服务器 Describe OID 推断 */
@@ -45,13 +52,17 @@ export interface MemorySnapshotEntry {
   columnTypes: Record<string, string>
   pk?: { col: string; defaultUuid: boolean }
   uniques: string[]
+  groups: string[][]
   defaultNow: string[]
+  defaultVals: Record<string, unknown>
 }
 
 export type MemorySnapshot = Map<string, MemorySnapshotEntry>
 
 export class MemorySql {
   private tables = new Map<string, MemoryTable>()
+  /** CREATE TYPE AS ENUM 注册（幂等——DO 块 EXCEPTION duplicate_object 语义） */
+  private enums = new Map<string, string[]>()
   /** 派生表 AST 缓存（同 innerSql 不重复 parse——执行路径热缓存） */
   private derivedAstCache = new Map<string, import('./query.ts').Query>()
 
@@ -66,6 +77,17 @@ export class MemorySql {
     const head = sql.trim().toUpperCase()
     if (head === 'BEGIN' || head === 'COMMIT' || head === 'ROLLBACK' || head === 'END') {
       return makeResult([], 0)
+    }
+    // 多语句拆分：schema.sql 整文件（; 分隔·字符串/DO 块/注释感知）——逐条执行
+    // （真 PG 多语句 = 最后结果——内存同语义；DDL 副作用顺序保留）
+    const stmts = splitStatements(sql)
+    if (stmts.length > 1) {
+      let last: Row[] = makeResult([], 0)
+      for (const stmt of stmts) {
+        if (!stmt.trim()) continue
+        last = await this.unsafe(stmt, params)
+      }
+      return last
     }
     // sql.array() 标记：展开为字面量集合（内存端 ANY($n::uuid[]) 语义 = 参数值 IN 集合）
     params = params.map((p) => (p as { __pgArray?: unknown[] } | null)?.__pgArray ?? p)
@@ -156,10 +178,9 @@ export class MemorySql {
       rows = joined
       tableAlias = jAlias
     }
-    // WHERE（raw 伪装 → 内存裁剪）；关联子查询时合并外层行上下文
-    if (q.where && '__raw' in (q.where as object)) {
-      throw new ProtocolError('memory-sql: raw WHERE 不支持（诚实裁剪——用真库）')
-    }
+    // WHERE（raw 键预解析为结构化——E2：whereRaw 文本经 parseWhereToExpr 求值；
+    // 解析失败抛 ProtocolError（诚实不静默——与裸参数面同语义））
+    const whereRawResolved = q.where ? resolveRawWhere(q.where) : undefined
     const matchRow = (r: Row): Row => {
       if (!outerCtx) return r
       const merged: Row = {}
@@ -167,7 +188,7 @@ export class MemorySql {
       for (const [k, v] of Object.entries(outerCtx.row)) merged[`${outerCtx.alias}.${k}`] = v
       return merged
     }
-    let filtered = q.where ? rows.filter((r) => matchWhereExpr(matchRow(r), q.where!, q.alias)) : rows
+    let filtered = whereRawResolved ? rows.filter((r) => matchWhereExpr(matchRow(r), whereRawResolved, q.alias)) : rows
     // 子查询（IN/EXISTS——关联：每外层行执行子 AST，外层列经 outerCtx 引用）
     for (const sub of q.sub ?? []) {
       filtered = filtered.filter((r) => {
@@ -195,7 +216,9 @@ export class MemorySql {
         for (const gb of q.groupBy ?? []) row[gb] = resolveCol(g[0], gb, tableAlias)
         for (const a of q.aggregate!) {
           const col = a.col === '*' ? undefined : resolveCol(g[0], a.col, tableAlias)
-          const values = a.col === '*' ? g : g.map((r) => resolveCol(r, a.col, tableAlias))
+          // FILTER (WHERE ...)：仅条件命中行参与聚合
+          const src = a.filter ? g.filter((r) => matchWhereExpr(r, a.filter!, undefined)) : g
+          const values = a.col === '*' ? src : src.map((r) => resolveCol(r, a.col, tableAlias))
           if (a.fn === 'count') row[a.as] = values.length
           else if (!values.length) row[a.as] = null // 空集：sum/avg/min/max = NULL（SQL 语义）
           else if (a.fn === 'sum') row[a.as] = (values as unknown[]).reduce((x: number, y) => x + Number(y ?? 0), 0)
@@ -219,7 +242,14 @@ export class MemorySql {
         const proj: Row = {}
         for (const c of q.cols!) {
           if (isRaw(c)) throw new ProtocolError('memory-sql: raw 投影不支持（诚实裁剪——用真库）')
-          proj[stripTable(c)] = resolveCol(r, c)
+          // 'expr AS alias'（parser 产出）——按 expr 取值·输出键=alias
+          const asm = /^(.+?)\s+AS\s+([\w.]+)$/i.exec(c)
+          if (asm) proj[asm[2]] = resolveCol(r, asm[1].trim())
+          else proj[stripTable(c)] = resolveCol(r, c)
+        }
+        if (q.vector) {
+          // pgvector 等价：相似度 = 余弦（`1 - (a <=> b)`）——vectorScore 面
+          proj[q.vector.as] = cosineSimilarity(vecOf(resolveCol(r, q.vector.col, tableAlias)), q.vector.vec)
         }
         return proj
       })
@@ -240,6 +270,13 @@ export class MemorySql {
         seen.add(key)
         return true
       })
+    }
+    // 向量相似度排序（SQL 同语义：ORDER BY col<=>vec 主序——在最前）
+    if (q.vector) {
+      out = out
+        .map((r) => ({ r, sim: cosineSimilarity(vecOf(resolveCol(r, q.vector!.col, tableAlias)), q.vector!.vec) }))
+        .sort((a, b) => b.sim - a.sim)
+        .map((x) => x.r)
     }
     // ORDER BY / LIMIT / OFFSET
     if (q.orderBy?.length) {
@@ -283,26 +320,63 @@ export class MemorySql {
       return out
     })
     for (const row of mapped) {
+      // 插入显式列集（默认注入前捕获——DO UPDATE 只更新显式列，对齐 compile cols）
+      const insertCols = Object.keys(row)
       // PK DEFAULT / UNIQUE 检查（与字符串路径同约束）
       if (t.pk && !(t.pk.col in row)) row[t.pk.col] = t.pk.defaultUuid ? randomUUID() : `mem-${t.nextId}`
       for (const c of t.defaultNow) {
         if (!(c in row)) row[c] = new Date().toISOString()
       }
-      // 唯一冲突：onConflict DO NOTHING → 跳过该行；否则 409（同字符串路径）
+      for (const [c, v] of t.defaultVals) {
+        if (!(c in row)) row[c] = v
+      }
+      for (const c of Object.keys(row)) row[c] = resolveExprValue(c, undefined, row[c], row)
+      // 唯一冲突：onConflict DO UPDATE → 更新冲突行；DO NOTHING → 跳过；否则 409（同字符串路径）
       // NULL 不参与唯一性（2027-XX——对齐真库 PG 多 NULL 允许——M9 direct_key 语义）
-      let conflicted = false
+      let conflict: { u: string; row: Row } | undefined
       for (const u of t.uniques) {
-        if (u in row && row[u] != null && t.rows.some((r) => deepEq(r[u], row[u]))) {
-          if (q.onConflict) { conflicted = true; break }
-          throw new HttpError(`数据库错误: duplicate key value violates unique constraint "${u}"`, 409)
+        if (u in row && row[u] != null) {
+          const hit = t.rows.find((r) => deepEq(r[u], row[u]))
+          if (hit) { conflict = { u, row: hit }; break }
         }
       }
-      if (!conflicted) {
-        t.rows.push(row)
-        t.nextId++
-        inserted++ // affectedRows = 实际插入数（onConflict 跳过行不计——对齐真库 CommandComplete）
-        if (q.returning) results.push(q.returning === '*' ? { ...row } : pick(row, q.returning))
+      if (!conflict) {
+        for (const g of t.groups) {
+          if (g.every((c) => c in row && row[c] != null)) {
+            const hit = t.rows.find((r) => g.every((c) => deepEq(r[c], row[c])))
+            if (hit) { conflict = { u: g.join(','), row: hit }; break }
+          }
+        }
       }
+      if (conflict) {
+        if (!q.onConflict) throw new HttpError(`数据库错误: duplicate key value violates unique constraint "${conflict.u}"`, 409)
+        if (q.onConflict.update) {
+          if (q.onConflict.merge) {
+            // merge 表达式列（compile 同语义：SET merge 列——其余列不变）
+            for (const [c, mv] of Object.entries(q.onConflict.merge)) {
+              conflict.row[c] = resolveExprValue(c, conflict.row[c], mv, conflict.row)
+            }
+          } else {
+          // DO UPDATE：非冲突列 ← 新行值（compile 同语义——EXCLUDED.col 规范型）
+          // 仅更新插入显式列（默认注入列不参与——对齐 compile cols = insert 列集）
+          const target = Array.isArray(q.onConflict.col)
+            ? new Set(q.onConflict.col)
+            : q.onConflict.col ? new Set([q.onConflict.col]) : null
+          for (const c of insertCols) {
+            if (target?.has(c)) continue
+            conflict.row[c] = row[c]
+          }
+          }
+          inserted++ // PG CommandComplete：更新行计入（DO NOTHING 不计）
+          if (q.returning) results.push(q.returning === '*' ? { ...conflict.row } : pick(conflict.row, q.returning))
+        }
+        // DO NOTHING：跳过该行（affectedRows 不计）
+        continue
+      }
+      t.rows.push(row)
+      t.nextId++
+      inserted++ // affectedRows = 实际插入数（onConflict 跳过行不计——对齐真库 CommandComplete）
+      if (q.returning) results.push(q.returning === '*' ? { ...row } : pick(row, q.returning))
     }
     return makeResult(results, inserted)
   }
@@ -316,7 +390,9 @@ export class MemorySql {
       if (!q.where || matchWhereExpr(r, q.where, undefined)) {
         const next: Row = { ...r }
         for (const [k, v] of Object.entries(q.sets)) {
-          if (isRaw(v)) {
+          if (isMergeExpr(v)) {
+            next[k] = resolveExprValue(k, next[k], v, next)
+          } else if (isRaw(v)) {
             // raw SET 值：now() 特判（编辑/软删时间戳）；其余裁剪
             if (/^now\(\)$/i.test((v as RawSql).__raw.trim())) next[k] = new Date().toISOString()
             else throw new ProtocolError('memory-sql: raw SET 值不支持（诚实裁剪——用真库）')
@@ -334,6 +410,12 @@ export class MemorySql {
         if (!(u in next) || next[u] == null) continue // NULL 不参与唯一性（对齐真库）
         const clash = t.rows.some((r) => r !== row && deepEq((plannedMap.get(r) ?? r)[u], next[u]))
         if (clash) throw new HttpError(`数据库错误: duplicate key value violates unique constraint "${u}"`, 409)
+      }
+      // 复合唯一组（全组等值才冲突）
+      for (const g of t.groups) {
+        if (!g.every((c) => c in next && next[c] != null)) continue
+        const clash = t.rows.some((r) => r !== row && g.every((c) => deepEq((plannedMap.get(r) ?? r)[c], next[c])))
+        if (clash) throw new HttpError(`数据库错误: duplicate key value violates unique constraint "${g.join(', ')}"`, 409)
       }
     }
     // 应用更新
@@ -364,7 +446,7 @@ export class MemorySql {
 
   private table(name: string): MemoryTable {
     let t = this.tables.get(name)
-    if (!t) { t = { rows: [], nextId: 1, uniques: new Set(), defaultNow: new Set(), columns: [], columnTypes: {} }; this.tables.set(name, t) }
+    if (!t) { t = { rows: [], nextId: 1, uniques: new Set(), groups: [], defaultNow: new Set(), defaultVals: new Map(), columns: [], columnTypes: {} }; this.tables.set(name, t) }
     return t
   }
 
@@ -394,7 +476,9 @@ export class MemorySql {
         columnTypes: { ...t.columnTypes },
         pk: t.pk ? { ...t.pk } : undefined,
         uniques: [...t.uniques],
+        groups: t.groups.map((g) => [...g]),
         defaultNow: [...t.defaultNow],
+        defaultVals: Object.fromEntries(t.defaultVals),
       })
     }
     return snap
@@ -411,7 +495,9 @@ export class MemorySql {
         columnTypes: { ...e.columnTypes },
         pk: e.pk ? { ...e.pk } : undefined,
         uniques: new Set(e.uniques),
+        groups: (e.groups ?? []).map((g) => [...g]),
         defaultNow: new Set(e.defaultNow),
+        defaultVals: new Map(Object.entries(e.defaultVals ?? {})),
       })
       restored.add(name)
     }
@@ -420,23 +506,184 @@ export class MemorySql {
     }
   }
 
+  /** 声明式 Schema 应用（applySchema——SchemaModule → 元数据直构造；与 DDL 解析器同落点） */
+  applySchema(mod: import('./schema.ts').SchemaModule): void {
+    for (const t of mod.tables ?? []) {
+      const tbl = this.table(t.name)
+      tbl.columns = []
+      tbl.columnTypes = {}
+      for (const [field, ztRaw] of Object.entries(t.columns)) {
+        const zt = ztRaw as unknown as ZodType
+        const meta = zt.metaInfo
+        const col = (meta.column as string) ?? field
+        tbl.columns.push(col)
+        tbl.columnTypes[col] = (t.columnTypes?.[col] ?? zodTypeOf(zt)).toLowerCase()
+        if (meta.pk) tbl.pk = { col, defaultUuid: meta.default === 'random' }
+        if (meta.unique) tbl.uniques.add(col)
+        if (meta.default === 'now') tbl.defaultNow.add(col)
+        else if (meta.default !== undefined && meta.default !== 'random') tbl.defaultVals.set(col, meta.default)
+      }
+      for (const u of t.uniques ?? []) if (u.length > 1) tbl.groups.push(u)
+    }
+  }
+
   /** DDL 执行（parser 产出 DdlQuery）——约束提取到表元数据 */
   private executeDdl(stmt: Extract<Query, { kind: 'ddl' }>): QueryResult<Row> {
     if (stmt.op === 'createTable' && stmt.table) {
       const t = this.table(stmt.table)
+      // 列定义（table-constraint 不是列——不进屋列序/类型——只贡献约束）
+      const defs = (stmt.columns ?? []).filter((c) => c.type !== 'table-constraint')
       // 表列序（无列名 INSERT 按序映射——CREATE 时覆盖）+ 列类型（Describe OID）
-      t.columns = (stmt.columns ?? []).map((c) => c.name)
-      for (const c of stmt.columns ?? []) t.columnTypes[c.name] = c.type.toLowerCase()
+      t.columns = defs.map((c) => c.name)
+      for (const c of defs) t.columnTypes[c.name] = c.type.toLowerCase()
       for (const col of stmt.columns ?? []) {
+        if (col.type === 'table-constraint') {
+          // 复合唯一目标（UNIQUE (a,b) / PRIMARY KEY (a,b)）——全组等值才冲突——
+          // 近似修正（原 col0 单列记 unique——两行同 dept 异 agent 误 409 实证）
+          if (col.constraintCols && col.constraintCols.length > 1) t.groups.push(col.constraintCols)
+          continue
+        }
         if (col.pk) t.pk = { col: col.name, defaultUuid: col.defaultUuid }
         if (col.unique) t.uniques.add(col.name)
         if (col.defaultNow) t.defaultNow.add(col.name)
+        if (col.defaultVal !== undefined) t.defaultVals.set(col.name, col.defaultVal)
       }
     } else if (stmt.op === 'dropTable' && stmt.table) {
       this.tables.delete(stmt.table)
+    } else if (stmt.op === 'createEnum' && stmt.table) {
+      // 枚举注册（幂等——DO 块 EXCEPTION duplicate_object 语义 = 已存在跳过）
+      if (!this.enums.has(stmt.table)) this.enums.set(stmt.table, stmt.enumValues ?? [])
     }
+    // createExtension / doBlock / createIndex / alter —— 内存无对应语义（no-op）
     return makeResult([], 0)
   }
+}
+
+/** 多语句拆分：; 分隔——字符串字面量/$$ DO 块/-- 注释/括号深度感知 */
+// ── merge 表达式（__jsonbAppend/__inc/__now——编码即语义——对齐 compileMergeVal） ──────
+
+
+function arrOf(v: unknown): unknown[] {
+  if (Array.isArray(v)) return v
+  if (typeof v === 'string') { try { const p = JSON.parse(v); if (Array.isArray(p)) return p } catch { /* 非 json 字符串——单元素 */ } }
+  return v == null ? [] : [v]
+}
+
+function vecOf(v: unknown): number[] {
+  if (Array.isArray(v)) return v as number[]
+  if (typeof v === 'string') { try { const p = JSON.parse(v); if (Array.isArray(p)) return p as number[] } catch { /* 非 json */ } }
+  return v == null ? [] : []
+}
+
+/** 余弦相似度（pgvector `1 - (a <=> b)` 等价——cosine distance 变体） */
+export function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, na = 0, nb = 0
+  const n = Math.min(a.length, b.length)
+  for (let i = 0; i < n; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i] }
+  return na && nb ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0
+}
+
+export function resolveExprValue(_col: string, cur: unknown, expr: unknown, row: Record<string, unknown>): unknown {
+  if (typeof expr !== 'object' || expr === null) return expr
+  const e = expr as Record<string, unknown>
+  if ('__jsonbAppend' in e) return [...arrOf(cur), ...arrOf(e.__jsonbAppend)]
+  if ('__inc' in e) return Number(cur ?? 0) + Number(e.__inc)
+  if ('__now' in e) return new Date().toISOString()
+  if ('__interval' in e) {
+    const [n, unit] = e.__interval as [number, string]
+    return new Date(Date.now() + n * unitMs(unit)).toISOString()
+  }
+  if ('__colRef' in e) return row[String(e.__colRef)]
+  if ('__monthStart' in e) return dateExprValue(expr)
+  return expr
+}
+
+export function isMergeExpr(v: unknown): boolean {
+  return typeof v === 'object' && v !== null && ['__jsonbAppend', '__inc', '__now', '__interval', '__colRef', '__monthStart'].some((k) => k in (v as Record<string, unknown>))
+}
+
+function unitMs(unit: string): number {
+  switch (unit) {
+    case 'day': return 86400_000
+    case 'hour': return 3600_000
+    case 'minute': return 60_000
+    default: return 1000
+  }
+}
+
+/** 日期表达式值求值（where 值面：__interval/__monthStart——编码即语义） */
+export function dateExprValue(v: unknown): unknown {
+  if (typeof v === 'object' && v !== null) {
+    if ('__interval' in v) {
+      const [n, unit] = (v as { __interval: [number, string] }).__interval
+      return new Date(Date.now() + n * unitMs(unit)).toISOString()
+    }
+    if ('__monthStart' in v) {
+      const d = new Date()
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString()
+    }
+  }
+  return v
+}
+
+function splitStatements(sql: string): string[] {
+  const out: string[] = []
+  let buf = ''
+  let i = 0
+  const n = sql.length
+  let depth = 0
+  while (i < n) {
+    const c = sql[i]
+    const two = sql.slice(i, i + 2)
+    // -- 行注释（——到行尾）
+    if (two === '--') {
+      while (i < n && sql[i] !== '\n') i++
+      continue
+    }
+    // /* 块注释 */
+    if (two === '/*') {
+      i += 2
+      while (i < n && sql.slice(i, i + 2) !== '*/') i++
+      i += 2
+      continue
+    }
+    // ' 字符串（'' 转义）
+    if (c === "'") {
+      buf += c
+      i++
+      while (i < n) {
+        buf += sql[i]
+        if (sql[i] === "'" && sql[i + 1] === "'") { i++; buf += sql[i]; i++; continue }
+        if (sql[i] === "'") { i++; break }
+        i++
+      }
+      continue
+    }
+    // $$ DO 块（到 END $$ 结束——内部 ; 不拆）
+    if (two === '$$') {
+      buf += two
+      i += 2
+      while (i < n && sql.slice(i, i + 2) !== '$$') {
+        if (sql[i] === ';') buf += ';'
+        else buf += sql[i]
+        i++
+      }
+      if (i < n) { buf += '$$'; i += 2 }
+      continue
+    }
+    if (c === '(' || c === '[') depth++
+    if (c === ')' || c === ']') depth--
+    if (c === ';' && depth <= 0) {
+      out.push(buf.trim())
+      buf = ''
+      i++
+      continue
+    }
+    buf += c
+    i++
+  }
+  if (buf.trim()) out.push(buf.trim())
+  return out
 }
 
 /** raw 标签模板（值按 $n 顺序参数化） */
@@ -491,6 +738,21 @@ function unqualified(row: Row): Row {
   return out
 }
 
+/** where 预解析：raw 键（whereRaw——{__raw, params}）→ 结构化 WhereExpr（一次性——逐行求值前） */
+function resolveRawWhere(where: WhereExpr): WhereExpr {
+  const out: WhereExpr = {}
+  for (const [k, v] of Object.entries(where)) {
+    if (k === '__raw' && isRaw(v)) {
+      const raw = v as unknown as { __raw: string; params: unknown[] }
+      const parsed = parseWhereToExpr(raw.__raw, raw.params)
+      for (const [pk, pv] of Object.entries(parsed)) out[pk] = pv as never
+    } else {
+      out[k] = v
+    }
+  }
+  return out
+}
+
 function isRaw(v: unknown): v is RawSql {
   return typeof v === 'object' && v !== null && '__raw' in v
 }
@@ -510,14 +772,13 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
       if (!ands.every((o) => matchWhereExpr(row, o, alias))) return false
       continue
     }
-    if (Array.isArray(field)) {
-      // IN 列表
-      const actual = resolveCol(row, col, alias)
-      if (!(field as unknown[]).some((v) => deepEq(actual, v))) return false
-      continue
-    }
     if (isRaw(field)) {
-      throw new ProtocolError('memory-sql: raw WHERE 不支持（诚实裁剪——用真库）')
+      // raw WHERE（whereRaw——E2：文本经 parseWhereToExpr 解析为结构化求值——
+      // 解析失败仍抛 ProtocolError（诚实——不静默降级——与裸参数面同语义）
+      const raw = field as unknown as { __raw: string; params: unknown[] }
+      const parsed = parseWhereToExpr(raw.__raw, raw.params)
+      if (!matchWhereExpr(row, parsed, alias)) return false
+      continue
     }
     if (typeof field === 'object' && field !== null) {
       const ops = field as ColOps
@@ -528,15 +789,40 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
         if (!deepEq(actual, field)) return false
         continue
       }
+      const rv = (v: unknown): unknown => {
+        if (typeof v === 'object' && v !== null && ('__interval' in v || '__monthStart' in v)) return dateExprValue(v)
+        if (!isRaw(v)) return v
+        const t = (v as RawSql).__raw.trim()
+        // 日期表达式求值（对齐真库 NOW()/DATE_TRUNC 语义——内存按当前时刻）
+        const mNow = /^now\(\)\s*-\s*interval\s*'([0-9]+)\s*(days?|hours?|minutes?)'$/i.exec(t)
+        if (/^now\(\)$/i.test(t)) return new Date().toISOString()
+        if (mNow) {
+          const amt = Number(mNow[1])
+          const unit = mNow[2].toLowerCase()
+          const ms = unit.startsWith('day') ? amt * 86_400_000 : unit.startsWith('hour') ? amt * 3_600_000 : amt * 60_000
+          return new Date(Date.now() - ms).toISOString()
+        }
+        const mTrunc = /^date_trunc\('(month|day|week|hour|minute)',\s*now\(\)\)$/i.exec(t)
+        if (mTrunc) {
+          const d = new Date()
+          const unit = mTrunc[1].toLowerCase()
+          if (unit === 'month') return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString()
+          if (unit === 'day') return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString()
+          if (unit === 'hour') return new Date(d.setUTCMinutes(0, 0, 0)).toISOString()
+          if (unit === 'minute') return new Date(d.setUTCSeconds(0, 0)).toISOString()
+          return new Date(d).toISOString()
+        }
+        throw new ProtocolError(`memory-sql: WHERE 值表达式不支持（诚实裁剪——用真库）：${t}`)
+      }
       if (ops.col !== undefined && !deepEq(actual, resolveCol(row, ops.col, alias))) return false
-      if (ops.eq !== undefined && !deepEq(actual, ops.eq)) return false
-      if (ops.gt !== undefined && cmpValue(actual, ops.gt) <= 0) return false
-      if (ops.gte !== undefined && cmpValue(actual, ops.gte) < 0) return false
-      if (ops.lt !== undefined && cmpValue(actual, ops.lt) >= 0) return false
-      if (ops.lte !== undefined && cmpValue(actual, ops.lte) > 0) return false
-      if (ops.ne !== undefined && deepEq(actual, ops.ne)) return false
-      if (ops.in && !ops.in.some((v) => deepEq(actual, v))) return false
-      if (ops.notIn && ops.notIn.some((v) => deepEq(actual, v))) return false
+      if (ops.eq !== undefined && !deepEq(actual, rv(ops.eq))) return false
+      if (ops.gt !== undefined && cmpValue(actual, rv(ops.gt)) <= 0) return false
+      if (ops.gte !== undefined && cmpValue(actual, rv(ops.gte)) < 0) return false
+      if (ops.lt !== undefined && cmpValue(actual, rv(ops.lt)) >= 0) return false
+      if (ops.lte !== undefined && cmpValue(actual, rv(ops.lte)) > 0) return false
+      if (ops.ne !== undefined && deepEq(actual, rv(ops.ne))) return false
+      if (ops.in && !ops.in.some((v) => deepEq(actual, rv(v)))) return false
+      if (ops.notIn && ops.notIn.some((v) => deepEq(actual, rv(v)))) return false
       if (ops.like !== undefined && (actual === null || actual === undefined || !likeToRegExp(ops.like).test(String(actual)))) return false
       if (ops.ilike !== undefined && (actual === null || actual === undefined || !likeToRegExp(ops.ilike, true).test(String(actual)))) return false
       if (ops.between) {
@@ -546,21 +832,30 @@ function matchWhereExpr(row: Row, expr: WhereExpr, alias?: string): boolean {
       if (ops.isNull !== undefined && (actual === null || actual === undefined) !== ops.isNull) return false
       continue
     }
-    // 标量相等
-    const actual = resolveCol(row, col, alias)
-    if (field === null) {
-      if (actual !== null && actual !== undefined) return false
-    } else if (!deepEq(actual, field)) {
-      return false
-    }
+    if (process.env.PGDBG2) console.error('[mmw where]', JSON.stringify({col, field}))
+    throw new ProtocolError(`memory-sql: WHERE 列 ${col} 值必须为算子对象（裸标量/数组/null 形态已移除——用 { eq: v } / { in: [...] } / { isNull: true }）`)
   }
   return true
 }
 
 /** SQL LIKE 模式 → 全锚定 RegExp（% → .*、_ → .、其余转义——前缀/后缀/包含语义区分） */
 function likeToRegExp(pattern: string, caseInsensitive = false): RegExp {
-  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`^${escaped.replace(/%/g, '.*').replace(/_/g, '.')}$`, caseInsensitive ? 'i' : '')
+  let out = ''
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i]
+    if (c === '\\') {
+      const n = pattern[i + 1]
+      if (n === '%' || n === '_' || n === '\\') { out += escapeRegExpChar(n); i++; continue }
+      out += '\\\\'; continue
+    }
+    if (c === '%') { out += '.*'; continue }
+    if (c === '_') { out += '.'; continue }
+    out += escapeRegExpChar(c)
+  }
+  return new RegExp(`^${out}$`, caseInsensitive ? 'i' : '')
+}
+function escapeRegExpChar(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function cmpValue(a: unknown, b: unknown): number {
@@ -580,14 +875,15 @@ function deepEq(a: unknown, b: unknown): boolean {
 }
 
 /** MemorySql 工厂：类不可 callable——工厂包装为 callable Sql（与 makeSql(PgPool) 同构） */
-export function createMemorySql(): Sql {
-  const mem = new MemorySql()
-  const sql = (async (strings: TemplateStringsArray, ...values: unknown[]) =>
-    mem.tag(strings, values)) as Sql
-  sql.unsafe = (s: string, p?: unknown[]) => mem.unsafe(s, p)
-  sql.query = createQueryBuilder(mem as unknown as Sql, (q) => Promise.resolve(mem.executeQuery(q)))
-  sql.raw = (strings: TemplateStringsArray, ...values: unknown[]) => rawSqlImpl(strings, values)
-  sql.close = () => mem.close()
-  sql.array = (values: unknown[]) => ({ __pgArray: values })
-  return sql
+/** 内存 ORM（测试装配——orm 面直执行；close 释放） */
+export function createMemoryOrm(engine?: MemorySql): { orm: import('./orm.ts').Orm; mem: MemorySql; unsafe: (s: string, p?: unknown[]) => Promise<Row[]>; close: () => Promise<void> } {
+  const mem = engine ?? new MemorySql()
+  return {
+    orm: createOrm(memoryAdapter(mem)),
+    mem,
+    unsafe: (s: string, p?: unknown[]) => mem.unsafe(s, p),
+    close: async () => mem.close(),
+  }
 }
+
+/** @deprecated 删除的 Sql 面——测试请改用 createMemoryOrm（.orm.query / .mem.unsafe） */

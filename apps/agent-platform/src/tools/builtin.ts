@@ -450,7 +450,7 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
         if (!wfClient?.crud) return 'Error: 工作流系统未初始化'
         const rows = await wfClient.crud.list(appId, { limit: Math.min(50, Number(_args.limit ?? 20) || 20) })
         if (rows.length === 0) return '当前应用暂无工作流——可用 create_workflow 创建'
-        return JSON.stringify(rows.map((r) => ({
+        return JSON.stringify(rows.map((r: { id: string; name: string; status: string; updated_at?: string }) => ({
           id: r.id, name: r.name, status: r.status,
           updatedAt: r.updated_at,
         })))
@@ -490,7 +490,7 @@ async function resolveAppId(ctx: any, toolCtx?: Record<string, unknown>): Promis
   const agentId = toolCtx?.agentId != null ? String(toolCtx.agentId) : null
   if (agentId) {
     try {
-      const [ag] = await ctx.sql`SELECT app_id FROM agents WHERE id = ${agentId}`
+      const [ag] = await ctx.orm.query.from('agents').select('app_id').where({ id: agentId }).limit(1).run()
       if (ag?.app_id) return String(ag.app_id)
     } catch { /* 查不到 agent —— 回退会话 */ }
   }
@@ -507,7 +507,7 @@ async function delegateToAgent(ctx: AppCtx, target: string, message: string, too
   const callerId = String(toolCtx?.agentId ?? '')
   let callerName = '未知同事'
   if (callerId) {
-    const rows = await ctx.sql`SELECT name FROM agents WHERE id = ${callerId}`
+    const rows = await ctx.orm.query.from('agents').select('name').where({ id: { eq: callerId }}).limit(1).run()
     if (rows[0]) callerName = String(rows[0].name)
   }
   const delegatedMessage = `[来自 ${callerName} 的委托] ${message}`
@@ -517,22 +517,23 @@ async function delegateToAgent(ctx: AppCtx, target: string, message: string, too
   if (depth >= MAX_DEPTH) return `Error: Agent 协作深度超限（最多 ${MAX_DEPTH} 层）——请直接回答而非继续委托`
   // 找目标 Agent（同租户 + ai/department 类型 + 激活；名称或 ID）——
   // department = 部门经理（组织层级：可把任务委托给部门代表）
-  const [targetAgent] = await ctx.sql`
-    SELECT * FROM agents
-    WHERE (name = ${target} OR id::text = ${target}) AND app_id = ${ctx.appId}
-      AND type IN ('ai', 'department') AND is_active = TRUE
-  `
+  const targetAgents = await ctx.orm.query.from('agents')
+    .select()
+    .where({ app_id: { eq: String(ctx.appId) }, type: { in: ['ai', 'department'] }, is_active: { eq: true } })
+    .run()
+  const targetAgent = targetAgents.find((a: any) => String(a.name) === String(target) || String(a.id) === String(target)) as any
   if (!targetAgent) return `Error: 找不到可调用的 AI Agent「${target}」（需同租户且已激活）`
   const ta = targetAgent as any
   if (String(ta.id) === String(toolCtx?.agentId ?? '')) return 'Error: 不能调用自己（循环）'
   // 组织层级：被委托 agent 在其**自己所在部门**执行（工作目录/沙盒归属自己的部门）
   let targetDept = String(toolCtx?.departmentId ?? '')
   try {
-    const [memberDept] = await ctx.sql`
-      SELECT dm.department_id FROM department_members dm
-      JOIN departments d ON d.id = dm.department_id
-      WHERE dm.agent_id = ${ta.id} AND d.is_dm = FALSE LIMIT 1
-    `
+    const [memberDept] = await ctx.orm.query.from('department_members dm')
+      .join('departments d', { 'd.id': { col: 'dm.department_id' } })
+      .select('dm.department_id')
+      .where({ 'dm.agent_id': ta.id, 'd.is_dm': { eq: false } })
+      .limit(1)
+      .run()
     if (memberDept?.department_id) targetDept = String(memberDept.department_id)
   } catch { /* 部门查询失败用当前部门 */ }
   // 委托给子 Agent：复用 runAgent（其自身工具/知识库/协作全可用——递归）

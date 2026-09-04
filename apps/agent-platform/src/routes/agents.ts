@@ -1,11 +1,15 @@
 /**
- * Agent 路由 — CRUD（4 种类型）
+ * Agent 路由 — CRUD（4 种类型）——orm 表绑定面（P2 迁移 + E1 聚合收编）
+ *
+ * FILTER 计数已由 E1 收编（count(col, as, filter)——compile/memory 同语义）。
  */
 
-import type { Router, Context } from 'weifuwu'
+import type { Router } from 'weifuwu'
+import { ops, and, eq, ne } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { streamAgentPreview } from '../services/agent-runner.ts'
 import { AGENT_TYPE_LIST } from '../../ui/lib/types.ts'
+import { tables } from '../db/orm.ts'
 
 /** 内置工具定义——单源：tools/builtin.ts（防止双份漂移——route 面 = 注册面） */
 export { BUILTIN_TOOL_DEFS } from '../tools/builtin.ts'
@@ -25,52 +29,48 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 获取 Agent 列表 ──────────────────────────────────────
 
   app.get('/api/agents', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId } = ctx
+    const { orm, appId } = ctx
     const url = new URL(req.url)
     const type = url.searchParams.get('type')
     const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)))
 
-    const agents = await sql`
-      SELECT
-        id, type, name, avatar_url, description,
-        model, system_prompt, temperature, max_tokens, human_in_the_loop,
-        user_id, webhook_url, chunk_size, chunk_overlap,
-        tools, is_active, created_at, updated_at,
-        workspace_path, allow_file_tools, allow_command_exec, department_id
-      FROM agents
-      WHERE app_id = ${appId}
-      ${type && AGENT_TYPE_LIST.includes(type as any) ? sql`AND type = ${type}` : sql``}
-      ORDER BY created_at DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `
+    const T = tables(orm)
+    const typeOk = !!type && AGENT_TYPE_LIST.includes(type as any)
+    const where = typeOk ? and(eq(T.agents.c.app_id, appId), eq(T.agents.c.type, type)) : { app_id: { eq: String(appId) } }
+    const agents = await T.agents
+      .select('id', 'type', 'name', 'avatar_url', 'description',
+        'model', 'system_prompt', 'temperature', 'max_tokens', 'human_in_the_loop',
+        'user_id', 'webhook_url', 'chunk_size', 'chunk_overlap',
+        'tools', 'is_active', 'created_at', 'updated_at',
+        'workspace_path', 'allow_file_tools', 'allow_command_exec', 'department_id')
+      .where(where)
+      .orderBy('created_at', 'desc')
+      .limit(limit)
+      .offset(offset)
+      .run()
 
-    const [countResult] = await sql`
-      SELECT COUNT(*)::int as total FROM agents
-      WHERE app_id = ${appId}
-      ${type && AGENT_TYPE_LIST.includes(type as any) ? sql`AND type = ${type}` : sql``}
-    `
+    const [countRow] = await orm.query.from('agents').count('*', 'total').where(where).run()
+    const total = (countRow as Record<string, unknown> | undefined)?.total ?? 0
 
     // 为每个 AI Agent 附加最近的 token 用量统计
     const agentsWithStats = []
     for (const a of agents) {
       if (a.type === 'ai') {
-        const [tokenSum] = await sql`
-          SELECT
-            COALESCE(SUM(tokens_total), 0)::int as total_tokens,
-            COALESCE(SUM(tokens_prompt), 0)::int as total_prompt,
-            COALESCE(SUM(tokens_completion), 0)::int as total_completion,
-            COUNT(*)::int as run_count
-          FROM agent_logs
-          WHERE agent_id = ${a.id}
-        `
+        const [tokenSum] = await orm.query.from('agent_logs')
+          .sum('tokens_total', 'total_tokens')
+          .sum('tokens_prompt', 'total_prompt')
+          .sum('tokens_completion', 'total_completion')
+          .count('*', 'run_count')
+          .where({ agent_id: { eq: String(a.id) } })
+          .run()
         agentsWithStats.push({ ...a, token_usage: tokenSum })
       } else {
         agentsWithStats.push(a)
       }
     }
 
-    return Response.json({ agents: agentsWithStats, total: countResult.total })
+    return Response.json({ agents: agentsWithStats, total })
   })
 
   // ── 创建 Agent ───────────────────────────────────────────
@@ -83,7 +83,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
     }
-    const { sql, appId } = ctx
+    const { orm, appId } = ctx
     const body = await req.json() as {
       type: string
       name: string
@@ -132,32 +132,53 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       if (!body.department_id) {
         return Response.json({ error: '部门经理必须绑定部门（department_id）' }, { status: 400 })
       }
-      const [dept] = await sql`
-        SELECT id, name FROM departments WHERE id = ${body.department_id} AND app_id = ${appId}
-      `
+      const T = tables(orm)
+      const [dept] = await T.departments
+        .select('id', 'name')
+        .where(and(eq(T.departments.c.id, body.department_id), eq(T.departments.c.app_id, appId)))
+        .run()
       if (!dept) return Response.json({ error: '绑定的部门不存在' }, { status: 404 })
-      const [existing] = await sql`
-        SELECT id FROM agents WHERE department_id = ${body.department_id} AND type = 'department' AND is_active = TRUE
-      `
+      const [existing] = await T.agents
+        .select('id')
+        .where(and(
+          eq(T.agents.c.department_id, body.department_id),
+          eq(T.agents.c.type, 'department'),
+          eq(T.agents.c.is_active, true),
+        ))
+        .run()
       if (existing) return Response.json({ error: '该部门已有经理（1 部门 1 经理）' }, { status: 409 })
       managerPrompt = body.system_prompt ?? null
     }
 
-    const [agent] = await sql`
-      INSERT INTO agents (
-        app_id, type, name, avatar_url, description,
-        model, system_prompt, temperature, max_tokens, human_in_the_loop,
-        user_id, webhook_url, webhook_secret, webhook_retry_count, chunk_size, chunk_overlap, tools,
-        workspace_path, allow_file_tools, allow_command_exec, allow_network, kb_id, department_id
-      ) VALUES (
-        ${appId}, ${body.type}, ${body.name}, ${body.avatar_url ?? null}, ${body.description ?? null},
-        ${body.model ?? null}, ${managerPrompt ?? body.system_prompt ?? null}, ${body.temperature ?? 0.7}, ${body.max_tokens ?? 2048}, ${body.human_in_the_loop ?? false},
-        ${body.user_id ?? null}, ${body.webhook_url ?? null}, ${body.webhook_secret ?? null}, ${body.webhook_retry_count ?? 3}, ${body.chunk_size ?? 500}, ${body.chunk_overlap ?? 50},
-        ${body.tools ? JSON.stringify(body.tools) : '[]'},
-        ${body.workspace_path ?? null}, ${body.allow_file_tools ?? false}, ${body.allow_command_exec ?? false}, ${body.allow_network ?? false}, ${body.kb_id ?? null}, ${body.department_id ?? null}
-      )
-      RETURNING id, type, name, created_at
-    `
+    const T = tables(orm)
+    const [agent] = await T.agents
+      .insert({
+        app_id: appId,
+        type: body.type,
+        name: body.name,
+        avatar_url: body.avatar_url ?? null,
+        description: body.description ?? null,
+        model: body.model ?? null,
+        system_prompt: managerPrompt ?? body.system_prompt ?? null,
+        temperature: body.temperature ?? 0.7,
+        max_tokens: body.max_tokens ?? 2048,
+        human_in_the_loop: body.human_in_the_loop ?? false,
+        user_id: body.user_id ?? null,
+        webhook_url: body.webhook_url ?? null,
+        webhook_secret: body.webhook_secret ?? null,
+        webhook_retry_count: body.webhook_retry_count ?? 3,
+        chunk_size: body.chunk_size ?? 500,
+        chunk_overlap: body.chunk_overlap ?? 50,
+        tools: body.tools ?? [],
+        workspace_path: body.workspace_path ?? null,
+        allow_file_tools: body.allow_file_tools ?? false,
+        allow_command_exec: body.allow_command_exec ?? false,
+        allow_network: body.allow_network ?? false,
+        kb_id: body.kb_id ?? null,
+        department_id: body.department_id ?? null,
+      })
+      .returning('id', 'type', 'name', 'created_at')
+      .run()
 
     // 审计：Agent 创建（Wave 9）
     try {
@@ -166,15 +187,15 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     } catch { /* 尽力 */ }
     // 组织层级（与部门自动创建对齐）：经理入代表部门成员（role='manager'）+ 提示词单源回填（未自定义时）
     if (body.type === 'department' && body.department_id) {
-      await sql`
-        INSERT INTO department_members (department_id, agent_id, role)
-        VALUES (${body.department_id}, ${agent.id}, 'manager')
-        ON CONFLICT DO NOTHING
-      `.catch(() => {})
+      await T.department_members
+        .insert({ department_id: body.department_id, agent_id: String(agent.id), role: 'manager' })
+        .onConflict()
+        .run()
+        .catch(() => {})
       if (!body.system_prompt) {
         try {
           const { refreshManagerPrompt } = await import('../services/org-manager.ts')
-          await refreshManagerPrompt(sql, String(appId), String(body.department_id))
+          await refreshManagerPrompt(orm, String(appId), String(body.department_id))
         } catch { /* 刷新失败不阻断 */ }
       }
     }
@@ -184,24 +205,30 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 获取单个 Agent ───────────────────────────────────────
 
   app.get('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const [agent] = await sql`
-      SELECT a.*, u.email as bound_email, u.name as bound_user_name
-      FROM agents a
-      LEFT JOIN _weifuwu_users u ON u.id = a.user_id
-      WHERE a.id = ${params.id} AND a.app_id = ${appId}
-    `
+    const { orm, appId, params } = ctx
+    const agent = await orm.query.from('agents a')
+      .select('a.id', 'a.app_id', 'a.type', 'a.name', 'a.avatar_url', 'a.description',
+        'a.role_label', 'a.expertise', 'a.model', 'a.system_prompt', 'a.temperature', 'a.max_tokens',
+        'a.human_in_the_loop', 'a.user_id', 'a.webhook_url', 'a.webhook_secret', 'a.webhook_retry_count',
+        'a.im_bind_dept', 'a.chunk_size', 'a.chunk_overlap', 'a.tools', 'a.department_id',
+        'a.monthly_token_quota', 'a.is_active', 'a.created_at', 'a.updated_at', 'a.workspace_path',
+        'a.allow_file_tools', 'a.allow_command_exec', 'a.allow_network', 'a.template_slug', 'a.kb_id',
+        'a.approval_policy', 'a.webhook_platform', 'a.risk_policy', 'a.light_model',
+        'u.email as bound_email', 'u.name as bound_user_name')
+      .join('_weifuwu_users u', { 'u.id': { col: 'a.user_id' } }, { type: 'left' })
+      .where(and({ 'a.id': { eq: String(params.id) }}, { 'a.app_id': { eq: String(appId) } }))
+      .one()
     if (!agent) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
     // 配额用量（Wave 9 成本控制——本月已用 token）
     let quota_used = 0
     try {
-      const [usedRow] = await sql`
-        SELECT COALESCE(SUM(tokens_total), 0)::int AS used
-        FROM agent_logs WHERE agent_id = ${params.id} AND created_at >= DATE_TRUNC('month', NOW())
-      `
-      quota_used = Number((usedRow as any)?.used ?? 0)
+      const [usedRow] = await orm.query.from('agent_logs')
+        .sum('tokens_total', 'used')
+        .whereRaw("agent_id = $1 AND created_at >= DATE_TRUNC('month', NOW())", [params.id])
+        .run()
+      quota_used = Number((usedRow as Record<string, unknown> | undefined)?.used ?? 0)
     } catch { /* 尽力 */ }
     return Response.json({ agent: { ...agent, quota_used } })
   })
@@ -209,39 +236,30 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 更新 Agent ───────────────────────────────────────────
 
   app.put('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { orm, appId, params } = ctx
     const body = await req.json() as Record<string, unknown>
 
-    // 构建动态更新
+    // 构建动态更新（字段白名单——shape 校验面 + 白名单双保险）
     const allowedFields = [
       'name', 'avatar_url', 'description', 'role_label', 'expertise',
       'model', 'system_prompt', 'temperature', 'max_tokens', 'human_in_the_loop',
       'webhook_url', 'webhook_secret', 'webhook_retry_count', 'im_bind_dept', 'chunk_size', 'chunk_overlap', 'tools', 'is_active',
       'workspace_path', 'allow_file_tools', 'allow_command_exec', 'allow_network', 'kb_id', 'monthly_token_quota', 'department_id',
     ]
-
-    const sets: string[] = []
-    const paramsList: unknown[] = []
-    let idx = 1
-
+    const patch: Record<string, unknown> = { updated_at: ops.now() }
     for (const field of allowedFields) {
-      if (body[field] !== undefined) {
-        sets.push(`${field} = $${idx++}`)
-        paramsList.push(body[field])
-      }
+      if (body[field] !== undefined) patch[field] = body[field]
     }
-
-    if (sets.length === 0) {
+    if (Object.keys(patch).length <= 1) {
       return Response.json({ error: '没有可更新的字段' }, { status: 400 })
     }
 
-    // 构建安全的动态 SET 子句 — 字段名硬编码无注入风险，参数值通过 paramsList 传入
-    const setClause = sets.join(', ')
-    const allParams = [...paramsList, params.id, appId]
-    const [agent] = await sql.unsafe(
-      `UPDATE agents SET ${setClause}, updated_at = NOW() WHERE id = $${paramsList.length + 1} AND app_id = $${paramsList.length + 2} RETURNING id, name, type, updated_at`,
-      allParams
-    )
+    const T = tables(orm)
+    const [agent] = await T.agents
+      .update(patch)
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
+      .returning('id', 'name', 'type', 'updated_at')
+      .run()
 
     if (!agent) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
@@ -251,18 +269,13 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       const { writeAudit } = await import('../services/audit.ts')
       await writeAudit(ctx as any, { action: 'agent_update', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? '') } })
     } catch { /* 尽力 */ }
-        // 审计：Agent 更新（Wave 9）
-    try {
-      const { writeAudit } = await import('../services/audit.ts')
-      await writeAudit(ctx as any, { action: 'agent_update', target_type: 'agent', target_id: String(agent.id), detail: { name: String(agent.name ?? '') } })
-    } catch { /* 尽力 */ }
     // 组织层级：经理自动成为代表部门的成员（role='manager'——识别层级）
     if (body.type === 'department' && body.department_id) {
-      await sql`
-        INSERT INTO department_members (department_id, agent_id, role)
-        VALUES (${body.department_id}, ${agent.id}, 'manager')
-        ON CONFLICT DO NOTHING
-      `.catch(() => {})
+      await T.department_members
+        .insert({ department_id: String(body.department_id), agent_id: String(agent.id), role: 'manager' })
+        .onConflict()
+        .run()
+        .catch(() => {})
     }
 
     return Response.json({ agent })
@@ -271,17 +284,17 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── 删除 Agent ───────────────────────────────────────────
 
   app.delete('/api/agents/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params, auth } = ctx
+    const { orm, appId, params, auth } = ctx
     // 删除权限：仅 owner（防 member 越权删 Agent）。
     // （ROLES-OPTIMIZATION 波次 1：app 级 admin 幽灵角色裁剪——行为不变）
     if (auth!.role !== 'owner') {
       return Response.json({ error: '仅管理员可删除 Agent' }, { status: 403 })
     }
-    const result = await sql`
-      DELETE FROM agents
-      WHERE id = ${params.id} AND app_id = ${appId}
-      RETURNING id
-    `
+    const T = tables(orm)
+    const result = await T.agents
+      .delete()
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
+      .run()
     if (result.length === 0) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
@@ -296,19 +309,25 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── C4 质量指标：per-Agent 工具成功率 + 反馈汇总 ──
 
   app.get('/api/agents/:id/quality', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const [agent] = await sql`SELECT id FROM agents WHERE id = ${params.id} AND app_id = ${appId}`
+    const { orm, appId, params } = ctx
+    const T = tables(orm)
+    const [agent] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
+      .run()
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
-    const [q] = await sql`
-      SELECT COUNT(*)::int AS runs, COUNT(*) FILTER (WHERE success)::int AS ok_runs
-      FROM agent_logs WHERE agent_id = ${params.id}
-    `
-    const [fb] = await sql`
-      SELECT
-        COALESCE(COUNT(*) FILTER (WHERE feedback = 'like'), 0)::int AS likes,
-        COALESCE(COUNT(*) FILTER (WHERE feedback = 'dislike'), 0)::int AS dislikes
-      FROM messages WHERE sender_id = ${params.id} AND feedback IS NOT NULL
-    `
+    const [q] = await T.agent_logs
+      .select()
+      .count('*', 'runs')
+      .count('*', 'ok_runs', { success: { eq: true }})
+      .where(eq(T.agent_logs.c.agent_id, params.id))
+      .run()
+    const [fb] = await T.messages
+      .select()
+      .count('*', 'likes', { feedback: { eq: 'like' }})
+      .count('*', 'dislikes', { feedback: { eq: 'dislike' }})
+      .where(and(eq(T.messages.c.sender_id, params.id), { feedback: { isNull: false } }))
+      .run()
     const runs = Number((q as any)?.runs ?? 0)
     return Response.json({
       toolSuccessRate: runs > 0 ? Math.round(Number((q as any)?.ok_runs ?? 0) / runs * 100) : null,
@@ -321,29 +340,48 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   // ── C3 记忆管理：查看/清除（R10 联动——记忆是用户数据） ──
 
   app.get('/api/agents/:id/memory', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const [agent] = await sql`SELECT id FROM agents WHERE id = ${params.id} AND app_id = ${appId}`
+    const { orm, appId, params } = ctx
+    const T = tables(orm)
+    const [agent] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
+      .run()
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
-    const [mem] = await sql`SELECT content, updated_at FROM agent_memories WHERE agent_id = ${params.id}`
+    const [mem] = await T.agent_memories
+      .select('content', 'updated_at')
+      .where(eq(T.agent_memories.c.agent_id, params.id))
+      .run()
     return Response.json({ memory: mem ? String((mem as any).content ?? '') : '', updatedAt: mem ? (mem as any).updated_at : null })
   })
 
   app.delete('/api/agents/:id/memory', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const [agent] = await sql`SELECT id FROM agents WHERE id = ${params.id} AND app_id = ${appId}`
+    const { orm, appId, params } = ctx
+    const T = tables(orm)
+    const [agent] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
+      .run()
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
-    await sql`DELETE FROM agent_memories WHERE agent_id = ${params.id}`
+    await T.agent_memories
+      .delete()
+      .where(eq(T.agent_memories.c.agent_id, params.id))
+      .run()
     return Response.json({ success: true })
   })
 
   // ── 对话预览（测试提示词，单轮流式，不落消息/不触发 HITL） ──
 
   app.post('/api/agents/:id/preview', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const [agent] = await sql`
-      SELECT * FROM agents
-      WHERE id = ${params.id} AND app_id = ${appId} AND type = 'ai'
-    `
+    const { orm, appId, params } = ctx
+    const T = tables(orm)
+    const [agent] = await T.agents
+      .select()
+      .where(and(
+        eq(T.agents.c.id, params.id),
+        eq(T.agents.c.app_id, appId),
+        eq(T.agents.c.type, 'ai'),
+      ))
+      .run()
     if (!agent) {
       return Response.json({ error: 'AI Agent 不存在' }, { status: 404 })
     }

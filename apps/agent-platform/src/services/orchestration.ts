@@ -6,6 +6,7 @@
  * 状态机：planned → running → partial（部分失败）→ done / failed。
  * 失败不静默：worker_results 记录每 worker 的 { agent, status, result?, error? }。
  */
+import { ops } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 
 export type RunStatus = 'planned' | 'running' | 'partial' | 'done' | 'failed'
@@ -19,7 +20,7 @@ export interface WorkerRecord {
 
 /** 创建编排任务（返回 run id——调用方在 worker 并发前调用） */
 export async function createOrchestrationRun(
-  ctx: Pick<AppCtx, 'sql'>,
+  ctx: Pick<AppCtx, 'orm'>,
   opts: {
     appId: string
     departmentId: string
@@ -28,51 +29,45 @@ export async function createOrchestrationRun(
     requestId?: string
   },
 ): Promise<string> {
-  const [row] = await ctx.sql`
-    INSERT INTO agent_runs (app_id, department_id, orchestrator_id, kind, plan_json, status, request_id)
-    VALUES (${opts.appId}, ${opts.departmentId || null}, ${opts.orchestratorId}, 'orchestration',
-      ${JSON.stringify(opts.plan)}::jsonb, 'running', ${opts.requestId ?? null})
-    RETURNING id
-  `
-  return String(row.id)
+  const [row] = await ctx.orm.query.insert('agent_runs')
+    .values({ app_id: opts.appId, department_id: opts.departmentId || null, orchestrator_id: opts.orchestratorId, kind: 'orchestration',
+      plan_json: opts.plan, status: 'running', request_id: opts.requestId ?? null })
+    .returning('id')
+    .run()
+  return String((row as any).id)
 }
 
 /** 创建 worker 子任务（parent_run_id 链——worker 执行前） */
 export async function createWorkerRun(
-  ctx: Pick<AppCtx, 'sql'>,
+  ctx: Pick<AppCtx, 'orm'>,
   opts: { appId: string; departmentId: string; agentId: string; parentRunId: string; message: string },
 ): Promise<string> {
-  const [row] = await ctx.sql`
-    INSERT INTO agent_runs (app_id, department_id, orchestrator_id, parent_run_id, kind, plan_json, status)
-    VALUES (${opts.appId}, ${opts.departmentId || null}, ${opts.agentId}, ${opts.parentRunId}, 'worker',
-      ${JSON.stringify({ message: opts.message })}::jsonb, 'running')
-    RETURNING id
-  `
-  return String(row.id)
+  const [row] = await ctx.orm.query.insert('agent_runs')
+    .values({ app_id: opts.appId, department_id: opts.departmentId || null, orchestrator_id: opts.agentId, parent_run_id: opts.parentRunId, kind: 'worker',
+      plan_json: { message: opts.message }, status: 'running' })
+    .returning('id')
+    .run()
+  return String((row as any).id)
 }
 
 /** 编排任务收尾（done/partial/failed——worker_results 全量） */
 export async function finishOrchestrationRun(
-  ctx: Pick<AppCtx, 'sql'>,
+  ctx: Pick<AppCtx, 'orm'>,
   opts: { runId: string; status: RunStatus; workers: WorkerRecord[] },
 ): Promise<void> {
-  await ctx.sql`
-    UPDATE agent_runs SET status = ${opts.status},
-      worker_results = ${JSON.stringify(opts.workers)}::jsonb,
-      updated_at = NOW()
-    WHERE id = ${opts.runId}
-  `
+  await ctx.orm.query.update('agent_runs')
+    .set({ status: opts.status, worker_results: opts.workers, updated_at: ops.now() })
+    .where({ id: { eq: opts.runId }})
+    .run()
 }
 
 /** worker 收尾（ok/error——子任务状态回写） */
 export async function finishWorkerRun(
-  ctx: Pick<AppCtx, 'sql'>,
+  ctx: Pick<AppCtx, 'orm'>,
   opts: { runId: string; status: 'done' | 'failed'; result?: string; error?: string },
 ): Promise<void> {
-  await ctx.sql`
-    UPDATE agent_runs SET status = ${opts.status},
-      worker_results = ${JSON.stringify({ result: opts.result ?? null, error: opts.error ?? null })}::jsonb,
-      updated_at = NOW()
-    WHERE id = ${opts.runId}
-  `
+  await ctx.orm.query.update('agent_runs')
+    .set({ status: opts.status, worker_results: { result: opts.result ?? null, error: opts.error ?? null }, updated_at: ops.now() })
+    .where({ id: { eq: opts.runId }})
+    .run()
 }

@@ -16,8 +16,8 @@
  *
  * 内存端诚实裁剪：raw 片段与内存无法等价的语义（窗口/递归）→ ProtocolError。
  */
-import { ProtocolError } from './errors.ts'
-import type { Sql, Row, QueryResult } from './contracts.ts'
+import { ProtocolError, ValidationError } from './errors.ts'
+import type { Row, QueryResult } from './contracts.ts'
 
 // ── RAW（逃生舱：任意 SQL 片段，真库透传 / 内存裁剪） ─────
 
@@ -33,13 +33,19 @@ export function rawSql(sql: string, params: unknown[] = []): RawSql {
 
 // ── WHERE DSL（对象条件 → 判定/编译） ─────────────────────
 
+/** 算子值标量（列条件值——不允许裸标量/数组/null 形态直接做 WhereField） */
 export type WhereScalar = string | number | boolean | null
 
-/** 列级条件操作符 */
+/**
+ * 列级条件操作符（唯一形态——算子模式）：列 = 算子对象。
+ * 约定（2027-10 表达清理）：值形态不再接受标量/数组/null——等值用 `{ eq: v }`·
+ * IN 用 `{ in: [...] }`·NULL 判定用 `{ isNull: true/false }`——语义显式无歧义
+ * （旧歧义：数组既是 IN 又是 jsonb 数组值；`= NULL` 恒假 vs 内存判 true）。
+ */
 export interface ColOps {
   /** 列引用（非字面量）：`{ 'u.email': { col: 'o.user_id' } }` → u.email = o.user_id */
   col?: string
-  /** 等值（同列合并形态：scalar 进 ColOps——parser 同列 = 合并 / builder scalar×ops 合并产出） */
+  /** 等值 */
   eq?: WhereScalar
   gt?: WhereScalar
   gte?: WhereScalar
@@ -55,7 +61,12 @@ export interface ColOps {
   between?: [WhereScalar, WhereScalar]
 }
 
-export type WhereField = WhereScalar | WhereScalar[] | RawSql | ColOps
+/** 算子键集（jsonb 深度等值判定：无任一算子键的对象 → 按值深度比较） */
+export const COL_OPS_KEYS = ['col', 'eq', 'gt', 'gte', 'lt', 'lte', 'ne', 'in', 'notIn', 'like', 'ilike', 'isNull', 'between'] as const
+
+/** 列条件值（唯一形态）：算子对象 | 表达式片段 | jsonb 值对象（无算子键——深度等值） */
+export type WhereField = ColOps | RawSql | Record<string, unknown>
+
 
 /**
  * WHERE 表达式：列条件 AND 连接。
@@ -97,9 +108,12 @@ export interface SelectQuery {
   limit?: number
   offset?: number
   /** COUNT/SUM 等聚合投影（groupBy 时自动聚合模式） */
-  aggregate?: { fn: 'count' | 'sum' | 'avg' | 'min' | 'max'; col: string; as: string }[]
+  aggregate?: { fn: 'count' | 'sum' | 'avg' | 'min' | 'max'; col: string; as: string; filter?: WhereExpr }[]
   /** count(*) 聚合（SQL parser 产出——SELECT count(*) FROM t）——结果为单行 { count } */
   count?: boolean
+  /** pgvector 相似度排序（列投影：`1 - (col <=> vec) as as` + ORDER BY col <=> vec）——
+   *  平台知识检索唯一向量面（业务零 SQL——向量为 pgvector 特化存储） */
+  vector?: { col: string; vec: number[]; as: string }
   /** 内存执行扩展：常量投影/UNION 行（SQL parser 产出——无表查询） */
   unionRows?: Row[]
   /** 内存执行扩展：派生表（FROM (SELECT ...) alias——parser 产出） */
@@ -111,8 +125,11 @@ export interface InsertQuery {
   table: string
   rows: Row[] // 一行或多行（同列）
   returning?: string[] | '*'
-  /** upsert：ON CONFLICT (col) DO UPDATE SET col=EXCLUDED.col；col 省略 = 任意唯一冲突 DO NOTHING */
-  onConflict?: { col?: string; update?: boolean }
+  /** upsert：ON CONFLICT (col) DO UPDATE SET col=EXCLUDED.col；col 省略 = 任意唯一冲突 DO NOTHING
+   *  col 可为数组（复合唯一目标（department_id, agent_id）等——平台 7 处）
+   *  merge：冲突列覆盖表达式（__jsonbAppend 追加 / __inc 自增 / RawSql / 标量）——
+   *  jsonb `||` / hits+1 等表达更新面（业务零 SQL——经标量编码） */
+  onConflict?: { col?: string | string[]; update?: boolean; merge?: Record<string, unknown> }
 }
 
 export interface UpdateQuery {
@@ -133,11 +150,13 @@ export interface DeleteQuery {
 /** DDL 语句（SQL parser 产出——内存执行提取约束；真库走 raw 字符串） */
 export interface DdlQuery {
   kind: 'ddl'
-  op: 'createTable' | 'dropTable' | 'createIndex' | 'alter'
+  op: 'createTable' | 'dropTable' | 'createIndex' | 'alter' | 'createEnum' | 'createExtension' | 'doBlock'
   table?: string
   ifNotExists?: boolean
   /** 列定义（createTable）——约束提取（PK/UNIQUE/DEFAULT now） */
-  columns?: { name: string; type: string; pk: boolean; unique: boolean; defaultNow: boolean; defaultUuid: boolean }[]
+  columns?: { name: string; type: string; pk: boolean; unique: boolean; defaultNow: boolean; defaultUuid: boolean; defaultVal?: unknown; constraintCols?: string[] }[]
+  /** createEnum：枚举值清单 */
+  enumValues?: string[]
 }
 
 export type Query = SelectQuery | InsertQuery | UpdateQuery | DeleteQuery | DdlQuery
@@ -149,7 +168,7 @@ export interface QueryResultWithAffected<T = Row> extends Array<T> {
 }
 
 /** builder 链：方法返回 this；.run()/.one() 执行 */
-export interface SelectBuilder {
+export interface SelectBuilder<T = Row> {
   distinct(): this
   select(...cols: (string | RawSql)[]): this
   join(table: string, on: JoinClause['on'], opts?: { alias?: string; type?: 'inner' | 'left' }): this
@@ -160,36 +179,41 @@ export interface SelectBuilder {
   exists(query: SelectQuery, not?: boolean): this
   groupBy(...cols: string[]): this
   having(expr: WhereExpr): this
-  count(col?: string, as?: string): this
-  sum(col: string, as?: string): this
+  count(col?: string, as?: string, filter?: WhereExpr): this
+  sum(col: string, as?: string, filter?: WhereExpr): this
+  avg(col: string, as?: string, filter?: WhereExpr): this
+  min(col: string, as?: string, filter?: WhereExpr): this
+  max(col: string, as?: string, filter?: WhereExpr): this
   orderBy(col: string, dir?: 'asc' | 'desc'): this
+  /** pgvector 相似度：注入投影 `1 - (col <=> vec) as as` + `ORDER BY col <=> vec`（知识检索面） */
+  vectorScore(col: string, vec: number[], as: string): this
   limit(n: number): this
   offset(n: number): this
-  run(): Promise<QueryResult<Row>>
-  one(): Promise<Row | undefined>
+  run(): Promise<QueryResult<T>>
+  one(): Promise<T | undefined>
 }
 
-export interface InsertBuilder {
+export interface InsertBuilder<T = Row> {
   values(row: Row): this
   rows(rows: Row[]): this
   returning(...cols: (string | '*')[]): this
-  onConflict(col?: string, update?: boolean): this
-  run(): Promise<QueryResult<Row>>
+  onConflict(col?: string | string[], update?: boolean, merge?: Record<string, unknown>): this
+  run(): Promise<QueryResult<T>>
 }
 
-export interface UpdateBuilder {
+export interface UpdateBuilder<T = Row> {
   set(sets: Row): this
   where(expr: WhereExpr): this
   whereRaw(sql: string, params?: unknown[]): this
   returning(...cols: (string | '*')[]): this
-  run(): Promise<QueryResult<Row>>
+  run(): Promise<QueryResult<T>>
 }
 
-export interface DeleteBuilder {
+export interface DeleteBuilder<T = Row> {
   where(expr: WhereExpr): this
   whereRaw(sql: string, params?: unknown[]): this
   returning(...cols: (string | '*')[]): this
-  run(): Promise<QueryResult<Row>>
+  run(): Promise<QueryResult<T>>
 }
 
 export interface QueryBuilder {
@@ -226,37 +250,46 @@ function compileWhere(expr: WhereExpr, params: unknown[]): string {
       parts.push(`(${ands.map((o) => compileWhere(o, params)).join(' AND ')})`)
       continue
     }
-    if (Array.isArray(field) && !isColOps(field)) {
-      // IN 列表（字面数组值）
-      const list = field as WhereScalar[]
-      parts.push(`${col} IN (${list.map((v) => param(params, v)).join(', ')})`)
-      continue
-    }
     if (isRaw(field)) {
       parts.push(interpRaw(field, params))
       continue
     }
-    if (isColOps(field)) {
-      const ops: [string, string][] = []
-      if (field.col !== undefined) parts.push(`${col} = ${field.col}`) // 列引用与其余操作符可并存（AND 语义——不短路）
-      if (field.eq !== undefined) ops.push(['=', param(params, field.eq)])
-      if (field.gt !== undefined) ops.push(['>', param(params, field.gt)])
-      if (field.gte !== undefined) ops.push(['>=', param(params, field.gte)])
-      if (field.lt !== undefined) ops.push(['<', param(params, field.lt)])
-      if (field.lte !== undefined) ops.push(['<=', param(params, field.lte)])
-      if (field.ne !== undefined) ops.push(['<>', param(params, field.ne)])
-      if (field.in) ops.push(['IN', `(${field.in.map((v) => param(params, v)).join(', ')})`])
-      if (field.notIn) ops.push(['NOT IN', `(${field.notIn.map((v) => param(params, v)).join(', ')})`])
-      if (field.like !== undefined) ops.push(['LIKE', param(params, field.like)])
-      if (field.ilike !== undefined) ops.push(['ILIKE', param(params, field.ilike)])
-      if (field.between) ops.push(['BETWEEN', `${param(params, field.between[0])} AND ${param(params, field.between[1])}`])
-      if (field.isNull !== undefined) ops.push(['IS', field.isNull ? 'NULL' : 'NOT NULL'])
-      for (const [op, rhs] of ops) parts.push(`${col} ${op} ${rhs}`)
+    if (typeof field === 'object' && field !== null) {
+      const ops = field as ColOps
+      const hasOp = COL_OPS_KEYS.some((k) => (ops as Record<string, unknown>)[k] !== undefined)
+      if (!hasOp) {
+        // jsonb 深度等值（无算子键对象——按值比较；与 memory deepEq 同语义）
+        parts.push(`${col} = ${param(params, field)}`)
+        continue
+      }
+      const opParts: [string, string][] = []
+      const val = (v: unknown): string => {
+        if (isRaw(v)) return interpRaw(v as RawSql, params)
+        if (typeof v === 'object' && v !== null && ('__interval' in v || '__monthStart' in v)) {
+          if ('__monthStart' in v) return `DATE_TRUNC('month', NOW())`
+          const [n, unit] = (v as { __interval: [number, string] }).__interval
+          const abs = Math.abs(n)
+          return `NOW() ${n < 0 ? '-' : '+'} INTERVAL '${abs} ${unit}'`
+        }
+        return param(params, v)
+      }
+      if (ops.col !== undefined) parts.push(`${col} = ${ops.col}`) // 列引用与其余操作符可并存（AND 语义——不短路）
+      if (ops.eq !== undefined) opParts.push(['=', val(ops.eq)])
+      if (ops.gt !== undefined) opParts.push(['>', val(ops.gt)])
+      if (ops.gte !== undefined) opParts.push(['>=', val(ops.gte)])
+      if (ops.lt !== undefined) opParts.push(['<', val(ops.lt)])
+      if (ops.lte !== undefined) opParts.push(['<=', val(ops.lte)])
+      if (ops.ne !== undefined) opParts.push(['<>', val(ops.ne)])
+      if (ops.in) opParts.push(['IN', `(${ops.in.map((v) => val(v)).join(', ')})`])
+      if (ops.notIn) opParts.push(['NOT IN', `(${ops.notIn.map((v) => val(v)).join(', ')})`])
+      if (ops.like !== undefined) opParts.push(['LIKE', val(ops.like)])
+      if (ops.ilike !== undefined) opParts.push(['ILIKE', val(ops.ilike)])
+      if (ops.between) opParts.push(['BETWEEN', `${val(ops.between[0])} AND ${val(ops.between[1])}`])
+      if (ops.isNull !== undefined) opParts.push(['IS', ops.isNull ? 'NULL' : 'NOT NULL'])
+      for (const [op, rhs] of opParts) parts.push(`${col} ${op} ${rhs}`)
       continue
     }
-    // 标量相等（聚合函数键如 count(*) 直接表达式——HAVING 场景）
-    if (field === null) parts.push(`${col} IS NULL`)
-    else parts.push(`${col} = ${param(params, field)}`)
+    throw new ProtocolError(`weifuwu/db: WHERE 列 ${col} 值必须为算子对象（{ eq: v } / { in: [...] } / { isNull: true }——裸标量/数组/null 形态已移除）`)
   }
   return parts.join(' AND ')
 }
@@ -266,20 +299,31 @@ function compileOrderBy(orderBy: SelectQuery['orderBy']): string {
   return ` ORDER BY ${orderBy.map((o) => `${o.col} ${o.dir === 'desc' ? 'DESC' : 'ASC'}`).join(', ')}`
 }
 
-/** 聚合投影（无 groupBy 时整表聚合） */
+/** 向量参数（$n::vector——同一参数引用（where/order 同语义——PG 参数可复用）） */
+function vectorParam(qv: { col: string; vec: number[]; as: string }, params: unknown[]): string {
+  const v = `[${qv.vec.join(',')}]`
+  return `${param(params, v)}::vector`
+}
+
+/** 聚合投影（无 groupBy 时整表聚合）——FILTER (WHERE ...) 参数须先于后续 WHERE/HAVING
+ *  编译（SQL 出现顺序决定 $n 编号——compileSelect 的 cols→agg→joins→where→having 顺序即满足） */
 function compileAggregate(q: SelectQuery, params: unknown[]): string {
   if (!q.aggregate?.length) return ''
-  return q.aggregate.map((a) => `${a.fn.toUpperCase()}(${a.col === '*' ? '*' : a.col}) AS ${a.as}`).join(', ')
+  return q.aggregate.map((a) => {
+    const filt = a.filter ? ` FILTER (WHERE ${compileWhere(a.filter, params)})` : ''
+    return `${a.fn.toUpperCase()}(${a.col === '*' ? '*' : a.col})${filt} AS ${a.as}`
+  }).join(', ')
 }
 
 /** 编译 SELECT */
 export function compileSelect(q: SelectQuery): Compiled {
   const params: unknown[] = []
-  const agg = q.aggregate?.length ? `, ${compileAggregate(q, params)}` : ''
   const cols =
-    q.cols && q.cols.length
+    (q.cols && q.cols.length
       ? q.cols.map((c) => (isRaw(c) ? interpRaw(c, params) : c)).join(', ')
-      : '*'
+      : q.aggregate?.length ? '' : '*') + (q.vector ? `, 1 - (${q.vector.col} <=> ${vectorParam(q.vector, params)}) as ${q.vector.as}` : '')
+  // 聚合与投影连接（聚合-only 无前缀逗号——count 整表聚合面）
+  const agg = q.aggregate?.length ? `${cols ? ', ' : ''}${compileAggregate(q, params)}` : ''
   const distinct = q.distinct ? 'DISTINCT ' : ''
   let sql = `SELECT ${distinct}${cols}${agg} FROM ${q.table}${q.alias ? ` ${q.alias}` : ''}`
   for (const j of q.joins ?? []) {
@@ -317,12 +361,18 @@ export function compileInsert(q: InsertQuery): Compiled {
   let sql = `INSERT INTO ${q.table} (${colSql}) VALUES ${valueRows.join(', ')}`
   if (q.onConflict) {
     if (q.onConflict.col) {
-      sql += ` ON CONFLICT (${q.onConflict.col})`
+      const conflictCols = Array.isArray(q.onConflict.col) ? q.onConflict.col : [q.onConflict.col]
+      sql += ` ON CONFLICT (${conflictCols.join(', ')})`
       if (q.onConflict.update) {
         // 非冲突列更新；单列（全冲突）场景 SET 冲突列自身（PG 合法 no-op）
-        const updateCols = cols.filter((c) => c !== q.onConflict!.col)
-        const setCols = updateCols.length ? updateCols : [q.onConflict!.col]
-        sql += ` DO UPDATE SET ${setCols.map((c) => `${c} = EXCLUDED.${c}`).join(', ')}`
+        const target = new Set(conflictCols)
+        const merge = q.onConflict.merge
+        const updateCols = merge ? Object.keys(merge) : cols.filter((c) => !target.has(c))
+        const setCols = updateCols.length ? updateCols : conflictCols
+        sql += ` DO UPDATE SET ${setCols.map((c) => {
+          if (merge && c in merge) return `${c} = ${compileMergeVal(c, merge[c], params, q.table)}`
+          return `${c} = EXCLUDED.${c}`
+        }).join(', ')}`
       } else {
         sql += ' DO NOTHING'
       }
@@ -338,11 +388,12 @@ export function compileInsert(q: InsertQuery): Compiled {
   return { sql, params }
 }
 
-/** 编译 UPDATE */
+/** 编译 UPDATE —— 无 where 拒绝（防全表更新——一处防护覆盖真库/memory/gql） */
 export function compileUpdate(q: UpdateQuery): Compiled {
   const params: unknown[] = []
+  if (!q.where) throw new ValidationError('weifuwu/db: UPDATE 必须带 WHERE（全表更新用 orm.execute 显式）')
   const setSql = Object.entries(q.sets)
-    .map(([col, v]) => (isRaw(v) ? `${col} = ${interpRaw(v, params)}` : `${col} = ${param(params, v)}`))
+    .map(([col, v]) => `${col} = ${compileMergeVal(col, v, params, q.table)}`)
     .join(', ')
   let sql = `UPDATE ${q.table} SET ${setSql}`
   if (q.where) sql += ` WHERE ${compileWhere(q.where, params)}`
@@ -353,9 +404,10 @@ export function compileUpdate(q: UpdateQuery): Compiled {
   return { sql, params }
 }
 
-/** 编译 DELETE */
+/** 编译 DELETE —— 无 where 拒绝（防全表误删——一处防护覆盖真库/memory/gql） */
 export function compileDelete(q: DeleteQuery): Compiled {
   const params: unknown[] = []
+  if (!q.where) throw new ValidationError('weifuwu/db: DELETE 必须带 WHERE（全表删除用 orm.execute 显式）')
   let sql = `DELETE FROM ${q.table}`
   if (q.where) sql += ` WHERE ${compileWhere(q.where, params)}`
   if (q.returning) {
@@ -386,23 +438,16 @@ export function compileQuery(q: Query): Compiled {
  */
 export function mergeWhereField(prev: WhereField, next: WhereField): WhereField | null {
   if (isRaw(prev) || isRaw(next)) return null
-  if (Array.isArray(prev) || Array.isArray(next)) return null
-  const prevObj = typeof prev === 'object' && prev !== null
-  const nextObj = typeof next === 'object' && next !== null
-  if (prevObj && nextObj) {
-    const a = prev as ColOps
-    const b = next as ColOps
-    for (const k of Object.keys(b)) if (Object.hasOwn(a, k)) return null
-    return { ...a, ...b } as ColOps
-  }
-  if (prevObj !== nextObj) {
-    // 恰一方是 ColOps——scalar 入 eq（null 标量除外——IS NULL 语义不合入）
-    const scalar = (prevObj ? next : prev) as WhereScalar
-    const ops = (prevObj ? prev : next) as ColOps
-    if (Object.hasOwn(ops, 'eq') || scalar === null) return null
-    return { ...ops, eq: scalar } as ColOps
-  }
-  return null // scalar × scalar——恒假，调用方 and 包装（双条件共存）
+  if (typeof prev !== 'object' || prev === null || typeof next !== 'object' || next === null) return null
+  const a = prev as ColOps
+  const b = next as ColOps
+  const hasOpA = (COL_OPS_KEYS as readonly string[]).some((k) => Object.hasOwn(a, k))
+  const hasOpB = (COL_OPS_KEYS as readonly string[]).some((k) => Object.hasOwn(b, k))
+  // 算子化（唯一形态）：仅算子对象合并（不同键 AND 并存）；jsonb 深等对象不合并
+  // （合并会联合比较目标——语义漂移——AND 包装保真）· 算子×jsonb 不合并
+  if (!hasOpA || !hasOpB) return null
+  for (const k of Object.keys(b)) if (Object.hasOwn(a, k)) return null
+  return { ...a, ...b } as ColOps
 }
 
 /**
@@ -446,8 +491,21 @@ function isRaw(v: unknown): v is RawSql {
   return typeof v === 'object' && v !== null && '__raw' in v
 }
 
-function isColOps(v: unknown): v is ColOps {
-  return typeof v === 'object' && v !== null && !Array.isArray(v) && !isRaw(v)
+/** update/upsert merge 表达式编译（__jsonbAppend/__inc 标量编码——业务零 SQL） */
+export function compileMergeVal(col: string, v: unknown, params: unknown[], table: string): string {
+  if (isRaw(v)) return interpRaw(v, params)
+  if (typeof v === 'object' && v !== null) {
+    if ('__jsonbAppend' in v) return `${table}.${col} || ${param(params, (v as { __jsonbAppend: unknown }).__jsonbAppend)}::jsonb`
+    if ('__inc' in v) return `${col} + ${Number((v as { __inc: unknown }).__inc) || 1}`
+    if ('__now' in v) return 'NOW()'
+    if ('__interval' in v) {
+      const [n, unit] = (v as { __interval: [number, string] }).__interval
+      const abs = Math.abs(n)
+      return `NOW() ${n < 0 ? '-' : '+'} INTERVAL '${abs} ${unit}'`
+    }
+    if ('__colRef' in v) return String((v as { __colRef: unknown }).__colRef)
+  }
+  return param(params, v)
 }
 
 /** raw 片段插值：`NOW() - interval '7 days'` + 参数 */

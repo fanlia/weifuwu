@@ -10,9 +10,10 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { createMemorySql } from '../db/memory-sql.ts'
+import { createMemoryOrm } from '../db/memory-sql.ts'
 import { createQueryBuilder } from '../db/query-builder.ts'
-import { compileQuery, compileSelect } from '../db/query.ts'
+import { compileQuery, compileSelect, rawSql } from '../db/query.ts'
+import { and, or } from '../db/ops.ts'
 import { parseSqlToAst } from '../db/sql-parser.ts'
 import { ProtocolError } from '../db/errors.ts'
 import type { SelectQuery } from '../db/query.ts'
@@ -29,7 +30,7 @@ describe('query language — compile (SQL 生成面)', () => {
   })
 
   it('OR 组 → 括号 OR', () => {
-    const q: SelectQuery = { kind: 'select', table: 't', where: { or: [{ a: 1 }, { b: 2 }] } }
+    const q: SelectQuery = { kind: 'select', table: 't', where: { or: [{ a: { eq: 1 } }, { b: { eq: 2 } }] } }
     const { sql, params } = compileSelect(q)
     assert.equal(sql, 'SELECT * FROM t WHERE (a = $1 OR b = $2)')
   })
@@ -38,7 +39,7 @@ describe('query language — compile (SQL 生成面)', () => {
     const q: SelectQuery = {
       kind: 'select', table: 'orders o', alias: undefined,
       joins: [{ table: 'users u', type: 'inner', on: { 'u.id': { ne: 0 } } }],
-      where: { 'o.status': 'paid' },
+      where: { 'o.status': { eq: 'paid' } },
       orderBy: [{ col: 'o.created_at', dir: 'desc' }],
       limit: 10, offset: 20,
     }
@@ -53,7 +54,7 @@ describe('query language — compile (SQL 生成面)', () => {
     const q: SelectQuery = {
       kind: 'select', table: 'c',
       sub: [
-        { type: 'exists', query: { kind: 'select', table: 'm', cols: ['1'], where: { 'm.id': 1 } } },
+        { type: 'exists', query: { kind: 'select', table: 'm', cols: ['1'], where: { 'm.id': { eq: 1 } } } },
         { type: 'in', col: 'c.id', query: { kind: 'select', table: 'x', cols: ['x_id'] } },
       ],
     }
@@ -68,7 +69,16 @@ describe('query language — compile (SQL 生成面)', () => {
       aggregate: [{ fn: 'count', col: '*', as: 'count' }, { fn: 'sum', col: 'total', as: 'total' }],
     }
     const { sql } = compileSelect(q)
-    assert.match(sql, /SELECT \*, COUNT\(\*\) AS count, SUM\(total\) AS total FROM orders GROUP BY status/)
+    assert.match(sql, /SELECT COUNT\(\*\) AS count, SUM\(total\) AS total FROM orders GROUP BY status/)
+  })
+
+  it('聚合-only 编译（无投影列——count 整表聚合面：SELECT , COUNT 修对）', () => {
+    const q: SelectQuery = {
+      kind: 'select', table: 'orders',
+      aggregate: [{ fn: 'count', col: '*', as: 'total' }],
+    }
+    const { sql } = compileSelect(q)
+    assert.equal(sql, 'SELECT COUNT(*) AS total FROM orders')
   })
 
   it('INSERT 多行 + RETURNING + ON CONFLICT', () => {
@@ -80,16 +90,16 @@ describe('query language — compile (SQL 生成面)', () => {
   })
 
   it('UPDATE/DELETE 编译', () => {
-    const up = compileQuery({ kind: 'update', table: 'users', sets: { name: 'x' }, where: { id: 1 } })
+    const up = compileQuery({ kind: 'update', table: 'users', sets: { name: 'x' }, where: { id: { eq: 1 } } })
     assert.equal(up.sql, 'UPDATE users SET name = $1 WHERE id = $2')
-    const del = compileQuery({ kind: 'delete', table: 'users', where: { id: 1 } })
+    const del = compileQuery({ kind: 'delete', table: 'users', where: { id: { eq: 1 } } })
     assert.equal(del.sql, 'DELETE FROM users WHERE id = $1')
   })
 
   it('raw 逃生编译（参数编号重排）', () => {
     const q: SelectQuery = {
       kind: 'select', table: 't',
-      where: { id: 1, createdAt: { __raw: "created_at > NOW() - interval '7 days'", params: [] } },
+      where: { id: { eq: 1 }, createdAt: { __raw: "created_at > NOW() - interval '7 days'", params: [] } },
     }
     const { sql, params } = compileSelect(q)
     assert.match(sql, /id = \$1/)
@@ -99,9 +109,9 @@ describe('query language — compile (SQL 生成面)', () => {
 })
 
 describe('query language — memory 执行面', () => {
-  const sql = createMemorySql()
+  const { orm: sql, mem } = createMemoryOrm()
   before(async () => {
-    await sql.unsafe(`CREATE TABLE IF NOT EXISTS users (
+    await mem.unsafe(`CREATE TABLE IF NOT EXISTS users (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       email TEXT NOT NULL UNIQUE, name TEXT, age INT, role TEXT, status TEXT, score NUMERIC
     )`)
@@ -172,22 +182,22 @@ describe('query language — memory 执行面', () => {
     assert.equal(inQ.length, 2)
 
     // EXISTS（无关联条件）= 子查询非空则恒真——orders 有数据 → 全部行
-    const existsQ = await sql.query.from('users').exists({ kind: 'select', table: 'orders', cols: ['1'], where: { user_id: 'a@b.c' } } as SelectQuery).run()
+    const existsQ = await sql.query.from('users').exists({ kind: 'select', table: 'orders', cols: ['1'], where: { user_id: { eq: 'a@b.c' } } } as SelectQuery).run()
     assert.equal(existsQ.length, 3, 'EXISTS 恒真（子查询非空）')
-    const existsNone = await sql.query.from('users').exists({ kind: 'select', table: 'orders', cols: ['1'], where: { user_id: 'no-such' } } as SelectQuery).run()
+    const existsNone = await sql.query.from('users').exists({ kind: 'select', table: 'orders', cols: ['1'], where: { user_id: { eq: 'no-such' } } } as SelectQuery).run()
     assert.equal(existsNone.length, 0, 'EXISTS 恒假（子查询空）')
   })
 
   it('UPDATE + RETURNING', async () => {
-    const rows = await sql.query.update('users').set({ score: 95 }).where({ email: 'a@b.c' }).returning('score').run()
+    const rows = await sql.query.update('users').set({ score: 95 }).where({ email: { eq: 'a@b.c' } }).returning('score').run()
     assert.equal(rows[0].score, 95)
   })
 
   it('DELETE + RETURNING + affectedRows', async () => {
-    const rows = await sql.query.delete('t2').where({ a: 1 }).run()
+    const rows = await sql.query.delete('t2').where({ a: { eq: 1 } }).run()
     assert.equal(rows.length, 0)
     await sql.query.insert('t2').values({ a: 2 }).run()
-    const res = await sql.query.delete('t2').returning('a').run()
+    const res = await sql.query.delete('t2').where({ a: { eq: 2 } }).returning('a').run()
     assert.equal(res.length, 1)
     assert.equal(res[0].a, 2)
   })
@@ -210,25 +220,32 @@ describe('query language — memory 执行面', () => {
     ]).run()
     // alice+bob 的共同 direct 会话：c1（两成员）
     const found = await sql.query.from('convs c')
-      .where({ 'c.type': 'direct' })
-      .exists({ kind: 'select', table: 'mems', alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': 'alice' } } as SelectQuery)
-      .exists({ kind: 'select', table: 'mems', alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': 'bob' } } as SelectQuery)
+      .where({ 'c.type': { eq: 'direct' } })
+      .exists({ kind: 'select', table: 'mems', alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': { eq: 'alice' } } } as SelectQuery)
+      .exists({ kind: 'select', table: 'mems', alias: 'm', cols: ['1'], where: { 'm.conversation_id': { col: 'c.id' }, 'm.user_id': { eq: 'bob' } } } as SelectQuery)
       .in('c.id', { kind: 'select', table: 'mems', alias: 'm', cols: ['conversation_id'], groupBy: ['conversation_id'], having: { 'count(*)': 2 } } as SelectQuery)
       .run()
     assert.equal(found.length, 1)
     assert.equal(found[0].id, 'c1', '仅共同会话且恰 2 成员')
   })
 
-  it('raw 逃生：内存裁剪 ProtocolError（诚实）', async () => {
+  it('raw 逃生：E2 升格为解析真值（NOW() - interval 窗口）·坏语法仍抛', async () => {
+    // E2：raw where 文本经 parseWhereToExpr 解析求值（与裸参数 same 语义）——不再裁剪
+    await mem.unsafe('INSERT INTO users (email, age, created_at) VALUES ($1, $2, $3)', ['recent', 20, new Date().toISOString()])
+    await mem.unsafe('INSERT INTO users (email, age, created_at) VALUES ($1, $2, $3)', ['old', 20, new Date(Date.now() - 10 * 86400 * 1000).toISOString()])
+    const rows = await sql.query.from('users').whereRaw("created_at > NOW() - interval '7 days'").run()
+    assert.ok(rows.some((r) => r.email === 'recent'), '7 天窗口内行命中')
+    assert.ok(!rows.some((r) => r.email === 'old'), '窗口外行排除')
+    // 坏语法仍 ProtocolError（不静默）
     await assert.rejects(
-      () => sql.query.from('users').whereRaw("created_at > NOW() - interval '7 days'").run(),
+      () => sql.query.from('users').whereRaw('bad syntax ((').run(),
       ProtocolError,
     )
   })
 
   it('与标签模板路径语义一致（同表同条件）', async () => {
     const viaQuery = await sql.query.from('users').where({ age: { gt: 26 } }).select('email').run()
-    const viaTag = await sql`SELECT email FROM users WHERE age > ${26}`
+    const viaTag = await mem.unsafe('SELECT email FROM users WHERE age > $1', [26])
     assert.deepEqual(viaQuery.map((r) => r.email).sort(), viaTag.map((r) => r.email).sort())
   })
 })
@@ -236,12 +253,15 @@ describe('query language — memory 执行面', () => {
 import { before } from 'node:test'
 
 describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () => {
-  let sql: ReturnType<typeof createMemorySql>
+  let sql: ReturnType<typeof createMemoryOrm>['orm']
+  let mem: { unsafe: (s: string, p?: unknown[]) => Promise<unknown[]> }
 
   before(async () => {
-    sql = createMemorySql()
-    await sql.unsafe('CREATE TABLE ages (age int)')
-    for (const a of [10, 20, 25, 30, 40]) await sql.unsafe('INSERT INTO ages (age) VALUES ($1)', [a])
+    const shared = createMemoryOrm()
+    sql = shared.orm
+    mem = shared.mem as never
+    await mem.unsafe('CREATE TABLE ages (age int)')
+    for (const a of [10, 20, 25, 30, 40]) await mem.unsafe('INSERT INTO ages (age) VALUES ($1)', [a])
   })
 
   it('builder 链式 where 同列对象级合并——AND 语义不覆盖（修复前 [10,20,30]）', async () => {
@@ -250,22 +270,22 @@ describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () 
   })
 
   it('builder scalar × ops 合并 → eq（内存执行双端认识 eq）', async () => {
-    const rows = await sql.query.from('ages').where({ age: 25 }).where({ age: { lt: 30 } }).run()
+    const rows = await sql.query.from('ages').where({ age: { eq: 25 } }).where({ age: { lt: 30 } }).run()
     assert.deepEqual(rows.map((r) => r.age), [25])
   })
 
   it('SQL 字符串路径：同列 > 与 = 共存（修复前 eq 静默丢弃返回 25/30）', async () => {
-    const rows = await sql.unsafe('SELECT age FROM ages WHERE age > 15 AND age = 25')
+    const rows = await mem.unsafe('SELECT age FROM ages WHERE age > 15 AND age = 25')
     assert.deepEqual(rows, [{ age: 25 }])
   })
 
   it('SQL 字符串路径：同列 = 在前 > 在后（修复前 eq 被覆盖丢失）', async () => {
-    const rows = await sql.unsafe('SELECT age FROM ages WHERE age = 25 AND age > 15')
+    const rows = await mem.unsafe('SELECT age FROM ages WHERE age = 25 AND age > 15')
     assert.deepEqual(rows, [{ age: 25 }])
   })
 
   it('同列双 scalar → and 包装（恒假语义显式——不静默丢条件）', async () => {
-    const rows = await sql.unsafe('SELECT age FROM ages WHERE age = 25 AND age = 30')
+    const rows = await mem.unsafe('SELECT age FROM ages WHERE age = 25 AND age = 30')
     assert.deepEqual(rows, [], '25 AND 30 恒假——应空集')
   })
 
@@ -280,7 +300,7 @@ describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () 
   it('compileSelect：and 组编译（or 组冲突包装）', () => {
     const q: SelectQuery = {
       kind: 'select', table: 't',
-      where: { or: [{ a: 1 }, { b: 2 }], and: [{ or: [{ c: 3 }, { d: 4 }] }] },
+      where: { or: [{ a: { eq: 1 } }, { b: { eq: 2 } }], and: [{ or: [{ c: { eq: 3 } }, { d: { eq: 4 } }] }] },
     }
     const { sql: sqlText } = compileSelect(q)
     assert.match(sqlText, /\(a = \$1 OR b = \$2\)/)
@@ -288,13 +308,13 @@ describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () 
   })
 
   it('builder or 组冲突 → and 包装（(A OR B) AND (C OR D) 不平铺——内存执行）', async () => {
-    await sql.unsafe('CREATE TABLE flags (a int, b int, c int, d int)')
-    await sql.unsafe('INSERT INTO flags (a, b, c, d) VALUES (1, 0, 1, 0)') // A 命中 C 不中——AND 后应空
-    await sql.unsafe('INSERT INTO flags (a, b, c, d) VALUES (1, 0, 0, 0)') // A 命中 C/D 均不中——空
-    await sql.unsafe('INSERT INTO flags (a, b, c, d) VALUES (0, 0, 1, 0)') // A/B 不中——空
+    await mem.unsafe('CREATE TABLE flags (a int, b int, c int, d int)')
+    await mem.unsafe('INSERT INTO flags (a, b, c, d) VALUES (1, 0, 1, 0)') // A 命中 C 不中——AND 后应空
+    await mem.unsafe('INSERT INTO flags (a, b, c, d) VALUES (1, 0, 0, 0)') // A 命中 C/D 均不中——空
+    await mem.unsafe('INSERT INTO flags (a, b, c, d) VALUES (0, 0, 1, 0)') // A/B 不中——空
     const rows = await sql.query.from('flags')
-      .where({ or: [{ a: 1 }, { b: 1 }] })
-      .where({ or: [{ c: 1 }, { d: 1 }] })
+      .where({ or: [{ a: { eq: 1 } }, { b: { eq: 1 } }] })
+      .where({ or: [{ c: { eq: 1 } }, { d: { eq: 1 } }] })
       .run()
     assert.equal(rows.length, 1, '(a=1 OR b=1) AND (c=1 OR d=1)——仅第一行')
     assert.equal(rows[0].a, 1)
@@ -303,7 +323,7 @@ describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () 
   it('whereRaw 冲突不再覆盖（双 raw 条件并存——AND）', async () => {
     // 内存端 raw WHERE 诚实裁剪——用 spy executor 捕获 AST 后断言编译产物
     let captured: SelectQuery | null = null
-    const qb = createQueryBuilder({} as never, (q) => {
+    const qb = createQueryBuilder((q) => {
       captured = q as SelectQuery
       return Promise.resolve([])
     })
@@ -314,5 +334,31 @@ describe('query language — where 合并与 eq（DB-FIX-PLAN W2 防线）', () 
     const compiled = compileSelect(captured!)
     assert.match(compiled.sql, /created_at > /)
     assert.match(compiled.sql, /deleted_at IS NULL/)
+  })
+})
+
+// ── E3 类型/样板收敛契约（and/or 空对象过滤·set 收 RawSql）────────
+
+describe('query language — E3 条件安全组合与 RawSql 面', () => {
+  it('and(a, {}) 等价 a（空条件被滤——`q ? {...} : {}` 样板零 as never）', async () => {
+    const { orm: sql, mem } = createMemoryOrm()
+    await mem.unsafe('CREATE TABLE c1 (id int, tag text)')
+    await mem.unsafe('INSERT INTO c1 (id, tag) VALUES ($1, $2)', [1, 'x'])
+    await mem.unsafe('INSERT INTO c1 (id, tag) VALUES ($1, $2)', [2, 'y'])
+    const expr = and({}, { tag: { eq: 'x' } })
+    const rows = await sql.query.from('c1').where(expr).run()
+    assert.deepEqual(rows.map((r) => r.id), [1], '空对象被滤——仅 tag=x')
+  })
+
+  it('and()/or() 全空 → {}（恒真——不炸不覆盖）', () => {
+    assert.deepEqual(and({}, {}), {})
+    assert.deepEqual(or({}, {}), {})
+  })
+
+  it('set 值接受 RawSql（类型面——编译通过即真）', () => {
+    // 编译期断言：RawSql 直接赋值（无需 as never）
+    const s2 = createMemoryOrm().orm
+    const b = s2.query.update('c1').set({ tag: rawSql("'x'") })
+    assert.ok(b, 'set RawSql 类型面可编译')
   })
 })

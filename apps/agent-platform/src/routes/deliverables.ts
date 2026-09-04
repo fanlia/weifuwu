@@ -15,16 +15,15 @@ import type { AppCtx } from '../middleware/ctx.ts'
 
 export function registerDeliverableRoutes(app: any): void {
   app.get('/api/deliverables', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId } = ctx
+    const { orm, appId } = ctx
     const url = new URL(req.url)
     const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') ?? '200', 10)))
     if (!appId) return Response.json({ error: '未认证' }, { status: 401 })
 
-    const depts = await sql`
-      SELECT d.id, d.name, d.workspace_path
-      FROM departments d
-      WHERE d.app_id = ${appId}
-    `
+    const depts = await orm.query.from('departments d')
+      .select('d.id', 'd.name', 'd.workspace_path')
+      .where({ 'd.app_id': { eq: String(appId) } })
+      .run()
     if (depts.length === 0) return Response.json({ files: [] })
 
     const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')

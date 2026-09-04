@@ -67,7 +67,7 @@ async function promptOf(): Promise<string> {
 
 test('W1a: 无 AI 成员 → 提示词含部门名 + 「暂无 AI 成员」', async () => {
   await fixture()
-  await refreshManagerPrompt(pg.sql, APP_ID, DEPT_ID)
+  await refreshManagerPrompt(pg.orm, APP_ID, DEPT_ID)
   const p = await promptOf()
   assert.match(p, /「测试部」的部门经理/)
   assert.match(p, /暂无 AI 成员/)
@@ -87,7 +87,7 @@ test('W1b: 加 AI 成员 → 提示词含成员名（不含经理名/user 类型
     INSERT INTO department_members (department_id, agent_id, role)
     VALUES (${DEPT_ID}, ${AI_ID}, 'member'), (${DEPT_ID}, ${HUMAN_ID}, 'member')
   `
-  await refreshManagerPrompt(pg.sql, APP_ID, DEPT_ID)
+  await refreshManagerPrompt(pg.orm, APP_ID, DEPT_ID)
   const p = await promptOf()
   assert.match(p, /分析猿/)
   assert.ok(!p.includes('测试部经理'), '经理自身不进名单')
@@ -101,20 +101,20 @@ test('W1c: 移除成员 → 回「暂无 AI 成员」+ 幂等（两次刷新一�
     VALUES (${AI_ID}, ${APP_ID}, 'ai', '分析猿', 'deepseek-chat', null, true, '[]')
   `
   await pg.sql`INSERT INTO department_members (department_id, agent_id, role) VALUES (${DEPT_ID}, ${AI_ID}, 'member')`
-  await refreshManagerPrompt(pg.sql, APP_ID, DEPT_ID)
+  await refreshManagerPrompt(pg.orm, APP_ID, DEPT_ID)
   assert.match(await promptOf(), /分析猿/)
   await pg.sql`DELETE FROM department_members WHERE agent_id = ${AI_ID}`
-  await refreshManagerPrompt(pg.sql, APP_ID, DEPT_ID)
+  await refreshManagerPrompt(pg.orm, APP_ID, DEPT_ID)
   const p1 = await promptOf()
   assert.match(p1, /暂无 AI 成员/)
   assert.ok(!p1.includes('分析猿'))
-  await refreshManagerPrompt(pg.sql, APP_ID, DEPT_ID)
+  await refreshManagerPrompt(pg.orm, APP_ID, DEPT_ID)
   assert.equal(await promptOf(), p1, '幂等：两次刷新结果一致')
 })
 
 test('W1d: 经理不存在 → no-op 不抛', async () => {
   await pg.sql`DELETE FROM agents WHERE id = ${MGR_ID}`
-  await refreshManagerPrompt(pg.sql, APP_ID, DEPT_ID) // 不抛即通过
+  await refreshManagerPrompt(pg.orm, APP_ID, DEPT_ID) // 不抛即通过
   await fixture() // 恢复（后续测试用）
 })
 

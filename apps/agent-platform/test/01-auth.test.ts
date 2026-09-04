@@ -43,8 +43,8 @@ before(async () => {
   app.use(rds) // ctx.limit 的 redis store 需要
   app.use(rateLimit({ redis: (rds as any).redis, windowMs: 60_000, max: 100 })) // 与 server.ts 同构
 
-  // 框架用户系统（与 server.ts 一致）
-  const users = userSystem({ sql: pg.sql, secret: process.env.JWT_SECRET ?? 'test-secret-0123456789' })
+  // 框架用户系统（与 server.ts 一致——orm 表绑定面）
+  const users = userSystem({ orm: pg.orm, secret: process.env.JWT_SECRET ?? 'test-secret-0123456789' })
   await users.migrate()
   app.use(users)
   // USERSYSTEM-V2：全量框架路由（register-app 产品级注册）——自研 auth.ts 已删

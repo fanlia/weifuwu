@@ -41,7 +41,7 @@ export async function verifyArtifacts(
   if (paths.length === 0) return { verified, missing, stale }
   try {
     const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
-    const [dept] = await sql`SELECT workspace_path FROM departments WHERE id = ${departmentId}`
+    const [dept] = await (sql as any).query.from('departments').select('workspace_path').where({ id: departmentId }).limit(1).run()
     const ws = await resolveDepartmentWorkspace(departmentId, dept?.workspace_path, true)
     if (!ws) return { verified, missing, stale }
     const { access, stat } = await import('node:fs/promises')

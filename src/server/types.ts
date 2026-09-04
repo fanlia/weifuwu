@@ -1,6 +1,3 @@
-import type { Sql } from "./postgres/types.ts"
-export type { Sql }
-export type { SqlClient } from './postgres/types.ts'
 
 /** Re-export for downstream usage. */
 /** Lightweight WebSocket interface for WS handler types (avoids external dep resolution). */

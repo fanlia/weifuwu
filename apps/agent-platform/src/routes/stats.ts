@@ -6,7 +6,9 @@
  * track 埋点 / funnel / agent 执行日志 / webhook 日志。
  * 全部经 ctx.sql 参数化 + app_id 隔离（隔离审计登记在 tenant-isolation.test.ts）。
  */
+import { tables } from '../db/orm.ts'
 import type { Router } from 'weifuwu'
+import { ops } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 
 export function registerStatsRoutes(app: Router<AppCtx>): void {
@@ -26,75 +28,78 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   /** 应用统计聚合（/api/stats 与价值报告共用） */
   async function buildStats(ctx: AppCtx): Promise<Record<string, unknown>> {
-    const { sql, appId } = ctx
+    const { orm, appId } = ctx
+    const T = tables(orm)
 
-    const [agentStats] = await sql`
-      SELECT
-        COUNT(*)::int as total,
-        COUNT(*) FILTER (WHERE type = 'ai')::int as ai_count,
-        COUNT(*) FILTER (WHERE type = 'webhook')::int as webhook_count,
-        COUNT(*) FILTER (WHERE type = 'knowledge_base')::int as kb_count,
-        COUNT(*) FILTER (WHERE type = 'user')::int as user_count
-      FROM agents WHERE app_id = ${appId}
-    `
+    const [agentStats] = await T.agents
+      .select()
+      .count('*', 'total')
+      .count('*', 'ai_count', { type: { eq: 'ai' }})
+      .count('*', 'webhook_count', { type: { eq: 'webhook' }})
+      .count('*', 'kb_count', { type: { eq: 'knowledge_base' }})
+      .count('*', 'user_count', { type: { eq: 'user' }})
+      .where({ app_id: { eq: String(appId) } })
+      .run()
 
-    const [deptStats] = await sql`
-      SELECT COUNT(*)::int as total FROM departments d
-      WHERE d.app_id = ${appId}
-    `
+    const [deptStats] = await orm.query.from('departments').count('*', 'total').where({ app_id: { eq: String(appId) } }).run()
 
-    const [msgStats] = await sql`
-      SELECT COUNT(*)::int as total FROM messages m
-      JOIN agents a ON a.id = m.sender_id
-      WHERE a.app_id = ${appId}
-    `
+    const [msgStats] = await orm.query.from('messages m')
+      .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+      .count('*', 'total')
+      .where({ 'a.app_id': { eq: String(appId) } })
+      .run()
 
-    const [tokenStats] = await sql`
-      SELECT
-        COALESCE(SUM(tokens_prompt), 0)::int as total_prompt,
-        COALESCE(SUM(tokens_completion), 0)::int as total_completion,
-        COALESCE(SUM(tokens_total), 0)::int as total_tokens
-      FROM agent_logs WHERE app_id = ${appId}
-    `
+    const [tokenStats] = await orm.query.from('agent_logs')
+      .sum('tokens_prompt', 'total_prompt')
+      .sum('tokens_completion', 'total_completion')
+      .sum('tokens_total', 'total_tokens')
+      .where({ app_id: { eq: String(appId) } })
+      .run()
 
     // 近 14 天成本趋势（agent_logs 按天聚合——老板看运营成本走势）
-    const costTrend = await sql`
-      SELECT DATE(created_at) as day,
-        COALESCE(SUM(tokens_prompt), 0)::int as prompt,
-        COALESCE(SUM(tokens_completion), 0)::int as completion,
-        COALESCE(SUM(tokens_total), 0)::int as total
-      FROM agent_logs
-      WHERE app_id = ${appId} AND created_at >= NOW() - INTERVAL '14 days'
-      GROUP BY DATE(created_at) ORDER BY day
-    `
+    // orm-pg-date-trunc 判负修订：DATE() 分组投影 → 拉窗口数据内存聚合（语义等价）
+    const costLogs = await orm.query.from('agent_logs').select('created_at', 'tokens_prompt', 'tokens_completion', 'tokens_total')
+      .where({ app_id: { eq: String(appId) }, created_at: { gte: ops.nowAgo(14, 'day') } }).run()
+    const dayBy = new Map<string, { prompt: number; completion: number; total: number }>()
+    for (const r of costLogs) {
+      const d = String(r.created_at).slice(0, 10)
+      const cur = dayBy.get(d) ?? { prompt: 0, completion: 0, total: 0 }
+      cur.prompt += Number(r.tokens_prompt ?? 0)
+      cur.completion += Number(r.tokens_completion ?? 0)
+      cur.total += Number(r.tokens_total ?? 0)
+      dayBy.set(d, cur)
+    }
+    const costTrend = [...dayBy.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([day, v]) => ({ day, prompt: v.prompt, completion: v.completion, total: v.total }))
 
-    // 近 14 天消息趋势 + 活跃 Agent 数（留存维度——运营看活跃）
-    const trend = await sql`
-      SELECT
-        DATE(m.created_at) as day,
-        COUNT(*)::int as count,
-        COUNT(DISTINCT m.sender_id)::int as active_agents
-      FROM messages m
-      JOIN agents a ON a.id = m.sender_id
-      WHERE a.app_id = ${appId}
-        AND m.created_at >= NOW() - INTERVAL '14 days'
-      GROUP BY DATE(m.created_at)
-      ORDER BY day
-    `
+    // 近 14 天消息趋势 + 活跃 Agent 数（留存维度——运营看活跃）——内存聚合（同 DATE 判负修订）
+    const msgRows = await orm.query.from('messages m')
+      .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+      .select('m.created_at', 'm.sender_id')
+      .where({ 'a.app_id': { eq: String(appId) }, 'm.created_at': { gte: ops.nowAgo(14, 'day') } }).run()
+    const trendBy = new Map<string, { count: number; senders: Set<string> }>()
+    for (const r of msgRows) {
+      const d = String(r.created_at).slice(0, 10)
+      const cur = trendBy.get(d) ?? { count: 0, senders: new Set<string>() }
+      cur.count += 1
+      cur.senders.add(String(r.sender_id ?? ''))
+      trendBy.set(d, cur)
+    }
+    const trend = [...trendBy.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([day, v]) => ({ day, count: v.count, active_agents: v.senders.size }))
 
     // 活跃 Agent 排行（近 7 天发消息数——统计面板「活跃度」）
-    const activeAgents = await sql`
-      SELECT a.id, a.name, a.type,
-        COUNT(m.id)::int as message_count,
-        MAX(m.created_at) as last_active_at
-      FROM agents a
-      JOIN messages m ON m.sender_id = a.id
-      WHERE a.app_id = ${appId}
-        AND m.created_at >= NOW() - INTERVAL '7 days'
-      GROUP BY a.id, a.name, a.type
-      ORDER BY message_count DESC
-      LIMIT 8
-    `
+    // orm-pg-group：COUNT/MAX 投影 + GROUP BY——同判负
+    const activeAgents = await orm.query.from('agents a')
+      .join('messages m', { 'm.sender_id': { col: 'a.id' } })
+      .select('a.id', 'a.name', 'a.type')
+      .count('m.id', 'message_count')
+      .max('m.created_at', 'last_active_at')
+      .where({ 'a.app_id': { eq: String(appId) }, 'm.created_at': { gte: ops.nowAgo(7, 'day') } })
+      .groupBy('a.id', 'a.name', 'a.type')
+      .orderBy('message_count', 'desc')
+      .limit(8)
+      .run()
 
     // 预估成本（DeepSeek 参考价：输入 ¥2/百万 tokens · 输出 ¥8/百万——估算，非计费）
     const ts = tokenStats as any
@@ -111,27 +116,28 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     // 假设：人工处理一条消息/任务平均 3 分钟 × 时薪 40 元 ≈ ¥2/条（可配置常量）
     const COST_PER_AI_REPLY = 2
     // R6-3 质量指标：工具执行成功率（agent_logs success）+ AI 消息反馈汇总（分查——防 JOIN 膨胀）
-    const [quality] = await sql`
-      SELECT COUNT(*)::int AS runs, COUNT(*) FILTER (WHERE success)::int AS ok_runs
-      FROM agent_logs WHERE app_id = ${appId}
-    `
-    const [feedback] = await sql`
-      SELECT
-        COALESCE(COUNT(*) FILTER (WHERE feedback = 'like'), 0)::int AS likes,
-        COALESCE(COUNT(*) FILTER (WHERE feedback = 'dislike'), 0)::int AS dislikes
-      FROM messages m JOIN agents a ON a.id = m.sender_id
-      WHERE a.app_id = ${appId} AND m.feedback IS NOT NULL
-    `
+    const [quality] = await T.agent_logs
+      .select()
+      .count('*', 'runs')
+      .count('*', 'ok_runs', { success: { eq: true }})
+      .where({ app_id: { eq: String(appId) } })
+      .run()
+    const [feedback] = await orm.query.from('messages m')
+      .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+      .count('*', 'likes', { 'm.feedback': { eq: 'like' }})
+      .count('*', 'dislikes', { 'm.feedback': { eq: 'dislike' }})
+      .where({ 'a.app_id': { eq: String(appId) }, 'm.feedback': { isNull: false } })
+      .run()
     const toolSuccessRate = Number((quality as any)?.runs ?? 0) > 0
       ? Math.round(Number((quality as any)?.ok_runs ?? 0) / Number((quality as any)?.runs ?? 0) * 100)
       : null
 
-    const [aiMsgRow] = await sql`
-      SELECT COUNT(*)::int AS cnt FROM messages m
-      JOIN agents a ON a.id = m.sender_id
-      WHERE a.app_id = ${appId} AND a.type = 'ai' AND m.ai_approved IS NOT NULL
-        AND m.created_at >= DATE_TRUNC('month', NOW())
-    `
+    const [aiMsgRow] = await orm.query.from('messages m')
+      .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+      .count('*', 'cnt')
+      .where({ 'a.app_id': { eq: String(appId) }, 'a.type': { eq: 'ai' }, 'm.ai_approved': { isNull: false } })
+      .whereRaw("m.created_at >= DATE_TRUNC('month', NOW())")
+      .run()
     const aiRepliesMonth = Number((aiMsgRow as any)?.cnt ?? 0)
     const savedYuan = Math.max(0, aiRepliesMonth * COST_PER_AI_REPLY - estCostYuan).toFixed(2)
 
@@ -153,10 +159,11 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
   app.get('/api/stats/report', async (req: Request, ctx: AppCtx): Promise<Response> => {
     if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
     const s = await buildStats(ctx) as any
-    const [app] = await ctx.sql`SELECT name, plan, trial_ends_at FROM _weifuwu_apps WHERE id = ${ctx.appId}`
-    const [used] = await ctx.sql`
-      SELECT COALESCE(SUM(tokens_total), 0)::int AS used FROM agent_logs WHERE app_id = ${ctx.appId} AND created_at >= DATE_TRUNC('month', NOW())
-    `
+    const [app] = await ctx.orm.query.from('_weifuwu_apps').select('name', 'plan', 'trial_ends_at').where({ id: { eq: String(ctx.appId) } }).limit(1).run()
+    const [used] = await ctx.orm.query.from('agent_logs')
+      .sum('tokens_total', 'used')
+      .whereRaw("app_id = $1 AND created_at >= DATE_TRUNC('month', NOW())", [String(ctx.appId)])
+      .run()
     const appName = String(app?.name ?? '本应用')
     const planLabel = String(app?.plan ?? 'free') === 'pro' ? '专业版' : '免费试用'
     const roi = s.roi ?? { aiRepliesMonth: 0, costPerReply: 2, estCostYuan: 0, savedYuan: 0 }
@@ -223,45 +230,57 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
   // ── Token 成本排行（按 Agent，老板视角成本视图） ─────────────
   app.get('/api/stats/tokens-by-agent', async (req: Request, ctx: AppCtx): Promise<Response> => {
     if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    const { sql, appId } = ctx
-    const rows = await sql`
-      SELECT a.id, a.name, a.type,
-        COUNT(al.id)::int as run_count,
-        COALESCE(SUM(al.tokens_total), 0)::int as tokens_total,
-        COALESCE(SUM(al.tokens_prompt), 0)::int as tokens_prompt,
-        COALESCE(SUM(al.tokens_completion), 0)::int as tokens_completion
-      FROM agents a
-      LEFT JOIN agent_logs al ON al.agent_id = a.id AND al.app_id = ${appId}
-      WHERE a.app_id = ${appId}
-      GROUP BY a.id
-      HAVING COUNT(al.id) > 0
-      ORDER BY tokens_total DESC
-      LIMIT 10
-    `
+    const { orm, appId } = ctx
+    // orm-pg-subquery 判负修订：LEFT JOIN 聚合 + HAVING → 主查 agents + 组查 agent_logs
+    // 聚合 Map 合并（HAVING COUNT>0 → 组查非零过滤）
+    const ag = await orm.query.from('agents').select('id', 'name', 'type').where({ app_id: { eq: String(appId) } }).run()
+    const agIds = ag.map((a) => String(a.id))
+    const aggRows = agIds.length ? await orm.query.from('agent_logs').select('agent_id')
+      .count('*', 'run_count')
+      .sum('tokens_total', 'tokens_total')
+      .sum('tokens_prompt', 'tokens_prompt')
+      .sum('tokens_completion', 'tokens_completion')
+      .where({ agent_id: { in: agIds }, app_id: { eq: String(appId) } })
+      .groupBy('agent_id').run() : []
+    const aggMap = new Map(aggRows.map((x) => [String(x.agent_id), x]))
+    const rows = ag
+      .map((a) => ({ id: a.id, name: a.name, type: a.type, ...(aggMap.get(String(a.id)) ?? { run_count: 0, tokens_total: 0, tokens_prompt: 0, tokens_completion: 0 }) }))
+      .filter((r) => Number((r as any).run_count ?? 0) > 0)
+      .sort((a, b) => Number((b as any).tokens_total ?? 0) - Number((a as any).tokens_total ?? 0))
+      .slice(0, 10)
     return Response.json({ agents: rows })
   })
 
   // ── P3-1 运营看板：部门维度活跃/成本/配额（三层模型计量单元 = 部门） ──
   app.get('/api/stats/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
     if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    const { sql, appId } = ctx
-    const rows = await sql`
-      SELECT d.id, d.name, d.is_dm,
-        COUNT(m.id)::int as messages,
-        COUNT(al.id)::int as runs,
-        COUNT(al.id) FILTER (WHERE al.success)::int as runs_ok,
-        COALESCE(SUM(al.tokens_total), 0)::int as tokens,
-        MAX(m.created_at) as last_active
-      FROM departments d
-      LEFT JOIN messages m ON m.department_id = d.id AND m.ai_approved != FALSE
-      LEFT JOIN agent_logs al ON al.department_id = d.id AND al.app_id = ${appId}
-      WHERE d.app_id = ${appId}
-      GROUP BY d.id
-      ORDER BY tokens DESC, messages DESC
-    `
+    const { orm, appId } = ctx
+    // orm-pg-subquery 判负修订：三级 LEFT JOIN 聚合 → 主查 departments + 3 组查 Map 合并
+    const deps = await orm.query.from('departments').select('id', 'name', 'is_dm').where({ app_id: { eq: String(appId) } }).run()
+    const depIds = deps.map((d) => String(d.id))
+    const mCnt = depIds.length ? await orm.query.from('messages').select('department_id').count('*', 'messages')
+      .where({ department_id: { in: depIds }, ai_approved: { ne: false } }).groupBy('department_id').run() : []
+    const aAgg = depIds.length ? await orm.query.from('agent_logs').select('department_id')
+      .count('*', 'runs')
+      .count('*', 'runs_ok', { success: { eq: true } })
+      .sum('tokens_total', 'tokens')
+      .max('created_at', 'last_active')
+      .where({ department_id: { in: depIds }, app_id: { eq: String(appId) } })
+      .groupBy('department_id').run() : []
+    const mMap = new Map(mCnt.map((x) => [String(x.department_id), Number((x as any).messages ?? 0)]))
+    const aMap = new Map(aAgg.map((x) => [String(x.department_id), x]))
+    const rows = deps.map((d) => ({
+      id: d.id, name: d.name, is_dm: d.is_dm,
+      messages: mMap.get(String(d.id)) ?? 0,
+      runs: Number((aMap.get(String(d.id)) as any)?.runs ?? 0),
+      runs_ok: Number((aMap.get(String(d.id)) as any)?.runs_ok ?? 0),
+      tokens: Number((aMap.get(String(d.id)) as any)?.tokens ?? 0),
+      last_active: (aMap.get(String(d.id)) as any)?.last_active ?? null,
+    }))
+      .sort((a, b) => Number(b.tokens) - Number(a.tokens) || Number(b.messages) - Number(a.messages))
     // 配额用量 + 环境状态（per 部门）
     const { manager } = await import('../sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     const deptRows = (rows ?? []) as Array<Record<string, any>>
     let quotaPressure = false
     const withEnv: Array<Record<string, any>> = []
@@ -275,9 +294,9 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     }
     // P3-2 告警：配额压力（active sandbox / quota ≥ 80%）
     try {
-      const [q] = await sql`SELECT sandbox_quota FROM _weifuwu_apps WHERE id = ${appId}`
-      const limit = Number(q?.sandbox_quota ?? 5)
-      const [c] = await sql`SELECT COUNT(*)::int as n FROM sandboxes WHERE app_id = ${appId} AND status != 'terminated'`
+      const [q] = await ctx.orm.query.from('_weifuwu_apps').select('sandbox_quota').where({ id: { eq: String(appId) } }).limit(1).run()
+      const limit = Number((q as any)?.sandbox_quota ?? 5)
+      const [c] = await ctx.orm.query.from('sandboxes').count('*', 'n').where({ app_id: { eq: String(appId) }, status: { ne: 'terminated' } }).run()
       quotaPressure = limit > 0 && Number(c?.n ?? 0) / limit >= 0.8
       if (quotaPressure) {
         console.warn(`[agent-platform] 沙盒配额压力：${c?.n}/${limit}（≥80%）——app ${appId}`)
@@ -291,13 +310,13 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
   // first_message 每租户唯一（部分唯一索引）——首次消息只记一次
   const TRACKABLE = new Set(['register_complete', 'agent_created', 'first_message'])
   app.post('/api/track', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId } = ctx
+    const { orm, appId } = ctx
     const body = await req.json().catch(() => ({})) as { event?: string }
     if (!body.event || !TRACKABLE.has(body.event)) {
       return Response.json({ error: 'event 必须是 register_complete/agent_created/first_message 之一' }, { status: 400 })
     }
     try {
-      await sql`INSERT INTO events (app_id, event) VALUES (${appId}, ${body.event})`
+      await ctx.orm.query.insert('events').values({ app_id: String(appId), event: body.event }).run()
     } catch {
       // 部分唯一索引冲突（first_message 已记）——幂等，忽略
     }
@@ -307,21 +326,24 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
   // 漏斗：本租户进度 + 全平台转化（去重租户）
   app.get('/api/stats/funnel', async (req: Request, ctx: AppCtx): Promise<Response> => {
     if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    const { sql, appId } = ctx
-    const rows = await sql`
-      SELECT
-        COUNT(*) FILTER (WHERE event = 'register_complete')::int as register_complete,
-        COUNT(*) FILTER (WHERE event = 'agent_created')::int as agent_created,
-        COUNT(*) FILTER (WHERE event = 'first_message')::int as first_message
-      FROM events WHERE app_id = ${appId}
-    `
+    const { orm, appId } = ctx
+    const [rows] = await orm.query.from('events')
+      .count('*', 'register_complete', { event: { eq: 'register_complete' }})
+      .count('*', 'agent_created', { event: { eq: 'agent_created' }})
+      .count('*', 'first_message', { event: { eq: 'first_message' }})
+      .where({ app_id: { eq: String(appId) } })
+      .run()
     const mine = rows[0] as { register_complete: number; agent_created: number; first_message: number } | undefined
-    const platform = await sql`
-      SELECT event, COUNT(*)::int as count
-      FROM (
-        SELECT DISTINCT app_id, event FROM events
-      ) t GROUP BY event
-    `
+    // DISTINCT app_id×event → 主查 events（app/event 列）内存去重计数
+    const evRows = await orm.query.from('events').select('app_id', 'event').limit(50000).run()
+    const evSet = new Set<string>()
+    for (const r of evRows) evSet.add(`${String(r.app_id)}${String(r.event)}`)
+    const evCnt = new Map<string, number>()
+    for (const k of evSet) {
+      const ev = k.slice(k.indexOf('') + 1)
+      evCnt.set(ev, (evCnt.get(ev) ?? 0) + 1)
+    }
+    const platform = [...evCnt.entries()].map(([event, count]) => ({ event, count }))
     return Response.json({
       mine: { register_complete: (mine?.register_complete ?? 0) > 0, agent_created: (mine?.agent_created ?? 0) > 0, first_message: (mine?.first_message ?? 0) > 0 },
       platform: Object.fromEntries(platform.map((p: any) => [p.event, p.count])),
@@ -330,49 +352,46 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // ── Agent 执行日志 ───────────────────────────────────────
   app.get('/api/stats/agents/:agentId/logs', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const logs = await sql`
-      SELECT id, messages_count, steps_count,
-        tokens_prompt, tokens_completion, tokens_total,
-        elapsed_ms, success, created_at
-      FROM agent_logs
-      WHERE agent_id = ${params.agentId} AND app_id = ${appId}
-      ORDER BY created_at DESC
-      LIMIT 50
-    `
+    const { sql, orm, appId, params } = ctx
+    const logs = await orm.query.from('agent_logs')
+      .select('id', 'messages_count', 'steps_count',
+        'tokens_prompt', 'tokens_completion', 'tokens_total',
+        'elapsed_ms', 'success', 'created_at')
+      .where({ agent_id: { eq: params.agentId }, app_id: { eq: String(appId) } })
+      .orderBy('created_at', 'desc')
+      .limit(50)
+      .run()
     return Response.json({ logs })
   })
 
   // ── Webhook 调用日志 ─────────────────────────────────────
   app.get('/api/stats/agents/:agentId/webhook-logs', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const logs = await sql`
-      SELECT id, request_body, response_body, response_status,
-        elapsed_ms, success, created_at
-      FROM webhook_logs
-      WHERE agent_id = ${params.agentId} AND app_id = ${appId}
-      ORDER BY created_at DESC
-      LIMIT 30
-    `
+    const { sql, orm, appId, params } = ctx
+    const logs = await orm.query.from('webhook_logs')
+      .select('id', 'request_body', 'response_body', 'response_status',
+        'elapsed_ms', 'success', 'created_at')
+      .where({ agent_id: { eq: params.agentId }, app_id: { eq: String(appId) } })
+      .orderBy('created_at', 'desc')
+      .limit(30)
+      .run()
     return Response.json({ logs })
   })
 
   // ── O12 编排任务链（Wave 3）：租户内 agent_runs 列表——审计/ROI 面 ──
   app.get('/api/stats/runs', async (req: Request, ctx: AppCtx): Promise<Response> => {
     if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    const { sql, appId } = ctx
+    const { orm, appId } = ctx
     const url = new URL(req.url ?? '', 'http://localhost')
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') ?? 20)))
-    const rows = await sql`
-      SELECT r.id, r.kind, r.status, r.plan_json, r.worker_results, r.request_id,
-        r.created_at, r.updated_at,
-        a.name AS orchestrator_name
-      FROM agent_runs r
-      LEFT JOIN agents a ON a.id = r.orchestrator_id
-      WHERE r.app_id = ${appId}
-      ORDER BY r.created_at DESC
-      LIMIT ${limit}
-    `
+    const rows = await orm.query.from('agent_runs r')
+      .join('agents a', { 'a.id': { col: 'r.orchestrator_id' } }, { type: 'left' })
+      .select('r.id', 'r.kind', 'r.status', 'r.plan_json', 'r.worker_results', 'r.request_id',
+        'r.created_at', 'r.updated_at',
+        'a.name AS orchestrator_name')
+      .where({ 'r.app_id': { eq: String(appId) } })
+      .orderBy('r.created_at', 'desc')
+      .limit(limit)
+      .run()
     return Response.json({ runs: rows ?? [] })
   })
 }

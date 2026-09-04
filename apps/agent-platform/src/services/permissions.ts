@@ -25,9 +25,11 @@ import type { AppCtx } from '../middleware/ctx.ts'
 export async function appRoleOf(ctx: AppCtx, userId?: string): Promise<string | null> {
   const uid = userId ?? ctx.auth?.userId
   if (!uid) return null
-  const rows = await ctx.sql`
-    SELECT role FROM _weifuwu_app_members WHERE app_id = ${ctx.appId} AND user_id = ${uid}
-  `
+  const rows = await ctx.orm.query.from('_weifuwu_app_members')
+    .select('role')
+    .where({ app_id: { eq: String(ctx.appId) }, user_id: { eq: uid }})
+    .limit(1)
+    .run()
   return rows[0]?.role ? String(rows[0].role) : null
 }
 
@@ -43,16 +45,18 @@ export async function requireWriter(ctx: AppCtx): Promise<void> {
 
 /** 禁止普通成员执行管理操作（部门成员管理/审批等）——部门 admin 或租户 owner */
 export async function requireDeptManager(ctx: AppCtx, departmentId: string): Promise<void> {
-  const { sql, auth } = ctx
-  const [caller] = await sql`
-    SELECT dm.role FROM department_members dm
-    JOIN agents ua ON ua.id = dm.agent_id
-    WHERE dm.department_id = ${departmentId} AND ua.user_id = ${auth!.userId}
-    LIMIT 1
-  `
-  const [ownerRow] = await sql`
-    SELECT role FROM _weifuwu_app_members WHERE app_id = ${ctx.appId} AND user_id = ${auth!.userId}
-  `
+  const { auth } = ctx
+  const [caller] = await ctx.orm.query.from('department_members dm')
+    .join('agents ua', { 'ua.id': { col: 'dm.agent_id' } })
+    .select('dm.role')
+    .where({ 'dm.department_id': { eq: departmentId }, 'ua.user_id': { eq: String(auth!.userId) } })
+    .limit(1)
+    .run()
+  const [ownerRow] = await ctx.orm.query.from('_weifuwu_app_members')
+    .select('role')
+    .where({ app_id: { eq: String(ctx.appId) }, user_id: { eq: String(auth!.userId) } })
+    .limit(1)
+    .run()
   if ((!caller || caller.role !== 'admin') && ownerRow?.role !== 'owner') {
     const err = new Error('只有部门管理员可以执行此操作') as Error & { status?: number }
     err.status = 403

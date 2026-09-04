@@ -6,7 +6,7 @@
  * 而是自包含接口：显式列出 handler 实际可用的字段（含框架 postgres 注入的 sql），
  * 配合框架 Router<T extends object>（放开约束后自定义上下文成为一等公民）。
  */
-import type { User, Context, AuthApi } from 'weifuwu'
+import type { User, AuthApi, Orm } from 'weifuwu'
 import type { AiClientModule, MessagerClient, RateLimitInjected } from 'weifuwu'
 import type { AuthPayload } from './auth-payload.ts'
 import type { WorkspaceInfo } from './workspace.ts'
@@ -19,8 +19,8 @@ export interface AppCtx {
   user?: User | null
   loaderData?: Record<string, unknown>
   env?: Record<string, string>
-  /** postgres() 中间件注入（Context['sql'] 由框架 postgres declare 提供） */
-  sql: Context['sql']
+  /** postgres() 中间件注入：声明式 ORM（表绑定/校验/类型——业务唯一数据入口） */
+  orm: Orm
   // ── 自研中间件注入 ──
   /** 框架 user() 注入：AuthApi 方法面 + 会话 payload 字段（userId/appId/email/name/role） */
   auth: AuthApi & AuthPayload

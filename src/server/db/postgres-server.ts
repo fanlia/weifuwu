@@ -233,6 +233,7 @@ export class MemoryPostgresServer implements DBServer {
         // ParameterDescription（'t'）：参数数 + OID（客户端据此发 Bind+Execute+Sync）
         const paramCount = countParams(sql)
         const oids = paramTypesFromSql(sql, paramCount, this.engine)
+        if (process.env.PGDBG) console.error('[pgdbg] parse', JSON.stringify(sql.slice(0, 80)), 'oids=' + JSON.stringify(oids))
         this.statements.set(name, { sql, paramTypes: oids, bindParams: null })
         setParse({ name, sql, paramTypes: oids, bindParams: null })
         sock.write(encodeMessage('1', _encoder.encode(''))) // ParseComplete
@@ -405,7 +406,7 @@ export class MemoryPostgresServer implements DBServer {
       // RowDescription：静态列名 + OID（cast 优先；无 cast 用值推断——常量 SELECT 1 → int）
       const cols = rows.length ? Object.keys(rows[0] as Record<string, unknown>) : extractColumns(sql)
       const oids = cols.map((c) => {
-        const cast = inferOidFromSql(sql, c)
+        const cast = inferOidFromSql(sql, c, this.engine)
         if (cast !== OID.TEXT) return cast
         // 表列类型（CREATE 记忆）——优先于值推断（jsonb 列存对象/字符串都标 jsonb）
         const tbl = /^SELECT\s+.*\s+FROM\s+(\w+)/i.exec(sql)?.[1]
@@ -517,12 +518,22 @@ function paramTypesFromSql(sql: string, count: number, engine?: MemorySql): numb
     if (engine) {
       let colType: string | undefined
       if (insTable) {
-        colType = engine.getColumnTypes(insTable)[i - 1]
+        colType = insertValueColType(sql, insTable, i, engine)
+      } else if (/^UPDATE\s+/i.test(sql)) {
+        // UPDATE：SET col = $n（布尔/数字参数类型转换）；非 SET 参数回退 WHERE 列推断
+        const setMatch = new RegExp(`SET\\s+(\\w+)\\s*=\\s*\\$${i}\\b`, 'i').exec(sql)
+        if (setMatch) colType = engine.getColumnType(/^UPDATE\s+(\w+)/i.exec(sql)![1] as string, setMatch[1])
+        else {
+          const tbl = /^UPDATE\s+(\w+)/i.exec(sql)?.[1]
+          const col = whereParamCol(sql, i)
+          if (tbl && col) colType = engine.getColumnType(tbl, col)
+        }
       } else {
         const tbl = /^SELECT\s+.*\s+FROM\s+(\w+)/i.exec(sql)?.[1]
           ?? /^UPDATE\s+(\w+)/i.exec(sql)?.[1]
           ?? /^DELETE\s+FROM\s+(\w+)/i.exec(sql)?.[1]
-        const col = new RegExp(`WHERE\\s+(\\w+)\\s*=\\s*\\$${i}\\b`, 'i').exec(sql)?.[1]
+        const col = whereParamCol(sql, i)
+        if (process.env.PGDBG) console.error('[pgdbg] infcol', i, 'tbl=' + tbl, 'col=' + col, 'ct=' + (tbl && col ? engine.getColumnType(tbl, col) : 'n/a'))
         if (tbl && col) colType = engine.getColumnType(tbl, col)
       }
       if (colType && !['text', 'varchar'].includes(colType)) { oids.push(typeOid(colType)); continue }
@@ -530,6 +541,18 @@ function paramTypesFromSql(sql: string, count: number, engine?: MemorySql): numb
     oids.push(OID.TEXT)
   }
   return oids
+
+/** INSERT 多行 VALUES 参数列类型：显式列名按行内列模数取模（多行每行同型——
+ *  $1..$n 首行列型即真；第二行起同列偏移仍按首行列型——修复多行参数 TEXT 化
+ *  污点（2027-10 E1 实测：批量 insert 布尔/数值列被当文本入库）） */
+function insertValueColType(sql: string, table: string, i: number, engine: MemorySql): string | undefined {
+  const colList = /^INSERT\s+INTO\s+\w+\s*\(([^)]*)\)/i.exec(sql)?.[1]
+  if (colList) {
+    const cols = colList.split(',').map((c) => c.trim())
+    return engine.getColumnType(table, cols[(i - 1) % cols.length])
+  }
+  return engine.getColumnTypes(table)[i - 1]
+}
 }
 
 function typeOidFromName(t: string): number {
@@ -572,7 +595,24 @@ function extractColumns(sql: string): string[] {
 }
 
 /** 从 SQL cast（::type）推断列 OID */
-function inferOidFromSql(sql: string, col: string): number {
+function inferOidFromSql(sql: string, col: string, engine?: { getColumnType: (t: string, c: string) => string | undefined }): number {
+  // 聚合表达式（COUNT(*) 恒 int8；SUM/MIN/MAX/AVG(col) 随内层列类型——真 PG 语义）——
+  // FILTER 子句可夹在闭括号与 AS 之间（E1 聚合面）；别名精确匹配入参 col
+  const agg = /(COUNT|SUM|MIN|MAX|AVG)\(([^)]*)\)(?:\s+FILTER\s*\(WHERE[^)]*\))?\s+AS\s+(\w+)/gi.exec(sql)
+  if (agg && agg[3] === col) {
+    if (/^count$/i.test(agg[1])) return OID.INT8
+    const inner = agg[2].trim()
+    const tbl = /^SELECT\s+.*\s+FROM\s+(\w+)/i.exec(sql)?.[1]
+    const t = tbl && engine?.getColumnType(tbl, inner)
+    if (t) {
+      if (/int|bigint/i.test(t)) return OID.INT8
+      if (/float|numeric|real|double/i.test(t)) return OID.FLOAT8
+      if (/bool/i.test(t)) return OID.BOOL
+      if (/date/i.test(t)) return OID.DATE
+      if (/json/i.test(t)) return OID.JSONB
+    }
+    return OID.TEXT
+  }
   // 找列对应的 ::type（简化：搜索整个 SQL 中的 ::type）
   const cast = /::(\w+)/gi.exec(sql)
   if (cast) {
@@ -623,3 +663,14 @@ function typeLen(oid: number): number {
     default: return -1 // varlena
   }
 }
+
+/** 目标列提取：`(WHERE|AND|OR) col = $i`（多条件参数——布尔/数字类型转换） */
+function whereParamCol(sql: string, i: number): string | undefined {
+  const re = new RegExp('(?:WHERE|AND|OR)\\s+(\\w+)\\s*=\\s*\\$' + i + '\\b', 'gi')
+  if (process.env.PGDBG) console.error('[pgdbg] whereParamCol re=' + re.source)
+  let m: RegExpExecArray | null
+  let last: string | undefined
+  while ((m = re.exec(sql)) !== null) last = m[1]
+  return last
+}
+

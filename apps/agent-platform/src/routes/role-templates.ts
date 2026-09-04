@@ -200,26 +200,19 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: 'name 为必填' }, { status: 400 })
     }
 
-    const [agent] = await sql`
-      INSERT INTO agents (
-        app_id, type, name, description,
-        model, system_prompt, temperature, max_tokens,
-        workspace_path, allow_file_tools, allow_command_exec,
-        tools, human_in_the_loop, template_slug
-      ) VALUES (
-        ${appId}, 'ai', ${body.name.trim()}, ${body.description ?? template.description},
-        ${body.model ?? template.default_model},
-        ${body.system_prompt ?? template.default_system_prompt},
-        ${body.temperature ?? template.default_temperature},
-        ${body.max_tokens ?? template.default_max_tokens},
-        ${body.workspace_path ?? template.default_workspace_hint ?? null},
-        ${body.allow_file_tools ?? template.default_allow_file_tools},
-        ${body.allow_command_exec ?? template.default_allow_command_exec},
-        ${JSON.stringify((template.default_skills ?? []).map((s: string) => BUILTIN_TOOL_DEFS.find(t => t.function.name === s)).filter(Boolean))},
-        FALSE, ${template.slug}
-      )
-      RETURNING id, name, type, created_at
-    `
+    const [agent] = await ctx.orm.query.insert('agents')
+      .values({
+        app_id: String(appId), type: 'ai', name: body.name.trim(), description: body.description ?? template.description,
+        model: body.model ?? template.default_model, system_prompt: body.system_prompt ?? template.default_system_prompt,
+        temperature: body.temperature ?? template.default_temperature, max_tokens: body.max_tokens ?? template.default_max_tokens,
+        workspace_path: body.workspace_path ?? template.default_workspace_hint ?? null,
+        allow_file_tools: body.allow_file_tools ?? template.default_allow_file_tools,
+        allow_command_exec: body.allow_command_exec ?? template.default_allow_command_exec,
+        tools: (template.default_skills ?? []).map((s: string) => BUILTIN_TOOL_DEFS.find(t => t.function.name === s)).filter(Boolean),
+        human_in_the_loop: false, template_slug: template.slug,
+      })
+      .returning('id', 'name', 'type', 'created_at')
+      .run()
 
     // 使用计数（内存递增——运营展示）
     template.usage_count = (template.usage_count ?? 0) + 1
@@ -233,11 +226,10 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
         const __dirname = dirname(fileURLToPath(import.meta.url))
         const skillDir = resolve(__dirname, '..', '..', 'skills', 'builtin', skillName)
 
-        await sql`
-          INSERT INTO agent_skills (agent_id, skill_name, skill_dir)
-          VALUES (${agent.id}, ${skillName}, ${skillDir})
-          ON CONFLICT (agent_id, skill_name) DO NOTHING
-        `
+        await ctx.orm.query.insert('agent_skills')
+          .values({ agent_id: String(agent.id), skill_name: skillName, skill_dir: skillDir })
+          .onConflict(['agent_id', 'skill_name'])
+          .run()
       } catch {
         console.warn(`[role-templates] 绑定技能 ${skillName} 失败`)
       }

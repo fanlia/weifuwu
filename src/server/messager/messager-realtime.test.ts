@@ -10,7 +10,9 @@
 import { describe, it, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { MemoryRedis } from '../db/memory-redis.ts'
-import { createMemorySql } from '../db/memory-sql.ts'
+import { MemorySql } from '../db/memory-sql.ts'
+import { createOrm, memoryAdapter } from '../db/orm.ts'
+import { WEIFUWU_MESSAGER_SCHEMA } from '../messager/index.ts'
 import { messager } from './index.ts'
 
 const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms))
@@ -28,13 +30,14 @@ function fakeWs() {
 const parse = (s: string) => JSON.parse(s) as Record<string, unknown>
 
 describe('messager realtime（P2——协议/广播/鉴权）', () => {
-  const db = createMemorySql()
+  const memSql = new MemorySql()
+  const db = createOrm(memoryAdapter(memSql))
+  memSql.applySchema(WEIFUWU_MESSAGER_SCHEMA)
   const redis = new MemoryRedis()
-  const system = messager({ sql: db, redis: redis as any })
+  const system = messager({ orm: db, redis: redis as any })
   after(async () => {
     await system.client.close()
     await (redis as any).close?.()
-    await db.close()
   })
 
   it('subscribe 协议：connected / ping→pong / subscribe→subscribed / unsubscribe / 畸形消息忽略', async () => {
@@ -67,9 +70,9 @@ describe('messager realtime（P2——协议/广播/鉴权）', () => {
   })
 
   it('Redis 跨进程：A 广播 → B 实例（同 Redis）收到；A 自身不双发（环回 _pid 跳过）', async () => {
-    const dbB = createMemorySql()
-    const systemB = messager({ sql: dbB, redis: redis as any })
-    await systemB.migrate()
+    const dbB = createOrm(memoryAdapter(new MemorySql()))
+    const systemB = messager({ orm: dbB, redis: redis as any })
+    // 建表由 applySchema 完成
     await tick() // 等 B 的 psubscribe 注册（connect().then 微任务）
     const hA = system.client.handler()
     const hB = systemB.client.handler()
@@ -83,7 +86,6 @@ describe('messager realtime（P2——协议/广播/鉴权）', () => {
     assert.equal(wsA.sent.filter((s) => s.includes('new_message')).length, 1, 'A 本地一次（Redis 环回跳过——防双发/乱序）')
     assert.equal(wsB.sent.filter((s) => s.includes('new_message')).length, 1, 'B 经 Redis 收一次')
     await systemB.client.close()
-    await dbB.close()
   })
 
   it('M6 畸形 Redis 消息：publish 垃圾到 wf:msg:* → 回调不崩；随后合法事件仍送达', async () => {

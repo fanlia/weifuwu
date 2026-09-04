@@ -17,13 +17,13 @@ export interface AuditEntry {
 /** 写入审计日志（尽力——失败不影响主流程） */
 export async function writeAudit(ctx: AppCtx, entry: AuditEntry): Promise<void> {
   try {
-    const { sql } = ctx
-    await sql`
-      INSERT INTO audit_logs (app_id, user_id, action, target_type, target_id, detail)
-      VALUES (${ctx.appId}, ${ctx.user?.id ?? null}, ${entry.action},
-        ${entry.target_type ?? null}, ${entry.target_id ?? null},
-        ${entry.detail ? JSON.stringify(entry.detail) : null})
-    `
+    await ctx.orm.query.insert('audit_logs')
+      .values({
+        app_id: String(ctx.appId), user_id: ctx.user?.id ?? null,
+        action: entry.action, target_type: entry.target_type ?? null,
+        target_id: entry.target_id ?? null, detail: entry.detail ?? null,
+      })
+      .run()
   } catch {
     /* 审计失败不影响主流程 */
   }
@@ -31,20 +31,22 @@ export async function writeAudit(ctx: AppCtx, entry: AuditEntry): Promise<void> 
 
 /** 查询审计日志（本租户，分页——action/时间范围筛选（C3）） */
 export async function listAudit(ctx: AppCtx, opts: { limit?: number; offset?: number; action?: string; from?: string; to?: string }): Promise<{ entries: any[]; total: number }> {
-  const { sql } = ctx
+  const orm = ctx.orm
   const limit = Math.min(opts.limit ?? 50, 100)
   const offset = opts.offset ?? 0
-  const whereAction = opts.action ? sql`AND action = ${opts.action}` : sql``
-  const whereFrom = opts.from ? sql`AND created_at >= ${opts.from}::timestamptz` : sql``
-  const whereTo = opts.to ? sql`AND created_at <= ${opts.to}::timestamptz` : sql``
-  const rows = await sql`
-    SELECT action, target_type, target_id, detail, created_at,
-      COALESCE((SELECT name FROM _weifuwu_users u WHERE u.id = a.user_id), 'system') AS user_name
-    FROM audit_logs a
-    WHERE app_id = ${ctx.appId} ${whereAction} ${whereFrom} ${whereTo}
-    ORDER BY created_at DESC
-    LIMIT ${limit} OFFSET ${offset}
-  `
-  const [countRow] = await sql`SELECT COUNT(*)::int AS total FROM audit_logs WHERE app_id = ${ctx.appId} ${whereAction} ${whereFrom} ${whereTo}`
-  return { entries: rows ?? [], total: Number((countRow as any)?.total ?? 0) }
+  // orm-pg-subquery 判负修订（2027-xx）：user_name 标量子查询 → 主查+用户组查 Map 合并
+  const baseWhere: import('weifuwu').WhereExpr = {
+    app_id: { eq: String(ctx.appId) },
+    ...(opts.action ? { action: { eq: opts.action } } : {}),
+    ...(opts.from ? { created_at: { gte: opts.from } } : {}),
+    ...(opts.to ? { created_at: { lte: opts.to } } : {}),
+  }
+  const rows = await orm.query.from('audit_logs').select('user_id', 'action', 'target_type', 'target_id', 'detail', 'created_at')
+    .where(baseWhere).orderBy('created_at', 'desc').limit(limit).offset(offset).run()
+  const userIds = [...new Set(rows.map((r) => r.user_id ? String(r.user_id) : '').filter(Boolean))]
+  const urows = userIds.length ? await orm.query.from('_weifuwu_users').select('id', 'name').where({ id: { in: userIds } }).run() : []
+  const uMap = new Map(urows.map((u) => [String(u.id), String(u.name ?? '')]))
+  const entries = (rows ?? []).map((r) => ({ ...r, user_name: r.user_id ? (uMap.get(String(r.user_id)) ?? 'system') : 'system' }))
+  const [countRow] = await orm.query.from('audit_logs').count('*', 'total').where(baseWhere).run()
+  return { entries: entries as any[], total: Number((countRow as any)?.total ?? 0) }
 }

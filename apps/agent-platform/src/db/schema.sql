@@ -62,7 +62,12 @@ CREATE TABLE IF NOT EXISTS agents (
   -- 公共
   is_active   BOOLEAN NOT NULL DEFAULT TRUE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  -- 增量列（原 server.ts 运行时 ALTER——并入单源；老库幂等 shim 保留）
+  webhook_platform TEXT NOT NULL DEFAULT 'generic', -- G9 Webhook 平台（generic/feishu）
+  risk_policy      TEXT NOT NULL DEFAULT 'auto',    -- C2 审批模式（auto/strict/off）
+  light_model      TEXT                             -- C5 轻量模型（内部调用路由）
 );
 
 CREATE INDEX IF NOT EXISTS idx_agents_app ON agents(app_id);
@@ -108,6 +113,8 @@ CREATE TABLE IF NOT EXISTS messages (
   reply_to      UUID REFERENCES messages(id) ON DELETE SET NULL,
   attachments   JSONB,                        -- [{name, path, size, ext}]（P1-3 聊天附件）
   routed_to     TEXT,                         -- O8 意图路由：本消息由语义路由派给的目标 Agent 名（null=未路由/直发）
+  feedback      TEXT,                         -- R6 质量闭环：like/dislike（AI 回复点踩）
+  quick_replies JSONB,                        -- CHAT-INTERACTION 波次 2：快捷确认选项
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -408,3 +415,22 @@ CREATE TABLE IF NOT EXISTS survey_campaign_runs (
   error       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_survey_runs_campaign ON survey_campaign_runs(campaign_id, status);
+
+-- ── 视频生成任务（video-gen.ts runtime DDL——并入单源；老库幂等 shim 保留） ──
+
+CREATE TABLE IF NOT EXISTS video_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  app_id UUID NOT NULL,
+  department_id UUID,
+  agent_id UUID,
+  task_id TEXT NOT NULL,
+  prompt TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  filename TEXT NOT NULL,
+  path TEXT,
+  error TEXT,
+  params JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_video_tasks_task ON video_tasks(task_id);

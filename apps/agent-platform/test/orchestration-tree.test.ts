@@ -46,7 +46,7 @@ before(async () => {
     (${WORKER_B}, ${APP_ID}, 'ai', '客服', '你是客服专员')`
 
   ctx = {
-    sql: pg.sql,
+    sql: pg.sql, orm: (pg as any).orm,
     appId: APP_ID,
     ai: {
       agent: (config: any) => {
@@ -148,7 +148,7 @@ describe('O12: 编排审计端点', () => {
     registerStatsRoutes(app as any)
     const h = handlers.get('GET /api/stats/runs')
     assert.ok(h, '端点注册')
-    const res = await h!(new Request('http://localhost/api/stats/runs?limit=5'), { sql: pg.sql, appId: APP_ID })
+    const res = await h!(new Request('http://localhost/api/stats/runs?limit=5'), { sql: pg.sql, orm: (pg as any).orm, appId: APP_ID })
     assert.equal(res.status, 200)
     const { runs } = await res.json()
     assert.ok(Array.isArray(runs), 'runs 数组')

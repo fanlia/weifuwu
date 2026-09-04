@@ -54,12 +54,12 @@ export interface KbSearchResult {
  * @returns 状态 + 结果/提示——调用方直接返回字符串给 AI
  */
 export async function searchKnowledgeBase(
-  ctx: Context & { appId: string },
+  ctx: (Context & { appId: string }) & { orm?: any },
   query: string,
   topK = 5,
   agentId?: string | null,
 ): Promise<string> {
-  const sql = ctx.sql
+  const orm = ctx.orm
   if (!query) return '请提供搜索关键词'
 
   // 绑定知识库优先（agent.kb_id → 只检索绑定 KB；未绑定 → 检索租户全部）
@@ -67,12 +67,12 @@ export async function searchKnowledgeBase(
   let kbs: Array<{ id: string; name: string }> = []
   if (agentId) {
     try {
-      const [agent] = await sql`
-        SELECT a.kb_id, kb.name as kb_name
-        FROM agents a
-        LEFT JOIN agents kb ON kb.id = a.kb_id AND kb.type = 'knowledge_base' AND kb.is_active = TRUE
-        WHERE a.id = ${agentId} AND a.app_id = ${ctx.appId}
-      `
+      const [agent] = await orm.query.from('agents a')
+        .join('agents kb', { 'kb.id': { col: 'a.kb_id' } }, { type: 'left' })
+        .select('a.kb_id', 'kb.name as kb_name')
+        .where({ 'a.id': agentId, 'a.app_id': String(ctx.appId) })
+        .limit(1)
+        .run()
       if ((agent as any)?.kb_id && (agent as any).kb_name) {
         kbs = [{ id: (agent as any).kb_id, name: (agent as any).kb_name }]
       }
@@ -80,11 +80,11 @@ export async function searchKnowledgeBase(
   }
   if (kbs.length === 0) {
     try {
-      const rows = await sql`
-        SELECT id, name FROM agents
-        WHERE app_id = ${ctx.appId} AND type = 'knowledge_base' AND is_active = TRUE
-        LIMIT 5
-      `
+      const rows = await orm.query.from('agents')
+        .select('id', 'name')
+        .where({ app_id: String(ctx.appId), type: 'knowledge_base', is_active: true })
+        .limit(5)
+        .run()
       kbs = rows as unknown as Array<{ id: string; name: string }>
     } catch { /* 查询失败——无 KB */ }
   }
@@ -103,16 +103,14 @@ export async function searchKnowledgeBase(
   for (const kb of kbs) {
     let chunks: Array<Record<string, any>>
     try {
-      const vecStr = `[${queryVec.join(',')}]`
-      chunks = await sql`
-        SELECT kc.content, kd.filename, kc.embedding,
-          1 - (kc.embedding <=> ${vecStr}::vector) as similarity
-        FROM kb_chunks kc
-        JOIN kb_documents kd ON kd.id = kc.document_id
-        WHERE kc.agent_id = ${kb.id}
-        ORDER BY kc.embedding <=> ${vecStr}::vector
-        LIMIT 3
-      ` as unknown as Array<Record<string, any>>
+      // orm-pg-vector 判负修订：vectorScore 特化（同 embedding.service）
+      chunks = await orm.query.from('kb_chunks kc')
+        .join('kb_documents kd', { 'kd.id': { col: 'kc.document_id' } })
+        .select('kc.content', 'kd.filename', 'kc.embedding')
+        .vectorScore('kc.embedding', queryVec, 'similarity')
+        .where({ 'kc.agent_id': { eq: String(kb.id) } })
+        .limit(3)
+        .run()
     } catch {
       continue // 单 KB 查询失败——跳过（其他 KB 可继续）
     }

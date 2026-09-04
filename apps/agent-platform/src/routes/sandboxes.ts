@@ -31,20 +31,18 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
   // ── 列表（租户隔离 + 部门名 join + 容器实际状态） ─────────
 
   app.get('/api/sandboxes', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId } = ctx
+    const { sql, orm, appId } = ctx
     const url = new URL(req.url)
     const status = url.searchParams.get('status') ?? undefined
     const departmentId = url.searchParams.get('department_id') ?? undefined
     const { manager } = await import('../sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     const rows = await manager.list(String(appId), { status, department_id: departmentId })
     // 部门名 join（显示用）
     const deptIds = rows.map(r => r.department_id).filter(Boolean) as string[]
     const deptMap = new Map<string, string>()
     if (deptIds.length > 0) {
-      const depts = await sql`
-        SELECT id, name FROM departments WHERE id = ANY(string_to_array(${deptIds.join(',')}, ',')::uuid[])
-      ` as any[]
+      const depts = await orm.query.from('departments').select('id', 'name').where({ id: { in: deptIds } }).run()
       for (const d of depts ?? []) deptMap.set(String(d.id), String(d.name ?? d.id))
     }
     // 容器实际状态（运行/停止——列表一次查询）
@@ -60,7 +58,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
       runningExec: sandbox.runningExecs.get(String(r.id)) ?? null,
     }))
     // M5-1 配额用量（per-app）：used/limit + 压力（≥80% 黄条）
-    const [q] = await sql`SELECT sandbox_quota FROM _weifuwu_apps WHERE id = ${appId}`
+    const [q] = await orm.query.from('_weifuwu_apps').select('sandbox_quota').where({ id: { eq: String(appId) } }).limit(1).run()
     const quotaLimit = Number(q?.sandbox_quota ?? 5)
     const usedCount = items.filter(i => i.status !== 'terminated').length
     return Response.json({
@@ -79,7 +77,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
   app.post('/api/sandboxes', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const perm = requireManager(ctx)
     if (!perm.ok) return Response.json({ error: perm.error }, { status: perm.status ?? 403 })
-    const { sql, appId } = ctx
+    const { sql, orm, appId } = ctx
     const body = await req.json().catch(() => ({})) as {
       department_id?: string
       name?: string
@@ -92,9 +90,11 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     let deptName = body.name
     let wsPath: string | null = null
     if (body.department_id) {
-      const [dept] = await sql`
-        SELECT id, name, is_dm, workspace_path FROM departments WHERE id = ${body.department_id} AND app_id = ${appId}
-      `
+      const [dept] = await orm.query.from('departments')
+        .select('id', 'name', 'is_dm', 'workspace_path')
+        .where({ id: { eq: body.department_id }, app_id: { eq: String(appId) } })
+        .limit(1)
+        .run()
       if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
       deptName = deptName ?? String(dept.name ?? '工作环境')
       // 三层模型：部门 = 工作目录——手动创建沙盒挂载部门目录（默认 {root}/{id}）
@@ -104,7 +104,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
       } catch { wsPath = null }
     }
     const { manager } = await import('../sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     try {
       const row = await manager.create({
         appId: String(appId),
@@ -146,9 +146,9 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
   })
 
   app.get('/api/sandboxes/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { sql, orm, appId, params } = ctx
     const { manager } = await import('../sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     const row = await manager.get(String(params.id), String(appId))
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
     // 容器实际状态 + 资源
@@ -170,10 +170,10 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
   app.patch('/api/sandboxes/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const perm = requireManager(ctx)
     if (!perm.ok) return Response.json({ error: perm.error }, { status: perm.status ?? 403 })
-    const { sql, appId, params } = ctx
+    const { sql, orm, appId, params } = ctx
     const body = await req.json().catch(() => ({})) as { image?: string; network?: boolean; memory_mb?: number; cpus?: number }
     const { manager } = await import('../sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     const row = await manager.get(String(params.id), String(appId))
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
     await manager.updateConfig(String(row.id), String(appId), {
@@ -188,13 +188,13 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
   app.post('/api/sandboxes/:id/:action', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const perm = requireManager(ctx)
     if (!perm.ok) return Response.json({ error: perm.error }, { status: perm.status ?? 403 })
-    const { sql, appId, params } = ctx
+    const { sql, orm, appId, params } = ctx
     const action = params.action as 'start' | 'stop' | 'restart' | 'terminate'
     if (!['start', 'stop', 'restart', 'terminate'].includes(action)) {
       return Response.json({ error: '不支持的 action' }, { status: 400 })
     }
     const { manager } = await import('../sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     const id = String(params.id)
     const row = await manager.get(id, String(appId))
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
@@ -216,9 +216,9 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
 
   // ── 诊断（2026-12 可观测性：生命周期事件 + 运行中 exec + 容器进程——debug 卡住场景） ──
   app.get('/api/sandboxes/:id/debug', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { sql, orm, appId, params } = ctx
     const { manager } = await import('../sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     const row = await manager.get(String(params.id), String(appId))
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
     const { sandbox } = await import('../sandbox/docker.ts')
@@ -240,9 +240,9 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
   // ── 容器内进程 / 资源（管理面） ─────────────────────────
 
   app.get('/api/sandboxes/:id/processes', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { sql, orm, appId, params } = ctx
     const { manager } = await import('../sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     const row = await manager.get(String(params.id), String(appId))
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
     const { sandbox } = await import('../sandbox/docker.ts')
@@ -251,9 +251,9 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
   })
 
   app.get('/api/sandboxes/:id/stats', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { sql, orm, appId, params } = ctx
     const { manager } = await import('../sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     const row = await manager.get(String(params.id), String(appId))
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
     const { sandbox } = await import('../sandbox/docker.ts')

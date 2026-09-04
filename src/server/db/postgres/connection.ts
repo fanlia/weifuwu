@@ -514,6 +514,7 @@ export class PgConnection implements PostgresPoolConnection {
           resolve,
           reject,
         }
+        if (process.env.PGDBG2) console.error('[cquery]', JSON.stringify(sql.slice(0, 120)))
         this.socket.write(queryMessage(sql))
       } else {
         // 扩展查询：预处理语句缓存（首次 Parse+Describe，后续直接 Bind+Execute）

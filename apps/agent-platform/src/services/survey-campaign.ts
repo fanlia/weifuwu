@@ -13,6 +13,9 @@
  */
 
 import type { AppCtx } from '../middleware/ctx.ts'
+import { ops } from 'weifuwu'
+import type { Orm } from 'weifuwu'
+import { tables } from '../db/orm.ts'
 
 export interface CampaignRow {
   id: string
@@ -109,7 +112,7 @@ export interface CreateCampaignBody {
 
 /** 创建 campaign：选角色（rolePrefix 取 N）→ 建行 → 启动调度循环 */
 export async function createCampaign(ctx: AppCtx, body: CreateCampaignBody): Promise<{ campaign: CampaignRow; runs: RunRow[] }> {
-  const sql = ctx.sql
+  const orm = ctx.orm
   const appId = ctx.appId
   const total = Math.max(1, Number(body.total ?? 0) || 10)
   const concurrency = clampConcurrency(Number(body.concurrency ?? 0))
@@ -117,30 +120,28 @@ export async function createCampaign(ctx: AppCtx, body: CreateCampaignBody): Pro
   const prefix = body.rolePrefix ?? '问卷-'
 
   // 角色池：rolePrefix 前缀的 ai agent（有角色部门——独立沙盒）
-  const agents = await sql`
-    SELECT id, name, department_id FROM agents
-    WHERE app_id = ${appId} AND type = 'ai' AND is_active
-      AND name LIKE ${prefix + '%'} AND department_id IS NOT NULL
-    ORDER BY name
-  `
+  const agents = await orm.query.from('agents')
+    .select('id', 'name', 'department_id')
+    .where({ app_id: { eq: String(appId) }, type: { eq: 'ai' }, is_active: { eq: true }, name: { like: prefix + '%' }, department_id: { ne: null } })
+    .orderBy('name', 'asc')
+    .run()
   const pool = (agents ?? []).filter((a: any) => !(body.excludeNames ?? []).includes(String(a.name)))
   if (pool.length === 0) {
     throw new Error(`未找到问卷角色（rolePrefix=${prefix}）——先跑 seed-survey-agents.mjs`)
   }
   const chosen = pool.slice(0, total)
 
-  const [campaign] = await sql`
-    INSERT INTO survey_campaigns (app_id, total, concurrency, url, retry, status)
-    VALUES (${appId}, ${chosen.length}, ${concurrency}, ${body.url ?? ''}, ${retry}, 'running')
-    RETURNING *
-  `
+  const T = tables(orm)
+  const [campaign] = await T.survey_campaigns
+    .insert({ app_id: String(appId), total: chosen.length, concurrency, url: body.url ?? '', retry, status: 'running' })
+    .returning('*')
+    .run()
   const rows: RunRow[] = []
   for (const a of chosen as any[]) {
-    const [run] = await sql`
-      INSERT INTO survey_campaign_runs (campaign_id, agent_id, agent_name, dept_id, status)
-      VALUES (${String((campaign as any).id)}, ${a.id}, ${a.name}, ${a.department_id}, 'queued')
-      RETURNING *
-    `
+    const [run] = await T.survey_campaign_runs
+      .insert({ campaign_id: String((campaign as any).id), agent_id: String(a.id), agent_name: String(a.name), dept_id: String(a.department_id), status: 'queued' })
+      .returning('*')
+      .run()
     rows.push(run as unknown as RunRow)
   }
 
@@ -151,40 +152,49 @@ export async function createCampaign(ctx: AppCtx, body: CreateCampaignBody): Pro
 }
 
 export async function getCampaign(ctx: AppCtx, id: string): Promise<{ campaign: CampaignRow; runs: RunRow[] } | null> {
-  const [campaign] = await ctx.sql`SELECT * FROM survey_campaigns WHERE id = ${id} AND app_id = ${ctx.appId}`
+  const T = tables(ctx.orm)
+  const [campaign] = await T.survey_campaigns.select().where({ id: { eq: String(id) }, app_id: { eq: String(ctx.appId) } }).limit(1).run()
   if (!campaign) return null
-  const runs = (await ctx.sql`SELECT * FROM survey_campaign_runs WHERE campaign_id = ${id} ORDER BY agent_name`) as unknown as RunRow[]
+  const runs = (await T.survey_campaign_runs
+    .select()
+    .where({ campaign_id: { eq: id }})
+    .orderBy('agent_name', 'asc')
+    .run()) as unknown as RunRow[]
   return { campaign: campaign as unknown as CampaignRow, runs: runs ?? [] }
 }
 
 /** 失败重跑：failed（重试耗尽）→ queued（attempts 清零——重新开始） */
 export async function retryCampaign(ctx: AppCtx, id: string): Promise<void> {
-  const [campaign] = await ctx.sql`SELECT * FROM survey_campaigns WHERE id = ${id} AND app_id = ${ctx.appId}`
+  const T = tables(ctx.orm)
+  const [campaign] = await T.survey_campaigns.select().where({ id: { eq: String(id) }, app_id: { eq: String(ctx.appId) } }).limit(1).run()
   if (!campaign) throw new Error('campaign 不存在')
   if (campaign.status !== 'done' && campaign.status !== 'failed' && campaign.status !== 'interrupted') {
     throw new Error(`campaign 状态 ${campaign.status}——仅 done/failed/interrupted 可重跑`)
   }
-  await ctx.sql`
-    UPDATE survey_campaign_runs SET status = 'queued', attempts = 0, error = NULL,
-      started_at = NULL, finished_at = NULL
-    WHERE campaign_id = ${id} AND status = 'failed'
-  `
+  await T.survey_campaign_runs
+    .update({ status: 'queued', attempts: 0, error: null, started_at: null, finished_at: null })
+    .where({ campaign_id: { eq: id }, status: { eq: 'failed' } })
+    .run()
   // completed 重统计（2027-09 实证——S7b 恢复时 done 计数丢失：retry 零置后
   // 30 个 done run 不计入 → isFinished 永不触发 → campaign 永不完成）
-  await ctx.sql`UPDATE survey_campaigns SET status = 'running',
-    completed = (SELECT COUNT(*)::int FROM survey_campaign_runs WHERE campaign_id = ${id} AND status = 'done'),
-    failed = 0, updated_at = NOW() WHERE id = ${id}`
+  const [doneCnt] = await ctx.orm.query.from('survey_campaign_runs').count('*', 'n').where({ campaign_id: { eq: id }, status: { eq: 'done' } }).run()
+  await T.survey_campaigns
+    .update({ status: 'running', completed: Number((doneCnt as any)?.n ?? 0), failed: 0, updated_at: ops.now() })
+    .where({ id: { eq: String(id) } })
+    .run()
   startCampaignLoop(ctx, id)
 }
 
 export async function cancelCampaign(ctx: AppCtx, id: string): Promise<void> {
-  const [campaign] = await ctx.sql`SELECT * FROM survey_campaigns WHERE id = ${id} AND app_id = ${ctx.appId}`
+  const T = tables(ctx.orm)
+  const [campaign] = await T.survey_campaigns.select().where({ id: { eq: String(id) }, app_id: { eq: String(ctx.appId) } }).limit(1).run()
   if (!campaign) throw new Error('campaign 不存在')
   if (campaign.status === 'done' || campaign.status === 'cancelled') throw new Error(`campaign 已${campaign.status}`)
-  await ctx.sql`
-    UPDATE survey_campaign_runs SET status = 'cancelled' WHERE campaign_id = ${id} AND status IN ('queued', 'running')
-  `
-  await ctx.sql`UPDATE survey_campaigns SET status = 'cancelled', updated_at = NOW() WHERE id = ${id}`
+  await T.survey_campaign_runs
+    .update({ status: 'cancelled' })
+    .where({ campaign_id: { eq: String(id) }, status: { in: ['queued', 'running'] } })
+    .run()
+  await T.survey_campaigns.update({ status: 'cancelled', updated_at: ops.now() }).where({ id: { eq: String(id) } }).run()
 }
 
 /** 完成/失败/重派即回收角色沙盒（延迟——LLM 尾部 write/回复仍在流）
@@ -192,13 +202,17 @@ export async function cancelCampaign(ctx: AppCtx, id: string): Promise<void> {
  *  的容器等 idle 回收要 10min——期间占满 quota=20 → 新角色创建被拒「配额已满」
  *  → run 工具失败级联（问卷场景并发闸=配额闸——slot 释放不足 = 调度死锁）
  *  延迟语义：done 60s（LLM 还差 write+收尾回复）；failed/requeue 30s（已超时——业务面已终结） */
-function releaseDeptSandbox(sql: any, deptId: string, delayMs: number): void {
+function releaseDeptSandbox(orm: Orm, deptId: string, delayMs: number): void {
   const timer = setTimeout(() => {
     void (async () => {
       try {
         const { manager } = await import('../sandbox/manager.ts')
-        const [sb] = await sql`SELECT id, app_id FROM sandboxes WHERE department_id = ${deptId} AND status = 'running'`
-        if (sb) await manager.stop(String(sb.id), String(sb.app_id)).catch(() => {})
+        const [sb] = await orm.query.from('sandboxes')
+          .select('id', 'app_id')
+          .where({ department_id: { eq: deptId }, status: { eq: 'running' } })
+          .limit(1)
+          .run()
+        if (sb) await manager.stop(String((sb as any).id), String((sb as any).app_id)).catch(() => {})
       } catch { /* 回收失败不阻断——idle 回收兜底 */ }
     })()
   }, delayMs)
@@ -244,10 +258,11 @@ export async function tickOnce(ctx: AppCtx, campaignId: string): Promise<boolean
   }
 }
 async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> {
-  const sql = ctx.sql
+  const orm = ctx.orm
+  const T = tables(orm)
   let campaign: any = null
   try {
-    ;[campaign] = await sql`SELECT * FROM survey_campaigns WHERE id = ${campaignId}`
+    ;[campaign] = await T.survey_campaigns.select().where({ id: { eq: campaignId }}).limit(1).run()
   } catch (e: any) {
     console.error(`[campaign ${campaignId}] phase① campaign 查询失败（campaignId=${JSON.stringify(campaignId)} type=${typeof campaignId}）:`, e?.message ?? e)
     throw e
@@ -259,7 +274,7 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
 
   let runsRaw: any[] = []
   try {
-    runsRaw = (await sql`SELECT * FROM survey_campaign_runs WHERE campaign_id = ${campaignId}`) ?? []
+    runsRaw = (await T.survey_campaign_runs.select().where({ campaign_id: { eq: campaignId }}).run()) ?? []
   } catch (e: any) {
     console.error(`[campaign ${campaignId}] phase① runs 查询失败:`, e?.message ?? e)
     throw e
@@ -280,15 +295,22 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
     // 完成 = survey_submissions 有该角色提交（campaign_id + source 反查已生效）
     let sub: any = null
     try {
-      sub = (await sql`SELECT 1 FROM survey_submissions WHERE campaign_id = ${campaignId} AND source = ${r.agent_name} LIMIT 1`)[0]
+      sub = (await T.survey_submissions
+        .select('campaign_id')
+        .where({ campaign_id: { eq: campaignId }, source: { eq: r.agent_name }})
+        .limit(1)
+        .run())[0]
     } catch (e: any) {
       console.error(`[campaign ${campaignId}] 完成扫描 SQL 失败（agent=${r.agent_name}）:`, e?.message ?? e)
       throw e
     }
     if (sub) {
-      await sql`UPDATE survey_campaign_runs SET status = 'done', finished_at = NOW(), error = NULL WHERE id = ${r.id}`
+      await T.survey_campaign_runs
+        .update({ status: 'done', finished_at: ops.now(), error: null })
+        .where({ id: { eq: String(r.id) } })
+        .run()
       completed++
-      releaseDeptSandbox(sql, r.dept_id, 60_000) // 完成即回收（延迟 60s——LLM 尾部 write/回复仍在流）
+      releaseDeptSandbox(orm, r.dept_id, 60_000) // 完成即回收（延迟 60s——LLM 尾部 write/回复仍在流）
     }
   }
 
@@ -297,9 +319,14 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
   const retryMax = Number(campaign.retry ?? DEFAULT_RETRY)
   const { requeue, failed } = tickTimeouts(runs, retryMax, timeoutMs)
   for (const r of requeue) {
-    try { await sql`UPDATE survey_campaign_runs SET status = 'queued', attempts = attempts + 1, started_at = NULL WHERE id = ${r.id}` }
+    try {
+      await T.survey_campaign_runs
+        .update({ status: 'queued', attempts: Number(r.attempts ?? 0) + 1, started_at: null })
+        .where({ id: { eq: String(r.id) } })
+        .run()
+    }
     catch (e: any) { console.error(`[campaign ${campaignId}] phase② requeue 失败（run=${r.id}）:`, e?.message ?? e); throw e }
-    releaseDeptSandbox(sql, r.dept_id, 30_000)
+    releaseDeptSandbox(orm, r.dept_id, 30_000)
   }
   for (const r of failed) {
     try {
@@ -307,11 +334,14 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
       // postgres.js 当作绑定参数——位于单引号内 → 服务器无法推断 $1 类型 →
       // could not determine data type of parameter $1——tick 每轮失败）
       const errMsg = `超时（${Math.round(timeoutMs / 1000)}s 未完成）`
-      await sql`UPDATE survey_campaign_runs SET status = 'failed', finished_at = NOW(), error = ${errMsg} WHERE id = ${r.id}`
+      await T.survey_campaign_runs
+        .update({ status: 'failed', finished_at: ops.now(), error: errMsg })
+        .where({ id: { eq: String(r.id) } })
+        .run()
     }
     catch (e: any) { console.error(`[campaign ${campaignId}] phase② failed 标记失败（run=${r.id}）:`, e?.message ?? e); throw e }
     failedCount++
-    releaseDeptSandbox(sql, r.dept_id, 30_000)
+    releaseDeptSandbox(orm, r.dept_id, 30_000)
   }
 
   // ── ②.5 任务级生命周期豁免（P1-1——2027-09 实证：LLM 思考间隙
@@ -319,18 +349,30 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
   //    → 容器 stop → 角色工具调用失败级联（在线 7 容器全 Exited 铁证）——
   //    tick 每轮刷新 running 角色沙盒 last_used_at（一条 SELECT 子查询——
   //    campaign 期间角色容器恒活跃——治愈 idle 回收）──
-  await sql`UPDATE sandboxes SET last_used_at = NOW()
-    WHERE status = 'running' AND department_id IN (
-      SELECT department_id FROM survey_campaign_runs WHERE campaign_id = ${campaignId} AND status = 'running'
-    )`.catch(() => {})
+  try {
+    const deptRows = await T.survey_campaign_runs
+      .select('dept_id')
+      .where({ campaign_id: { eq: campaignId }, status: { eq: 'running' } })
+      .run()
+    if (deptRows.length > 0) {
+      await orm.query.update('sandboxes')
+        .set({ last_used_at: ops.now() })
+        .where({ status: { eq: 'running' }, department_id: { in: deptRows.map((d: any) => String(d.dept_id)) } })
+        .run()
+    }
+  } catch { /* 豁免刷新失败不阻断 tick */ }
 
   // ── ③ 水位补派 ──
-  const freshRuns = ((await sql`SELECT * FROM survey_campaign_runs WHERE campaign_id = ${campaignId}`) ?? []) as unknown as RunRow[]
+  const freshRuns = ((await T.survey_campaign_runs.select().where({ campaign_id: { eq: campaignId }}).run()) ?? []) as unknown as RunRow[]
   const toDispatch = pickToDispatch(freshRuns, Number(campaign.concurrency))
   if (toDispatch.length > 0) {
     let sender: any = null
     try {
-      ;[sender] = await sql`SELECT id FROM agents WHERE app_id = ${ctx.appId} AND type = 'user' ORDER BY created_at LIMIT 1`
+      ;[sender] = await T.agents.select('id')
+        .where({ app_id: { eq: String(ctx.appId) }, type: { eq: 'user' } })
+        .orderBy('created_at', 'asc')
+        .limit(1)
+        .run()
     } catch (e: any) {
       console.error(`[campaign ${campaignId}] 派单 sender 查询失败:`, e?.message ?? e)
       throw e
@@ -366,20 +408,31 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
           await handleNewMessageStream(ctx, r.dept_id, senderId, content, `campaign-${campaignId}-${r.agent_id}`)
         } catch (e: any) {
           console.error(`[campaign ${campaignId}] 派单失败 ${r.agent_name}:`, e?.message ?? e)
-          await sql`UPDATE survey_campaign_runs SET status = 'failed', finished_at = NOW(), error = ${String(e?.message ?? '派单失败').slice(0, 300)} WHERE id = ${r.id}`.catch(() => {})
+          await T.survey_campaign_runs
+            .update({ status: 'failed', finished_at: ops.now(), error: String(e?.message ?? '派单失败').slice(0, 300) })
+            .where({ id: { eq: String(r.id) } })
+            .run()
+            .catch(() => {})
         }
       })()
-      try { await sql`UPDATE survey_campaign_runs SET status = 'running', started_at = NOW() WHERE id = ${r.id}` }
+      try { await T.survey_campaign_runs.update({ status: 'running', started_at: ops.now() }).where({ id: { eq: String(r.id) } }).run() }
       catch (e: any) { console.error(`[campaign ${campaignId}] phase③ 标 running 失败（run=${r.id}）:`, e?.message ?? e); throw e }
     }
   }
 
   // ── ④ 终止判定 + 批收尾（S4——2027-09——campaign 完成 → 角色容器批量 stop——
   //   1000 角色不空转 10min——资源立即释放——回收可观测） ──
-  try { await sql`UPDATE survey_campaigns SET completed = ${Math.min(completed, Number(campaign.total))}, failed = ${Math.min(failedCount, Number(campaign.total))}, updated_at = NOW() WHERE id = ${campaignId}` }
+  try {
+    await T.survey_campaigns
+      .update({ completed: Math.min(completed, Number(campaign.total)), failed: Math.min(failedCount, Number(campaign.total)), updated_at: ops.now() })
+      .where({ id: { eq: campaignId }})
+      .run()
+  }
   catch (e: any) { console.error(`[campaign ${campaignId}] phase④ 记账失败（completed=${completed} failed=${failedCount}）:`, e?.message ?? e); throw e }
   if (isCampaignFinished({ total: Number(campaign.total), completed, failed: failedCount }, freshRuns.filter((r) => r.status === 'running').length)) {
-    try { await sql`UPDATE survey_campaigns SET status = 'done', updated_at = NOW() WHERE id = ${campaignId}` }
+    try {
+      await T.survey_campaigns.update({ status: 'done', updated_at: ops.now() }).where({ id: { eq: campaignId }}).run()
+    }
     catch (e: any) { console.error(`[campaign ${campaignId}] phase④ done 标记失败:`, e?.message ?? e); throw e }
     console.log(`[campaign ${campaignId}] 完成：${completed} 成功 / ${failedCount} 失败（共 ${campaign.total}）`)
     // 批收尾：全部角色部门沙盒 stop（busy 豁免——不打断任何执行）
@@ -388,9 +441,13 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
         const { manager } = await import('../sandbox/manager.ts')
         let stopped = 0
         for (const r of freshRuns) {
-          const [sb] = await sql`SELECT id, app_id FROM sandboxes WHERE department_id = ${r.dept_id} AND status = 'running'`
+          const [sb] = await orm.query.from('sandboxes')
+            .select('id', 'app_id')
+            .where({ department_id: { eq: r.dept_id }, status: { eq: 'running' } })
+            .limit(1)
+            .run()
           if (sb) {
-            const res = await manager.stop(String(sb.id), String(sb.app_id)).catch(() => ({ ok: false } as const))
+            const res = await manager.stop(String((sb as any).id), String((sb as any).app_id)).catch(() => ({ ok: false } as const))
             if (res?.ok) stopped++
           }
         }
@@ -404,6 +461,11 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
 
 /** server 启动恢复：running → interrupted（不留孤儿循环——retry API 恢复） */
 export async function markInterrupted(ctx: AppCtx): Promise<number> {
-  const rows = await ctx.sql`UPDATE survey_campaigns SET status = 'interrupted', updated_at = NOW() WHERE status = 'running' RETURNING id`
+  const orm = ctx.orm
+  const rows = await orm.query.update('survey_campaigns')
+    .set({ status: 'interrupted', updated_at: ops.now() })
+    .where({ status: { eq: 'running' } })
+    .returning('id')
+    .run()
   return (rows ?? []).length
 }

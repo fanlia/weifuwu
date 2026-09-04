@@ -10,18 +10,18 @@
  * await sql.query.insert('users').values({ email: 'a@b.c' }).returning('id').run()
  * ```
  */
-import type { Sql, Row } from './contracts.ts'
+import type { Row } from './contracts.ts'
+import { ValidationError } from './errors.ts'
 import {
   type SelectQuery, type InsertQuery, type UpdateQuery, type DeleteQuery,
   type Query, type WhereExpr, type RawSql,
   type SelectBuilder, type InsertBuilder, type UpdateBuilder, type DeleteBuilder, type QueryBuilder,
   compileQuery, mergeWhere, addWhereCond,
 } from './query.ts'
-import { rawSql } from './query.ts'
 
 type Executor = (q: Query) => Promise<Row[]>
 
-export function createQueryBuilder(sql: Sql, exec: Executor): QueryBuilder {
+export function createQueryBuilder(exec: Executor): QueryBuilder {
   const mkSelect = (table: string, alias?: string): SelectBuilder => {
     const ast: SelectQuery = { kind: 'select', table, alias }
     const b: SelectBuilder = {
@@ -30,7 +30,7 @@ export function createQueryBuilder(sql: Sql, exec: Executor): QueryBuilder {
         return b
       },
       select(...cols: (string | RawSql)[]): SelectBuilder {
-        ast.cols = cols
+        ast.cols = cols.length === 1 && cols[0] === '*' ? undefined : cols
         return b
       },
       join(table: string, on: JoinOn, opts?: { alias?: string; type?: 'inner' | 'left' }): SelectBuilder {
@@ -70,19 +70,38 @@ export function createQueryBuilder(sql: Sql, exec: Executor): QueryBuilder {
         ast.having = expr
         return b
       },
-      count(col = '*', as = 'count'): SelectBuilder {
+      count(col = '*', as = 'count', filter?: WhereExpr): SelectBuilder {
         ast.aggregate ??= []
-        ast.aggregate.push({ fn: 'count', col, as })
+        ast.aggregate.push({ fn: 'count', col, as, filter })
         return b
       },
-      sum(col: string, as = 'sum'): SelectBuilder {
+      sum(col: string, as = 'sum', filter?: WhereExpr): SelectBuilder {
         ast.aggregate ??= []
-        ast.aggregate.push({ fn: 'sum', col, as })
+        ast.aggregate.push({ fn: 'sum', col, as, filter })
+        return b
+      },
+      avg(col: string, as = 'avg', filter?: WhereExpr): SelectBuilder {
+        ast.aggregate ??= []
+        ast.aggregate.push({ fn: 'avg', col, as, filter })
+        return b
+      },
+      min(col: string, as = 'min', filter?: WhereExpr): SelectBuilder {
+        ast.aggregate ??= []
+        ast.aggregate.push({ fn: 'min', col, as, filter })
+        return b
+      },
+      max(col: string, as = 'max', filter?: WhereExpr): SelectBuilder {
+        ast.aggregate ??= []
+        ast.aggregate.push({ fn: 'max', col, as, filter })
         return b
       },
       orderBy(col: string, dir: 'asc' | 'desc' = 'asc'): SelectBuilder {
         ast.orderBy ??= []
         ast.orderBy.push({ col, dir })
+        return b
+      },
+      vectorScore(col: string, vec: number[], as: string): SelectBuilder {
+        ast.vector = { col, vec, as }
         return b
       },
       limit(n: number): SelectBuilder {
@@ -119,8 +138,8 @@ export function createQueryBuilder(sql: Sql, exec: Executor): QueryBuilder {
         ast.returning = cols.length === 1 && cols[0] === '*' ? '*' : cols
         return b
       },
-      onConflict(col?: string, update = false): InsertBuilder {
-        ast.onConflict = { col, update }
+      onConflict(col?: string | string[], update = false, merge?: Record<string, unknown>): InsertBuilder {
+        ast.onConflict = { col, update, merge }
         return b
       },
       async run(): Promise<Row[]> {
@@ -150,6 +169,7 @@ export function createQueryBuilder(sql: Sql, exec: Executor): QueryBuilder {
         return b
       },
       async run(): Promise<Row[]> {
+        if (!ast.where) throw new ValidationError('weifuwu/db: UPDATE 必须带 WHERE（全表更新用 unsafe 显式）')
         return exec(ast)
       },
     }
@@ -172,6 +192,7 @@ export function createQueryBuilder(sql: Sql, exec: Executor): QueryBuilder {
         return b
       },
       async run(): Promise<Row[]> {
+        if (!ast.where) throw new ValidationError('weifuwu/db: DELETE 必须带 WHERE（全表删除用 unsafe 显式）')
         return exec(ast)
       },
     }

@@ -1,88 +1,129 @@
 /**
- * 部门路由 — CRUD + 成员管理
+ * 部门路由 — CRUD + 成员管理（orm 表绑定面——P1 迁移）
+ *
+ * 判负面（登记于 platform-orm-迁移.md §3——逃生舱 orm.execute·审计白名单）：
+ * - GET /api/departments 列表：4 标量子查询投影 + COALESCE 排序——builder 面不可表达
+ *   ——保留 SQL 逃生舱（// orm-pg-subquery）
  */
 
-import type { Router, Context } from 'weifuwu'
+import type { Router } from 'weifuwu'
+import { ops, eq, ne, and, or, inArray, like, ilike } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
+import { tables, weifuwuAppMembers } from '../db/orm.ts'
 
 export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 获取部门列表 ─────────────────────────────────────────
 
   app.get('/api/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId } = ctx
+    const { sql, orm, appId } = ctx
     const url = new URL(req.url)
     const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)))
     const q = String(url.searchParams.get('q') ?? '').trim()
 
-    const departments = await sql`
-      SELECT d.id, d.app_id, d.name, d.is_dm, d.created_at,
-        (SELECT COUNT(*) FROM department_members dm WHERE dm.department_id = d.id)::int as member_count,
-        (SELECT COUNT(*) FROM department_members dm JOIN agents a ON a.id = dm.agent_id
-           WHERE dm.department_id = d.id AND a.type = 'user')::int as human_count,
-        (SELECT m.content FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1) as last_message,
-        (SELECT m.created_at FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1) as last_message_at
-      FROM departments d
-      WHERE d.app_id = ${appId}
-      ${q ? sql`AND d.name ILIKE ${'%' + q + '%'}` : sql``}
-      ORDER BY COALESCE((SELECT m.created_at FROM messages m WHERE m.department_id = d.id ORDER BY m.created_at DESC LIMIT 1), d.created_at) DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `
+    // orm-pg-subquery 判负修订：4 个标量子查询投影 → 主查 departments + 组查（成员计数/最近消息）Map 合并
+    const deps0 = await orm.query.from('departments').select('id', 'app_id', 'name', 'is_dm', 'created_at')
+      .where({ app_id: { eq: String(appId) }, ...(q ? { name: { ilike: `%${q}%` } } : {}) })
+      .limit(limit).offset(offset).run()
+    const depIds = deps0.map((d) => String(d.id))
+    const memRows = depIds.length ? await orm.query.from('department_members').select('department_id', 'agent_id')
+      .where({ department_id: { in: depIds } }).run() : []
+    const memMap = new Map<string, { member_count: number; human_count: number }>()
+    const idsByDep = new Map<string, string[]>()
+    for (const m of memRows) {
+      const k = String(m.department_id)
+      const cur = memMap.get(k) ?? { member_count: 0, human_count: 0 }
+      cur.member_count += 1
+      memMap.set(k, cur)
+      idsByDep.set(k, [...(idsByDep.get(k) ?? []), String(m.agent_id ?? '')])
+    }
+    const memAgentIds = [...new Set(memRows.map((m) => String(m.agent_id ?? '')))]
+    const agentTypes = memAgentIds.length ? await orm.query.from('agents').select('id', 'type').where({ id: { in: memAgentIds } }).run() : []
+    const typeMap = new Map(agentTypes.map((a) => [String(a.id), String(a.type)]))
+    for (const [k, cur] of memMap) {
+      cur.human_count = (idsByDep.get(k) ?? []).filter((aid) => typeMap.get(aid) === 'user').length
+    }
+    // 最近消息（content/created_at——每部门最新 1 条）
+    const lastRows = depIds.length ? await orm.query.from('messages').select('department_id', 'content', 'created_at')
+      .where({ department_id: { in: depIds } }).orderBy('created_at', 'desc').run() : []
+    const seen = new Set<string>()
+    const msgMap = new Map<string, { last_message: unknown; last_message_at: unknown }>()
+    for (const m of lastRows) {
+      const k = String(m.department_id)
+      if (seen.has(k)) continue
+      seen.add(k)
+      msgMap.set(k, { last_message: m.content, last_message_at: m.created_at })
+    }
+    const departments = deps0.map((d) => ({
+      id: d.id, app_id: d.app_id, name: d.name, is_dm: d.is_dm, created_at: d.created_at,
+      ...(memMap.get(String(d.id)) ?? { member_count: 0, human_count: 0 }),
+      ...(msgMap.get(String(d.id)) ?? { last_message: null, last_message_at: null }),
+    }))
+      .sort((a, b) => String((b as any).last_message_at ?? b.created_at).localeCompare(String((a as any).last_message_at ?? a.created_at)))
 
-    const [countResult] = await sql`
-      SELECT COUNT(*)::int as total
-      FROM departments d
-      WHERE d.app_id = ${appId}
-    `
+    const T = tables(orm)
+    const [countRow] = await orm.query.from('departments').count('*', 'total').where({ app_id: { eq: appId }}).run()
 
-    return Response.json({ departments, total: countResult.total })
+    return Response.json({ departments, total: (countRow as Record<string, unknown> | undefined)?.total ?? 0 })
   })
 
   // ── 发起单聊（找/建 1v1 DM 部门——当前用户 × 目标 Agent） ──────
 
   app.post('/api/departments/dm', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, auth } = ctx
+    const { orm, appId, auth } = ctx
     const body = await req.json() as { agent_id: string }
     if (!body.agent_id) {
       return Response.json({ error: 'agent_id 为必填' }, { status: 400 })
     }
+    const T = tables(orm)
     // 目标 Agent 必须是同租户且不是 user 类型（不能和自己单聊）
-    const [target] = await sql`
-      SELECT id FROM agents WHERE id = ${body.agent_id} AND app_id = ${appId} AND type != 'user'
-    `
+    const [target] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.id, body.agent_id), eq(T.agents.c.app_id, appId), ne(T.agents.c.type, 'user')))
+      .run()
     if (!target) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
     // 当前用户的 user agent
-    const [me] = await sql`
-      SELECT id FROM agents WHERE app_id = ${appId} AND type = 'user' AND user_id = ${auth!.userId}
-    `
+    const [me] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'user'), eq(T.agents.c.user_id, auth!.userId)))
+      .run()
     if (!me) {
       return Response.json({ error: '当前用户无绑定 Agent' }, { status: 400 })
     }
-    // 找已有 DM（成员恰好 = me + target）
-    const [existing] = await sql`
-      SELECT d.id FROM departments d
-      JOIN department_members dm1 ON dm1.department_id = d.id AND dm1.agent_id = ${me.id}
-      JOIN department_members dm2 ON dm2.department_id = d.id AND dm2.agent_id = ${target.id}
-      WHERE d.is_dm = TRUE
-        AND (SELECT COUNT(*) FROM department_members dm WHERE dm.department_id = d.id) = 2
-      LIMIT 1
-    `
-    if (existing) {
-      return Response.json({ department: existing, existed: true })
+    // 找已有 DM（成员恰好 = me + target）——双 JOIN + NOT EXISTS 第三成员（=COUNT=2）
+    const existing = await orm.query.from('departments d')
+      .select('d.id')
+      .join('department_members dm1', and(
+        { 'dm1.department_id': { col: 'd.id' } },
+        { 'dm1.agent_id': { eq: String(me.id) } },
+      ))
+      .join('department_members dm2', and(
+        { 'dm2.department_id': { col: 'd.id' } },
+        { 'dm2.agent_id': { eq: String(target.id) } },
+      ))
+      .where({ 'd.is_dm': { eq: true } })
+      .exists(
+        { kind: 'select', table: 'department_members', alias: 'dm3', cols: ['1'], where: and(
+          { 'dm3.department_id': { col: 'd.id' } },
+          { 'dm3.agent_id': { notIn: [String(me.id), String(target.id)] } },
+        ) },
+        true,
+      )
+      .limit(1)
+      .run()
+    if (existing.length) {
+      return Response.json({ department: existing[0], existed: true })
     }
-    const [department] = await sql`
-      INSERT INTO departments (app_id, name, is_dm)
-      VALUES (${appId}, '单聊', TRUE)
-      RETURNING id, app_id, name, is_dm, created_at
-    `
-    await sql`
-      INSERT INTO department_members (department_id, agent_id, role) VALUES
-        (${department.id}, ${me.id}, 'admin'),
-        (${department.id}, ${target.id}, 'member')
-      ON CONFLICT DO NOTHING
-    `
+    const [department] = await T.departments
+      .insert({ app_id: appId, name: '单聊', is_dm: true })
+      .returning('id', 'app_id', 'name', 'is_dm', 'created_at')
+      .run()
+    await T.department_members.insert([
+      { department_id: String(department.id), agent_id: String(me.id), role: 'admin' },
+      { department_id: String(department.id), agent_id: String(target.id), role: 'member' },
+    ]).onConflict().run()
     return Response.json({ department, existed: false }, { status: 201 })
   })
 
@@ -109,7 +150,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '权限校验失败' }, { status: e?.status ?? 403 })
     }
-    const { sql, appId } = ctx
+    const { orm, appId } = ctx
     const body = await req.json() as {
       name: string
       is_dm?: boolean
@@ -122,55 +163,58 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: 'name 为必填' }, { status: 400 })
     }
 
-    const [department] = await sql`
-      INSERT INTO departments (app_id, name, is_dm)
-      VALUES (${appId}, ${body.name}, ${body.is_dm ?? false})
-      RETURNING id, app_id, name, is_dm, created_at
-    `
+    const T = tables(orm)
+    const [department] = await T.departments
+      .insert({ app_id: appId, name: body.name, is_dm: body.is_dm ?? false })
+      .returning('id', 'app_id', 'name', 'is_dm', 'created_at')
+      .run()
 
     // 创建者的 user agent 自动加入并设为管理员（确保创建者能发消息）
-    const [creatorAgent] = await sql`
-      SELECT id FROM agents
-      WHERE app_id = ${appId} AND type = 'user' AND user_id = ${ctx.auth!.userId}
-    `
+    const [creatorAgent] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'user'), eq(T.agents.c.user_id, ctx.auth!.userId)))
+      .run()
     if (creatorAgent) {
-      await sql`
-        INSERT INTO department_members (department_id, agent_id, role)
-        VALUES (${department.id}, ${creatorAgent.id}, 'admin')
-        ON CONFLICT DO NOTHING
-      `
+      await T.department_members
+        .insert({ department_id: String(department.id), agent_id: String(creatorAgent.id), role: 'admin' })
+        .onConflict()
+        .run()
     }
 
     // 添加初始成员
     if (body.member_ids && body.member_ids.length > 0) {
-      for (const agentId of body.member_ids) {
-        await sql`
-          INSERT INTO department_members (department_id, agent_id, role)
-          VALUES (${department.id}, ${agentId}, 'member')
-          ON CONFLICT DO NOTHING
-        `
-      }
+      await T.department_members
+        .insert(body.member_ids.map((agentId) => ({ department_id: String(department.id), agent_id: agentId, role: 'member' })))
+        .onConflict()
+        .run()
     }
 
     // 组织层级：自动创建部门经理（department 类型 agent——代表部门，可加入上级部门）
     let manager = null
     if (!body.is_dm && body.auto_manager !== false) {
-      const [mgr] = await sql`
-        INSERT INTO agents (app_id, type, name, description, model, department_id, is_active, tools, allow_file_tools)
-        VALUES (${appId}, 'department', ${String(body.name) + '经理'}, ${'部门经理——代表「' + String(body.name) + '」对外协作'},
-          'deepseek-v4-flash', ${department.id}, true, '[]', true)
-        RETURNING id, name
-      `
+      const [mgr] = await T.agents
+        .insert({
+          app_id: appId,
+          type: 'department',
+          name: String(body.name) + '经理',
+          description: '部门经理——代表「' + String(body.name) + '」对外协作',
+          model: 'deepseek-v4-flash',
+          department_id: String(department.id),
+          is_active: true,
+          tools: [],
+          allow_file_tools: true,
+        })
+        .returning('id', 'name')
+        .run()
       // 经理自动成为本部门成员（role='manager'——识别组织层级）
-      await sql`
-        INSERT INTO department_members (department_id, agent_id, role)
-        VALUES (${department.id}, ${mgr.id}, 'manager')
-        ON CONFLICT DO NOTHING
-      `
+      await T.department_members
+        .insert({ department_id: String(department.id), agent_id: String(mgr.id), role: 'manager' })
+        .onConflict()
+        .run()
       // 组织层级：经理提示词单源（org-manager.ts）——成员名单实时化（成员增删刷新）
       try {
         const { refreshManagerPrompt } = await import('../services/org-manager.ts')
-        await refreshManagerPrompt(sql, String(appId), String(department.id))
+        await refreshManagerPrompt(orm, String(appId), String(department.id))
       } catch { /* 提示词生成失败不阻断 */ }
       manager = { id: mgr.id, name: mgr.name }
     }
@@ -181,22 +225,23 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── P1 工作区聚合 API（三层模型：一个部门 = 一个页面）─────────────────
   // 项目空间页首屏一次返回：部门 + 成员 + 环境状态（用户语言）+ 文件根列表 + 最近消息摘要 + 配额
   app.get('/api/departments/:id/workspace', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const [dept] = await sql`
-      SELECT d.* FROM departments d
-      WHERE d.id = ${params.id} AND d.app_id = ${appId}
-    `
+    const { orm, appId, params } = ctx
+    const T = tables(orm)
+    const [dept] = await T.departments
+      .select()
+      .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
+      .run()
     if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
     // 成员
-    const members = await sql`
-      SELECT a.id, a.type, a.name, a.avatar_url, a.description, a.role_label, a.expertise, dm.role, dm.joined_at
-      FROM department_members dm
-      JOIN agents a ON a.id = dm.agent_id
-      WHERE dm.department_id = ${params.id}
-    `
+    const members = await orm.query.from('department_members dm')
+      .select('a.id', 'a.type', 'a.name', 'a.avatar_url', 'a.description', 'a.role_label', 'a.expertise', 'dm.role', 'dm.joined_at')
+      .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
+      .where({ 'dm.department_id': { eq: params.id }})
+      .run()
     // 环境状态（用户语言映射——前端零翻译）
+    const { sql } = ctx
     const { manager } = await import('../sandbox/manager.ts')
-    manager.init(sql)
+    manager.init(orm)
     const sb = await manager.byDepartment(String(params.id))
     const envMap: Record<string, { status: string; label: string }> = {
       running: { status: 'ready', label: 'AI 随时能干活' },
@@ -228,33 +273,43 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
         files = items.slice(0, 20)
       }
     } catch { /* 文件列表失败不阻断 */ }
-    // 最近消息摘要（3 条）
-    const recent = await sql`
-      SELECT m.content, m.created_at, a.name as sender_name, a.type as sender_type
-      FROM messages m JOIN agents a ON a.id = m.sender_id
-      WHERE m.department_id = ${params.id} AND m.ai_approved != FALSE
-      ORDER BY m.created_at DESC LIMIT 3
-    `
+    // 最近消息摘要（3 条）——JOIN 表绑定
+    const recent = await orm.query.from('messages m')
+      .select('m.content', 'm.created_at', 'a.name as sender_name', 'a.type as sender_type')
+      .join('agents a', { 'a.id': { col: 'm.sender_id' } })
+      .where(and(
+        { 'm.department_id': { eq: params.id }},
+        { 'm.ai_approved': { ne: false } },
+      ))
+      .orderBy('m.created_at', 'desc')
+      .limit(3)
+      .run()
     // 组织层级（2026-12）：下级部门——本部门成员中 type='department' 的经理代表的部门
     // 上级可查看子部门交付物（只读）——组织层级的可见性闭环
     const subDepartments = []
     try {
-      const mgrRows = await sql`
-        SELECT a.id as mgr_id, a.name as mgr_name, a.department_id
-        FROM department_members dm JOIN agents a ON a.id = dm.agent_id
-        WHERE dm.department_id = ${params.id} AND a.type = 'department' AND a.department_id IS NOT NULL
-      `
+      const mgrRows = await orm.query.from('department_members dm')
+        .select('a.id as mgr_id', 'a.name as mgr_name', 'a.department_id')
+        .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
+        .where(and(
+          { 'dm.department_id': { eq: params.id }},
+          { 'a.type': { eq: 'department' } },
+        ))
+        .run()
       for (const m of mgrRows ?? []) {
         const subDeptId = String((m as any).department_id)
         if (subDeptId === String(params.id)) continue // 排除自我引用（经理代表本部门）
-        const [sd] = await sql`SELECT id, name FROM departments WHERE id = ${subDeptId} AND app_id = ${appId}`
+        const [sd] = await T.departments
+          .select('id', 'name', 'workspace_path')
+          .where(and(eq(T.departments.c.id, subDeptId), eq(T.departments.c.app_id, appId)))
+          .run()
         if (!sd) continue
         // 子部门成员数 + 最近交付物（根目录 top 10——只读可见性）
         let subMemberCount = 0
         let subFiles: Array<{ name: string; type: string; size: number; mtime: string }> = []
         try {
-          const [cnt] = await sql`SELECT COUNT(*)::int as n FROM department_members WHERE department_id = ${subDeptId}`
-          subMemberCount = Number(cnt?.n ?? 0)
+          const [cnt] = await orm.query.from('department_members').count('*', 'n').where({ department_id: { eq: subDeptId }}).run()
+          subMemberCount = Number((cnt as Record<string, unknown> | undefined)?.n ?? 0)
         } catch { /* 计数失败 */ }
         try {
           const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
@@ -304,23 +359,22 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 获取单个部门 ─────────────────────────────────────────
 
   app.get('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const [dept] = await sql`
-      SELECT d.*
-      FROM departments d
-      WHERE d.id = ${params.id} AND d.app_id = ${appId}
-    `
+    const { orm, appId, params } = ctx
+    const T = tables(orm)
+    const [dept] = await T.departments
+      .select()
+      .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
+      .run()
     if (!dept) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
     }
 
-    // 获取成员列表
-    const members = await sql`
-      SELECT a.id, a.type, a.name, a.avatar_url, a.description, a.role_label, a.expertise, dm.role, dm.joined_at
-      FROM department_members dm
-      JOIN agents a ON a.id = dm.agent_id
-      WHERE dm.department_id = ${params.id}
-    `
+    // 获取成员列表——JOIN 表绑定
+    const members = await orm.query.from('department_members dm')
+      .select('a.id', 'a.type', 'a.name', 'a.avatar_url', 'a.description', 'a.role_label', 'a.expertise', 'dm.role', 'dm.joined_at')
+      .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
+      .where({ 'dm.department_id': { eq: params.id }})
+      .run()
 
     return Response.json({ department: dept, members })
   })
@@ -328,29 +382,35 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 更新部门 ─────────────────────────────────────────────
 
   app.put('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { orm, appId, params } = ctx
     const body = await req.json() as { name?: string; artifact_review?: boolean }
 
+    const T = tables(orm)
     // 产物审批模式切换（2026-12）：关闭时把 .pending 待审产物全部移入共享目录（不丢文件）
     if (body.artifact_review !== undefined) {
       try {
-        const [cur] = await sql`SELECT artifact_review FROM departments WHERE id = ${params.id} AND app_id = ${appId}`
+        const [cur] = await T.departments
+          .select('artifact_review')
+          .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
+          .run()
         const turningOff = (cur as any)?.artifact_review === true && body.artifact_review === false
         if (turningOff) {
+          const { sql } = ctx
           const { flushPendingArtifacts } = await import('../services/artifact-review.ts')
           await flushPendingArtifacts(sql, String(params.id))
         }
       } catch { /* 切换失败不阻断 */ }
     }
 
-    const [dept] = await sql`
-      UPDATE departments d
-      SET name = COALESCE(${body.name ?? null}, d.name),
-          artifact_review = COALESCE(${body.artifact_review ?? null}, d.artifact_review),
-          updated_at = NOW()
-      WHERE d.id = ${params.id} AND d.app_id = ${appId}
-      RETURNING d.id, d.name, d.artifact_review, d.updated_at
-    `
+    // 部分更新（COALESCE 语义 = 只写显式键——updated_at 由 DB 侧刷新）
+    const patch: Record<string, unknown> = { updated_at: ops.now() }
+    if (body.name !== undefined) patch.name = body.name
+    if (body.artifact_review !== undefined) patch.artifact_review = body.artifact_review
+    const [dept] = await orm.query.update('departments')
+      .set(patch)
+      .where(and({ id: { eq: params.id }}, { app_id: { eq: appId }}))
+      .returning('id', 'name', 'artifact_review', 'updated_at')
+      .run()
 
     if (!dept) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
@@ -361,7 +421,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 删除部门 ─────────────────────────────────────────────
 
   app.delete('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { orm, appId, params } = ctx
     // R-权限（2026-08——UI 角色测试抓出：删除无任何鉴权——viewer/member
     // 都能删任何部门——矩阵红线：删除 = owner；ROLES-OPTIMIZATION 波次 1：
     // app 级 admin 幽灵角色裁剪——行为不变）
@@ -374,24 +434,25 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '权限校验失败' }, { status: e?.status ?? 403 })
     }
+    const T = tables(orm)
     // 三层模型：部门 = 工作目录 + 计算资源归属——删除前先终止关联 sandbox（rm 容器）
     try {
       const { manager } = await import('../sandbox/manager.ts')
-      manager.init(sql)
+      manager.init(orm)
       await manager.terminateByDepartment(String(params.id))
     } catch { /* 沙盒清理失败不阻断删除——孤儿清理兜底 */ }
-    const result = await sql`
-      DELETE FROM departments d
-      WHERE d.id = ${params.id} AND d.app_id = ${appId}
-      RETURNING d.id
-    `
+    const result = await T.departments
+      .delete()
+      .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
+      .run()
     if (result.length === 0) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
     }
-    // 组织层级：部门经理是派生资源——部门亡经理亡（孤儿歼灭——department_members 行 FK cascade 自动清）
-    await sql`
-      DELETE FROM agents WHERE type = 'department' AND department_id = ${params.id} AND app_id = ${appId}
-    `
+    // 组织层级：部门经理是派生资源——部门亡经理亡（department_members 行 FK cascade 自动清）
+    await T.agents
+      .delete()
+      .where(and(eq(T.agents.c.type, 'department'), eq(T.agents.c.department_id, params.id), eq(T.agents.c.app_id, appId)))
+      .run()
     // 三层模型：部门删除 → 工作目录清理（保留期 SANDBOX_WORKSPACE_RETENTION_DAYS 默认 0=立即删）
     try {
       const { resolveDepartmentWorkspace, getDefaultWorkspaceRoot } = await import('../middleware/workspace.ts')
@@ -410,55 +471,61 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 添加成员 ─────────────────────────────────────────────
 
   app.post('/api/departments/:id/members', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params, auth } = ctx
+    const { orm, appId, params, auth } = ctx
     const body = await req.json() as { agent_id: string; role?: string }
 
     if (!body.agent_id) {
       return Response.json({ error: 'agent_id 为必填' }, { status: 400 })
     }
 
+    const T = tables(orm)
     // 验证部门和 Agent 都属于当前租户
-    const [dept] = await sql`
-      SELECT d.id FROM departments d
-      WHERE d.id = ${params.id} AND d.app_id = ${appId}
-    `
+    const [dept] = await T.departments
+      .select('id')
+      .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
+      .run()
     if (!dept) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
     }
 
-    const [agent] = await sql`
-      SELECT id FROM agents WHERE id = ${body.agent_id} AND app_id = ${appId}
-    `
+    const [agent] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.id, body.agent_id), eq(T.agents.c.app_id, appId)))
+      .run()
     if (!agent) {
       return Response.json({ error: 'Agent 不存在' }, { status: 404 })
     }
 
     // 商业化 G7 知识库部门授权：成员管理（含 KB 添加）必须部门管理员或租户 owner——
     // 防普通成员把知识库/Agent 拉进自己部门造成越权
-    const [caller] = await sql`
-      SELECT dm.role FROM department_members dm
-      JOIN agents ua ON ua.id = dm.agent_id
-      WHERE dm.department_id = ${params.id} AND ua.user_id = ${auth!.userId}
-      LIMIT 1
-    `
-    const [callerOwner] = await sql`
-      SELECT role FROM _weifuwu_app_members WHERE app_id = ${appId} AND user_id = ${auth!.userId}
-    `
+    const [caller] = await orm.query.from('department_members dm')
+      .select('dm.role')
+      .join('agents ua', { 'ua.id': { col: 'dm.agent_id' } })
+      .where(and(
+        { 'dm.department_id': { eq: params.id }},
+        { 'ua.user_id': { eq: auth!.userId }},
+      ))
+      .limit(1)
+      .run()
+    const Wm = orm.table('_weifuwu_app_members', weifuwuAppMembers)
+    const [callerOwner] = await Wm
+      .select('role')
+      .where(and(eq(Wm.c.app_id, appId), eq(Wm.c.user_id, auth!.userId)))
+      .run()
     // 部门级 admin（department_members.role——合法——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
-    if ((!caller || caller.role !== 'admin') && callerOwner?.role !== 'owner') {
+    if ((!caller || caller.role !== 'admin') && (callerOwner as any)?.role !== 'owner') {
       return Response.json({ error: '只有部门管理员可以管理成员' }, { status: 403 })
     }
 
-    await sql`
-      INSERT INTO department_members (department_id, agent_id, role)
-      VALUES (${params.id}, ${body.agent_id}, ${body.role ?? 'member'})
-      ON CONFLICT (department_id, agent_id) DO UPDATE SET role = EXCLUDED.role
-    `
+    await T.department_members
+      .insert({ department_id: params.id, agent_id: body.agent_id, role: body.role ?? 'member' })
+      .onConflict(['department_id', 'agent_id'], true)
+      .run()
 
     // 组织层级：成员变化 → 刷新部门经理提示词（成员名单实时化）
     try {
       const { refreshManagerPrompt } = await import('../services/org-manager.ts')
-      await refreshManagerPrompt(sql, String(appId), String(params.id))
+      await refreshManagerPrompt(orm, String(appId), String(params.id))
     } catch { /* 刷新失败不阻断 */ }
 
     return Response.json({ success: true })
@@ -467,26 +534,27 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 移除成员 ─────────────────────────────────────────────
 
   app.delete('/api/departments/:id/members/:agentId', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
+    const { orm, appId, params } = ctx
 
+    const T = tables(orm)
     // 验证部门属于当前租户
-    const [dept] = await sql`
-      SELECT d.id FROM departments d
-      WHERE d.id = ${params.id} AND d.app_id = ${appId}
-    `
+    const [dept] = await T.departments
+      .select('id')
+      .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
+      .run()
     if (!dept) {
       return Response.json({ error: '部门不存在' }, { status: 404 })
     }
 
-    await sql`
-      DELETE FROM department_members
-      WHERE department_id = ${params.id} AND agent_id = ${params.agentId}
-    `
+    await T.department_members
+      .delete()
+      .where(and(eq(T.department_members.c.department_id, params.id), eq(T.department_members.c.agent_id, params.agentId)))
+      .run()
 
     // 组织层级：成员变化 → 刷新部门经理提示词（成员名单实时化）
     try {
       const { refreshManagerPrompt } = await import('../services/org-manager.ts')
-      await refreshManagerPrompt(sql, String(appId), String(params.id))
+      await refreshManagerPrompt(orm, String(appId), String(params.id))
     } catch { /* 刷新失败不阻断 */ }
 
     return Response.json({ success: true })
@@ -495,36 +563,50 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   // ── 产物审批（2026-12）：AI 产出 → 批准发布 / 拒绝删除 ────────────
   // artifact_review 模式下 AI 的写入落在 .pending 待审区——批准 = 移动至共享目录
   app.get('/api/departments/:id/artifacts/pending', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params } = ctx
-    const [dept] = await sql`SELECT id FROM departments WHERE id = ${params.id} AND app_id = ${appId}`
+    const { orm, appId, params } = ctx
+    const T = tables(orm)
+    const [dept] = await T.departments
+      .select('id')
+      .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
+      .run()
     if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+    const { sql } = ctx
     const { listPendingArtifacts } = await import('../services/artifact-review.ts')
     const items = await listPendingArtifacts(sql, String(params.id))
     return Response.json({ pending: items })
   })
 
   app.post('/api/departments/:id/artifacts/:action', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, appId, params, auth } = ctx
+    const { orm, appId, params, auth } = ctx
     const action = params.action as 'approve' | 'reject'
     if (!['approve', 'reject'].includes(action)) return Response.json({ error: '不支持的 action' }, { status: 400 })
-    const [dept] = await sql`SELECT id FROM departments WHERE id = ${params.id} AND app_id = ${appId}`
+    const T = tables(orm)
+    const [dept] = await T.departments
+      .select('id')
+      .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
+      .run()
     if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
     // 产物审批是管理动作（G7 同款权限）：部门管理员或租户 owner 才能批准/拒绝
-    const [caller] = await sql`
-      SELECT dm.role FROM department_members dm
-      JOIN agents ua ON ua.id = dm.agent_id
-      WHERE dm.department_id = ${params.id} AND ua.user_id = ${auth!.userId}
-      LIMIT 1
-    `
-    const [callerOwner] = await sql`
-      SELECT role FROM _weifuwu_app_members WHERE app_id = ${appId} AND user_id = ${auth!.userId}
-    `
+    const [caller] = await orm.query.from('department_members dm')
+      .select('dm.role')
+      .join('agents ua', { 'ua.id': { col: 'dm.agent_id' } })
+      .where(and(
+        { 'dm.department_id': { eq: params.id }},
+        { 'ua.user_id': { eq: auth!.userId }},
+      ))
+      .limit(1)
+      .run()
+    const [callerOwner] = await orm.table('_weifuwu_app_members', weifuwuAppMembers)
+      .select('role')
+      .where({ app_id: { eq: appId }, user_id: { eq: auth!.userId }})
+      .run()
     // 部门级 admin（department_members.role——合法——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
-    if ((!caller || caller.role !== 'admin') && callerOwner?.role !== 'owner') {
+    if ((!caller || caller.role !== 'admin') && (callerOwner as any)?.role !== 'owner') {
       return Response.json({ error: '只有部门管理员可以审批产物' }, { status: 403 })
     }
     const body = await req.json().catch(() => ({}))
     const relPath = String(body.path ?? '')
+    const { sql } = ctx
     const { approveArtifact, rejectArtifact } = await import('../services/artifact-review.ts')
     const r = action === 'approve'
       ? await approveArtifact(sql, String(params.id), relPath)

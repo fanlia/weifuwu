@@ -1,25 +1,23 @@
 /**
  * weifuwu/postgres — PostgreSQL 中间件（自研客户端）
  *
- * 注入 ctx.sql（callable tagged template + 方法面）。
+ * 注入 ctx.orm（声明式 ORM——业务唯一数据入口；ctx.sql 已删除）。
  * 零第三方依赖——PG v3 协议自研。
  *
- *   ctx.sql`SELECT * FROM t WHERE id = ${id}`   ← tagged template → 参数化
- *   ctx.sql.unsafe(sql, params?)                 ← 原生 SQL（DDL/动态表名）
- *   ctx.sql.begin(fn)                            ← 事务（postgres.js 兼容）
+ *   ctx.orm.table('users').select().where({...}).run()   ← 表绑定查询
+ *   ctx.orm.query.from(...).join(...)                     ← 跨表查询
+ *   ctx.orm.execute(sql, params?)                         ← 原生逃生舱（DDL/迁移）
  */
 
 import { PgPool } from '../db/postgres/pool.ts'
-import { toPgArrayLiteral } from '../db/postgres/connection.ts'
-import type { Row } from '../db/postgres/connection.ts'
+import type { Row, QueryResult } from '../db/postgres/connection.ts'
 import type { Context, Handler } from '../types.ts'
 import { HttpError } from '../types.ts'
 import { AsyncLocalStorage } from 'node:async_hooks'
-import type { PostgresOptions, PostgresClient, SqlClient } from './types.ts'
-import type { Sql } from './types.ts'
+import type { PostgresOptions, PostgresClient } from './types.ts'
 import { compileQuery } from '../db/query.ts'
-import { rawSql } from '../db/query.ts'
-import { createQueryBuilder } from '../db/query-builder.ts'
+import { compileSchemaDDL } from '../db/schema.ts'
+import { createOrm, postgresAdapter } from '../db/orm.ts'
 
 export const MIGRATIONS_TABLE = '_weifuwu_migrations'
 
@@ -60,19 +58,31 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
       : undefined,
   })
 
-  const sql = makeSql(pool)
+  // 声明式 ORM：shape+operator+adapter（Query AST → compileQuery → SQL → 服务器）
+  // adapter 执行面与 sql.query 同口径（编译/参数化/错误码映射一致——
+  // wrapError 在此层：orm 路径 23505/23503 → 409/400（唯一/FK 冲突不再是 500））
+  const orm = createOrm(postgresAdapter(
+    {
+      // 查询面（编译 AST → 参数化 → 池执行；wrapError 错误码映射 23505/23503 → 409/400）
+      query: (sql: string, params?: unknown[]) => wrapError(pool.query(sql, params as never)),
+      // 事务（同连接）——真语义；类型对齐 PgPool.transaction
+      transaction: (<T2>(fn: (tx: { query: (sql: string, params?: unknown[]) => Promise<QueryResult<Row>> }) => Promise<T2>) =>
+        pool.transaction(fn as never) as Promise<T2>),
+    } as never,
+    compileQuery,
+  ))
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {
-    ctx.sql = sql
+    ctx.orm = orm
     // 请求级 traceId：x-trace-id 头（无则空串——onQuery 层转 undefined）
     return traceStore.run(req.headers.get('x-trace-id') ?? '', () => next(req, ctx))
   }) as unknown as PostgresClient
-  mw.__meta = { injects: ['sql'], depends: [] }
+  mw.__meta = { injects: ['orm'], depends: [] }
 
-  mw.sql = sql
+  mw.orm = orm
 
   mw.migrate = async () => {
-    await sql.unsafe(`
+    await pool.unsafe(`
       CREATE TABLE IF NOT EXISTS "_weifuwu_migrations" (
         name TEXT PRIMARY KEY,
         applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -81,107 +91,37 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
   }
 
   mw.markMigrated = async (moduleName: string) => {
-    await sql.unsafe(`INSERT INTO "_weifuwu_migrations" (name) VALUES ($1) ON CONFLICT DO NOTHING`, [
+    await pool.unsafe(`INSERT INTO "_weifuwu_migrations" (name) VALUES ($1) ON CONFLICT DO NOTHING`, [
       moduleName,
     ])
   }
 
   mw.isMigrated = async (moduleName: string): Promise<boolean> => {
-    const rows = await sql.unsafe(`SELECT 1 FROM "_weifuwu_migrations" WHERE name = $1`, [moduleName])
+    const rows = await pool.unsafe(`SELECT 1 FROM "_weifuwu_migrations" WHERE name = $1`, [moduleName])
     return rows.length > 0
   }
 
-  // 事务回调收 callable 事务 sql（postgres.js 兼容 begin 语义——pool.begin 包装）
-  mw.transaction = ((fn: any) => pool.begin(fn as any)) as any
+  // 迁移面（DDL 唯一入口——recorded & idempotent：已迁移名跳过；业务查询禁 execute——
+  // 一律算子（table/query builder）——表达力不足补算子/raw 片段，不补执行面）
+  mw.runMigration = async (name: string, sql: string): Promise<void> => {
+    if (await mw.isMigrated(name)) return
+    await pool.unsafe(sql)
+    await mw.markMigrated(name)
+  }
+
+  // 声明式 Schema 迁移（DDL 算子化：业务零 SQL 字符串——声明 → 框架内部生成 → 执行记录）
+  mw.migrateModule = async <M extends import('../db/schema.ts').SchemaModule>(name: string, mod: M): Promise<void> => {
+    await mw.runMigration(name, compileSchemaDDL(mod))
+  }
+
+  // ORM 面事务（同连接——orm 内部走 adapter.transaction → pool 同连接）
+  mw.transaction = orm.transaction as never
 
   mw.poolStats = () => ({ active: 0, idle: pool.size, waiting: 0, max: pool.size })
 
   mw.close = () => pool.close()
 
   return mw
-}
-
-/** 惰性查询：await 时执行；作为插值时是片段（postgres.js 语义） */
-class TaggedQuery<T> {
-  text: string
-  params: unknown[]
-  private executor: (sql: string, params: unknown[]) => Promise<T[]>
-
-  constructor(text: string, params: unknown[], executor: (sql: string, params: unknown[]) => Promise<T[]>) {
-    this.text = text
-    this.params = params
-    this.executor = executor
-  }
-
-  then<R1 = T[], R2 = never>(
-    resolve?: ((value: T[]) => R1 | PromiseLike<R1>) | null,
-    reject?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
-  ): Promise<R1 | R2> {
-    return this.executor(this.text, this.params).then(resolve, reject)
-  }
-
-  catch<R>(reject?: ((reason: unknown) => R | PromiseLike<R>) | null): Promise<T[] | R> {
-    return this.executor(this.text, this.params).catch(reject)
-  }
-
-  finally(fn: () => void): Promise<T[]> {
-    return this.executor(this.text, this.params).finally(fn)
-  }
-
-  /** 嵌套片段（agent-platform 条件过滤模式） */
-  get __fragment(): { sql: string; params: unknown[] } {
-    return { sql: this.text, params: this.params }
-  }
-}
-
-/** 将 PgPool 包装为 callable tagged template sql（postgres.js 兼容面） */
-function makeSql(pool: PgPool): Sql {
-  const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => {
-    const { sql: text, params } = parseTaggedFromPool(strings, values)
-    return new TaggedQuery(text, params, (s, p) => wrapError(pool.query(s, p as any)))
-  }) as unknown as Sql
-
-  sql.unsafe = (query: string, params?: unknown[]) => wrapError(pool.unsafe(query, params as any))
-  // Query Language：AST → 参数化 SQL → 池执行（带错误码映射）
-  sql.query = createQueryBuilder(sql, async (q) => {
-    const { sql: text, params: p } = compileQuery(q)
-    return wrapError(pool.query(text, p as any))
-  })
-  // raw 逃生舱：标签模板 → 片段（真库透传）
-  sql.raw = (strings: TemplateStringsArray, ...values: unknown[]) => rawSql(
-    strings.reduce((acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''), ''),
-    values,
-  )
-  sql.close = () => pool.close()
-  sql.array = (values: unknown[]) => ({ __pgArray: values })
-
-  return sql
-}
-
-
-/** tagged template → 参数化 SQL（插值=参数；插值是 TaggedQuery/片段 → 内联重编号） */
-function parseTaggedFromPool(strings: TemplateStringsArray, values: unknown[]): { sql: string; params: unknown[] } {
-  let sql = strings[0]
-  const params: unknown[] = []
-  for (let i = 0; i < values.length; i++) {
-    const frag = (values[i] as { __fragment?: { sql: string; params: unknown[] } } | undefined)?.__fragment
-    if (frag) {
-      const renumbered = frag.sql.replace(/\$(\d+)/g, (_m, idx: string) => {
-        params.push(frag.params[parseInt(idx, 10) - 1])
-        return `$${params.length}`
-      })
-      sql += renumbered + strings[i + 1]
-    } else if ((values[i] as { __pgArray?: unknown } | undefined)?.__pgArray !== undefined) {
-      // sql.array() 标记：透传标记对象（编码落点在连接层 encodeParams——识别 __pgArray
-      // → PG 数组字面量；调用方 ::uuid[] cast 定型）
-      params.push(values[i])
-      sql += `$${params.length}` + strings[i + 1]
-    } else {
-      params.push(values[i])
-      sql += `$${params.length}` + strings[i + 1]
-    }
-  }
-  return { sql, params }
 }
 
 /** PG 错误码 → HttpError 映射（框架默认，业务无需手写 catch） */

@@ -3,93 +3,96 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import { and, eq } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
+import { tables } from '../db/orm.ts'
 
 export function registerSkillRoutes(app: Router<AppCtx>): void {
   // ── 获取 Agent 已绑定的技能 ─────────────────────────
   app.get('/api/agents/:id/skills', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, params, appId } = ctx
-    const [agent] = await sql`
-      SELECT id, app_id FROM agents WHERE id = ${params.id} AND app_id = ${appId}
-    `
+    const { orm, params, appId } = ctx
+    const T = tables(orm)
+    const [agent] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
+      .run()
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
 
-    const skills = await sql`
-      SELECT id, skill_name, skill_dir, enabled, created_at
-      FROM agent_skills
-      WHERE agent_id = ${params.id}
-      ORDER BY created_at
-    `
+    const skills = await T.agent_skills
+      .select('id', 'skill_name', 'skill_dir', 'enabled', 'created_at')
+      .where(eq(T.agent_skills.c.agent_id, params.id))
+      .orderBy('created_at', 'asc')
+      .run()
     return Response.json({ skills })
   })
 
   // ── 为 Agent 绑定技能 ───────────────────────────────
   app.post('/api/agents/:id/skills', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, params, appId } = ctx
+    const { orm, params, appId } = ctx
     const body = await req.json() as { skill_name: string; skill_dir: string }
 
     if (!body.skill_name || !body.skill_dir) {
       return Response.json({ error: 'skill_name 和 skill_dir 为必填' }, { status: 400 })
     }
 
-    const [agent] = await sql`
-      SELECT id, app_id FROM agents WHERE id = ${params.id} AND app_id = ${appId}
-    `
+    const T = tables(orm)
+    const [agent] = await T.agents
+      .select('id')
+      .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
+      .run()
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
 
-    const [existing] = await sql`
-      SELECT id FROM agent_skills WHERE agent_id = ${params.id} AND skill_name = ${body.skill_name}
-    `
+    const [existing] = await T.agent_skills
+      .select('id')
+      .where(and(eq(T.agent_skills.c.agent_id, params.id), eq(T.agent_skills.c.skill_name, body.skill_name)))
+      .run()
     if (existing) {
       return Response.json({ error: '该技能已经绑定到此 Agent' }, { status: 409 })
     }
 
-    const [skill] = await sql`
-      INSERT INTO agent_skills (agent_id, skill_name, skill_dir)
-      VALUES (${params.id}, ${body.skill_name}, ${body.skill_dir})
-      RETURNING id, skill_name, skill_dir, enabled, created_at
-    `
+    const [skill] = await T.agent_skills
+      .insert({ agent_id: String(params.id), skill_name: body.skill_name, skill_dir: body.skill_dir })
+      .returning('id', 'skill_name', 'skill_dir', 'enabled', 'created_at')
+      .run()
     return Response.json({ skill }, { status: 201 })
   })
 
   // ── 更新技能状态 ───────────────────────────────────
   app.put('/api/agents/:id/skills/:skillId', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, params, appId } = ctx
+    const { orm, params, appId } = ctx
     const body = await req.json() as { enabled?: boolean }
 
-    const [agent] = await sql`
-      SELECT id FROM agents WHERE id = ${params.id} AND app_id = ${appId}
-    `
+    const T = tables(orm)
+    const [agent] = await T.agents.select('id').where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId))).run()
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
 
-    const [skill] = await sql`
-      SELECT ask.id FROM agent_skills ask
-      JOIN agents a ON a.id = ask.agent_id
-      WHERE ask.id = ${params.skillId} AND ask.agent_id = ${params.id}
-    `
+    const [skill] = await T.agent_skills
+      .select('id')
+      .where(and(eq(T.agent_skills.c.id, params.skillId), eq(T.agent_skills.c.agent_id, params.id)))
+      .run()
     if (!skill) return Response.json({ error: '技能绑定不存在' }, { status: 404 })
 
-    const [updated] = await sql`
-      UPDATE agent_skills SET enabled = ${body.enabled ?? true}
-      WHERE id = ${params.skillId}
-      RETURNING id, skill_name, skill_dir, enabled, created_at
-    `
+    const [updated] = await T.agent_skills
+      .update({ enabled: body.enabled ?? true })
+      .where(eq(T.agent_skills.c.id, params.skillId))
+      .returning('id', 'skill_name', 'skill_dir', 'enabled', 'created_at')
+      .run()
     return Response.json({ skill: updated })
   })
 
   // ── 移除 Agent 技能 ─────────────────────────────────
   app.delete('/api/agents/:id/skills/:skillId', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    const { sql, params, appId } = ctx
+    const { orm, params, appId } = ctx
 
-    const [agent] = await sql`
-      SELECT id FROM agents WHERE id = ${params.id} AND app_id = ${appId}
-    `
+    const T = tables(orm)
+    const [agent] = await T.agents.select('id').where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId))).run()
     if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
 
-    const result = await sql`
-      DELETE FROM agent_skills WHERE id = ${params.skillId} AND agent_id = ${params.id}
-      RETURNING id
-    `
+    const result = await T.agent_skills
+      .delete()
+      .where(and(eq(T.agent_skills.c.id, params.skillId), eq(T.agent_skills.c.agent_id, params.id)))
+      .returning('id')
+      .run()
     if (result.length === 0) {
       return Response.json({ error: '技能绑定不存在' }, { status: 404 })
     }

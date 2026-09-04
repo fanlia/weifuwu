@@ -6,7 +6,8 @@
  */
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { createMemorySql } from '../db/memory-sql.ts'
+import { createMemoryOrm, MemorySql } from '../db/memory-sql.ts'
+import { WEIFUWU_WORKFLOW_SCHEMA } from '../workflows/index.ts'
 import { workflowSystem } from './index.ts'
 import { Router } from '../core/router.ts'
 
@@ -14,8 +15,10 @@ const GOOD_WFJS = `const res = await log({ message: 'hi' })
 const n = 1`
 
 describe('workflowSystem routes（HTTP 契约）', () => {
-  const db = createMemorySql()
-  const system = workflowSystem({ sql: db })
+  const db = createMemoryOrm()
+  db.mem.applySchema(WEIFUWU_WORKFLOW_SCHEMA)
+  const system = workflowSystem({ orm: db.orm })
+
   const app = new Router()
   let currentAppId: string | null = 'app-1'
   // ctx.auth.appId 注入（缺省提取器来源——user 会话透传的替身）
@@ -28,7 +31,7 @@ describe('workflowSystem routes（HTTP 契约）', () => {
   const handler = app.handler()
   const setApp = (id: string | null) => { currentAppId = id }
 
-  before(async () => { await system.migrate() })
+  before(async () => { /* 建表由 applySchema 完成 */ })
   after(async () => { await db.close() })
 
   async function req(method: string, path: string, body?: unknown) {

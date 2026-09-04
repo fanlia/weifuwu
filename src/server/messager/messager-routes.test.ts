@@ -8,14 +8,18 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { createMemorySql } from '../db/memory-sql.ts'
+import { MemorySql } from '../db/memory-sql.ts'
+import { createOrm, memoryAdapter } from '../db/orm.ts'
+import { WEIFUWU_MESSAGER_SCHEMA } from '../messager/index.ts'
 import { messager } from '../messager/index.ts'
 import { Router } from '../core/router.ts'
 
 describe('messager routes（P3——M2 越权修复锁定）', () => {
-  const db = createMemorySql()
-  const system = messager({ sql: db })
-  let currentUser: string | null = 'a-user'
+  const memSql = new MemorySql()
+  const db = createOrm(memoryAdapter(memSql))
+  memSql.applySchema(WEIFUWU_MESSAGER_SCHEMA)
+  const system = messager({ orm: db })
+  let currentUser: string | null = 'a1000000-0000-4000-8000-0000000000aa'
   const app = new Router()
   // 用户系统可选依赖替身：路由层只读 ctx.user
   app.use(async (_req: Request, ctx: any, next: any) => {
@@ -27,8 +31,7 @@ describe('messager routes（P3——M2 越权修复锁定）', () => {
   const handler = app.handler()
   const setUser = (id: string | null) => { currentUser = id }
 
-  before(async () => { await system.migrate() })
-  after(async () => { await db.close() })
+
 
   const uid = () => randomUUID()
 
@@ -76,7 +79,7 @@ describe('messager routes（P3——M2 越权修复锁定）', () => {
     })
 
     it('发送者本人 PATCH → 200 + 内容更新（既有行为保持）', async () => {
-      setUser('a-user') // 会话属于 a-user（先复位再建会话）
+      setUser('a1000000-0000-4000-8000-0000000000aa') // 会话属于 a-user（先复位再建会话）
       const b = uid()
       const conv = await mkConv(b)
       const sent = await req('POST', `/api/messages/conversations/${conv.id}/messages`, { content: '原文' })
@@ -89,7 +92,7 @@ describe('messager routes（P3——M2 越权修复锁定）', () => {
     })
 
     it('不存在消息 PATCH → 400', async () => {
-      setUser('a-user')
+      setUser('a1000000-0000-4000-8000-0000000000aa')
       const res = await req('PATCH', `/api/messages/messages/${uid()}`, { content: 'x' })
       assert.equal(res.status, 400)
     })
@@ -101,7 +104,7 @@ describe('messager routes（P3——M2 越权修复锁定）', () => {
       setUser(null)
       const res = await req('PATCH', `/api/messages/messages/${(await sent.json()).id}`, { content: 'y' })
       assert.equal(res.status, 401)
-      setUser('a-user')
+      setUser('a1000000-0000-4000-8000-0000000000aa')
     })
   })
 
@@ -114,7 +117,7 @@ describe('messager routes（P3——M2 越权修复锁定）', () => {
       setUser(uid()) // 非成员
       const res = await req('DELETE', `/api/messages/messages/${m.id}`)
       assert.equal(res.status, 400)
-      setUser('a-user')
+      setUser('a1000000-0000-4000-8000-0000000000aa')
     })
 
     it('发送者 DELETE → 204 软删；非发送者成员 → 403', async () => {
@@ -125,7 +128,7 @@ describe('messager routes（P3——M2 越权修复锁定）', () => {
       setUser(b)
       const res2 = await req('DELETE', `/api/messages/messages/${m.id}`)
       assert.equal(res2.status, 403, '非发送者成员 → 403')
-      setUser('a-user')
+      setUser('a1000000-0000-4000-8000-0000000000aa')
       const res1 = await req('DELETE', `/api/messages/messages/${m.id}`)
       assert.equal(res1.status, 204)
       const list = await system.client.listMessages(conv.id, {})
@@ -161,7 +164,7 @@ describe('messager routes（P3——M2 越权修复锁定）', () => {
       setUser(null)
       const anon = await req('GET', `/api/messages/conversations/${conv.id}/messages`)
       assert.equal(anon.status, 401)
-      setUser('a-user')
+      setUser('a1000000-0000-4000-8000-0000000000aa')
     })
   })
 })

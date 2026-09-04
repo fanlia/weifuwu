@@ -14,6 +14,8 @@
  * 诚实裁剪：docker 不可用 → 工具返回「沙盒不可用」；池配额超限 → 明确错误（不静默降级）
  */
 
+import { ops } from 'weifuwu'
+import type { Orm } from 'weifuwu'
 import type { DockerSandbox, ExecResult, SandboxSpec } from './docker.ts'
 import { sandbox as defaultExecutor } from './docker.ts'
 import { sandboxEmit, subscribeSandboxEvents } from './events.ts'
@@ -72,12 +74,12 @@ const DEFAULT_CPUS = Number(process.env.SANDBOX_CPU_LIMIT ?? 1)
 /** 池内存预算（M5-2）——默认 10240MB = 20×512MB；0 = 禁用 */
 const DEFAULT_POOL_BUDGET_MB = Number(process.env.SANDBOX_POOL_BUDGET_MB ?? 10240)
 
-type Sql = any // weifuwu Sql 类型（消费侧依赖契约类型——运行时注入）
+type Sql = Orm // 消费侧依赖契约类型——orm 句柄（运行时注入）
 
 export class SandboxManager {
-  private sql: Sql | null = null
+  private orm: Orm | null = null
   /** 2026-12：事件日志独立连接池（不抢主池——10 角色并发 exec 风暴时事件写入不占 AI 执行连接） */
-  private eventsSql: Sql | null = null
+  private eventsOrm: Orm | null = null
   /** 事件流持久化订阅退订（阶段 4） */
   private _eventsUnsub: (() => void) | null = null
   /** 事件流持久化订阅退订（阶段 4） */
@@ -92,9 +94,9 @@ export class SandboxManager {
   }
 
   /** 启动注入 DB 句柄（server.ts 初始化时调用；幂等） */
-  init(sql: Sql, eventsSql?: Sql): void {
-    this.sql = sql
-    this.eventsSql = eventsSql ?? sql
+  init(orm: Orm, eventsOrm?: Orm): void {
+    this.orm = orm
+    this.eventsOrm = eventsOrm ?? orm
     // 2026-12 可观测性：executor exec 事件 → sandbox_events（诊断链）
     this.exe.onExecEvent = (sandboxId, type, detail) => this.logEvent(sandboxId, null, type, detail)
     // 阶段 4：事件流 → 持久化接通（结果类事件入库——降频：exec:start/queued/
@@ -109,22 +111,24 @@ export class SandboxManager {
 
   /** 事件日志（2026-12 可观测性——fire-and-forget，不阻塞主流程） */
   private logEvent(sandboxId: string, appId: string | null, type: string, detail?: string): void {
-    const db = this.eventsSql ?? this.sql
+    const db = this.eventsOrm ?? this.orm
     if (!db) return
-    void db`
-      INSERT INTO sandbox_events (sandbox_id, app_id, type, detail)
-      VALUES (${sandboxId}, ${appId ?? null}, ${type}, ${detail ?? null})
-    `.catch(() => {})
+    void db.query.insert('sandbox_events')
+      .values({ sandbox_id: sandboxId, app_id: appId ?? null, type, detail: detail ?? null })
+      .run()
+      .catch(() => {})
   }
 
   /** 事件历史（诊断用） */
   async eventHistory(sandboxId: string, limit = 30): Promise<Array<{ type: string; detail: string | null; created_at: string }>> {
-    if (!this.sql) return []
+    if (!this.orm) return []
     try {
-      const rows = await this.sql`
-        SELECT type, detail, created_at FROM sandbox_events
-        WHERE sandbox_id = ${sandboxId} ORDER BY created_at DESC LIMIT ${limit}
-      `
+      const rows = await this.orm.query.from('sandbox_events')
+        .select('type', 'detail', 'created_at')
+        .where({ sandbox_id: { eq: sandboxId }})
+        .orderBy('created_at', 'desc')
+        .limit(limit)
+        .run()
       return (rows ?? []).map((r: any) => ({ type: String(r.type), detail: r.detail ? String(r.detail) : null, created_at: r.created_at }))
     } catch {
       return []
@@ -147,34 +151,39 @@ export class SandboxManager {
   // ── 查询 ──────────────────────────────────────────
 
   async list(appId: string, filter?: { status?: string; department_id?: string }): Promise<SandboxRow[]> {
-    if (!this.sql) return []
+    if (!this.orm) return []
     // 白名单校验（status 来自查询参数——防注入）+ 全参数化
     const status = ['requested', 'running', 'stopped', 'terminated', 'error'].includes(filter?.status ?? '') ? filter!.status : null
-    if (status && filter?.department_id) {
-      return (await this.sql`SELECT * FROM sandboxes WHERE app_id = ${appId} AND status = ${status} AND department_id = ${filter.department_id} ORDER BY created_at DESC`) as SandboxRow[]
-    }
-    if (status) {
-      return (await this.sql`SELECT * FROM sandboxes WHERE app_id = ${appId} AND status = ${status} ORDER BY created_at DESC`) as SandboxRow[]
-    }
-    if (filter?.department_id) {
-      return (await this.sql`SELECT * FROM sandboxes WHERE app_id = ${appId} AND department_id = ${filter.department_id} ORDER BY created_at DESC`) as SandboxRow[]
-    }
-    return (await this.sql`SELECT * FROM sandboxes WHERE app_id = ${appId} ORDER BY created_at DESC`) as SandboxRow[]
+    const where: import('weifuwu').WhereExpr = { app_id: { eq: appId }}
+    if (status) where.status = { eq: status }
+    if (filter?.department_id) where.department_id = { eq: filter.department_id }
+    const rows = await this.orm.query.from('sandboxes')
+      .select()
+      .where(where)
+      .orderBy('created_at', 'desc')
+      .run()
+    return rows as unknown as SandboxRow[]
   }
 
   async get(id: string, appId: string): Promise<SandboxRow | null> {
-    if (!this.sql) return null
-    const rows = await this.sql`SELECT * FROM sandboxes WHERE id = ${id} AND app_id = ${appId}`
-    return (rows?.[0] ?? null) as SandboxRow | null
+    if (!this.orm) return null
+    const rows = await this.orm.query.from('sandboxes')
+      .select()
+      .where({ id: { eq: String(id) }, app_id: { eq: String(appId) }})
+      .limit(1)
+      .run()
+    return (rows?.[0] ?? null) as unknown as SandboxRow | null
   }
 
   /** 部门绑定的非终止记录（1 部门 = 1 环境） */
   async byDepartment(departmentId: string): Promise<SandboxRow | null> {
-    if (!this.sql) return null
-    const rows = await this.sql`
-      SELECT * FROM sandboxes WHERE department_id = ${departmentId} AND status != 'terminated' LIMIT 1
-    `
-    return (rows?.[0] ?? null) as SandboxRow | null
+    if (!this.orm) return null
+    const rows = await this.orm.query.from('sandboxes')
+      .select()
+      .where({ department_id: { eq: departmentId }, status: { ne: 'terminated' } })
+      .limit(1)
+      .run()
+    return (rows?.[0] ?? null) as unknown as SandboxRow | null
   }
 
   // ── 业务入口：工具执行 ────────────────────────────
@@ -190,11 +199,15 @@ export class SandboxManager {
     args: Record<string, unknown>,
     opts?: { network?: boolean; execTimeoutMs?: number },
   ): Promise<ExecResult> {
-    if (!this.sql) return { ok: false, error: '沙盒管理器未初始化' }
+    if (!this.orm) return { ok: false, error: '沙盒管理器未初始化' }
     let row = await this.byDepartment(departmentId)
     if (!row) {
       // 惰性自动创建（requested）——部门成员启用文件工具即自动获得环境
-      const [dept] = await this.sql`SELECT name, app_id FROM departments WHERE id = ${departmentId}`
+      const [dept] = await this.orm.query.from('departments')
+        .select('name', 'app_id')
+        .where({ id: { eq: departmentId }})
+        .limit(1)
+        .run()
       if (!dept) return { ok: false, error: '部门不存在——无法创建工作环境' }
       try {
         row = await this.create({
@@ -254,17 +267,13 @@ export class SandboxManager {
 
   /** heartbeat 落库 + 状态校正（exec 后） */
   private async touch(id: string, status: string | null, error?: string | null): Promise<void> {
-    if (!this.sql) return
+    if (!this.orm) return
     // sandbox 事件流：状态变更（requested/running/stopped/error——状态机可观测）
     if (status) sandboxEmit('status', id, { status, error: error?.slice(0, 200) })
-    await this.sql`
-      UPDATE sandboxes SET
-        last_used_at = NOW(),
-        status = COALESCE(${status}, status),
-        error = ${error ?? null},
-        updated_at = NOW()
-      WHERE id = ${id}
-    `
+    await this.orm.query.update('sandboxes')
+      .set({ last_used_at: ops.now(), error: error ?? null, updated_at: ops.now(), ...(status ? { status } : {}) })
+      .where({ id: { eq: String(id) } })
+      .run()
   }
 
   // ── 业务入口：生命周期操作 ─────────────────────────
@@ -281,14 +290,14 @@ export class SandboxManager {
     cpus?: number
     mode?: 'persistent' | 'ephemeral'
   }): Promise<SandboxRow> {
-    if (!this.sql) throw new Error('沙盒管理器未初始化')
+    if (!this.orm) throw new Error('沙盒管理器未初始化')
     // 配额校验（per-app——M5 预算在此扩展）
-    const [q] = await this.sql`SELECT sandbox_quota FROM _weifuwu_apps WHERE id = ${input.appId}`
-    const quota = Number(q?.sandbox_quota ?? 5)
-    const [c] = await this.sql`
-      SELECT COUNT(*)::int as n FROM sandboxes
-      WHERE app_id = ${input.appId} AND status IN ('requested', 'running')
-    `
+    const [q] = await this.orm.query.from('_weifuwu_apps').select('sandbox_quota').where({ id: { eq: input.appId }}).limit(1).run()
+    const quota = Number((q as any)?.sandbox_quota ?? 5)
+    const [c] = await this.orm.query.from('sandboxes')
+      .count('*', 'n')
+      .where({ app_id: { eq: input.appId }, status: { in: ['requested', 'running'] } })
+      .run()
     if (Number(c?.n ?? 0) >= quota) {
       this.logEvent('quota', String(input.appId), 'quota_rejected', `quota=${quota} name=${input.name}`)
       sandboxEmit('quota:rejected', undefined, { appId: input.appId, quota, name: input.name })
@@ -303,14 +312,17 @@ export class SandboxManager {
       if (existing) return existing
     }
     try {
-      const rows = await this.sql`
-        INSERT INTO sandboxes (app_id, department_id, name, status, mode, image, network, memory_mb, cpus, workspace, expires_at)
-        VALUES (${input.appId}, ${input.departmentId ?? null}, ${input.name}, 'requested',
-          ${input.mode ?? 'persistent'}, ${input.image ?? 'ap-sandbox:latest'}, ${input.network ?? true},
-          ${input.memoryMb ?? DEFAULT_MEMORY_MB}, ${input.cpus ?? DEFAULT_CPUS}, ${input.workspace ?? null},
-          NOW() + make_interval(secs => ${Math.floor(this.opts.maxLifetimeMs / 1000)}))
-        RETURNING *
-      `
+      // expires_at = now + maxLifetime（JS 侧计算——语义与 make_interval 等价——无 SQL 表达式逃生舱）
+      const expiresAt = new Date(Date.now() + this.opts.maxLifetimeMs).toISOString()
+      const rows = await this.orm.query.insert('sandboxes')
+        .values({
+          app_id: input.appId, department_id: input.departmentId ?? null, name: input.name, status: 'requested',
+          mode: input.mode ?? 'persistent', image: input.image ?? 'ap-sandbox:latest', network: input.network ?? true,
+          memory_mb: input.memoryMb ?? DEFAULT_MEMORY_MB, cpus: input.cpus ?? DEFAULT_CPUS, workspace: input.workspace ?? null,
+          expires_at: expiresAt,
+        })
+        .returning('*')
+        .run()
       this.counters.created++
       this.logEvent(String(rows[0].id), String(input.appId), 'created', `name=${input.name}`)
       // sandbox 事件流：创建（惰性 requested——首次 exec 才起容器）
@@ -319,7 +331,7 @@ export class SandboxManager {
       sandboxEmit('host:register', undefined, { ...hostCapacity(), at: new Date().toISOString() })
       // 集群调度（阶段 3）：路由决策事件（容量视图——选宿主——决策可观测）
       emitRouteDecision(String(rows[0].id), input.departmentId ?? null, input.memoryMb ?? DEFAULT_MEMORY_MB)
-      return rows[0] as SandboxRow
+      return rows[0] as unknown as SandboxRow
     } catch (e: any) {
       // 并发创建冲突（23505）→ 重查返回已有记录（幂等）
       if (String(e?.code ?? '') === '23505' || /duplicate key/.test(String(e?.message ?? ''))) {
@@ -336,27 +348,34 @@ export class SandboxManager {
    */
   private async ensurePoolBudget(needMb: number): Promise<void> {
     const budgetMb = this.opts.poolBudgetMb ?? DEFAULT_POOL_BUDGET_MB
-    if (!this.sql || budgetMb <= 0) return
+    if (!this.orm || budgetMb <= 0) return
     // 口径 = 活跃记录（requested/running/error——容器会占内存）；stopped 容器
     // 已 docker stop（内存已释放）不计（2027-09 与配额口径对齐——实证：S4 批收尾
     // 停 1000 角色容器——stopped 记录若计数——下一 campaign 无可用预算——新角色
     // 创建强制驱逐陈旧记录——不健康 churn）
-    const [used] = await this.sql`
-      SELECT COALESCE(SUM(memory_mb), 0)::int as used FROM sandboxes WHERE status IN ('requested', 'running', 'error')
-    `
-    let usedMb = Number(used?.used ?? 0)
+    const [used] = await this.orm.query.from('sandboxes')
+      .sum('memory_mb', 'used')
+      .where({ status: { in: ['requested', 'running', 'error'] } })
+      .run()
+    let usedMb = Number((used as any)?.used ?? 0)
     if (usedMb + needMb <= budgetMb) return
     // 驱逐非 busy 最旧记录（LRU）直到预算满足
-    const rows = (await this.sql`
-      SELECT * FROM sandboxes WHERE status != 'terminated' ORDER BY last_used_at ASC NULLS FIRST, created_at ASC
-    `) as SandboxRow[]
+    const rows = (await this.orm.query.from('sandboxes')
+      .select()
+      .where({ status: { ne: 'terminated' } })
+      .orderBy('last_used_at', 'asc')
+      .orderBy('created_at', 'asc')
+      .run()) as unknown as SandboxRow[]
     for (const row of rows) {
       if (usedMb + needMb <= budgetMb) break
       if (this.exe.isBusy(row.id)) continue // busy 豁免——绝不杀执行中的任务
       // 阶段 3：调度事件（预算驱逐——LRU——任务完整性 > 池吞吐——驱逐可审计）
       sandboxEmit('evict', row.id, { reason: 'pool-budget', detail: `LRU 驱逐（预算 ${budgetMb}MB——释放 ${row.memory_mb ?? DEFAULT_MEMORY_MB}MB）` })
       await this.exe.dispose(row.id).catch(() => {})
-      await this.sql`UPDATE sandboxes SET status = 'terminated', terminated_at = NOW(), updated_at = NOW() WHERE id = ${row.id}`
+      await this.orm.query.update('sandboxes')
+        .set({ status: 'terminated', terminated_at: ops.now(), updated_at: ops.now() })
+        .where({ id: { eq: row.id }})
+        .run()
       usedMb -= Number(row.memory_mb ?? DEFAULT_MEMORY_MB)
       this.counters.evicted++
     }
@@ -369,9 +388,9 @@ export class SandboxManager {
 
   /** P3-3：状态计数（/api/metrics 暴露——DB 快照） */
   async statusCounts(): Promise<Record<string, number>> {
-    if (!this.sql) return {}
+    if (!this.orm) return {}
     try {
-      const rows = await this.sql`SELECT status, COUNT(*)::int as n FROM sandboxes GROUP BY status`
+      const rows = await this.orm.query.from('sandboxes').select('status').count('*', 'n').groupBy('status').run()
       const out: Record<string, number> = {}
       for (const r of rows ?? []) out[String((r as any).status)] = Number((r as any).n ?? 0)
       return out
@@ -382,21 +401,21 @@ export class SandboxManager {
 
   /** 终止（rm + terminated_at；记录保留 historyRetentionDays） */
   async terminate(id: string, appId: string): Promise<void> {
-    if (!this.sql) return
+    if (!this.orm) return
     const row = await this.get(id, appId)
     if (!row || row.status === 'terminated') return
     await this.exe.dispose(row.id).catch(() => {})
-    await this.sql`
-      UPDATE sandboxes SET status = 'terminated', terminated_at = NOW(), error = NULL, updated_at = NOW()
-      WHERE id = ${id}
-    `
+    await this.orm.query.update('sandboxes')
+      .set({ status: 'terminated', terminated_at: ops.now(), error: null, updated_at: ops.now() })
+      .where({ id: { eq: String(id) } })
+      .run()
     this.counters.terminated++
     this.logEvent(id, appId, 'terminated')
   }
 
   /** 启动（requested/stopped/error → provision） */
   async start(id: string, appId: string): Promise<{ ok: boolean; error?: string }> {
-    if (!this.sql) return { ok: false, error: '沙盒管理器未初始化' }
+    if (!this.orm) return { ok: false, error: '沙盒管理器未初始化' }
     const row = await this.get(id, appId)
     if (!row) return { ok: false, error: '沙盒不存在' }
     if (!row.workspace) return { ok: false, error: '沙盒无工作目录——无法启动' }
@@ -405,16 +424,16 @@ export class SandboxManager {
     }
     const ok = await this.exe.ensure(row.id, spec)
     if (!ok) {
-      await this.sql`
-        UPDATE sandboxes SET status = 'error', error = '容器启动失败（docker 不可用或镜像缺失）', updated_at = NOW()
-        WHERE id = ${row.id}
-      `
+      await this.orm.query.update('sandboxes')
+        .set({ status: 'error', error: '容器启动失败（docker 不可用或镜像缺失）', updated_at: ops.now() })
+        .where({ id: { eq: row.id }})
+        .run()
       return { ok: false, error: '容器启动失败（docker 不可用或镜像缺失）' }
     }
-    await this.sql`
-      UPDATE sandboxes SET status = 'running', error = NULL, last_used_at = NOW(), updated_at = NOW()
-      WHERE id = ${row.id}
-    `
+    await this.orm.query.update('sandboxes')
+      .set({ status: 'running', error: null, last_used_at: ops.now(), updated_at: ops.now() })
+      .where({ id: { eq: row.id }})
+      .run()
     this.logEvent(String(row.id), String(appId), 'started')
     return { ok: true }
   }
@@ -422,13 +441,16 @@ export class SandboxManager {
   /** 停止（容器 stop——瞬态保留；状态 → stopped） */
   async stop(id: string, appId: string): Promise<{ ok: boolean; error?: string }> {
     sandboxEmit('stop', id, { appId })
-    if (!this.sql) return { ok: false, error: '沙盒管理器未初始化' }
+    if (!this.orm) return { ok: false, error: '沙盒管理器未初始化' }
     const row = await this.get(id, appId)
     if (!row) return { ok: false, error: '沙盒不存在' }
     if (this.exe.isBusy(row.id)) return { ok: false, error: '沙盒正在执行任务——不能停止' }
     const r = await this.exe.containerAction(`ap-sandbox-${row.id}`, 'stop')
     if (!r.ok) return { ok: false, error: r.message }
-    await this.sql`UPDATE sandboxes SET status = 'stopped', updated_at = NOW() WHERE id = ${row.id}`
+    await this.orm.query.update('sandboxes')
+      .set({ status: 'stopped', updated_at: ops.now() })
+      .where({ id: { eq: row.id }})
+      .run()
     this.logEvent(String(row.id), String(appId), 'stopped')
     return { ok: true }
   }
@@ -442,22 +464,25 @@ export class SandboxManager {
 
   /** 配置更新（快照变更 → 漂移重建——reconcile 检测） */
   async updateConfig(id: string, appId: string, patch: { image?: string; network?: boolean; memoryMb?: number; cpus?: number }): Promise<void> {
-    if (!this.sql) return
-    await this.sql`
-      UPDATE sandboxes SET
-        image = COALESCE(${patch.image}, image),
-        network = COALESCE(${patch.network}, network),
-        memory_mb = COALESCE(${patch.memoryMb}, memory_mb),
-        cpus = COALESCE(${patch.cpus}, cpus),
-        updated_at = NOW()
-      WHERE id = ${id} AND app_id = ${appId}
-    `
+    if (!this.orm) return
+    const set: Record<string, unknown> = { updated_at: ops.now() }
+    if (patch.image !== undefined) set.image = patch.image
+    if (patch.network !== undefined) set.network = patch.network
+    if (patch.memoryMb !== undefined) set.memory_mb = patch.memoryMb
+    if (patch.cpus !== undefined) set.cpus = patch.cpus
+    await this.orm.query.update('sandboxes')
+      .set(set)
+      .where({ id: { eq: String(id) }, app_id: { eq: String(appId) }})
+      .run()
   }
 
   /** agent 删除不级联沙盒（归属已移部门）；部门删除级联在路由层调 terminateByDepartment */
   async terminateByDepartment(departmentId: string): Promise<void> {
-    if (!this.sql) return
-    const rows = await this.sql`SELECT * FROM sandboxes WHERE department_id = ${departmentId} AND status != 'terminated'`
+    if (!this.orm) return
+    const rows = await this.orm.query.from('sandboxes')
+      .select()
+      .where({ department_id: { eq: departmentId }, status: { ne: 'terminated' } })
+      .run()
     for (const row of rows ?? []) {
       await this.terminate(String((row as any).id), String((row as any).app_id))
     }
@@ -466,7 +491,7 @@ export class SandboxManager {
   // ── reconcile（60s：DB 期望 vs docker 实际） ───────
 
   startReaper(): void {
-    if (this.timer || !this.sql) return
+    if (this.timer || !this.orm) return
     this.timer = setInterval(() => { void this.reconcile() }, this.opts.reconcileIntervalMs)
     this.timer.unref?.()
   }
@@ -479,7 +504,7 @@ export class SandboxManager {
   async reconcile(): Promise<{ created: number; started: number; stopped: number; terminated: number; orphans: number }> {
     sandboxEmit('reconcile:start', undefined, {})
     const stats = { created: 0, started: 0, stopped: 0, terminated: 0, orphans: 0, error: 0 }
-    if (!this.sql || this.reconciling) {
+    if (!this.orm || this.reconciling) {
       sandboxEmit('reconcile:skip', undefined, { reason: this.reconciling ? 'already-running' : 'no-db' })
       return stats
     }
@@ -487,9 +512,10 @@ export class SandboxManager {
     try {
       const now = Date.now()
       // 1) 所有活跃记录（requested/running/stopped/error）
-      const rows = (await this.sql`
-        SELECT * FROM sandboxes WHERE status IN ('requested', 'running', 'stopped', 'error')
-      `) as SandboxRow[]
+      const rows = (await this.orm.query.from('sandboxes')
+        .select()
+        .where({ status: { in: ['requested', 'running', 'stopped', 'error'] } })
+        .run()) as unknown as SandboxRow[]
       // 2) docker 实际容器（一次查询——减少 CLI 往返）
       const containers = await this.exe.listContainers()
       const actual = new Map<string, { running: boolean; name: string }>()
@@ -529,7 +555,10 @@ export class SandboxManager {
             // 阶段 2：生命周期事件（idle 回收——两级回收第一级——可审计）
             sandboxEmit('reconcile:idle-stop', row.id, { idleMs: now - lastUsed })
             await this.exe.containerAction(`ap-sandbox-${row.id}`, 'stop').catch(() => {})
-            await this.sql`UPDATE sandboxes SET status = 'stopped', updated_at = NOW() WHERE id = ${row.id}`
+            await this.orm.query.update('sandboxes')
+              .set({ status: 'stopped', updated_at: ops.now() })
+              .where({ id: { eq: row.id }})
+              .run()
             stats.stopped++
             this.counters.idleStopped++
             continue
@@ -545,7 +574,10 @@ export class SandboxManager {
                 stats.started++
               this.counters.autoStarted++
                 if (row.status === 'error') {
-                  await this.sql`UPDATE sandboxes SET status = 'running', error = NULL, updated_at = NOW() WHERE id = ${row.id}`
+                  await this.orm.query.update('sandboxes')
+                    .set({ status: 'running', error: null, updated_at: ops.now() })
+                    .where({ id: { eq: row.id }})
+                    .run()
                 }
               }
             }
@@ -555,16 +587,19 @@ export class SandboxManager {
           const stoppedAt = row.updated_at ? new Date(row.updated_at).getTime() : now
           if (now - stoppedAt > this.opts.stopTimeoutMs && row.mode !== 'ephemeral') {
             await this.exe.dispose(row.id).catch(() => {})
-            await this.sql`UPDATE sandboxes SET status = 'terminated', terminated_at = NOW(), updated_at = NOW() WHERE id = ${row.id}`
+            await this.orm.query.update('sandboxes')
+        .set({ status: 'terminated', terminated_at: ops.now(), updated_at: ops.now() })
+        .where({ id: { eq: row.id }})
+        .run()
             stats.terminated++
           }
         }
       }
-      // 5) 历史清理：terminated 超过保留期 → 删除记录
-      await this.sql`
-        DELETE FROM sandboxes WHERE status = 'terminated'
-          AND terminated_at < NOW() - make_interval(days => ${this.opts.historyRetentionDays})
-      `.catch(() => {})
+      // 5) 历史清理：terminated 超过保留期 → 删除记录（JS 侧计算截止——与 make_interval 等价）
+      await this.orm.query.delete('sandboxes')
+        .where({ status: { eq: 'terminated' }, terminated_at: { lt: new Date(Date.now() - this.opts.historyRetentionDays * 86_400_000).toISOString() } })
+        .run()
+        .catch(() => {})
     } finally {
       this.reconciling = false
     }
@@ -575,9 +610,9 @@ export class SandboxManager {
     // 阶段 4：事件日志 TTL 清理（保留 N 天——默认 7——历史归档）
     try {
       const retentionDays = Number(process.env.SANDBOX_EVENT_RETENTION ?? 7)
-      await this.sql`
-        DELETE FROM sandbox_events WHERE created_at < NOW() - make_interval(days => ${retentionDays})
-      `
+      await this.orm.query.delete('sandbox_events')
+        .where({ created_at: { lt: new Date(Date.now() - retentionDays * 86_400_000).toISOString() } })
+        .run()
     } catch { /* 清理失败不阻断 */ }
     sandboxEmit('reconcile:end', undefined, { ...stats })
     return stats

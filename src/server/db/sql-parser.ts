@@ -10,7 +10,7 @@
  * 覆盖（系统性语法规则——非正则打补丁）：
  *   SELECT（投影/别名/常量/表达式/UNION ALL/派生表/WHERE 全操作符 + AND OR/
  *     IS NULL/IN/ORDER BY/LIMIT）
- *   INSERT（多行 VALUES/RETURNING/无列名）
+ *   INSERT（多行 VALUES/RETURNING/无列名/ON CONFLICT）
  *   UPDATE / DELETE（SET/WHERE/RETURNING）
  *   表达式：$n 参数/cast（::type）/算术（加减乘除）/now()/引号字符串
  *
@@ -47,6 +47,24 @@ function tokenize(sql: string): Token[] {
     if (c === 41) { tokens.push({ type: 'rparen', value: ')' }); i++; continue }
     if (c === 44) { tokens.push({ type: 'comma', value: ',' }); i++; continue }
     if (c === 42) { tokens.push({ type: 'star', value: '*' }); i++; continue }
+    // ── 引号标识符状态（" 包标识符——PG 大小写敏感；"" 内转义）──
+    if (c === 34) {
+      let j = i + 1
+      let qs = ''
+      while (j < n) {
+        const qc = sql.charCodeAt(j)
+        if (qc === 34) {
+          if (sql.charCodeAt(j + 1) === 34) { qs += '"'; j += 2; continue }
+          break
+        }
+        qs += sql[j]
+        j++
+      }
+      tokens.push({ type: 'ident', value: qs })
+      if (j >= n) throw new ProtocolError(`memory-sql: 引号标识符未闭合（位置 ${i}）`)
+      i = j + 1
+      continue
+    }
     // ── 参数状态（$ 后数字；无数字则 $ 单独——值解析时抛）──
     if (c === 36) {
       let j = i + 1
@@ -108,12 +126,27 @@ function tokenize(sql: string): Token[] {
 // ── Parser ────────────────────────────────────────────────
 
 export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
+  // DO $$ ... END $$ 匿名块：tokenize 前整体截取——内存仅认块内 CREATE TYPE AS ENUM
+  // （平台 schema 幂等 DDL 模式——EXCEPTION duplicate_object 语义 = 已存在跳过）；
+  // 其他块内容 doBlock no-op（内存无控制流语义）
+  if (/^\s*DO\s+\$\$/i.test(sql.replace(/;$/, '').trim())) {
+    const typeMatch = sql.match(/CREATE\s+TYPE\s+(\w+)\s+AS\s+ENUM\s*\(([^)]*)\)/i)
+    if (typeMatch) {
+      const enumValues = typeMatch[2]
+        .split(',')
+        .map((v) => v.trim().replace(/^'(.*)'$/, '$1'))
+        .filter((v) => v.length > 0)
+      return { kind: 'ddl', op: 'createEnum', table: typeMatch[1], enumValues }
+    }
+    return { kind: 'ddl', op: 'doBlock' }
+  }
   const tokens = tokenize(sql.replace(/;$/, '').trim())
   let pos = 0
   // failsafe：步骤计数——任何解析逻辑漏洞超限即抛（死循环物理不可能）
   let steps = 0
   const MAX_STEPS = 1_000_000
   const peek = (): Token => (pos < tokens.length ? tokens[pos] : tokens[tokens.length - 1])
+  const peekNext = (): Token => (pos + 1 < tokens.length ? tokens[pos + 1] : tokens[tokens.length - 1])
   const next = (): Token => {
     if (++steps > MAX_STEPS) throw new ProtocolError('memory-sql: 解析器超出最大步骤限制（内部错误）')
     if (pos >= tokens.length) throw new ProtocolError('memory-sql: 解析器 token 越界（输入截断？）')
@@ -126,7 +159,7 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
   }
   const isKeyword = (t: Token, kw: string): boolean => t.type === 'ident' && t.value.toUpperCase() === kw
 
-  // 顶层：SELECT / INSERT / UPDATE / DELETE
+  // 顶层：SELECT / INSERT / UPDATE / DELETE / CREATE TYPE / DO 块
   const head = next()
   if (head.type !== 'ident') throw new ProtocolError('memory-sql: 语句必须以 SELECT/INSERT/UPDATE/DELETE 开头')
 
@@ -173,6 +206,37 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
       return { kind: 'select', table: '', cols: [], unionRows: [first, merged] }
     }
 
+    // ── 聚合投影（COUNT [FILTER]/SUM/AVG/MIN/MAX——无 GROUP BY 纯聚合——整表单组）──
+    const aggProj = proj.filter((p) => {
+      const m = /^(count|sum|avg|min|max)\s*\(/i.exec(p.expr.trim())
+      return !!m
+    })
+    if (aggProj.length === proj.length && aggProj.length > 0) {
+      if (!isKeyword(peek(), 'FROM')) {
+        // 无 FROM——常量聚合（COUNT(*) 无表）
+      } else {
+        next() // FROM
+      }
+      const table = peek().type === 'ident' ? expect('ident', '表名').value : ''
+      const alias = peek().type === 'ident' && !['WHERE', 'ORDER', 'LIMIT'].includes(peek().value.toUpperCase()) ? next().value : undefined
+      let whereClause: string | undefined
+      if (isKeyword(peek(), 'WHERE')) {
+        next()
+        whereClause = readUntil(['eof'])
+      }
+      const aggregates = aggProj.map((p) => {
+        const m = /^(count|sum|avg|min|max)\s*\(\s*([^)]*)\s*\)(?:\s*FILTER\s*\(\s*WHERE\s+(.+?)\))?(?:\s*::[\w.]+)?(?:\s+AS\s+(\w+))?$/i.exec(p.expr.trim())!
+        return {
+          fn: m![1].toLowerCase() as 'count',
+          col: m![2].trim() || '*',
+          as: m![4] ?? p.alias ?? `_agg${aggProj.indexOf(p) + 1}`,
+          ...(m![3] ? { filter: parseWhereToExpr(m![3], params, alias) } : {}),
+        }
+      })
+      const q: SelectQuery = { kind: 'select', table, alias, aggregate: aggregates as never }
+      if (whereClause) q.where = parseWhereToExpr(whereClause, params, alias)
+      return q
+    }
     // count(*) 聚合（可带 ::int cast 与 AS 别名——列名 = alias 或 'count'）
     if (proj.length === 1 && /^count\s*\(\s*\*\s*\)\s*(::\w+)?$/i.test(proj[0].expr)) {
       next() // FROM
@@ -221,7 +285,25 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
     let whereClause: string | undefined
     let orderBy: SelectQuery['orderBy']
     let limit: number | undefined
+    const joins: NonNullable<SelectQuery['joins']> = []
     for (;;) {
+      // JOIN（LEFT [OUTER] JOIN / INNER JOIN / [plain] JOIN——on 表达式到下一子句）
+      if (isKeyword(peek(), 'JOIN') || (isKeyword(peek(), 'LEFT') && isKeyword(peekNext(), 'JOIN')) ||
+          (isKeyword(peek(), 'INNER') && isKeyword(peekNext(), 'JOIN'))) {
+        let type: 'inner' | 'left' = 'inner'
+        if (isKeyword(peek(), 'LEFT')) { next(); type = 'left'; expectKeyword('JOIN') }
+        else if (isKeyword(peek(), 'INNER')) { next(); expectKeyword('JOIN') }
+        else if (isKeyword(peek(), 'JOIN')) { /* plain */ }
+        if (isKeyword(peek(), 'JOIN')) next()
+        const rightTable = expect('ident', 'JOIN 表').value
+        const rightAlias = peek().type === 'ident' && !['ON', 'WHERE', 'ORDER', 'LIMIT', 'GROUP', 'HAVING'].includes(peek().value.toUpperCase())
+          ? next().value : undefined
+        expectKeyword('ON')
+        const on = readUntil(['WHERE', 'ORDER', 'LIMIT', 'GROUP', 'HAVING', 'JOIN', 'LEFT', 'INNER', 'eof']).trim()
+        // ON 保留两侧表前缀（merged 行键=别名.列——剥前缀会丢 join 表侧标识）
+        joins.push({ table: rightTable, alias: rightAlias ?? rightTable, type, on: parseWhereToExpr(on, params) })
+        continue
+      }
       if (isKeyword(peek(), 'WHERE')) { next(); whereClause = readUntil(['ORDER', 'LIMIT', 'eof']); continue }
       if (isKeyword(peek(), 'ORDER')) {
         next(); expectKeyword('BY')
@@ -231,7 +313,14 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
         })
         continue
       }
-      if (isKeyword(peek(), 'LIMIT')) { next(); limit = Number(expect('number', 'LIMIT 值').value); continue }
+      if (isKeyword(peek(), 'LIMIT')) {
+        next()
+        const lt = next()
+        // 参数化 LIMIT（平台面普遍——LIMIT $n）：数字或参数
+        if (lt.type === 'number') limit = Number(lt.value)
+        else { limit = Number(evalValue(lt.value, params)) }
+        continue
+      }
       // 未支持子句（JOIN/GROUP/HAVING/WINDOW 等）——诚实裁剪
       if (peek().type !== 'eof') {
         throw new ProtocolError(`memory-sql: SELECT 子句 '${peek().value}' 不支持（诚实裁剪——JOIN/GROUP BY/HAVING 需真库）`)
@@ -243,8 +332,12 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
       kind: 'select',
       table,
       alias,
+      joins: joins.length ? joins : undefined,
       // '*' = 全列（undefined）；否则投影列
-      cols: proj.length === 1 && proj[0].expr === '*' ? undefined : proj.map((p) => p.alias ?? stripAlias(p.expr, alias)),
+      cols: proj.length === 1 && proj[0].expr === '*' ? undefined : proj.map((p) => {
+        if (p.alias) return `${stripAlias(p.expr, alias)} AS ${p.alias}`
+        return stripAlias(p.expr, alias)
+      }),
       where: whereClause ? parseWhereToExpr(whereClause, params, alias) : undefined,
       orderBy,
       limit,
@@ -282,7 +375,7 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
     const rows: Record<string, unknown>[] = []
     for (;;) {
       expect('lparen', '(')
-      const vals = readUntil(['rparen']).split(',').map((v) => evalValue(v.trim(), params))
+      const vals = splitCommas(readUntil(['rparen'])).map((v) => evalValue(v.trim(), params))
       expect('rparen', ')')
       if (!cols.length) cols = vals.map((_, i) => `f${i + 1}`)
       const row: Record<string, unknown> = {}
@@ -291,13 +384,46 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
       if (peek().type === 'comma') { next(); continue }
       break
     }
+    let onConflict: InsertQuery['onConflict']
+    if (isKeyword(peek(), 'ON')) {
+      next()
+      expectKeyword('CONFLICT')
+      let col: string | undefined
+      if (peek().type === 'lparen') {
+        next()
+        col = expect('ident', '冲突目标列').value
+        expect('rparen', ')')
+      }
+      expectKeyword('DO')
+      if (isKeyword(peek(), 'NOTHING')) {
+        next()
+        onConflict = col ? { col } : {}
+      } else if (isKeyword(peek(), 'UPDATE')) {
+        next()
+        if (!col) throw new ProtocolError('memory-sql: ON CONFLICT DO UPDATE 必须指定冲突目标列（PG 规则——compile 同）')
+        expectKeyword('SET')
+        // 仅认规范型（compile 生成）：SET c = EXCLUDED.c[, ...]——常量/表达式 SET 判负
+        // （D2：表达式 upsert 走真库 SQL 逃生舱——内存诚实裁剪）
+        const setClause = readUntil(['RETURNING', 'eof']).trim()
+        if (!setClause) throw new ProtocolError('memory-sql: ON CONFLICT DO UPDATE 缺少 SET 子句')
+        for (const a of splitCommas(setClause)) {
+          const m = /^([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*EXCLUDED\.([A-Za-z_][A-Za-z0-9_.]*)$/i.exec(a.trim())
+          if (!m || m[1].toLowerCase() !== m[2].toLowerCase()) {
+            throw new ProtocolError(`memory-sql: ON CONFLICT DO UPDATE 仅支持 SET col = EXCLUDED.col（表达式/常量 SET 判负——真库逃生舱）: ${a.trim()}`)
+          }
+        }
+        onConflict = { col, update: true }
+      } else {
+        throw new ProtocolError(`memory-sql: 期望 DO NOTHING 或 DO UPDATE，得到 '${peek().value}'`)
+      }
+    }
     let returning: InsertQuery['returning']
     if (isKeyword(peek(), 'RETURNING')) {
       next()
       const r = readUntil(['eof']).trim()
       returning = r === '*' ? '*' : r.split(',').map((c) => c.trim())
     }
-    return { kind: 'insert', table, rows, returning }
+    return { kind: 'insert', table, rows, returning, onConflict }
   }
 
   // ── UPDATE ──
@@ -315,10 +441,15 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
     let whereClause: string | undefined
     if (isKeyword(peek(), 'WHERE')) {
       next()
-      whereClause = readUntil(['eof'])
+      whereClause = readUntil(['RETURNING', 'eof'])
     }
     const q: UpdateQuery = { kind: 'update', table, sets }
     if (whereClause) q.where = parseWhereToExpr(whereClause, params)
+    if (isKeyword(peek(), 'RETURNING')) {
+      next()
+      const r = readUntil(['eof']).trim()
+      q.returning = r === '*' ? '*' : r.split(',').map((c) => c.trim())
+    }
     return q
   }
 
@@ -329,10 +460,15 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
     let whereClause: string | undefined
     if (isKeyword(peek(), 'WHERE')) {
       next()
-      whereClause = readUntil(['eof'])
+      whereClause = readUntil(['RETURNING', 'eof'])
     }
     const q: DeleteQuery = { kind: 'delete', table }
     if (whereClause) q.where = parseWhereToExpr(whereClause, params)
+    if (isKeyword(peek(), 'RETURNING')) {
+      next()
+      const r = readUntil(['eof']).trim()
+      q.returning = r === '*' ? '*' : r.split(',').map((c) => c.trim())
+    }
     return q
   }
 
@@ -349,6 +485,27 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
       // ALTER TABLE ...——内存无结构语义（no-op——迁移兼容）
       return { kind: 'ddl', op: 'alter' }
     }
+    // CREATE EXTENSION（pgvector 等——内存吞——无扩展语义）
+    if (isKeyword(peek(), 'EXTENSION')) return { kind: 'ddl', op: 'createExtension' }
+    // CREATE TYPE name AS ENUM (...)
+    if (isKeyword(peek(), 'TYPE')) {
+      next()
+      const name = expect('ident', '类型名').value
+      expectKeyword('AS')
+      expectKeyword('ENUM')
+      expect('lparen', '(')
+      let raw = ''
+      let depth = 0
+      for (;;) {
+        const t = next()
+        if (t.type === 'lparen') depth++
+        if (t.type === 'rparen') { depth--; if (depth < 0) break }
+        if (t.type === 'eof') break
+        raw += (t.type === 'string' ? `'${t.value}'` : t.value) + (t.type === 'comma' ? '' : ' ')
+      }
+      const enumValues = raw.split(',').map((v) => v.trim().replace(/^'|\.'$/g, '')).filter((v) => v.length > 0)
+      return { kind: 'ddl', op: 'createEnum', table: name, enumValues }
+    }
     // CREATE TABLE | CREATE INDEX | CREATE UNIQUE INDEX
     const isIndex = isKeyword(peek(), 'INDEX') || isKeyword(peek(), 'UNIQUE')
     if (isIndex) return { kind: 'ddl', op: 'createIndex' }
@@ -363,6 +520,20 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
       const col = parseColumnDef()
       if (col) columns.push(col)
       if (peek().type === 'comma') { next(); continue }
+      // 表级约束（CHECK/CONSTRAINT/FOREIGN KEY/PRIMARY KEY 表级）——内存无结构语义
+      // （吞到逗号/顶层右括号——括号深度跟踪——与列定义 REFERENCES 同模式）
+      if (isKeyword(peek(), 'CHECK') || isKeyword(peek(), 'CONSTRAINT') ||
+          isKeyword(peek(), 'FOREIGN') || (isKeyword(peek(), 'PRIMARY') || isKeyword(peek(), 'UNIQUE'))) {
+        let dep = 0
+        for (;;) {
+          const t = next()
+          if (t.type === 'eof') break
+          if (dep === 0 && (t.type === 'comma' || t.type === 'rparen')) break
+          if (t.type === 'lparen') dep++
+          if (t.type === 'rparen') dep--
+        }
+        continue
+      }
       break
     }
     expect('rparen', ')')
@@ -374,26 +545,28 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
   type ColumnDef = NonNullable<DdlQuery['columns']>[number]
   function parseColumnDef(): ColumnDef | undefined {
     const name = peek()
-    if (name.type !== 'ident') {
-      // 表级约束（PRIMARY KEY (a,b) / UNIQUE (a)——内存近似：复合 PK 列记 unique）
-      if (isKeyword(name, 'PRIMARY') || isKeyword(name, 'UNIQUE')) {
+    // 表级约束（PRIMARY KEY (a,b) / UNIQUE (a)——内存近似：复合键列 0 记 unique）
+    // （约束关键字是 ident——必须先于通用列解析拦截——否则被当列名吃出 UNIQUE/dept 噪音）
+    if (name.type === 'ident' && (isKeyword(name, 'PRIMARY') || isKeyword(name, 'UNIQUE'))) {
+      next()
+      if (isKeyword(peek(), 'KEY')) next()
+      if (peek().type === 'lparen') {
         next()
-        if (isKeyword(peek(), 'KEY')) next()
-        if (peek().type === 'lparen') {
-          next()
-          const cols = readUntil(['rparen']).split(',').map((c) => c.trim())
-          expect('rparen', ')')
-          return {
-            name: cols[0],
-            type: 'table-constraint',
-            pk: false,
-            unique: true,
-            defaultNow: false,
-            defaultUuid: false,
-          }
+        const cols = readUntil(['rparen']).split(',').map((c) => c.trim())
+        expect('rparen', ')')
+        return {
+          name: cols[0],
+          type: 'table-constraint',
+          pk: false,
+          unique: true,
+          defaultNow: false,
+          defaultUuid: false,
+          constraintCols: cols,
         }
-        return undefined
       }
+      return undefined
+    }
+    if (name.type !== 'ident') {
       return undefined
     }
     next()
@@ -420,8 +593,12 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
         const dv = next()
         if (isKeyword(dv, 'NOW') && peek().value === '(') { next(); next(); def.defaultNow = true }
         else if (isKeyword(dv, 'GEN_RANDOM_UUID')) { next(); next(); def.defaultUuid = true }
-        else if (dv.type === 'string') { /* 字面量默认值——忽略 */ }
-        else { /* 数字默认值——忽略 */ }
+        else { def.defaultVal = parseDefaultLiteral(dv.value) }
+        // DEFAULT '[]'::JSONB 类 cast（:: 后类型标识消费——否则残留炸）
+        if (peek().value === '::') {
+          next()
+          if (peek().type === 'ident') next()
+        }
         continue
       }
       if (up === 'REFERENCES') { // FK——内存无 FK 语义（忽略到逗号/顶层右括号——括号深度跟踪）
@@ -466,12 +643,15 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
 /** WHERE 子句 → Query Language WhereExpr（OR 拆分 → AND 组合 → 条件）
  *  同列多条件走 addWhereCond（对象级合并 / and 包装——不覆盖不静默丢弃） */
 export function parseWhereToExpr(clause: string, params: unknown[], alias?: string): WhereExpr {
+  // BETWEEN 正规化：col BETWEEN lo AND hi → (col >= lo AND col <= hi)
+  // （顶层分割会把 BETWEEN 的 AND 拆散——先替换为括号组——括号 depth 保护）
+  const normalized = normalizeBetween(clause)
   // 顶层 OR 拆分（忽略括号）
-  const orParts = splitTop(clause, /\bOR\b/i)
+  const orParts = splitTop(normalized, /\bOR\b/i)
   if (orParts.length > 1) {
     return { or: orParts.map((p) => parseWhereToExpr(p, params, alias)) }
   }
-  const andParts = splitTop(clause, /\bAND\b/i)
+  const andParts = splitTop(normalized, /\bAND\b/i)
   const expr: WhereExpr = {}
   for (const part of andParts) {
     const p = part.trim()
@@ -486,7 +666,7 @@ export function parseWhereToExpr(clause: string, params: unknown[], alias?: stri
     const inMatch = /^([\w.]+)\s+IN\s*\(([^)]*)\)$/i.exec(p)
     if (inMatch) {
       const list = inMatch[2].split(',').map((v) => evalValue(v.trim(), params))
-      addWhereCond(expr, stripAlias(inMatch[1], alias), list as never)
+      addWhereCond(expr, stripAlias(inMatch[1], alias), { in: list } as WhereField)
       continue
     }
     // [I]LIKE（%/_ 模式——matchWhereExpr 全锚定翻译；与 builder 路径对齐）
@@ -505,11 +685,12 @@ export function parseWhereToExpr(clause: string, params: unknown[], alias?: stri
       const raw = cmp[3].trim()
       // 右侧：$n / 字面量 / 列引用 / 表达式
       const v = evalValue(raw, params, true)
+      if (v === null) throw new ProtocolError(`memory-sql: WHERE 无法解析 '${p}'（列 = NULL 恒假——规范写法 IS NULL；算子模式显式 { isNull: true }）`)
       if (op === '=') {
-        if (v !== null && typeof v === 'object' && 'col' in (v as object) && (v as RawSql).__raw === undefined) {
+        if (typeof v === 'object' && 'col' in (v as object) && (v as RawSql).__raw === undefined) {
           addWhereCond(expr, col, { col: (v as { col: string }).col })
         } else {
-          addWhereCond(expr, col, v as WhereField)
+          addWhereCond(expr, col, { eq: v } as WhereField)
         }
       } else {
         const opKey: Record<string, string> = { '>': 'gt', '>=': 'gte', '<': 'lt', '<=': 'lte', '<>': 'ne', '!=': 'ne' }
@@ -601,13 +782,45 @@ function evalValue(raw: string, params: unknown[], allowColumnRef = false): unkn
   if (up === 'FALSE') return false
   // 函数：now()
   if (/^now\(\)$/i.test(t)) return new Date().toISOString()
+  // DATE_TRUNC('unit', expr) ——月/周/日/小时窗口边界（UTC 语义——对齐 docker PG 默认时区；
+  // 平台 3 处：quota 用量窗口·admin overview·stats 月统计——E2 收编）
+  const dt = /^date_trunc\s*\(\s*'([a-z]+)'\s*,\s*(.+)\)$/i.exec(t)
+  if (dt) {
+    const v = evalValue(dt[2], params)
+    const d = new Date(String(v))
+    if (!Number.isNaN(d.getTime())) {
+      const unit = dt[1].toLowerCase()
+      const trunc = (ms: number) => new Date(ms).toISOString()
+      if (unit === 'month') return trunc(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1))
+      if (unit === 'week') { const day = (d.getUTCDay() + 6) % 7; return trunc(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day)) }
+      if (unit === 'day') return trunc(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+      if (unit === 'hour') return trunc(Math.floor(d.getTime() / 3_600_000) * 3_600_000)
+      if (unit === 'minute') return trunc(Math.floor(d.getTime() / 60_000) * 60_000)
+    }
+  }
+  // INTERVAL 'N unit'（时/分/天/秒）→ 毫秒偏移（NOW() - INTERVAL '1 day' 场景）
+  const iv = /^INTERVAL\s+'([\d.]+)\s+(day|hour|minute|second|days|hours|minutes|seconds)'$/i.exec(t)
+  if (iv) {
+    const n = Number(iv[1])
+    const unit = iv[2].toLowerCase()
+    if (unit.startsWith('day')) return n * 86_400_000
+    if (unit.startsWith('hour')) return n * 3_600_000
+    if (unit.startsWith('minute')) return n * 60_000
+    return n * 1000
+  }
   // 括号包裹：剥离递归（(-9007...)::bigint 场景）
   if (t.startsWith('(') && t.endsWith(')')) return evalValue(t.slice(1, -1), params, allowColumnRef)
   // 算术表达式（+-*/——递归求值）
   const arith = /^(.+?)\s*([+\-*/])\s*(.+)$/.exec(t)
   if (arith) {
-    const l = Number(evalValue(arith[1], params))
-    const r = Number(evalValue(arith[3], params))
+    const lRaw = evalValue(arith[1], params)
+    const rRaw = evalValue(arith[3], params)
+    // NOW() - INTERVAL：日期减去毫秒偏移 → 日期时间（保留 Date 语义）
+    if (arith[2] === '-' && typeof lRaw === 'string' && typeof rRaw === 'number' && !Number.isNaN(Date.parse(lRaw))) {
+      return new Date(Date.parse(lRaw) - rRaw).toISOString()
+    }
+    const l = Number(lRaw)
+    const r = Number(rRaw)
     switch (arith[2]) {
       case '+': return l + r
       case '-': return l - r
@@ -618,6 +831,22 @@ function evalValue(raw: string, params: unknown[], allowColumnRef = false): unkn
   // 列引用（WHERE 右侧：u.email = o.user_id）
   if (allowColumnRef && /^[\w.]+$/.test(t)) return { col: t }
   throw new ProtocolError(`memory-sql: 不支持的字面量 '${raw}'（请用 $n 参数或引号字符串）`)
+}
+
+/** 字符串感知逗号拆分（VALUES 字面量含逗号——'[0.1,0.2]' 不被切开） */
+function splitCommas(s: string): string[] {
+  const out: string[] = []
+  let buf = ''
+  let inStr = false
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (c === "'" && s[i + 1] === "'") { buf += c + s[i + 1]; i++; continue }
+    if (c === "'") { inStr = !inStr; buf += c; continue }
+    if (c === ',' && !inStr) { out.push(buf.trim()); buf = ''; continue }
+    buf += c
+  }
+  if (buf.trim()) out.push(buf.trim())
+  return out
 }
 
 /** token 拼接：token 间空格（保留 '26 AND role'——不粘连；括号/逗号/操作符紧贴） */
@@ -632,6 +861,35 @@ function appendToken(out: string, val: string): string {
 
 function stripAlias(ref: string, alias?: string): string {
   const dot = ref.indexOf('.')
-  if (dot >= 0 && alias) return ref.slice(dot + 1)
+  // 仅当前缀==别名才剥（d.name 在别名 ag 下必须保留——否则 join 列歧义丢失）
+  if (dot >= 0 && alias && ref.slice(0, dot) === alias) return ref.slice(dot + 1)
   return ref
 }
+
+/** BETWEEN 正规化：`col BETWEEN lo AND hi` → `(col >= lo AND col <= hi)`（AND 拆分保护） */
+function normalizeBetween(clause: string): string {
+  let out = clause
+  let m: RegExpExecArray | null
+  const re = /([\w.]+)\s+BETWEEN\s+(.+?)\s+AND\s+(.+?)(?=\s+(?:AND|OR)\b|$)/gi
+  while ((m = re.exec(out)) !== null) {
+    const [full, col, lo, hi] = m
+    if (!/[()]/.test(lo) && !/[()]/.test(hi)) {
+      out = out.slice(0, m.index) + `(${col} >= ${lo} AND ${col} <= ${hi})` + out.slice(m.index + full.length)
+      re.lastIndex = m.index + 1
+    }
+  }
+  return out
+}
+
+/** DEFAULT 字面量解析（保守面：数字/布尔/NULL/字符串——不碰 JSON/表达式——表达式缺省由库侧承担） */
+function parseDefaultLiteral(raw: string): unknown {
+  const t = raw.trim()
+  if (t.startsWith("'") && t.endsWith("'")) return t.slice(1, -1).replace(/''/g, "'")
+  if (t === 'TRUE') return true
+  if (t === 'FALSE') return false
+  if (t === 'NULL') return null
+  const n = Number(t)
+  if (!Number.isNaN(n)) return n
+  return t
+}
+

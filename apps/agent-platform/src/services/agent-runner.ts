@@ -9,6 +9,7 @@
  * - 执行日志记录
  */
 
+import { ops } from 'weifuwu'
 import type { Context, ChatMessage, AgentRunResult, AgentTool } from 'weifuwu'
 import type { WfToken, WfStep, WfToolResult, WfUsage, WfDone } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
@@ -170,13 +171,13 @@ async function buildToolContext(
     let resolvedWs: string | null = null
     let wsDeptId = config.departmentId
     try {
-      const [ag] = await ctx.sql`SELECT type, department_id FROM agents WHERE id = ${config.agentId}`
+      const [ag] = await ctx.orm.query.from('agents').select('type', 'department_id').where({ id: { eq: String(config.agentId) } }).limit(1).run()
       if ((ag as any)?.department_id) {
         wsDeptId = String((ag as any).department_id)
       }
     } catch { /* 类型查询失败用当前部门 */ }
     try {
-      const [dept] = await ctx.sql`SELECT is_dm, workspace_path, artifact_review FROM departments WHERE id = ${wsDeptId}`
+      const [dept] = await ctx.orm.query.from('departments').select('is_dm', 'workspace_path', 'artifact_review').where({ id: { eq: wsDeptId }}).limit(1).run()
       if (dept) {
         resolvedWs = await resolveDepartmentWorkspace(wsDeptId, (dept as any).workspace_path, true)
         // 产物审批模式（2026-12）：AI 的写入落在待审区 {ws}/.pending（AI 感知为 /ws 正常）——
@@ -245,7 +246,7 @@ async function buildToolContext(
 /** C1/C3 共享：任务纪律提示 + 会话记忆加载（runAgent/streamAgent 共用） */
 async function loadMemory(ctx: AppCtx, agentId: string): Promise<string> {
   try {
-    const [mem] = await ctx.sql`SELECT content FROM agent_memories WHERE agent_id = ${agentId}`
+    const [mem] = await ctx.orm.query.from('agent_memories').select('content').where({ agent_id: { eq: agentId }}).limit(1).run()
     return mem && String((mem as any).content ?? '').trim() ? String((mem as any).content).slice(0, 1500) : ''
   } catch { return '' }
 }
@@ -270,11 +271,10 @@ async function updateMemory(ctx: AppCtx, ai: any, byok: { apiKey?: string; baseU
     const memText = String((memRes as any)?.choices?.[0]?.message?.content ?? '').trim()
     if (memText && memText.length > 3) {
       const merged = existing ? `${existing}\n- ${memText.slice(0, 500)}`.slice(0, 2000) : memText.slice(0, 500)
-      await ctx.sql`
-        INSERT INTO agent_memories (agent_id, content, updated_at)
-        VALUES (${agentId}, ${merged}, NOW())
-        ON CONFLICT (agent_id) DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()
-      `
+      await ctx.orm.query.insert('agent_memories')
+        .values({ agent_id: agentId, content: merged, updated_at: ops.now() })
+        .onConflict('agent_id', true)
+        .run()
     }
   } catch { /* 记忆更新失败静默 */ }
 }
@@ -301,12 +301,12 @@ export async function runAgent(
 
   // 框架 agent 引擎：结构化结果模式（content/steps/usage）
   // 商业化 G4 BYOK：租户自带模型 Key/端点 → 框架 per-call 覆盖（未配置走全局）
-  const byok: { apiKey?: string; baseUrl?: string; model?: string } = await byokParamsOf(ctx.sql, config.appId).catch(() => ({}))
+  const byok: { apiKey?: string; baseUrl?: string; model?: string } = await byokParamsOf(ctx.orm, config.appId).catch(() => ({}))
   // C2 风险分级审批：HITL 开启时按 Agent 风险策略动态判定（low 自动 / high 审批）
   const { needsApproval, riskOf } = await import('./risk-policy.ts')
   let riskPolicy: string = 'auto'
   try {
-    const [ag] = await ctx.sql`SELECT risk_policy FROM agents WHERE id = ${config.agentId}`
+    const [ag] = await ctx.orm.query.from('agents').select('risk_policy').where({ id: { eq: String(config.agentId) } }).limit(1).run()
     riskPolicy = String((ag as any)?.risk_policy ?? 'auto')
   } catch { /* 查询失败用默认 auto */ }
   const humanGate = config.humanInTheLoop
@@ -317,7 +317,7 @@ export async function runAgent(
   // C5 轻量模型：内部调用（记忆提取/自校验）用小模型——Agent 配置 light_model
   let lightModel: string | undefined
   try {
-    const [agL] = await ctx.sql`SELECT light_model FROM agents WHERE id = ${config.agentId}`
+    const [agL] = await ctx.orm.query.from('agents').select('light_model').where({ id: { eq: String(config.agentId) } }).limit(1).run()
     lightModel = (agL as any)?.light_model ? String((agL as any).light_model) : undefined
   } catch { /* 查询失败用主模型 */ }
 
@@ -375,24 +375,20 @@ export async function runAgent(
 
   const elapsed = Date.now() - startTime
 
-  // 记录执行日志到数据库（如果 sql 可用）
+  // 记录执行日志到数据库（orm 可用时——测试注入不设 orm 则跳过）
   try {
-    const { sql } = ctx as any
-    if (sql) {
-      await sql`
-        INSERT INTO agent_logs (
-          agent_id, app_id, department_id,
-          messages_count, steps_count, tokens_prompt, tokens_completion, tokens_total,
-          elapsed_ms, success
-        ) VALUES (
-          ${config.agentId}, ${config.appId}, ${config.departmentId || null},
-          ${messages.length}, ${result.steps?.length ?? 0},
-          ${result.usage?.prompt_tokens ?? 0},
-          ${result.usage?.completion_tokens ?? 0},
-          ${result.usage?.total_tokens ?? 0},
-          ${elapsed}, TRUE
-        )
-      `
+    const orm = (ctx as any).orm
+    if (orm) {
+      await orm.query.insert('agent_logs')
+        .values({
+          agent_id: config.agentId, app_id: config.appId, department_id: config.departmentId || null,
+          messages_count: messages.length, steps_count: result.steps?.length ?? 0,
+          tokens_prompt: result.usage?.prompt_tokens ?? 0,
+          tokens_completion: result.usage?.completion_tokens ?? 0,
+          tokens_total: result.usage?.total_tokens ?? 0,
+          elapsed_ms: elapsed, success: true,
+        })
+        .run()
     }
   } catch {
     // 日志记录失败不影响主流程
@@ -415,7 +411,7 @@ export async function streamAgentPreview(
 ): Promise<void> {
   const { ai, sql } = ctx
   const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
-  const preloadedSkills = await loadAgentSkillsPreview(sql, agent.id, ctx)
+  const preloadedSkills = await loadAgentSkillsPreview(ctx.orm, agent.id, ctx)
   const config: AgentRunnerConfig = {
     agentId: agent.id,
     appId: ctx.appId,
@@ -450,13 +446,12 @@ export async function streamAgentPreview(
   })
 }
 
-async function loadAgentSkillsPreview(sql: any, agentId: string, ctx: AppCtx): Promise<SkillContext[]> {
+async function loadAgentSkillsPreview(orm: any, agentId: string, ctx: AppCtx): Promise<SkillContext[]> {
   try {
-    const rows = (await sql`
-      SELECT ask.skill_dir, ask.skill_name
-      FROM agent_skills ask
-      WHERE ask.agent_id = ${agentId} AND ask.enabled = TRUE
-    `) as unknown as Array<Record<string, any>>
+    const rows = (await orm.query.from('agent_skills')
+      .select('skill_dir', 'skill_name')
+      .where({ agent_id: agentId, enabled: { eq: true } })
+      .run()) as unknown as Array<Record<string, any>>
     const out: SkillContext[] = []
     for (const r of rows) {
       try {
@@ -485,12 +480,12 @@ export async function streamAgent(
   const { tools } = await buildToolContext(ctx, config)
 
   // 商业化 G4 BYOK：租户自带模型 Key/端点 → 框架 per-call 覆盖（未配置走全局）
-  const byok: { apiKey?: string; baseUrl?: string; model?: string } = await byokParamsOf(ctx.sql, config.appId).catch(() => ({}))
+  const byok: { apiKey?: string; baseUrl?: string; model?: string } = await byokParamsOf(ctx.orm, config.appId).catch(() => ({}))
   // C2 风险分级审批：HITL 开启时按 Agent 风险策略动态判定（low 自动 / high 审批）
   const { needsApproval, riskOf } = await import('./risk-policy.ts')
   let riskPolicy: string = 'auto'
   try {
-    const [ag] = await ctx.sql`SELECT risk_policy FROM agents WHERE id = ${config.agentId}`
+    const [ag] = await ctx.orm.query.from('agents').select('risk_policy').where({ id: { eq: String(config.agentId) } }).limit(1).run()
     riskPolicy = String((ag as any)?.risk_policy ?? 'auto')
   } catch { /* 查询失败用默认 auto */ }
   const humanGate = config.humanInTheLoop
@@ -501,7 +496,7 @@ export async function streamAgent(
   // C5 轻量模型（内部调用用小模型）
   let lightModel: string | undefined
   try {
-    const [agL] = await ctx.sql`SELECT light_model FROM agents WHERE id = ${config.agentId}`
+    const [agL] = await ctx.orm.query.from('agents').select('light_model').where({ id: { eq: String(config.agentId) } }).limit(1).run()
     lightModel = (agL as any)?.light_model ? String((agL as any).light_model) : undefined
   } catch { /* 查询失败用主模型 */ }
   const agentRunner = ai.agent({
@@ -572,14 +567,17 @@ export async function streamAgent(
         // C1 断点续跑：步骤实时落库（中断后可恢复上下文）
         if (config.runMessageId) {
           runStateChain = runStateChain
-            .then(() => ctx.sql`
-              INSERT INTO agent_run_states (message_id, agent_id, department_id, app_id, steps, status)
-              VALUES (${config.runMessageId ?? ''}, ${config.agentId}, ${config.departmentId}, ${config.appId},
-                ${JSON.stringify([{ tool: s.name, args: s.args ?? '', at: new Date().toISOString() }])}, 'running')
-              ON CONFLICT (message_id) DO UPDATE SET
-                steps = agent_run_states.steps || EXCLUDED.steps,
-                status = 'running', updated_at = NOW()
-            `)
+          runStateChain = runStateChain
+            // orm-pg-merge 判负修订：jsonb `||` 追加 → merge 表达式（mergeAppend/mergeNow——零 SQL）
+            .then(() => ctx.orm.query.insert('agent_run_states').values({
+              message_id: config.runMessageId ?? '', agent_id: String(config.agentId),
+              department_id: config.departmentId, app_id: String(config.appId),
+              steps: [{ tool: s.name, args: s.args ?? '', at: new Date().toISOString() }], status: 'running',
+            }).onConflict('message_id', true, {
+              steps: ops.mergeAppend([{ tool: s.name, args: s.args ?? '', at: new Date().toISOString() }]),
+              status: 'running',
+              updated_at: ops.mergeNow(),
+            }).run())
             .catch(() => {})
         }
       }
@@ -592,12 +590,12 @@ export async function streamAgent(
       // C1：工具结果摘要落库
       if (config.runMessageId) {
         runStateChain = runStateChain
-          .then(() => ctx.sql`
-            UPDATE agent_run_states SET
-              steps = steps || ${JSON.stringify([{ tool: lastToolName, result: result.slice(0, 200), ok: r.ok, at: new Date().toISOString() }])},
-              updated_at = NOW()
-            WHERE message_id = ${config.runMessageId ?? ''}
-          `)
+          runStateChain = runStateChain
+          // orm-pg-merge：jsonb 追加（同 mergeAppend——零 SQL）
+          .then(() => ctx.orm.query.update('agent_run_states').set({
+            steps: ops.mergeAppend([{ tool: lastToolName, result: result.slice(0, 200), ok: r.ok, at: new Date().toISOString() }]),
+            updated_at: ops.mergeNow(),
+          }).where({ message_id: { eq: config.runMessageId ?? '' } }).run())
           .catch(() => {})
       }
     } else if (name === 'wf:usage') {
@@ -612,10 +610,10 @@ export async function streamAgent(
   // C1：执行完成标记（中断 vs 完成可区分）——等落库链排空
   await runStateChain.catch(() => {})
   try {
-    await ctx.sql`
-      UPDATE agent_run_states SET status = 'done', updated_at = NOW()
-      WHERE message_id = ${config.runMessageId ?? ''} AND status = 'running'
-    `
+    await ctx.orm.query.update('agent_run_states')
+      .set({ status: 'done', updated_at: ops.now() })
+      .where({ message_id: { eq: config.runMessageId ?? '' }, status: { eq: 'running' } })
+      .run()
   } catch { /* 状态更新失败不影响 */ }
 
   return finalUsage

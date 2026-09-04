@@ -76,7 +76,7 @@ function fakeAi(overrides: Record<string, unknown> = {}) {
 }
 
 function ctx(extra: Record<string, unknown> = {}) {
-  return { sql: pg.sql, appId: APP_ID, ai: fakeAi(), ...extra } as any
+  return { sql: pg.sql, orm: (pg as any).orm, appId: APP_ID, ai: fakeAi(), ...extra } as any
 }
 
 /** 伪队列：捕获入队 payload（不消费） */

@@ -34,7 +34,7 @@ after(async () => {
 })
 
 function ctx() {
-  return { sql: pg.sql, appId } as any
+  return { sql: pg.sql, orm: (pg as any).orm, appId } as any
 }
 
 test('G4a: 无筛选 → 全量（分页 total 一致）', async () => {
@@ -79,7 +79,7 @@ test('G4g: action + 时间组合（AND 语义）', async () => {
 })
 
 test('G4h: 租户隔离——他 app 数据不可见', async () => {
-  const other = { sql: pg.sql, appId: randomUUID() } as any
+  const other = { sql: pg.sql, orm: (pg as any).orm, appId: randomUUID() } as any
   const { entries, total } = await listAudit(other, {})
   assert.equal(entries.length, 0)
   assert.equal(total, 0)

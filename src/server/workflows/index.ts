@@ -14,7 +14,9 @@
  * wfs.routes(app, { appId: (ctx) => ctx.auth.appId })  // 内置 API（可选挂载）
  * ```
  */
-import type { SqlClient } from '../postgres/types.ts'
+import type { Orm } from '../db/orm.ts'
+import { z } from '../../shared/zod.ts'
+import { f } from '../db/shape.ts'
 import type { Redis } from '../db/contracts.ts'
 import { HttpError, type Context, type Handler } from '../types.ts'
 import type { Router } from '../core/router.ts'
@@ -70,7 +72,6 @@ export interface WorkflowSystem {
   /** 核心 CRUD（测试/服务层直接调用；routes 为薄壳） */
   crud: WorkflowCrud
   /** 幂等建表（_weifuwu_workflows / _weifuwu_workflow_runs） */
-  migrate: () => Promise<void>
   /** 内置 HTTP 路由（可选挂载）：/prefix/*——缺省 prefix=/api/workflows、appId 取 ctx.auth.appId（user 中间件会话透传） */
   routes: (app: Router<any>, opts?: { prefix?: string; appId?: (ctx: Context) => string | undefined }) => void
   /** cron 调度器（可选——start 后按 cron 列触发执行——tick 扫描幂等） */
@@ -79,7 +80,7 @@ export interface WorkflowSystem {
 
 /** cron 调度器：tick（默认 30s——分钟粒度触发；同分钟同工作流幂等——进程内记忆） */
 export function createScheduler(
-  sql: SqlClient,
+  orm: Orm,
   execute: (appId: string, workflowId: string, args: Record<string, unknown>, trigger: string) => Promise<unknown>,
   opts: { intervalMs?: number; now?: () => Date } = {},
 ): { start: () => void; stop: () => void } {
@@ -93,7 +94,7 @@ export function createScheduler(
     try {
       // 只扫 cron 非空 + active——app 级全部（触发时按 app_id 隔离落库）
       // 只扫 active——cron 在内存筛（cron 工作流量级小——省 where 表达式兼容面）
-      const rows = await sql.query.from(WORKFLOWS).where({ status: 'active' }).select('id', 'app_id', 'cron').run()
+      const rows = await orm.query.from(WORKFLOWS).where({ status: { eq: 'active' } }).select('id', 'app_id', 'cron').run()
       for (const row of rows as Array<Record<string, unknown>>) {
         const expr = String(row.cron ?? '')
         if (!expr) continue
@@ -167,14 +168,14 @@ export interface WorkflowVersionRecord {
 }
 
 export interface WorkflowSystemOptions {
-  sql: SqlClient
+  orm: Orm
   /** Redis（可选——store 步骤后端；不传则 store 步骤报"未注入"明确错误） */
   redis?: Redis
   prefix?: string
 }
 
 export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
-  const { sql, redis } = options
+  const { orm, redis } = options
   const engine = workflow({
     store: redis ? redisStore(redis as never) : undefined,
   })
@@ -220,7 +221,7 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
   const crud: WorkflowCrud = {
     async create(appId, input) {
       const { def, wfjs } = await compileGate(input)
-      const rows = await sql.query.insert(WORKFLOWS)
+      const rows = await orm.query.insert(WORKFLOWS)
         .values({
           app_id: appId, name: input.name, description: input.description ?? null,
           def_json: JSON.stringify(def), src_wfjs: wfjs, cron: input.cron ?? null,
@@ -229,7 +230,7 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
         .run()
       const rec = toRecord(rows[0] as Record<string, unknown>)
       // 初始版本快照（编辑历史基座——创建即 v1）
-      await sql.query.insert(VERSIONS)
+      await orm.query.insert(VERSIONS)
         .values({ app_id: appId, workflow_id: rec.id, def_json: JSON.stringify(def), note: '初始版本' })
         .run()
       return rec
@@ -237,8 +238,8 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
     async list(appId, opts) {
       const offset = opts?.offset ?? 0
       const limit = Math.min(100, Math.max(1, opts?.limit ?? 50))
-      const rows = await sql.query.from(WORKFLOWS)
-        .where({ app_id: appId })
+      const rows = await orm.query.from(WORKFLOWS)
+        .where({ app_id: { eq: appId } })
         .select(...FIELDS.split(', '))
         .orderBy('updated_at', 'desc')
         .limit(limit)
@@ -247,22 +248,22 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
       const out = rows.map((r) => toRecord(r as Record<string, unknown>))
       // 最近运行联查（N+1——`ponytail:` v0 列表 limit≤50 量级小；超量改批量子查询）
       for (const rec of out) {
-        const runRows = await sql.query.from(RUNS).where({ workflow_id: rec.id, app_id: appId })
+        const runRows = await orm.query.from(RUNS).where({ workflow_id: { eq: rec.id }, app_id: { eq: appId } })
           .orderBy('created_at', 'desc').limit(1).run()
         rec.last_run = runRows[0] ? toRun(runRows[0] as Record<string, unknown>) : null
       }
       return out
     },
     async get(appId, id) {
-      const rows = await sql.query.from(WORKFLOWS)
-        .where({ app_id: appId, id })
+      const rows = await orm.query.from(WORKFLOWS)
+        .where({ app_id: { eq: appId }, id: { eq: id } })
         .select(...FIELDS.split(', '))
         .limit(1)
         .run()
       return rows[0] ? toRecord(rows[0] as Record<string, unknown>) : null
     },
     async update(appId, id, input) {
-      const exists = await sql.query.from(WORKFLOWS).where({ app_id: appId, id }).select('id').limit(1).run()
+      const exists = await orm.query.from(WORKFLOWS).where({ app_id: { eq: appId }, id: { eq: id } }).select('id').limit(1).run()
       if (!exists[0]) return false
       let gated: { def: WorkflowDef; wfjs: string } | null = null
       if (input.wfjs !== undefined || input.def !== undefined) gated = await compileGate(input)
@@ -277,19 +278,19 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
       if (gated) {
         sets.def_json = JSON.stringify(gated.def); sets.src_wfjs = gated.wfjs
         // def 变更 → 版本快照（回滚面）
-        await sql.query.insert(VERSIONS)
+        await orm.query.insert(VERSIONS)
           .values({ app_id: appId, workflow_id: id, def_json: JSON.stringify(gated.def), note: input.note ?? null })
           .run()
       }
       sets.updated_at = new Date().toISOString()
-      await sql.query.update(WORKFLOWS).set(sets).where({ app_id: appId, id }).run()
+      await orm.query.update(WORKFLOWS).set(sets).where({ app_id: { eq: appId }, id: { eq: id } }).run()
       return true
     },
     async listVersions(appId, workflowId, opts) {
       const offset = opts?.offset ?? 0
       const limit = Math.min(100, Math.max(1, opts?.limit ?? 30))
-      const rows = await sql.query.from(VERSIONS)
-        .where({ app_id: appId, workflow_id: workflowId })
+      const rows = await orm.query.from(VERSIONS)
+        .where({ app_id: { eq: appId }, workflow_id: { eq: workflowId } })
         .select(...'id, app_id, workflow_id, def_json, note, created_at'.split(', '))
         .orderBy('created_at', 'desc')
         .limit(limit)
@@ -301,32 +302,32 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
       }) as WorkflowVersionRecord[]
     },
     async rollback(appId, workflowId, versionId) {
-      const rows = await sql.query.from(VERSIONS)
-        .where({ app_id: appId, workflow_id: workflowId, id: versionId })
+      const rows = await orm.query.from(VERSIONS)
+        .where({ app_id: { eq: appId }, workflow_id: { eq: workflowId }, id: { eq: versionId } })
         .select(...'id, def_json'.split(', ')).limit(1).run()
       if (!rows[0]) return false
       const rec = await crud.get(appId, workflowId)
       if (!rec) return false
       const def = toDef((rows[0] as Record<string, unknown>).def_json)
-      await sql.query.update(WORKFLOWS).set({
+      await orm.query.update(WORKFLOWS).set({
         def_json: JSON.stringify(def), src_wfjs: toJs(def),
         updated_at: new Date().toISOString(),
-      }).where({ app_id: appId, id: workflowId }).run()
+      }).where({ app_id: { eq: appId }, id: { eq: workflowId } }).run()
       // 回滚也记版本（审计链完整）
-      await sql.query.insert(VERSIONS)
+      await orm.query.insert(VERSIONS)
         .values({ app_id: appId, workflow_id: workflowId, def_json: JSON.stringify(def), note: `回滚自 ${versionId.slice(0, 8)}` })
         .run()
       return true
     },
     async remove(appId, id) {
-      await sql.query.delete(WORKFLOWS).where({ app_id: appId, id }).run()
+      await orm.query.delete(WORKFLOWS).where({ app_id: { eq: appId }, id: { eq: id } }).run()
       return true
     },
     async listRuns(appId, workflowId, opts) {
       const offset = opts?.offset ?? 0
       const limit = Math.min(100, Math.max(1, opts?.limit ?? 50))
-      const rows = await sql.query.from(RUNS)
-        .where({ app_id: appId, workflow_id: workflowId })
+      const rows = await orm.query.from(RUNS)
+        .where({ app_id: { eq: appId }, workflow_id: { eq: workflowId } })
         .select(...RUN_FIELDS.split(', '))
         .orderBy('created_at', 'desc')
         .limit(limit)
@@ -335,8 +336,8 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
       return rows.map((r) => toRun(r as Record<string, unknown>))
     },
     async getRun(appId, workflowId, runId) {
-      const rows = await sql.query.from(RUNS)
-        .where({ app_id: appId, id: runId, workflow_id: workflowId })
+      const rows = await orm.query.from(RUNS)
+        .where({ app_id: { eq: appId }, id: { eq: runId }, workflow_id: { eq: workflowId } })
         .select(...RUN_FIELDS.split(', '))
         .limit(1)
         .run()
@@ -350,7 +351,7 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
     if (!rec) throw new Error('workflow 不存在')
     // 中间态：先插 running（执行中可见——history 不悬空错态）；完成后 update 终态
     const startedAt = new Date().toISOString()
-    const rows = await sql.query.insert(RUNS)
+    const rows = await orm.query.insert(RUNS)
       .values({
         app_id: appId, workflow_id: workflowId, trigger, status: 'running',
         args_json: JSON.stringify(args), result_json: null, error: null,
@@ -361,17 +362,17 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
     const runId = String((rows[0] as Record<string, unknown>).id)
     try {
       const r = await executeDef(rec.def_json, args)
-      const updates = await sql.query.update(RUNS)
+      const updates = await orm.query.update(RUNS)
         .set({ status: r.status, result_json: JSON.stringify(r.result), error: r.error, finished_at: new Date().toISOString() })
-        .where({ id: runId })
+        .where({ id: { eq: runId } })
         .returning(...RUN_FIELDS.split(', '))
         .run()
       return toRun(updates[0] as Record<string, unknown>)
     } catch (e) {
       // 引擎外异常（罕见——执行器内部兜底）——run 记 error 终态（不悬空 running）
-      await sql.query.update(RUNS)
+      await orm.query.update(RUNS)
         .set({ status: 'error' as const, error: (e as Error).message, finished_at: new Date().toISOString() })
-        .where({ id: runId })
+        .where({ id: { eq: runId } })
         .run()
       return toRun({ status: 'error', error: (e as Error).message } as unknown as Record<string, unknown>)
     }
@@ -396,57 +397,8 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
 
   mw.wf = wf
   mw.crud = crud
-  mw.scheduler = createScheduler(sql, executeRun)
+  mw.scheduler = createScheduler(orm, executeRun)
   mw.__meta = { injects: ['wf'], depends: [] }
-
-  // ── 幂等建表 ──
-  mw.migrate = async () => {
-    await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS ${WORKFLOWS} (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        app_id UUID NOT NULL,
-        name TEXT NOT NULL,
-        description TEXT,
-        def_json JSONB NOT NULL,
-        src_wfjs TEXT,
-        status TEXT NOT NULL DEFAULT 'active',
-        cron TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `)
-    await sql.unsafe(`ALTER TABLE ${WORKFLOWS} ADD COLUMN IF NOT EXISTS cron TEXT`) // 旧表升级（cron 定时触发）
-    await sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_wf_workflows_app ON ${WORKFLOWS} (app_id, updated_at DESC)`)
-    await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS ${RUNS} (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        app_id UUID NOT NULL,
-        workflow_id UUID NOT NULL REFERENCES ${WORKFLOWS}(id) ON DELETE CASCADE,
-        trigger TEXT NOT NULL DEFAULT 'manual',
-        status TEXT NOT NULL DEFAULT 'queued',
-        args_json JSONB,
-        result_json JSONB,
-        error TEXT,
-        started_at TIMESTAMPTZ,
-        finished_at TIMESTAMPTZ,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `)
-    await sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_wf_runs_app ON ${RUNS} (app_id, created_at DESC)`)
-    await sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_wf_runs_wf ON ${RUNS} (workflow_id, created_at DESC)`)
-    // def 版本快照（编辑历史/回滚——update 时自动记录——def_json 真相快照——wfjs 派生不存）
-    await sql.unsafe(`
-      CREATE TABLE IF NOT EXISTS ${VERSIONS} (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        app_id UUID NOT NULL,
-        workflow_id UUID NOT NULL REFERENCES ${WORKFLOWS}(id) ON DELETE CASCADE,
-        def_json JSONB NOT NULL,
-        note TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `)
-    await sql.unsafe(`CREATE INDEX IF NOT EXISTS idx_wf_versions_wf ON ${VERSIONS} (workflow_id, created_at DESC)`)
-  }
 
   // ── 内置路由（可选挂载；appId 提取器缺省 ctx.user?.appId） ──
   mw.routes = (app: Router<any>, opts?: { prefix?: string; appId?: (ctx: Context) => string | undefined }) => {
@@ -550,3 +502,58 @@ export function workflowSystem(options: WorkflowSystemOptions): WorkflowSystem {
 
   return mw
 }
+
+// ── 声明式 Schema（DDL 算子化——业务零 SQL 字符串；迁移编排：pg.migrateModule('weifuwu-workflows', WEIFUWU_WORKFLOW_SCHEMA)） ──
+export const WEIFUWU_WORKFLOW_SCHEMA = {
+  tables: [
+    {
+      name: '_weifuwu_workflows',
+      columns: {
+        id: f.pk(z.uuid()),
+        app_id: f.req(z.uuid()),
+        name: f.req(z.string()),
+        description: z.string(),
+        def_json: z.json().meta({ notNull: true }),
+        src_wfjs: z.string(),
+        status: z.string().meta({ default: 'active' }),
+        cron: z.string(),
+        created_at: z.date().meta({ default: 'now' }),
+        updated_at: z.date().meta({ default: 'now' }),
+      },
+      indexes: [{ cols: ['app_id', { col: 'updated_at', desc: true }], name: 'idx_wf_workflows_app' }],
+    },
+    {
+      name: '_weifuwu_workflow_runs',
+      columns: {
+        id: f.pk(z.uuid()),
+        app_id: f.req(z.uuid()),
+        workflow_id: f.req(z.uuid()).meta({ references: '_weifuwu_workflows', onDelete: 'cascade' }),
+        trigger: z.string().meta({ default: 'manual' }),
+        status: z.string().meta({ default: 'queued' }),
+        args_json: z.json(),
+        result_json: z.json(),
+        error: z.string(),
+        started_at: z.date(),
+        finished_at: z.date(),
+        created_at: z.date().meta({ default: 'now' }),
+      },
+      indexes: [
+        { cols: ['app_id', { col: 'created_at', desc: true }], name: 'idx_wf_runs_app' },
+        { cols: ['workflow_id', { col: 'created_at', desc: true }], name: 'idx_wf_runs_wf' },
+      ],
+    },
+    {
+      name: '_weifuwu_workflow_versions',
+      columns: {
+        id: f.pk(z.uuid()),
+        app_id: f.req(z.uuid()),
+        workflow_id: f.req(z.uuid()).meta({ references: '_weifuwu_workflows', onDelete: 'cascade' }),
+        def_json: z.json().meta({ notNull: true }),
+        note: z.string(),
+        created_at: z.date().meta({ default: 'now' }),
+      },
+      indexes: [{ cols: ['workflow_id', { col: 'created_at', desc: true }], name: 'idx_wf_versions_wf' }],
+    },
+  ],
+} satisfies import('../db/schema.ts').SchemaModule
+

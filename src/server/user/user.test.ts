@@ -9,7 +9,8 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { createMemorySql } from '../db/memory-sql.ts'
+import { createMemoryOrm } from '../db/memory-sql.ts'
+import { WEIFUWU_USER_SCHEMA } from '../user/index.ts'
 import { userSystem } from '../user/index.ts'
 import { verifyPassword } from '../user/password.ts'
 import { verifyToken, signToken, hashRefreshToken } from '../user/token.ts'
@@ -18,8 +19,9 @@ import { Router } from '../core/router.ts'
 const mkCtx = () => ({ params: {}, query: {} })
 
 describe('userSystem (memory sql)', () => {
-  const db = createMemorySql()
-  const users = userSystem({ sql: db, secret: 'test-secret-0123456789abcdef' })
+  const db = createMemoryOrm()
+  db.mem.applySchema(WEIFUWU_USER_SCHEMA)
+  const users = userSystem({ orm: db.orm, secret: 'test-secret-0123456789abcdef' })
 
   const app = new Router()
   app.use(users)
@@ -313,8 +315,9 @@ describe('userSystem (memory sql)', () => {
 // ── SSO 登录（G14：无密码建号/加成员——OIDC 集成用） ──
 
 describe('ssoLogin（无密码 SSO 会话）', () => {
-  const db = createMemorySql()
-  const ssoUsers = userSystem({ sql: db, secret: 'test-secret-0123456789abcdef' })
+  const db = createMemoryOrm()
+  db.mem.applySchema(WEIFUWU_USER_SCHEMA)
+  const ssoUsers = userSystem({ orm: db.orm, secret: 'test-secret-0123456789abcdef' })
   before(async () => { await ssoUsers.migrate() })
   after(async () => { await db.close() })
   async function ssoCtx(token?: string) {

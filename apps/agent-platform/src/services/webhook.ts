@@ -191,7 +191,7 @@ async function fetchWithRetry(
 export async function planBlockForApp(ctx: AppCtx, appId: string): Promise<string | null> {
   try {
     const { planBlockReason } = await import('./plan.ts')
-    return await planBlockReason(ctx.sql, appId)
+    return await planBlockReason(ctx.orm, appId)
   } catch { return null }
 }
 
@@ -204,23 +204,16 @@ export async function handleWebhookMessage(
   timestamp?: string,
   nonce?: string,
 ): Promise<WebhookResponse> {
-  const { sql, ai } = ctx
+  const { ai } = ctx
   const startTime = Date.now()
 
   // 查找 agent — 如果有 appId 则验证租户隔离
-  const agent: Record<string, any> = appId
-    ? (await sql`
-        SELECT id, system_prompt, model, tools, temperature, max_tokens,
-               webhook_secret, webhook_retry_count, webhook_url, app_id
-        FROM agents
-        WHERE id = ${agentId} AND type = 'webhook' AND is_active = TRUE AND app_id = ${appId}
-      `)[0] as unknown as Record<string, any>
-    : (await sql`
-        SELECT id, system_prompt, model, tools, temperature, max_tokens,
-               webhook_secret, webhook_retry_count, webhook_url, app_id
-        FROM agents
-        WHERE id = ${agentId} AND type = 'webhook' AND is_active = TRUE
-      `)[0] as unknown as Record<string, any>
+  const agent: Record<string, any> = (await ctx.orm.query.from('agents')
+    .select('id', 'system_prompt', 'model', 'tools', 'temperature', 'max_tokens',
+      'webhook_secret', 'webhook_retry_count', 'webhook_url', 'app_id')
+    .where({ id: { eq: agentId }, type: { eq: 'webhook' }, is_active: { eq: true }, ...(appId ? { app_id: { eq: String(appId) } } : {}) })
+    .limit(1)
+    .run())[0] as unknown as Record<string, any>
 
   if (!agent) {
     throw new Error('Webhook Bot not found or inactive')
@@ -295,14 +288,14 @@ export async function handleWebhookMessage(
 async function loadConversationHistory(ctx: AppCtx, agentId: string, conversationId: string | undefined, limit: number): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
   if (!conversationId) return []
   try {
-    const { sql } = ctx as any
-    if (!sql) return []
-    const rows = await sql`
-      SELECT role, content FROM webhook_conversations
-      WHERE agent_id = ${agentId} AND conversation_id = ${conversationId}
-      ORDER BY created_at ASC
-      LIMIT ${limit * 2}
-    `
+    const orm = (ctx as any).orm
+    if (!orm) return []
+    const rows = await orm.query.from('webhook_conversations')
+      .select('role', 'content')
+      .where({ agent_id: agentId, conversation_id: conversationId })
+      .orderBy('created_at', 'asc')
+      .limit(limit * 2)
+      .run()
     const list = Array.isArray(rows) ? rows : [rows]
     // 截断到偶数条（保证 user/assistant 成对），最多保留 limit 轮
     const maxPairs = Math.floor(list.length / 2)
@@ -320,12 +313,11 @@ async function loadConversationHistory(ctx: AppCtx, agentId: string, conversatio
 async function persistConversation(ctx: AppCtx, agentId: string, conversationId: string | undefined, role: string, content: string): Promise<void> {
   if (!conversationId) return
   try {
-    const { sql } = ctx as any
-    if (!sql) return
-    await sql`
-      INSERT INTO webhook_conversations (agent_id, conversation_id, role, content)
-      VALUES (${agentId}, ${conversationId}, ${role}, ${content})
-    `
+    const orm = (ctx as any).orm
+    if (!orm) return
+    await orm.query.insert('webhook_conversations')
+      .values({ agent_id: agentId, conversation_id: conversationId, role, content })
+      .run()
   } catch { /* 会话持久化失败不影响主流程 */ }
 }
 
@@ -334,18 +326,19 @@ async function persistConversation(ctx: AppCtx, agentId: string, conversationId:
  */
 async function pruneLogs(ctx: AppCtx, agentId: string): Promise<void> {
   try {
-    const { sql } = ctx as any
-    if (!sql) return
-    await sql`
-      DELETE FROM webhook_logs
-      WHERE agent_id = ${agentId}
-        AND id NOT IN (
-          SELECT id FROM webhook_logs
-          WHERE agent_id = ${agentId}
-          ORDER BY created_at DESC
-          LIMIT 500
-        )
-    `
+    const orm = (ctx as any).orm
+    if (!orm) return
+    // 子查询拆分：先取保留 id 集，再删除其余（NOT IN 子查询拆两步——同语义）
+    const keep = await orm.query.from('webhook_logs')
+      .select('id')
+      .where({ agent_id: agentId })
+      .orderBy('created_at', 'desc')
+      .limit(500)
+      .run()
+    const keepIds = keep.map((r: any) => String(r.id))
+    await orm.query.delete('webhook_logs')
+      .where({ agent_id: agentId, ...(keepIds.length ? { id: { notIn: keepIds } } : {}) })
+      .run()
   } catch { /* 清理失败不影响主流程 */ }
 }
 
@@ -363,12 +356,11 @@ async function logWebhookCall(
   success: boolean,
 ): Promise<void> {
   try {
-    const { sql } = ctx as any
-    if (sql) {
-      await sql`
-        INSERT INTO webhook_logs (agent_id, app_id, request_body, response_body, response_status, elapsed_ms, success)
-        VALUES (${agentId}, ${appId}, ${requestBody}, ${responseBody}, ${responseStatus}, ${elapsedMs}, ${success})
-      `
+    const orm = (ctx as any).orm
+    if (orm) {
+      await orm.query.insert('webhook_logs')
+        .values({ agent_id: agentId, app_id: appId, request_body: requestBody, response_body: responseBody, response_status: responseStatus, elapsed_ms: elapsedMs, success })
+        .run()
     }
   } catch {
     // 日志记录失败不影响主流程
