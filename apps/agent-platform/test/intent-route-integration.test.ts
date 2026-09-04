@@ -33,7 +33,7 @@ function mockEmbed(text: string): number[] {
 const calledAgents: string[] = []
 
 before(async () => {
-  pg = postgres('postgres://root:123456@localhost:5432/demo_ma_test', { max: 3, closeTimeout: 1 })
+  pg = postgres({ memory: true })
   const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
   await pg.sql.unsafe(`
     DROP TABLE IF EXISTS agent_versions CASCADE; DROP TABLE IF EXISTS audit_logs CASCADE;

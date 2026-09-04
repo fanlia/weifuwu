@@ -6,7 +6,7 @@
  */
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router, postgres, cors, redis, userSystem, rateLimit } from 'weifuwu'
+import { Router, postgres, cors, redis, userSystem, rateLimit, WEIFUWU_USER_SCHEMA } from 'weifuwu'
 import { readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -29,17 +29,18 @@ function req(method: string, path: string, body?: unknown, headers: Record<strin
 }
 
 before(async () => {
-  pg = postgres(process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_auth_test', { max: 10, closeTimeout: 1 })
+  pg = postgres({ memory: true })
   const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
   await pg.sql.unsafe('DROP TABLE IF EXISTS _weifuwu_sessions, _weifuwu_users, _weifuwu_apps, _weifuwu_app_members CASCADE')
   await pg.sql.unsafe('DROP TABLE IF EXISTS webhook_conversations, webhook_logs, agent_logs, agent_skills, kb_chunks, kb_documents, role_templates, messages, department_members, departments, events, agents, companies, _weifuwu_app_members, _weifuwu_apps, _weifuwu_sessions, _weifuwu_users CASCADE')
   await pg.sql.unsafe('DROP TYPE IF EXISTS agent_type CASCADE')
   await pg.sql.unsafe(schema)
+  await pg.migrateModule('weifuwu-users', WEIFUWU_USER_SCHEMA)
 
   const app = new Router()
   app.use(cors())
   app.use(pg)
-  rds = redis()
+  rds = redis({ memory: true })
   app.use(rds) // ctx.limit 的 redis store 需要
   app.use(rateLimit({ redis: (rds as any).redis, windowMs: 60_000, max: 100 })) // 与 server.ts 同构
 

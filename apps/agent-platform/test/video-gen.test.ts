@@ -42,7 +42,7 @@ const VIDEO_URL = 'https://oss.example.com/video.mp4?Expires=999&Signature=x'
 let pg: any
 
 before(async () => {
-  pg = postgres(process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_video_test', { max: 3, closeTimeout: 1 })
+  pg = postgres({ memory: true })
   await pg.sql.unsafe('DROP TABLE IF EXISTS video_tasks CASCADE')
   // W5 通知链路最小表（FK 链：messages ↔ departments/agents——同 chat 语义）
   await pg.sql.unsafe(`

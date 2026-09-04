@@ -10,6 +10,8 @@ export interface PostgresInjected {
 export interface PostgresOptions {
   /** 连接字符串（默认 DATABASE_URL） */
   connection?: string
+  /** 内存模式（测试——AST 直执行零 wire：不建 PgPool——memorySql 直调） */
+  memory?: boolean
   /** 池大小（连接数）。默认 10。 */
   max?: number
   /** 池全忙时 acquire 超时 ms（防饿死）。默认 30_000。0 = 无限。 */
@@ -37,6 +39,12 @@ export interface PostgresOptions {
 export interface PostgresClient extends Middleware<Context, Context & PostgresInjected>, Closeable {
   /** 声明式 ORM（shape+operator+adapter——表绑定/校验/类型收窄/gql） */
   orm: Orm
+  /** 测试/播种 SQL 面（协议层——tag 模板 + unsafe——业务禁 sql：唯一入口 orm；
+   *  测试 build 表/播种/直查断言用——真库=pool 直通·memory=engine unsafe） */
+  sql: {
+    (strings: TemplateStringsArray, ...values: unknown[]): Promise<import('../db/contracts.ts').Row[]>
+    unsafe(sql: string, params?: unknown[]): Promise<import('../db/contracts.ts').Row[]>
+  }
   /** Creates the migration tracking table (_weifuwu_migrations). Called once at startup. */
   migrate: () => Promise<void>
   /** Record that a module's migration has been applied (idempotent). */

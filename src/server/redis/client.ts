@@ -6,6 +6,7 @@
  */
 
 import { RedisPool } from '../db/redis/pool.ts'
+import { MemoryRedis } from '../db/memory-redis.ts'
 import type { Context, Handler } from '../types.ts'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { RedisOptions, RedisClient } from './types.ts'
@@ -15,6 +16,7 @@ const traceStore = new AsyncLocalStorage<string>()
 
 export function redis(options?: string | RedisOptions): RedisClient {
   const opts: RedisOptions = typeof options === 'string' ? { url: options } : (options ?? {})
+  if (opts.memory) return createMemoryRedis()
 
   const url = opts.url ?? process.env.REDIS_URL
   if (!url) {
@@ -40,7 +42,21 @@ export function redis(options?: string | RedisOptions): RedisClient {
       : undefined,
   })
 
-  const mw = (async (req: Request, ctx: Context, next: Handler) => {
+  
+/** 内存模式 RedisClient（测试——MemoryRedis 直调零 wire；接口=Redis 契约） */
+function createMemoryRedis(): RedisClient {
+  const mem = new MemoryRedis()
+  const mw = ((req: Request, ctx: Context, next: Handler) => {
+    ctx.redis = mem
+    return next(req, ctx)
+  }) as unknown as RedisClient
+  mw.__meta = { injects: ['redis'], depends: [] }
+  mw.redis = mem as never
+  mw.close = async () => { await mem.flushdb() }
+  return mw
+}
+
+const mw = (async (req: Request, ctx: Context, next: Handler) => {
     ctx.redis = pool
     // 请求级 traceId：x-trace-id 头（无则空串——onCommand 层转 undefined）
     return traceStore.run(req.headers.get('x-trace-id') ?? '', () => next(req, ctx))

@@ -113,7 +113,7 @@ async function cleanTestData(): Promise<void> {
 
 before(async () => {
   if (!HAS_DOCKER) return
-  const pg = postgres({ url: process.env.DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo', max: 3 })
+  const pg = postgres({ memory: true })
   sql = (pg as any).sql
   // 建表（幂等——与 schema.sql 对齐；manager 依赖的最小结构）
   await sql.unsafe(`CREATE TABLE IF NOT EXISTS sandboxes (

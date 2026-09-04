@@ -118,13 +118,33 @@ export class MemorySql {
 
   /** 执行结构化查询（真库编译 SQL / 内存直操作表） */
   executeQuery(q: Query): QueryResult<Row> {
+    let result: QueryResult<Row>
     switch (q.kind) {
-      case 'select': return this.execSelect(q)
-      case 'insert': return this.execInsert(q)
-      case 'update': return this.execUpdate(q)
-      case 'delete': return this.execDelete(q)
+      case 'select': result = this.execSelect(q); break
+      case 'insert': result = this.execInsert(q); break
+      case 'update': result = this.execUpdate(q); break
+      case 'delete': result = this.execDelete(q); break
       case 'ddl': return this.executeDdl(q)
     }
+    return this.jsonDecodeRows(q.table, result)
+  }
+
+  /** jsonb 列读取解码（对齐真库驱动 convertValue(114/3802) → JSON.parse） */
+  private jsonDecodeRows(table: string | undefined, result: QueryResult<Row>): QueryResult<Row> {
+    if (!table || !this.tables.has(table)) return result
+    const types = this.tables.get(table)!.columnTypes
+    const jsonCols = new Set(Object.entries(types).filter(([, t]) => /^jsonb?$/i.test(t)).map(([c]) => c))
+    if (!jsonCols.size) return result
+    for (const row of result) {
+      if (typeof row !== 'object' || row === null) continue
+      for (const k of Object.keys(row)) {
+        const bare = k.includes('.') ? k.slice(k.lastIndexOf('.') + 1) : k
+        if (jsonCols.has(bare) && typeof row[k] === 'string') {
+          try { row[k] = JSON.parse(row[k] as string) } catch { /* 非 JSON 字符串——原样 */ }
+        }
+      }
+    }
+    return result
   }
 
   /** 合法列集：DDL columns ∪ 观测行键（insert 建表无 DDL——行键即事实列） */
@@ -154,7 +174,10 @@ export class MemorySql {
   }
 
   private execSelect(q: SelectQuery, outerCtx?: { row: Row; alias: string }): QueryResult<Row> {
-    if (q.table) this.assertKnownCols('SELECT', q, outerCtx)
+    if (q.table) {
+      this.assertTableExists('SELECT', q.table)
+      this.assertKnownCols('SELECT', q, outerCtx)
+    }
     // count(*) 聚合：过滤后行数 → 单行 { count }
     if (q.count) {
       const t = this.table(q.table)
@@ -475,6 +498,13 @@ export class MemorySql {
 
   // ── 执行 ──────────────────────────────────────────────
 
+  private assertTableExists(ctx: string, name: string): void {
+    if (!name) return
+    if (!this.tables.has(name)) {
+      throw new ProtocolError('relation', `memory-sql: ${ctx} 表 '${name}' 不存在（relation does not exist——对齐真库 42P01）`)
+    }
+  }
+
   private table(name: string): MemoryTable {
     let t = this.tables.get(name)
     if (!t) { t = { rows: [], nextId: 1, uniques: new Set(), groups: [], defaultNow: new Set(), defaultVals: new Map(), columns: [], columnTypes: {} }; this.tables.set(name, t) }
@@ -579,8 +609,16 @@ export class MemorySql {
         if (col.defaultNow) t.defaultNow.add(col.name)
         if (col.defaultVal !== undefined) t.defaultVals.set(col.name, col.defaultVal)
       }
+    } else if (stmt.op === 'alterAddColumn' && stmt.table && stmt.column) {
+      const t = this.table(stmt.table)
+      if (!t.columns.includes(stmt.column)) {
+        t.columns.push(stmt.column)
+        if (stmt.columnType) t.columnTypes[stmt.column] = stmt.columnType
+      }
     } else if (stmt.op === 'dropTable' && stmt.table) {
       this.tables.delete(stmt.table)
+    } else if (stmt.op === 'dropEnum' && stmt.table) {
+      this.enums.delete(stmt.table)
     } else if (stmt.op === 'createEnum' && stmt.table) {
       // 枚举注册（幂等——DO 块 EXCEPTION duplicate_object 语义 = 已存在跳过）
       if (!this.enums.has(stmt.table)) this.enums.set(stmt.table, stmt.enumValues ?? [])

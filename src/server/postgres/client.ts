@@ -17,7 +17,8 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import type { PostgresOptions, PostgresClient } from './types.ts'
 import { compileQuery } from '../db/query.ts'
 import { compileSchemaDDL } from '../db/schema.ts'
-import { createOrm, postgresAdapter } from '../db/orm.ts'
+import { createOrm, memoryAdapter, postgresAdapter } from '../db/orm.ts'
+import { MemorySql } from '../db/memory-sql.ts'
 
 export const MIGRATIONS_TABLE = '_weifuwu_migrations'
 
@@ -26,6 +27,7 @@ const traceStore = new AsyncLocalStorage<string>()
 
 export function postgres(options?: string | PostgresOptions): PostgresClient {
   const opts: PostgresOptions = typeof options === 'string' ? { connection: options } : (options ?? {})
+  if (opts.memory) return createMemoryPostgres()
 
   const connection = opts.connection ?? process.env.DATABASE_URL
   if (!connection) {
@@ -81,6 +83,16 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
 
   mw.orm = orm
 
+  // 测试/播种 SQL 面（协议层——真库=pool 直通；业务禁 sql：唯一入口 orm）
+  mw.sql = (() => {
+    const tag = (strings: TemplateStringsArray, ...values: unknown[]) => {
+      const sql = strings.reduce((acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ''), '')
+      return pool.unsafe(sql, values as never)
+    }
+    ;(tag as unknown as { unsafe: unknown }).unsafe = (sql: string, params?: unknown[]) => pool.unsafe(sql, (params ?? []) as never)
+    return tag as never
+  })()
+
   mw.migrate = async () => {
     await pool.unsafe(`
       CREATE TABLE IF NOT EXISTS "_weifuwu_migrations" (
@@ -125,6 +137,53 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
 }
 
 /** PG 错误码 → HttpError 映射（框架默认，业务无需手写 catch） */
+
+/** 内存模式 PostgresClient（测试——AST 直执行零 wire；DDL/迁移走 engine.unsafe） */
+function createMemoryPostgres(): PostgresClient {
+  const mem = new MemorySql()
+  const orm = createOrm(memoryAdapter(mem))
+  const applied = new Set<string>()
+  const mw = ((req: Request, ctx: Context, next: Handler) => {
+    ctx.orm = orm
+    return next(req, ctx)
+  }) as unknown as PostgresClient
+  mw.__meta = { injects: ['orm'], depends: [] }
+  mw.orm = orm
+  mw.sql = (() => {
+    const tag = (strings: TemplateStringsArray, ...values: unknown[]) => mem.tag(strings, values)
+    ;(tag as unknown as { unsafe: unknown }).unsafe = (sql: string, params: unknown[] = []) => mem.unsafe(sql, params)
+    return tag as never
+  })()
+
+  mw.migrate = async () => {
+    await mem.unsafe('CREATE TABLE IF NOT EXISTS "_weifuwu_migrations" (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())')
+  }
+  mw.markMigrated = async (moduleName: string) => {
+    applied.add(moduleName)
+  }
+  mw.isMigrated = async (moduleName: string): Promise<boolean> => {
+    if (applied.has(moduleName)) return true
+    try {
+      const rows = await mem.unsafe('SELECT name FROM "_weifuwu_migrations" WHERE name = $1', [moduleName])
+      return rows.length > 0
+    } catch {
+      return false // 迁移表未建（pg.migrate() 未跑）——视为未迁移（对齐真库测试残余语义）
+    }
+  }
+  mw.runMigration = async (name: string, sql: string): Promise<void> => {
+    if (await mw.isMigrated(name)) return
+    await mem.unsafe(sql)
+    applied.add(name)
+  }
+  mw.migrateModule = async (name: string, mod: import('../db/schema.ts').SchemaModule): Promise<void> => {
+    await mw.runMigration(name, compileSchemaDDL(mod))
+  }
+  mw.transaction = orm.transaction as never
+  mw.poolStats = () => ({ active: 0, idle: 0, waiting: 0, max: 1 })
+  mw.close = async () => {}
+  return mw
+}
+
 const PG_ERROR_MAP: Record<string, number> = {
   '23505': 409, // unique_violation
   '23503': 400, // foreign_key_violation

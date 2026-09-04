@@ -13,6 +13,8 @@ export type { Redis }
 export type RedisOptions = {
   /** Redis URL（默认 REDIS_URL 环境变量；两者都缺 → 构造抛错，禁止静默回退 localhost） */
   url?: string
+  /** 内存模式（测试——MemoryRedis 直调零 wire） */
+  memory?: boolean
   /** 池大小（连接数）。默认 5。 */
   poolSize?: number
   /** 所有 key 自动加前缀（多应用共享 Redis 时隔离命名空间） */

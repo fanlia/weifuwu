@@ -388,11 +388,17 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
     if (isKeyword(peek(), 'ON')) {
       next()
       expectKeyword('CONFLICT')
-      let col: string | undefined
+      let col: string | string[] | undefined
       if (peek().type === 'lparen') {
         next()
-        col = expect('ident', '冲突目标列').value
+        const cols: string[] = []
+        for (;;) {
+          cols.push(expect('ident', '冲突目标列').value)
+          if (peek().type === 'rparen') break
+          expect('comma', ',')
+        }
         expect('rparen', ')')
+        col = cols.length === 1 ? cols[0] : cols
       }
       expectKeyword('DO')
       if (isKeyword(peek(), 'NOTHING')) {
@@ -475,6 +481,14 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
   // ── DDL（CREATE TABLE/DROP TABLE/CREATE INDEX/ALTER——token 流约束解析）──
   function parseDdl(kw: string): DdlQuery {
     if (kw === 'DROP') {
+      if (isKeyword(peek(), 'TYPE')) {
+        next()
+        const ifExists = isKeyword(peek(), 'IF')
+        if (ifExists) { next(); expectKeyword('EXISTS') }
+        const name = expect('ident', '类型名').value
+        if (isKeyword(peek(), 'CASCADE')) next()
+        return { kind: 'ddl', op: 'dropEnum', name, ifNotExists: ifExists }
+      }
       expectKeyword('TABLE')
       const ifExists = isKeyword(peek(), 'IF')
       if (ifExists) { next(); expectKeyword('EXISTS') }
@@ -482,7 +496,23 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
       return { kind: 'ddl', op: 'dropTable', table, ifNotExists: ifExists }
     }
     if (kw === 'ALTER') {
-      // ALTER TABLE ...——内存无结构语义（no-op——迁移兼容）
+      // ALTER TABLE x ADD COLUMN [IF NOT EXISTS] c type（增量列——对齐声明式迁移面）
+      expectKeyword('TABLE')
+      if (isKeyword(peek(), 'IF')) { next(); expectKeyword('EXISTS') }
+      const table = expect('ident', '表名').value
+      if (isKeyword(peek(), 'ADD')) {
+        next()
+        if (isKeyword(peek(), 'COLUMN')) next()
+        const ifNotExists = isKeyword(peek(), 'IF')
+        if (ifNotExists) { next(); expectKeyword('NOT'); expectKeyword('EXISTS') }
+        const col = expect('ident', '列名').value
+        let type = ''
+        while (!['comma', 'rparen'].includes(peek().type) && peek().type !== 'eof') {
+          const t = next()
+          type += (type ? ' ' : '') + String(t.value)
+        }
+        return { kind: 'ddl', op: 'alterAddColumn', table, column: col, columnType: type.trim().toUpperCase() }
+      }
       return { kind: 'ddl', op: 'alter' }
     }
     // CREATE EXTENSION（pgvector 等——内存吞——无扩展语义）
@@ -627,10 +657,16 @@ export function parseSqlToAst(sql: string, params: unknown[] = []): Query {
   /** 读 token 直到遇到指定关键字/类型（保留终止 token） */
   function readUntil(stops: string[]): string {
     let out = ''
+    let depth = 0
     while (peek().type !== 'eof') {
       const t = peek()
+      if (t.type === 'lparen') { depth++; next(); out = appendToken(out, t.value); continue }
+      if (t.type === 'rparen') {
+        if (depth > 0) { depth--; next(); out = appendToken(out, t.value); continue }
+        if (stops.includes('rparen')) break
+        next(); out = appendToken(out, t.value); continue
+      }
       if (t.type === 'ident' && stops.includes(t.value.toUpperCase())) break
-      if (t.type === 'rparen' && stops.includes('rparen')) break
       if (t.type === 'comma' && stops.includes('comma')) break
       next()
       const val = t.type === 'string' ? `'${t.value.replace(/'/g, "''")}'` : t.value
@@ -754,6 +790,8 @@ function evalValue(raw: string, params: unknown[], allowColumnRef = false): unkn
     const castMatch = /^(.*?)::[\w\[\]]+$/.exec(t)
     if (castMatch) return evalValue(castMatch[1], params, allowColumnRef)
   }
+  // NOW()（时间戳字面量——VALUES/DEFAULT 面——对齐 memory 当前时刻语义）
+  if (/^now\(\)$/i.test(t)) return new Date().toISOString()
   // 引号字符串
   if (t.startsWith("'") && t.endsWith("'") && t.length >= 2) return t.slice(1, -1).replace(/''/g, "'")
   // 参数 $n 或 $n::type

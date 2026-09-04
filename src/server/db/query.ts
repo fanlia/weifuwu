@@ -150,13 +150,16 @@ export interface DeleteQuery {
 /** DDL 语句（SQL parser 产出——内存执行提取约束；真库走 raw 字符串） */
 export interface DdlQuery {
   kind: 'ddl'
-  op: 'createTable' | 'dropTable' | 'createIndex' | 'alter' | 'createEnum' | 'createExtension' | 'doBlock'
+  op: 'createTable' | 'dropTable' | 'dropEnum' | 'createIndex' | 'alter' | 'alterAddColumn' | 'createEnum' | 'createExtension' | 'doBlock'
   table?: string
   ifNotExists?: boolean
   /** 列定义（createTable）——约束提取（PK/UNIQUE/DEFAULT now） */
   columns?: { name: string; type: string; pk: boolean; unique: boolean; defaultNow: boolean; defaultUuid: boolean; defaultVal?: unknown; constraintCols?: string[] }[]
   /** createEnum：枚举值清单 */
   enumValues?: string[]
+  /** alterAddColumn：增量列（列名/类型——对齐声明式迁移 ADD COLUMN IF NOT EXISTS） */
+  column?: string
+  columnType?: string
 }
 
 export type Query = SelectQuery | InsertQuery | UpdateQuery | DeleteQuery | DdlQuery

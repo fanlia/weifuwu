@@ -60,7 +60,7 @@ function wsClient(): { ws: WebSocket; sent: any[]; received: any[]; hello(campai
 before(async () => {
   const srv = await getSharedServer()
   base = srv.base
-  pg = postgres()
+  pg = postgres({ memory: true })
 })
 
 after(async () => {

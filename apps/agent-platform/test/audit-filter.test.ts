@@ -17,7 +17,10 @@ const userId = randomUUID()
 const daysAgo = (d: number) => new Date(Date.now() - d * 86400 * 1000).toISOString()
 
 before(async () => {
-  pg = postgres(process.env.DATABASE_URL!, { max: 2, closeTimeout: 1 })
+  pg = postgres({ memory: true })
+  // memory 自治建表（真库靠 server 启动残留——内存库须显式）
+  await pg.sql`CREATE TABLE IF NOT EXISTS audit_logs (id BIGSERIAL PRIMARY KEY, app_id UUID, user_id UUID, action TEXT, target_type TEXT, target_id TEXT, detail JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
+  await pg.sql`CREATE TABLE IF NOT EXISTS _weifuwu_users (id UUID PRIMARY KEY, name TEXT)`
   // 时间分布：今天 ×2（不同 action）+ 10 天前 + 40 天前
   await pg.sql`
     INSERT INTO audit_logs (app_id, user_id, action, target_type, target_id, detail, created_at) VALUES
@@ -68,6 +71,7 @@ test('G4e: to 筛选——20 天前以前（仅 40 天前那条）', async () =>
 
 test('G4f: from + to 窗口（5-15 天 → 仅 d10）', async () => {
   const { entries } = await listAudit(ctx(), { from: daysAgo(15), to: daysAgo(5) })
+  console.log('[G4f]', JSON.stringify(entries.map((e: any) => e.detail)), JSON.stringify(entries.map((e: any) => e.created_at)))
   assert.equal(entries.length, 1)
   assert.equal(entries[0].detail.src, 'd10')
 })

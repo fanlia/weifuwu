@@ -8,7 +8,7 @@ import { postgres } from 'weifuwu'
 let pg: ReturnType<typeof postgres>
 
 before(async () => {
-  pg = postgres(process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_svc_test', { max: 10, closeTimeout: 1 })
+  pg = postgres({ memory: true })
   await pg.sql`CREATE TABLE IF NOT EXISTS skill_ratings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     skill_dir TEXT NOT NULL,
@@ -60,14 +60,11 @@ describe('C6 技能市场（评分/搜索）', () => {
         ON CONFLICT (skill_dir, app_id) DO UPDATE SET liked = EXCLUDED.liked
       `
     }
-    const [agg] = await sql`
-      SELECT
-        COALESCE(COUNT(*) FILTER (WHERE liked), 0)::int AS likes,
-        COALESCE(COUNT(*) FILTER (WHERE NOT liked), 0)::int AS dislikes
-      FROM skill_ratings WHERE skill_dir = ${dir}
-    `
-    assert.strictEqual(agg.likes, 2)
-    assert.strictEqual(agg.dislikes, 1)
+    // 聚合断言走 orm（COUNT FILTER 算子面——原生 SQL 聚合表达式面 parser 判负：
+    // COALESCE/嵌套函数是开放面——业务/测试断言统一 orm）
+    const agg = await pg.orm.query.from('skill_ratings').count('*', 'likes', { liked: { eq: true } }).count('*', 'dislikes', { liked: { eq: false } }).where({ skill_dir: { eq: dir } }).run()
+    assert.strictEqual((agg as any)[0].likes, 2)
+    assert.strictEqual((agg as any)[0].dislikes, 1)
   })
 
   it('租户隔离：A 租户评分不影响 B 租户数据', async () => {

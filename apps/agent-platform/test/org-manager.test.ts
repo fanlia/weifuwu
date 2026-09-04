@@ -33,7 +33,7 @@ async function clean(): Promise<void> {
 }
 
 before(async () => {
-  pg = postgres(process.env.TEST_DATABASE_URL ?? 'postgres://root:123456@localhost:5432/demo_svc_test', { max: 10, closeTimeout: 1 })
+  pg = postgres({ memory: true })
   await clean()
 })
 

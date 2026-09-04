@@ -35,11 +35,14 @@ export async function listAudit(ctx: AppCtx, opts: { limit?: number; offset?: nu
   const limit = Math.min(opts.limit ?? 50, 100)
   const offset = opts.offset ?? 0
   // orm-pg-subquery 判负修订（2027-xx）：user_name 标量子查询 → 主查+用户组查 Map 合并
+  // 同列双条件必须对象内合并（spread 同键覆盖——gte/lte 丢一——G4f 实证）
+  const created_at: { gte?: string; lte?: string } = {}
+  if (opts.from) created_at.gte = opts.from
+  if (opts.to) created_at.lte = opts.to
   const baseWhere: import('weifuwu').WhereExpr = {
     app_id: { eq: String(ctx.appId) },
     ...(opts.action ? { action: { eq: opts.action } } : {}),
-    ...(opts.from ? { created_at: { gte: opts.from } } : {}),
-    ...(opts.to ? { created_at: { lte: opts.to } } : {}),
+    ...(Object.keys(created_at).length ? { created_at } : {}),
   }
   const rows = await orm.query.from('audit_logs').select('user_id', 'action', 'target_type', 'target_id', 'detail', 'created_at')
     .where(baseWhere).orderBy('created_at', 'desc').limit(limit).offset(offset).run()
