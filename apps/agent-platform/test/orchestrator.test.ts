@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { postgres } from 'weifuwu'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
 import { BUILTIN_TOOL_DEFS, registerBuiltinTools } from '../src/tools/builtin.ts'
 import { getToolHandler } from '../src/tools/registry.ts'
 import { TASK_DISCIPLINE } from '../src/services/task-decisions.ts'
@@ -44,18 +45,14 @@ const mockAiClient = {
 
 before(async () => {
   pg = postgres({ memory: true })
-  const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
-  await pg.sql.unsafe(`
-    DROP TABLE IF EXISTS agent_versions CASCADE; DROP TABLE IF EXISTS audit_logs CASCADE;
-    DROP TABLE IF EXISTS agent_logs CASCADE; DROP TABLE IF EXISTS messages CASCADE;
-    DROP TABLE IF EXISTS department_members CASCADE; DROP TABLE IF EXISTS departments CASCADE;
-    DROP TABLE IF EXISTS agents CASCADE; DROP TYPE IF EXISTS agent_type CASCADE;
-  `)
-  await pg.sql.unsafe(schema)
-  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES (${ORCH}, ${APP_ID}, 'ai', '编排Agent', '你是编排者')`
-  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES (${WORKER_A}, ${APP_ID}, 'ai', '数据分析师', '你是数据分析师')`
-  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES (${WORKER_B}, ${APP_ID}, 'ai', '客服', '你是客服专员')`
-  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES (${WORKER_C}, ${APP_ID}, 'ai', '文档助手', '你是文档助手')`
+  // 协议层 = AST：声明式建库（migrateModule——零 SQL 文本；memory 实例无残留——DROP 不需要）
+  await pg.migrateModule('test-full', AGENT_PLATFORM_SCHEMA as never)
+  await pg.orm.query.insert('agents').rows([
+    { id: ORCH, app_id: APP_ID, type: 'ai', name: '编排Agent', system_prompt: '你是编排者' },
+    { id: WORKER_A, app_id: APP_ID, type: 'ai', name: '数据分析师', system_prompt: '你是数据分析师' },
+    { id: WORKER_B, app_id: APP_ID, type: 'ai', name: '客服', system_prompt: '你是客服专员' },
+    { id: WORKER_C, app_id: APP_ID, type: 'ai', name: '文档助手', system_prompt: '你是文档助手' },
+  ]).run()
 
   ctx = {
     sql: pg.sql, orm: (pg as any).orm,

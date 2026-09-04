@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { postgres } from 'weifuwu'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
 import { routeIntent } from '../src/services/intent-route.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -33,17 +34,13 @@ function mockEmbed(text: string): number[] {
 
 before(async () => {
   pg = postgres({ memory: true })
-  const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
-  await pg.sql.unsafe(`
-    DROP TABLE IF EXISTS agent_logs CASCADE; DROP TABLE IF EXISTS messages CASCADE;
-    DROP TABLE IF EXISTS department_members CASCADE; DROP TABLE IF EXISTS departments CASCADE;
-    DROP TABLE IF EXISTS agents CASCADE; DROP TYPE IF EXISTS agent_type CASCADE;
-  `)
-  await pg.sql.unsafe(schema)
-  await pg.sql`INSERT INTO departments (id, app_id, name) VALUES (${DEPT}, ${APP_ID}, '测试部')`
-  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt, role_label, expertise) VALUES
-    (${AGENT_ANALYST}, ${APP_ID}, 'ai', '数据分析师', '你是数据分析师', '数据分析', 'Excel/报表/销售分析'),
-    (${AGENT_CS}, ${APP_ID}, 'ai', '客服', '你是客服专员', '客户服务', '退款/客诉安抚/话术')`
+  // 协议层 = AST：声明式建库（migrateModule——零 SQL 文本）；memory 实例无残留（DROP 不需要）
+  await pg.migrateModule('test-full', AGENT_PLATFORM_SCHEMA as never)
+  await pg.orm.query.insert('departments').rows([{ id: DEPT, app_id: APP_ID, name: '测试部' }]).run()
+  await pg.orm.query.insert('agents').rows([
+    { id: AGENT_ANALYST, app_id: APP_ID, type: 'ai', name: '数据分析师', system_prompt: '你是数据分析师', role_label: '数据分析', expertise: 'Excel/报表/销售分析' },
+    { id: AGENT_CS, app_id: APP_ID, type: 'ai', name: '客服', system_prompt: '你是客服专员', role_label: '客户服务', expertise: '退款/客诉安抚/话术' },
+  ]).run()
 })
 
 after(async () => {

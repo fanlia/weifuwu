@@ -329,6 +329,27 @@ export const AGENT_PLATFORM_SCHEMA: import('weifuwu').SchemaModule = {
       ],
     },
     {
+      name: 'video_tasks',
+      columns: {
+        id: f.pk(z.uuid()),
+        app_id: z.uuid().meta({ notNull: true }),
+        department_id: z.uuid().nullable(),
+        agent_id: z.uuid().nullable(),
+        task_id: z.string().meta({ notNull: true }),
+        prompt: z.string().meta({ notNull: true }),
+        status: z.string().meta({ notNull: true, default: 'pending' }),
+        filename: z.string().meta({ notNull: true }),
+        path: z.string().nullable(),
+        error: z.string().nullable(),
+        params: z.json().nullable(),
+        created_at: z.date().meta({ notNull: true, default: 'now' }),
+        updated_at: z.date().meta({ notNull: true, default: 'now' }),
+      },
+      indexes: [
+        { cols: ['task_id'], name: 'idx_video_tasks_task' },
+      ],
+    },
+    {
       name: 'agent_run_states',
       columns: {
         message_id: f.pk(z.uuid()),
@@ -492,6 +513,24 @@ export const AGENT_PLATFORM_SCHEMA: import('weifuwu').SchemaModule = {
         api_key: z.string().nullable(),
         model: z.string().nullable(),
         updated_at: z.date().meta({ notNull: true, default: 'now' }),
+      },
+    },
+  ],
+}
+
+/** 框架 _weifuwu_apps 平台扩展列（商业化/沙盒配额/企业归属）——声明式增量：
+ *  新库在 weifuwu-users 建表后补列；老库 ADD COLUMN IF NOT EXISTS 幂等（无 ALTER 文本） */
+export const APP_EXT_SCHEMA: import('weifuwu').SchemaModule = {
+  tables: [
+    {
+      name: '_weifuwu_apps',
+      columns: {
+        status: z.string().meta({ notNull: true, default: 'active' }),
+        plan: z.string().meta({ notNull: true, default: 'free' }),
+        trial_ends_at: z.date().nullable(),
+        monthly_token_limit: z.number().int().meta({ notNull: true, default: 50000 }),
+        sandbox_quota: z.number().int().meta({ notNull: true, default: 5 }),
+        enterprise_id: z.uuid().nullable(),
       },
     },
   ],

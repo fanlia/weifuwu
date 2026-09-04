@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { postgres } from 'weifuwu'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
 import { BUILTIN_TOOL_DEFS, registerBuiltinTools } from '../src/tools/builtin.ts'
 import { getToolHandler } from '../src/tools/registry.ts'
 import { registerStatsRoutes } from '../src/routes/stats.ts'
@@ -31,19 +32,13 @@ let workeraCalls = 0
 
 before(async () => {
   pg = postgres({ memory: true })
-  const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
-  await pg.sql.unsafe(`
-    DROP TABLE IF EXISTS agent_runs CASCADE; DROP TABLE IF EXISTS agent_versions CASCADE;
-    DROP TABLE IF EXISTS audit_logs CASCADE; DROP TABLE IF EXISTS agent_logs CASCADE;
-    DROP TABLE IF EXISTS messages CASCADE; DROP TABLE IF EXISTS department_members CASCADE;
-    DROP TABLE IF EXISTS departments CASCADE; DROP TABLE IF EXISTS agents CASCADE;
-    DROP TYPE IF EXISTS agent_type CASCADE;
-  `)
-  await pg.sql.unsafe(schema)
-  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES
-    (${ORCH}, ${APP_ID}, 'ai', '编排Agent', '你是编排者'),
-    (${WORKER_A}, ${APP_ID}, 'ai', '数据分析师', '你是数据分析师'),
-    (${WORKER_B}, ${APP_ID}, 'ai', '客服', '你是客服专员')`
+  // 协议层 = AST：声明式建库（migrateModule——零 SQL 文本）；memory 实例无残留（DROP 不需要）
+  await pg.migrateModule('test-full', AGENT_PLATFORM_SCHEMA as never)
+  await pg.orm.query.insert('agents').rows([
+    { id: ORCH, app_id: APP_ID, type: 'ai', name: '编排Agent', system_prompt: '你是编排者' },
+    { id: WORKER_A, app_id: APP_ID, type: 'ai', name: '数据分析师', system_prompt: '你是数据分析师' },
+    { id: WORKER_B, app_id: APP_ID, type: 'ai', name: '客服', system_prompt: '你是客服专员' },
+  ]).run()
 
   ctx = {
     sql: pg.sql, orm: (pg as any).orm,
@@ -82,7 +77,7 @@ describe('O11: 任务树落库', () => {
     const handler = getToolHandler('plan_tasks')!
     // toolCtx 通道（2027-09）：departmentId/agentId 经参数——agent_runs 落库字段
     await handler({ tasks: [{ agent: '数据分析师', message: '分析数据' }, { agent: '客服', message: '整理话术' }] }, { agentId: ORCH, departmentId: '' })
-    const [run] = await pg.sql`SELECT * FROM agent_runs WHERE app_id = ${APP_ID} ORDER BY created_at DESC LIMIT 1`
+    const [run] = await pg.orm.query.from('agent_runs').where({ app_id: { eq: APP_ID } }).orderBy('created_at', 'desc').limit(1).run()
     assert.ok(run, 'run 落库')
     assert.equal(String((run as any).kind), 'orchestration')
     assert.equal(String((run as any).status), 'done')
@@ -102,7 +97,7 @@ describe('O11: 任务树落库', () => {
         { agent: '不存在的Agent', message: 'x' },       // 确定性失败（error）
       ],
     }, { agentId: ORCH, departmentId: '' })
-    const [run] = await pg.sql`SELECT * FROM agent_runs WHERE app_id = ${APP_ID} ORDER BY created_at DESC LIMIT 1`
+    const [run] = await pg.orm.query.from('agent_runs').where({ app_id: { eq: APP_ID } }).orderBy('created_at', 'desc').limit(1).run()
     assert.equal(String((run as any).status), 'partial', '部分失败 = partial')
     const workers = typeof (run as any).worker_results === 'string' ? JSON.parse(String((run as any).worker_results)) : (run as any).worker_results
     const errs = workers.filter((w: any) => w.status === 'error')
@@ -113,12 +108,12 @@ describe('O11: 任务树落库', () => {
   it('全失败 → failed（不静默）', async () => {
     const handler = getToolHandler('plan_tasks')!
     await handler({ tasks: [{ agent: '不存在的Agent1', message: 'x' }, { agent: '不存在的Agent2', message: 'y' }] }, { agentId: ORCH, departmentId: '' })
-    const [run] = await pg.sql`SELECT * FROM agent_runs WHERE app_id = ${APP_ID} ORDER BY created_at DESC LIMIT 1`
+    const [run] = await pg.orm.query.from('agent_runs').where({ app_id: { eq: APP_ID } }).orderBy('created_at', 'desc').limit(1).run()
     assert.equal(String((run as any).status), 'failed')
   })
 
   it('request_id 贯穿（三端事件流关联键）', async () => {
-    const [run] = await pg.sql`SELECT request_id FROM agent_runs WHERE app_id = ${APP_ID} ORDER BY created_at DESC LIMIT 1`
+    const [run] = await pg.orm.query.from('agent_runs').select('request_id').where({ app_id: { eq: APP_ID } }).orderBy('created_at', 'desc').limit(1).run()
     assert.equal(String((run as any).request_id), 'req-test-tree', 'request_id 落库')
   })
 })

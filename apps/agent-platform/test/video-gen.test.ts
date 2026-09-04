@@ -20,6 +20,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { postgres } from 'weifuwu'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
 import { registerBuiltinTools, BUILTIN_TOOL_DEFS } from '../src/tools/builtin.ts'
 import { getToolHandler } from '../src/tools/registry.ts'
 import {
@@ -43,29 +44,10 @@ let pg: any
 
 before(async () => {
   pg = postgres({ memory: true })
-  await pg.sql.unsafe('DROP TABLE IF EXISTS video_tasks CASCADE')
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS video_tasks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID NOT NULL, department_id UUID,
-    agent_id UUID, task_id TEXT NOT NULL, prompt TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending', filename TEXT NOT NULL, path TEXT, error TEXT, params JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );`)
-  // W5 通知链路最小表（FK 链：messages ↔ departments/agents——同 chat 语义）
-  await pg.sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS departments (id UUID PRIMARY KEY, app_id UUID NOT NULL, name TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS agents (id UUID PRIMARY KEY, app_id UUID NOT NULL, type TEXT NOT NULL, name TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS messages (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      department_id UUID NOT NULL REFERENCES departments(id),
-      sender_id UUID NOT NULL REFERENCES agents(id),
-      content TEXT NOT NULL,
-      msg_type TEXT NOT NULL DEFAULT 'text',
-      ai_approved BOOLEAN,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `)
-  await pg.sql`INSERT INTO departments (id, app_id, name) VALUES (${DEPT}, ${APP_ID}, '测试部') ON CONFLICT (id) DO NOTHING`
-  await pg.sql`INSERT INTO agents (id, app_id, type, name) VALUES (${AGENT_ID}, ${APP_ID}, 'ai', '视频助手') ON CONFLICT (id) DO NOTHING`
+  // 协议层 = AST：声明式建库（migrateModule——零 SQL 文本）；memory 实例无残留（DROP 不需要）
+  await pg.migrateModule('test-full', AGENT_PLATFORM_SCHEMA as never)
+  await pg.orm.query.insert('departments').rows([{ id: DEPT, app_id: APP_ID, name: '测试部' }]).run()
+  await pg.orm.query.insert('agents').rows([{ id: AGENT_ID, app_id: APP_ID, type: 'ai', name: '视频助手' }]).run()
 })
 after(async () => {
   if (pg) await pg.close()
@@ -117,9 +99,8 @@ const TASK_DONE = '0385dc79-5ff8-4d82-bcb6-0000000000cc'
 const TASK_FAIL = '0385dc79-5ff8-4d82-bcb6-0000000000dd'
 
 async function insertRow(taskId: string, filename = 'x.mp4'): Promise<string> {
-  const [row] = await pg.sql`INSERT INTO video_tasks (app_id, department_id, task_id, prompt, status, filename)
-    VALUES (${APP_ID}, ${DEPT}, ${taskId}, 'p', 'pending', ${filename}) RETURNING id`
-  return String(row.id)
+  const [row] = await pg.orm.query.insert('video_tasks').rows([{ app_id: APP_ID, department_id: DEPT, task_id: taskId, prompt: 'p', status: 'pending', filename }]).returning('id').run()
+  return String((row as any)?.id)
 }
 
 test('def 注册面：BUILTIN_TOOL_DEFS 含 generate_video + video_generation_status', () => {
@@ -235,7 +216,7 @@ test('W5 完成通知：done + agentId → messages 落库（agent 身份）+ br
   const msg = { broadcast: (ch: string, ev: any) => broadcasts.push({ ch, ev }) }
   try {
     await handleVideoPoll({ rowId, appId: APP_ID, taskId: TASK_DONE + 'n', prompt: 'p', filename: 'notify.mp4', departmentId: DEPT, agentId: AGENT_ID }, ctx({ msg, ai: aiStub }), q)
-    const [m] = await pg.sql`SELECT * FROM messages WHERE department_id = ${DEPT} ORDER BY created_at DESC LIMIT 1`
+    const [m] = await pg.orm.query.from('messages').where({ department_id: { eq: DEPT } }).orderBy('created_at', 'desc').limit(1).run()
     assert.ok(m, '通知消息已落库')
     assert.equal(String(m.sender_id), AGENT_ID)
     assert.match(String(m.content), /\/ws\/notify\.mp4/)

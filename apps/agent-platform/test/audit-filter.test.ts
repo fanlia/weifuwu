@@ -7,7 +7,8 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { postgres } from 'weifuwu'
+import { postgres, WEIFUWU_USER_SCHEMA } from 'weifuwu'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
 import { listAudit } from '../src/services/audit.ts'
 
 let pg: ReturnType<typeof postgres>
@@ -18,21 +19,19 @@ const daysAgo = (d: number) => new Date(Date.now() - d * 86400 * 1000).toISOStri
 
 before(async () => {
   pg = postgres({ memory: true })
-  // memory 自治建表（真库靠 server 启动残留——内存库须显式）
-  await pg.sql`CREATE TABLE IF NOT EXISTS audit_logs (id BIGSERIAL PRIMARY KEY, app_id UUID, user_id UUID, action TEXT, target_type TEXT, target_id TEXT, detail JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`
-  await pg.sql`CREATE TABLE IF NOT EXISTS _weifuwu_users (id UUID PRIMARY KEY, name TEXT)`
+  await pg.migrateModule('test-full', AGENT_PLATFORM_SCHEMA as never)
+  await pg.migrateModule('test-users', WEIFUWU_USER_SCHEMA as never)
   // 时间分布：今天 ×2（不同 action）+ 10 天前 + 40 天前
-  await pg.sql`
-    INSERT INTO audit_logs (app_id, user_id, action, target_type, target_id, detail, created_at) VALUES
-    (${appId}, ${userId}, 'login_success', 'app', ${appId}, '{"src":"today-1"}'::jsonb, NOW()),
-    (${appId}, ${userId}, 'agent_create', 'agent', ${randomUUID()}, '{"src":"today-2"}'::jsonb, NOW()),
-    (${appId}, ${userId}, 'agent_create', 'agent', ${randomUUID()}, '{"src":"d10"}'::jsonb, ${daysAgo(10)}::timestamptz),
-    (${appId}, ${userId}, 'agent_update', 'agent', ${randomUUID()}, '{"src":"d40"}'::jsonb, ${daysAgo(40)}::timestamptz)
-  `
+  await pg.orm.query.insert('audit_logs').rows([
+    { app_id: appId, user_id: userId, action: 'login_success', target_type: 'app', target_id: appId, detail: { src: 'today-1' }, created_at: new Date().toISOString() },
+    { app_id: appId, user_id: userId, action: 'agent_create', target_type: 'agent', target_id: randomUUID(), detail: { src: 'today-2' }, created_at: new Date().toISOString() },
+    { app_id: appId, user_id: userId, action: 'agent_create', target_type: 'agent', target_id: randomUUID(), detail: { src: 'd10' }, created_at: daysAgo(10) },
+    { app_id: appId, user_id: userId, action: 'agent_update', target_type: 'agent', target_id: randomUUID(), detail: { src: 'd40' }, created_at: daysAgo(40) },
+  ]).run()
 })
 
 after(async () => {
-  await pg.sql`DELETE FROM audit_logs WHERE app_id = ${appId}`
+  await pg.orm.query.delete('audit_logs').where({ app_id: { eq: appId } }).run()
   await pg.close()
 })
 

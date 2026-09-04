@@ -7,7 +7,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { postgres } from 'weifuwu'
+import { postgres, WEIFUWU_USER_SCHEMA } from 'weifuwu'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
 import type { Context } from 'weifuwu'
 import { runAgent, streamAgent } from '../src/services/agent-runner.ts'
 import { handleNewMessage, handleNewMessageStream } from '../src/services/chat.ts'
@@ -92,26 +93,20 @@ let pg: ReturnType<typeof postgres>
 
 before(async () => {
   pg = postgres({ memory: true })
-  const schemaPath = resolve(__dirname, '..', 'src', 'db', 'schema.sql')
-  const schema = readFileSync(schemaPath, 'utf-8')
-  await pg.sql.unsafe(`
-    DROP TABLE IF EXISTS kb_chunks CASCADE;
-    DROP TABLE IF EXISTS kb_documents CASCADE;
-    DROP TABLE IF EXISTS messages CASCADE;
-    DROP TABLE IF EXISTS department_members CASCADE;
-    DROP TABLE IF EXISTS departments CASCADE;
-    DROP TABLE IF EXISTS agents CASCADE;
-    DROP TABLE IF EXISTS users CASCADE;
-    DROP TYPE IF EXISTS agent_type CASCADE;
-  `)
-  await pg.sql.unsafe(schema)
+  // 协议层 = AST：声明式建库（migrateModule——零 SQL 文本）；memory 实例无残留（DROP 不需要）
+  await pg.migrateModule('test-full', AGENT_PLATFORM_SCHEMA as never)
+  await pg.migrateModule('test-users', WEIFUWU_USER_SCHEMA as never)
 
   // 插入测试数据（使用有效 UUID）
-  await pg.sql`INSERT INTO departments (id, app_id, name) VALUES ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000001', 'Test Dept')`
-  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000001', 'ai', 'AI Bot', '你是AI助手')`
-  await pg.sql`INSERT INTO agents (id, app_id, type, name) VALUES ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000001', 'user', 'User')`
-  await pg.sql`INSERT INTO department_members (department_id, agent_id) VALUES ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000030')`
-  await pg.sql`INSERT INTO department_members (department_id, agent_id) VALUES ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000031')`
+  await pg.orm.query.insert('departments').rows([{ id: '00000000-0000-0000-0000-000000000020', app_id: '00000000-0000-0000-0000-000000000001', name: 'Test Dept' }]).run()
+  await pg.orm.query.insert('agents').rows([
+    { id: '00000000-0000-0000-0000-000000000030', app_id: '00000000-0000-0000-0000-000000000001', type: 'ai', name: 'AI Bot', system_prompt: '你是AI助手' },
+    { id: '00000000-0000-0000-0000-000000000031', app_id: '00000000-0000-0000-0000-000000000001', type: 'user', name: 'User' },
+  ]).run()
+  await pg.orm.query.insert('department_members').rows([
+    { department_id: '00000000-0000-0000-0000-000000000020', agent_id: '00000000-0000-0000-0000-000000000030' },
+    { department_id: '00000000-0000-0000-0000-000000000020', agent_id: '00000000-0000-0000-0000-000000000031' },
+  ]).run()
 })
 
 after(async () => {
@@ -189,9 +184,7 @@ describe('Services', () => {
 
       await handleNewMessage(ctx, DEPT_ID, USER_AGENT_ID, '测试消息')
 
-      const messages = await pg.sql`
-        SELECT content, ai_approved FROM messages WHERE department_id = ${DEPT_ID}
-      `
+      const messages = await pg.orm.query.from('messages').select('content', 'ai_approved').where({ department_id: { eq: DEPT_ID } }).run()
       assert.ok(messages.length >= 1)
       const aiReply = messages.find((m: any) => m.ai_approved === true)
       assert.ok(aiReply, 'AI 自动回复应存在且已批准')
@@ -199,15 +192,13 @@ describe('Services', () => {
 
     it('部门无 AI Agent 时插入系统提示（引导添加）', async () => {
       // 创建一个无 AI 成员的部门
-      await pg.sql`INSERT INTO departments (id, app_id, name) VALUES ('00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000001', 'Empty')`
-      await pg.sql`INSERT INTO department_members (department_id, agent_id) VALUES ('00000000-0000-0000-0000-000000000022', ${USER_AGENT_ID})`
+      await pg.orm.query.insert('departments').rows([{ id: '00000000-0000-0000-0000-000000000022', app_id: '00000000-0000-0000-0000-000000000001', name: 'Empty' }]).run()
+      await pg.orm.query.insert('department_members').rows([{ department_id: '00000000-0000-0000-0000-000000000022', agent_id: USER_AGENT_ID }]).run()
 
       const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       await handleNewMessage(ctx, '00000000-0000-0000-0000-000000000022', USER_AGENT_ID, '无 AI 回复')
 
-      const msgs = await pg.sql`
-        SELECT * FROM messages WHERE department_id = '00000000-0000-0000-0000-000000000022'
-      `
+      const msgs = await pg.orm.query.from('messages').where({ department_id: { eq: '00000000-0000-0000-0000-000000000022' } }).run()
       assert.equal(msgs.length, 1)
       assert.equal(msgs[0].msg_type, 'system')
       assert.match(String(msgs[0].content), /暂无 AI 成员/)
@@ -215,22 +206,15 @@ describe('Services', () => {
 
     it('human_in_the_loop 创建草稿', async () => {
       // 创建 HITL AI Agent
-      await pg.sql`
-        INSERT INTO agents (id, app_id, type, name, system_prompt, human_in_the_loop)
-        VALUES ('00000000-0000-0000-0000-000000000032', ${APP_ID}, 'ai', 'HITL Bot', '需审批', TRUE)
-      `
-      await pg.sql`
-        INSERT INTO department_members (department_id, agent_id) VALUES (${DEPT_ID}, '00000000-0000-0000-0000-000000000032')
-      `
+      await pg.orm.query.insert('agents').rows([{ id: '00000000-0000-0000-0000-000000000032', app_id: APP_ID, type: 'ai', name: 'HITL Bot', system_prompt: '需审批', human_in_the_loop: true }]).run()
+      await pg.orm.query.insert('department_members').rows([{ department_id: DEPT_ID, agent_id: '00000000-0000-0000-0000-000000000032' }]).run()
 
       const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
 
       await handleNewMessage(ctx, DEPT_ID, USER_AGENT_ID, '需审批的消息')
 
       // 验证存在 ai_approved IS NULL 的草稿
-      const drafts = await pg.sql`
-        SELECT * FROM messages WHERE ai_approved IS NULL
-      `
+      const drafts = await pg.orm.query.from('messages').where({ ai_approved: { isNull: true } }).run()
       assert.ok(drafts.length >= 1, '应有待审批的 AI 草稿')
     })
   })
@@ -261,11 +245,7 @@ describe('Services', () => {
       await handleNewMessageStream(ctx, DEPT_ID, USER_AGENT_ID, '今天几号', '')
 
       // 最新 AI 消息的 content 必须是完整拼接（修复前可能是中间值/截断）
-      const rows = await pg.sql`
-        SELECT content FROM messages
-        WHERE department_id = ${DEPT_ID} AND sender_id = ${AI_AGENT_ID}
-        ORDER BY created_at DESC LIMIT 1
-      `
+      const rows = await pg.orm.query.from('messages').select('content').where({ department_id: { eq: DEPT_ID }, sender_id: { eq: AI_AGENT_ID } }).orderBy('created_at', 'desc').limit(1).run()
       assert.ok(rows.length >= 1, '应有 AI 流式回复消息')
       assert.equal(rows[0].content, chunks.join(''), 'DB content 应为完整拼接（并发 UPDATE 不得覆盖为中间值）')
     })
@@ -311,10 +291,7 @@ describe('Services', () => {
   describe('handleWebhookMessage()', () => {
     before(async () => {
       // 创建 webhook agent
-      await pg.sql`
-        INSERT INTO agents (id, app_id, type, name, system_prompt)
-        VALUES ('00000000-0000-0000-0000-000000000040', ${APP_ID}, 'webhook', 'Webhook Bot', '你是 Webhook Bot')
-      `
+      await pg.orm.query.insert('agents').rows([{ id: '00000000-0000-0000-0000-000000000040', app_id: APP_ID, type: 'webhook', name: 'Webhook Bot', system_prompt: '你是 Webhook Bot' }]).run()
     })
 
     it('返回 AI 回复', async () => {
@@ -356,7 +333,7 @@ describe('Services', () => {
       await new Promise<void>((r) => server.listen(0, r))
       const port = (server.address() as any).port
       // 配置出站 URL + secret
-      await pg.sql`UPDATE agents SET webhook_url = ${`http://127.0.0.1:${port}/reply`}, webhook_secret = 'out-secret' WHERE id = '00000000-0000-0000-0000-000000000040'`
+      await pg.orm.query.update('agents').set({ webhook_url: `http://127.0.0.1:${port}/reply`, webhook_secret: 'out-secret' }).where({ id: { eq: '00000000-0000-0000-0000-000000000040' } }).run()
       try {
         const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
         // 入站也需签名（出站/入站共享 secret）
@@ -378,14 +355,14 @@ describe('Services', () => {
       } finally {
         // 恢复（不污染后续测试）
         process.env.WEBHOOK_SSRF_ALLOW_PRIVATE = ''
-        await pg.sql`UPDATE agents SET webhook_url = NULL, webhook_secret = NULL WHERE id = '00000000-0000-0000-0000-000000000040'`
+        await pg.orm.query.update('agents').set({ webhook_url: null, webhook_secret: null }).where({ id: { eq: '00000000-0000-0000-0000-000000000040' } }).run()
         await new Promise<void>((r) => server.close(() => r()))
       }
     })
 
     it('SSRF 防护：出站 URL 内网地址拒绝推送', async () => {
       // 配置内网出站 URL（无 secret——入站免签）
-      await pg.sql`UPDATE agents SET webhook_url = 'http://127.0.0.1:9/evil', webhook_secret = NULL WHERE id = '00000000-0000-0000-0000-000000000040'`
+      await pg.orm.query.update('agents').set({ webhook_url: 'http://127.0.0.1:9/evil', webhook_secret: null }).where({ id: { eq: '00000000-0000-0000-0000-000000000040' } }).run()
       const { handleWebhookMessage } = await import('../src/services/webhook.ts')
       try {
         const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
@@ -396,11 +373,11 @@ describe('Services', () => {
         )
         assert.ok(result.reply, 'AI 正常回复（推送被拒不影响主流程）')
         // 推送被拒 → 出站日志记录 502（delivered=false）
-        const [log] = await pg.sql`SELECT response_status FROM webhook_logs WHERE agent_id = '00000000-0000-0000-0000-000000000040' AND request_body LIKE 'OUTBOUND%' ORDER BY created_at DESC LIMIT 1`
+        const [log] = await pg.orm.query.from('webhook_logs').select('response_status').where({ agent_id: { eq: '00000000-0000-0000-0000-000000000040' }, request_body: { like: 'OUTBOUND%' } }).orderBy('created_at', 'desc').limit(1).run()
         assert.ok(log, '出站日志存在')
         assert.equal(Number(log.response_status), 502, '出站推送被拒（502）')
       } finally {
-        await pg.sql`UPDATE agents SET webhook_url = NULL, webhook_secret = NULL WHERE id = '00000000-0000-0000-0000-000000000040'`
+        await pg.orm.query.update('agents').set({ webhook_url: null, webhook_secret: null }).where({ id: { eq: '00000000-0000-0000-0000-000000000040' } }).run()
       }
     })
 
@@ -426,10 +403,7 @@ describe('Services', () => {
     })
 
     it('使用工具的 webhook', async () => {
-      await pg.sql`
-        INSERT INTO agents (id, app_id, type, name, system_prompt, tools)
-        VALUES ('00000000-0000-0000-0000-000000000041', ${APP_ID}, 'webhook', 'Tool WB', 'Use tools', '[{"type":"function","function":{"name":"get_info","description":"Get info","parameters":{}}}]'::jsonb)
-      `
+      await pg.orm.query.insert('agents').rows([{ id: '00000000-0000-0000-0000-000000000041', app_id: APP_ID, type: 'webhook', name: 'Tool WB', system_prompt: 'Use tools', tools: { type: 'function', function: { name: 'get_info', description: 'Get info', parameters: {} } } }]).run()
 
       const ctx = makeMockCtx({ sql: await pg.sql as any, orm: (pg as any).orm })
       // 工具由框架 agent 引擎从 agents.tools 配置解析（src/tools/ 内置工具注册），
@@ -465,16 +439,10 @@ describe('Services', () => {
   describe('searchKnowledgeBase()', () => {
     before(async () => {
       // 插入测试向量数据
-      await pg.sql`
-        INSERT INTO kb_documents (id, agent_id, filename, content, chunk_count)
-        VALUES ('00000000-0000-0000-0000-000000000050', ${AI_AGENT_ID}, 'test.txt', '测试文档内容', 1)
-      `
+      await pg.orm.query.insert('kb_documents').rows([{ id: '00000000-0000-0000-0000-000000000050', agent_id: AI_AGENT_ID, filename: 'test.txt', content: '测试文档内容', chunk_count: 1 }]).run()
       // 创建 1024 维向量
       const testVec = '[' + new Array(1024).fill(0).map((_, i) => i === 0 ? '0.1' : i === 1 ? '0.2' : '0').join(',') + ']'
-      await pg.sql`
-        INSERT INTO kb_chunks (document_id, agent_id, content, chunk_index, embedding)
-        VALUES ('00000000-0000-0000-0000-000000000050', ${AI_AGENT_ID}, '人工智能测试内容', 0, ${testVec}::vector)
-      `
+      await pg.orm.query.insert('kb_chunks').rows([{ document_id: '00000000-0000-0000-0000-000000000050', agent_id: AI_AGENT_ID, content: '人工智能测试内容', chunk_index: 0, embedding: JSON.parse(testVec) as never }]).run()
     })
 
     it('返回检索结果', async () => {

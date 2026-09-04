@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { postgres } from 'weifuwu'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
 import { BUILTIN_TOOL_DEFS, registerBuiltinTools } from '../src/tools/builtin.ts'
 import { getToolHandler } from '../src/tools/registry.ts'
 
@@ -37,21 +38,13 @@ const mockAiClient = {
 
 before(async () => {
   pg = postgres({ memory: true })
-  const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
-  await pg.sql.unsafe(`
-    DROP TABLE IF EXISTS agent_versions CASCADE;
-    DROP TABLE IF EXISTS audit_logs CASCADE;
-    DROP TABLE IF EXISTS agent_logs CASCADE;
-    DROP TABLE IF EXISTS messages CASCADE;
-    DROP TABLE IF EXISTS department_members CASCADE;
-    DROP TABLE IF EXISTS departments CASCADE;
-    DROP TABLE IF EXISTS agents CASCADE;
-    DROP TYPE IF EXISTS agent_type CASCADE;
-  `)
-  await pg.sql.unsafe(schema)
-  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES (${AGENT_A}, ${APP_ID}, 'ai', '编排Agent', '你是编排者')`
-  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES (${AGENT_B}, ${APP_ID}, 'ai', '数据分析师', '你是数据分析师')`
-  await pg.sql`INSERT INTO agents (id, app_id, type, name) VALUES ('00000000-0000-0000-0000-000000000032', ${APP_ID}, 'user', '真人用户')`
+  // 协议层 = AST：声明式建库（migrateModule——零 SQL 文本；memory 实例无残留——DROP 不需要）
+  await pg.migrateModule('test-full', AGENT_PLATFORM_SCHEMA as never)
+  await pg.orm.query.insert('agents').rows([
+    { id: AGENT_A, app_id: APP_ID, type: 'ai', name: '编排Agent', system_prompt: '你是编排者' },
+    { id: AGENT_B, app_id: APP_ID, type: 'ai', name: '数据分析师', system_prompt: '你是数据分析师' },
+    { id: '00000000-0000-0000-0000-000000000032', app_id: APP_ID, type: 'user', name: '真人用户' },
+  ]).run()
 
   ctx = {
     sql: pg.sql, orm: (pg as any).orm,
@@ -111,7 +104,7 @@ describe('call_agent 执行器', () => {
   })
 
   it('场景3c：异租户目标被拒绝（同名字异租户）', async () => {
-    await pg.sql`INSERT INTO agents (id, app_id, type, name) VALUES ('99999999-0000-0000-0000-000000000001', '99999999-9999-9999-9999-999999999999', 'ai', '异租户Agent')`
+    await pg.orm.query.insert('agents').rows([{ id: '99999999-0000-0000-0000-000000000001', app_id: '99999999-9999-9999-9999-999999999999', type: 'ai', name: '异租户Agent' }]).run()
     const handler = getToolHandler('call_agent')!
     const result = await handler({ agent: '异租户Agent', message: 'hi' }) as string
     assert.ok(result.includes('找不到可调用的 AI Agent'), result)
@@ -136,7 +129,7 @@ describe('call_agent 执行器', () => {
   it('场景7：子 Agent 调用写入 agent_logs（department_id NULL——被调用无部门）', async () => {
     const handler = getToolHandler('call_agent')!
     await handler({ agent: '数据分析师', message: '帮我统计' })
-    const logs = await pg.sql`SELECT agent_id, department_id, success FROM agent_logs WHERE agent_id = ${AGENT_B} ORDER BY created_at DESC LIMIT 1`
+    const logs = await pg.orm.query.from('agent_logs').select('agent_id', 'department_id', 'success').where({ agent_id: { eq: AGENT_B } }).orderBy('created_at', 'desc').limit(1).run()
     assert.equal(logs.length, 1, '子 Agent 有日志')
     assert.equal(logs[0].department_id, null, '无部门（NULL）')
     assert.equal(logs[0].success, true)

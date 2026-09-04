@@ -7,6 +7,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router, postgres, cors, redis, userSystem, rateLimit, WEIFUWU_USER_SCHEMA } from 'weifuwu'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
 import { readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -30,11 +31,8 @@ function req(method: string, path: string, body?: unknown, headers: Record<strin
 
 before(async () => {
   pg = postgres({ memory: true })
-  const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
-  await pg.sql.unsafe('DROP TABLE IF EXISTS _weifuwu_sessions, _weifuwu_users, _weifuwu_apps, _weifuwu_app_members CASCADE')
-  await pg.sql.unsafe('DROP TABLE IF EXISTS webhook_conversations, webhook_logs, agent_logs, agent_skills, kb_chunks, kb_documents, role_templates, messages, department_members, departments, events, agents, companies, _weifuwu_app_members, _weifuwu_apps, _weifuwu_sessions, _weifuwu_users CASCADE')
-  await pg.sql.unsafe('DROP TYPE IF EXISTS agent_type CASCADE')
-  await pg.sql.unsafe(schema)
+  // 协议层 = AST：声明式建库（migrateModule——零 SQL 文本；memory 实例无残留——DROP 不需要）
+  await pg.migrateModule('agent-platform', AGENT_PLATFORM_SCHEMA as never)
   await pg.migrateModule('weifuwu-users', WEIFUWU_USER_SCHEMA)
 
   const app = new Router()

@@ -36,7 +36,7 @@ import { registerRoleTemplateRoutes } from './src/routes/role-templates.ts'
 import { registerAdminRoutes } from './src/routes/admin.ts'
 import { registerDeliverableRoutes } from './src/routes/deliverables.ts'
 import { registerStatsRoutes } from './src/routes/stats.ts'
-import { AGENT_PLATFORM_SCHEMA } from './src/db/tables.ts'
+import { AGENT_PLATFORM_SCHEMA, APP_EXT_SCHEMA } from './src/db/tables.ts'
 import { WEIFUWU_USER_SCHEMA, WEIFUWU_WORKFLOW_SCHEMA, WEIFUWU_MESSAGER_SCHEMA } from 'weifuwu'
 
 // ── UI ────────────────────────────────────────────────────
@@ -212,16 +212,9 @@ async function main() {
     },
   })
   await pg.migrateModule('weifuwu-users', WEIFUWU_USER_SCHEMA)
-  // 框架 app 表平台扩展列（商业化/沙盒配额/企业归属——幂等 ALTER——须在框架建表后
-  // （memory 下 CREATE TABLE 覆盖列集——先 ALTER 会被覆盖（调试发现））；真库老库同语义）
-  await pg.runMigration('agent-platform-app-cols-v2', `
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS monthly_token_limit INT NOT NULL DEFAULT 50000;
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS sandbox_quota INT NOT NULL DEFAULT 5;
-    ALTER TABLE _weifuwu_apps ADD COLUMN IF NOT EXISTS enterprise_id UUID;
-  `)
+  // 框架 app 表平台扩展列（商业化/沙盒配额/企业归属——声明式增量模块（零 ALTER 文本）——
+  // 须在 weifuwu-users 建表后迁移（memory CREATE TABLE 覆盖列集——先延后（调试发现）））
+  await pg.migrateModule('agent-platform-app-ext', APP_EXT_SCHEMA)
   await users.migrate()          // _weifuwu_users / _weifuwu_sessions / _weifuwu_apps / _weifuwu_app_members（播种段）
   // 系统域初始引导（USERSYSTEM-V2 定案）：ADMIN_EMAILS（逗号分隔）→ _builtin 成员任命——
   //   首个 = owner（超级管理员·唯一）· 其余 = admin（系统管理员）——幂等 seed——

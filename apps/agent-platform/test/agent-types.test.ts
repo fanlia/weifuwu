@@ -12,15 +12,15 @@ import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { AGENT_TYPES, AGENT_TYPE_LIST } from '../ui/lib/types.ts'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const APP_ROOT = join(__dirname, '..')
 
-test('T1: AGENT_TYPES 键集 == DB enum 五类型（schema.sql 单源）', () => {
-  const schema = readFileSync(join(APP_ROOT, 'src/db/schema.sql'), 'utf-8')
-  const m = schema.match(/CREATE TYPE agent_type AS ENUM \(([^)]+)\)/)
-  assert.ok(m, 'schema.sql 应有 agent_type enum 定义')
-  const enumTypes = m![1].split(',').map(s => s.trim().replace(/^'|'$/g, ''))
+test('T1: AGENT_TYPES 键集 == DB enum 五类型（声明式单源——AGENT_PLATFORM_SCHEMA.enums）', () => {
+  const enumDecl = AGENT_PLATFORM_SCHEMA.enums?.find((e) => e.name === 'agent_type')
+  assert.ok(enumDecl, '声明应有 agent_type enum 定义')
+  const enumTypes = enumDecl!.values
   assert.deepEqual(AGENT_TYPE_LIST, enumTypes, 'AGENT_TYPES 与 DB enum 完全一致')
 })
 

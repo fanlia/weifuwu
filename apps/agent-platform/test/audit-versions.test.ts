@@ -7,7 +7,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { postgres } from 'weifuwu'
+import { postgres, WEIFUWU_USER_SCHEMA } from 'weifuwu'
+import { AGENT_PLATFORM_SCHEMA } from '../src/db/tables.ts'
+
 import { writeAudit, listAudit } from '../src/services/audit.ts'
 import { saveVersion, listVersions, rollbackVersion } from '../src/services/versions.ts'
 
@@ -19,36 +21,10 @@ let pg: any
 
 before(async () => {
   pg = postgres({ memory: true })
-  const schema = readFileSync(resolve(__dirname, '..', 'src', 'db', 'schema.sql'), 'utf-8')
-  await pg.sql.unsafe(`
-    DROP TABLE IF EXISTS agent_versions CASCADE;
-    DROP TABLE IF EXISTS audit_logs CASCADE;
-    DROP TABLE IF EXISTS agent_logs CASCADE;
-    DROP TABLE IF EXISTS kb_chunks CASCADE;
-    DROP TABLE IF EXISTS kb_documents CASCADE;
-    DROP TABLE IF EXISTS messages CASCADE;
-    DROP TABLE IF EXISTS department_members CASCADE;
-    DROP TABLE IF EXISTS departments CASCADE;
-    DROP TABLE IF EXISTS agents CASCADE;
-    DROP TYPE IF EXISTS agent_type CASCADE;
-  `)
-  await pg.sql.unsafe(schema)
-  // 增量表（schema.sql 含——直接建）
-  // 框架 userSystem 表（audit JOIN user_name 依赖——新库需补建）
-  await pg.sql.unsafe(`CREATE TABLE IF NOT EXISTS _weifuwu_users (id UUID PRIMARY KEY, name TEXT, email TEXT, app_id UUID, created_at TIMESTAMPTZ DEFAULT NOW())`)
-  await pg.sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID NOT NULL, user_id UUID,
-      action TEXT NOT NULL, target_type TEXT, target_id UUID, detail JSONB,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS agent_versions (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-      app_id UUID NOT NULL, version INT NOT NULL, snapshot JSONB NOT NULL, note TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE (agent_id, version)
-    );
-  `)
-  await pg.sql`INSERT INTO agents (id, app_id, type, name, system_prompt) VALUES (${AGENT_ID}, ${APP_ID}, 'ai', 'AI Bot', '你是AI助手')`
+  // 协议层 = AST：声明式建库（migrateModule——零 SQL 文本）；memory 实例无残留（DROP 不需要）
+  await pg.migrateModule('test-full', AGENT_PLATFORM_SCHEMA as never)
+  await pg.migrateModule('test-users', WEIFUWU_USER_SCHEMA as never)
+  await pg.orm.query.insert('agents').rows([{ id: AGENT_ID, app_id: APP_ID, type: 'ai', name: 'AI Bot', system_prompt: '你是AI助手' }]).run()
 })
 
 after(async () => {
@@ -106,13 +82,13 @@ describe('Agent 版本管理服务', () => {
 
   it('rollbackVersion 恢复配置（含 name/description）', async () => {
     // 修改配置（含名称/描述）
-    await pg.sql`UPDATE agents SET system_prompt = '修改后的提示', name = '改名后', description = '改描述', updated_at = NOW() WHERE id = ${AGENT_ID}`
+    await pg.orm.query.update('agents').set({ system_prompt: '修改后的提示', name: '改名后', description: '改描述', updated_at: { __now: true } as never }).where({ id: { eq: AGENT_ID } }).run()
     // 回滚到 v1
     const versions = await listVersions(makeCtx() as any, AGENT_ID)
     const v1 = versions.find((v: any) => v.version === 1)
     const result = await rollbackVersion(makeCtx() as any, AGENT_ID, v1.id)
     assert.equal(result.ok, true)
-    const [agent] = await pg.sql`SELECT system_prompt, name, description FROM agents WHERE id = ${AGENT_ID}`
+    const [agent] = await pg.orm.query.from('agents').select('system_prompt', 'name', 'description').where({ id: { eq: AGENT_ID } }).run()
     assert.equal(agent.system_prompt, '你是AI助手', '回滚后 system_prompt 恢复')
     assert.equal(agent.name, 'AI Bot', '回滚后名称恢复')
     assert.equal(agent.description, null, '回滚后描述恢复')
