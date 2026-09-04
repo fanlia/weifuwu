@@ -92,6 +92,17 @@ export function getSharedServer(): Promise<AgentServer> {
   return sharePromise
 }
 
+/** 测试种子 SQL（发服务端库——memory 模式下唯一一致面；仅 WF_TEST_HOOKS=1 服务端开放） */
+export async function seedSql(base: string, sql: string): Promise<any[]> {
+  const res = await fetch(`${base}/api/test/sql`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sql }),
+  })
+  if (!res.ok) throw new Error(`seedSql 失败 ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  const data = await res.json() as { rows?: any[] }
+  return data.rows ?? []
+}
+
 /** 打开页面（goto + 等 #root 渲染）——返回 console/page 错误列表（页面零错误红线） */
 export async function openAgentPage(page: Page, base: string, path: string): Promise<string[]> {
   const errors: string[] = []

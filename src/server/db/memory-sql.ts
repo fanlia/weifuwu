@@ -264,7 +264,8 @@ export class MemorySql {
       }
       // 空集聚合（2027-XX——对齐真库 SQL）：count → [{count: 0}]（原返回 []——
       // messager unread count 空会话必崩——实证）；sum/avg/min/max → null
-      if (!groups.size) groups.set('', [])
+      // 有 GROUP BY 时空集 = 0 行（真库语义——不产 groupBy 列 undefined 行）
+      if (!groups.size && !(q.groupBy?.length)) groups.set('', [])
       out = [...groups.values()].map((g) => {
         const row: Row = {}
         for (const gb of q.groupBy ?? []) row[gb] = resolveCol(g[0], gb, tableAlias)
@@ -832,6 +833,7 @@ function collectWhereCols(expr: WhereExpr): string[] {
 }
 
 function resolveCol(row: Row, ref: string, _alias?: string): unknown {
+  if (row == null) return undefined // 空聚合组防御（groupBy 空集不产行——防御性）
   if (ref in row) return row[ref]
   const dot = ref.indexOf('.')
   if (dot >= 0) {

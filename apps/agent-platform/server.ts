@@ -1024,6 +1024,19 @@ async function main() {
   // ── 测试钩子（仅 WF_TEST_HOOKS=1——确定性 wf:* 事件注入——UI 回归用——
   //   不依赖真实 LLM——共享 server spawn 时开启） ──
   if (process.env.WF_TEST_HOOKS === '1') {
+    // 测试种子 SQL（仅钩子模式——测试直插改发服务端库（memory 模式下测试进程与
+    // 服务端不共享库——直插真库失效）；生产无此面（WF_TEST_HOOKS 未设））
+    // 认证：仅本机测试约定（无 token——与 wf 钩子同信任面；端点不接受查询/结构性外传）
+    app.post('/api/test/sql', async (req: Request) => {
+      try {
+        const body = await req.json() as { sql?: string }
+        if (!body.sql || typeof body.sql !== 'string') return Response.json({ error: 'sql 必填' }, { status: 400 })
+        const rows = await pg.sql.unsafe(body.sql)
+        return Response.json({ ok: true, rows })
+      } catch (e: any) {
+        return Response.json({ error: String(e?.message ?? e) }, { status: 500 })
+      }
+    })
     app.post('/api/test/wf', async (req: Request) => {
       try {
         const body = await req.json() as { room?: string; events?: any[] }
