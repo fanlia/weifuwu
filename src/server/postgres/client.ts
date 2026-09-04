@@ -122,10 +122,9 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
   }
 
   // 声明式 Schema 迁移（DDL 算子化：业务零 SQL 字符串——声明 → 框架内部生成 → 执行记录）
-  mw.migrateModule = async <M extends SchemaModule>(name: string, mod: M): Promise<void> => {
-    // memory：DDL AST 直执行（零 parse——协议层 = AST）
-    for (const stmt of compileSchemaDdl(mod)) mem.executeQuery(stmt)
-    if (mw.isMigrated && !(await mw.isMigrated(name))) await mw.markMigrated(name)
+  mw.migrateModule = async (name: string, mod: import('../db/schema.ts').SchemaModule): Promise<void> => {
+    // 真库：DDL AST → SQL 单向输出（compileSchemaDdl 产物永远经 ddlToSql——无文本回流）
+    await mw.runMigration(name, ddlToSql(compileSchemaDdl(mod)))
   }
 
   // ORM 面事务（同连接——orm 内部走 adapter.transaction → pool 同连接）
@@ -177,9 +176,10 @@ function createMemoryPostgres(): PostgresClient {
     await mem.unsafe(sql)
     applied.add(name)
   }
-  mw.migrateModule = async (name: string, mod: import('../db/schema.ts').SchemaModule): Promise<void> => {
-    // 真库：DDL AST → SQL 单向输出（compileSchemaDdl 产物永远经 ddlToSql——无文本回流）
-    await mw.runMigration(name, ddlToSql(compileSchemaDdl(mod)))
+  mw.migrateModule = async <M extends SchemaModule>(name: string, mod: M): Promise<void> => {
+    // memory：DDL AST 直执行（零 parse——协议层 = AST）
+    for (const stmt of compileSchemaDdl(mod)) mem.executeQuery(stmt)
+    if (!(await mw.isMigrated(name))) await mw.markMigrated(name)
   }
   mw.transaction = orm.transaction as never
   mw.poolStats = () => ({ active: 0, idle: 0, waiting: 0, max: 1 })

@@ -144,18 +144,18 @@ function ddlStmtToSql(s: DdlQuery): string[] {
   }
 }
 
-function alterDefaultSql(s: Extract<DdlQuery, { op: 'alterAddColumn' }>): string {
+function alterDefaultSql(s: DdlQuery): string {
   if (s.defaultVal === undefined) return ''
   if (typeof s.defaultVal === 'object' && s.defaultVal !== null && '__now' in (s.defaultVal as object)) return ' DEFAULT NOW()'
   return ` DEFAULT ${pgDefault(s.defaultVal)}`
 }
 
-function isNullableAlter(s: Extract<DdlQuery, { op: 'alterAddColumn' }>): boolean {
+function isNullableAlter(s: DdlQuery): boolean {
   // NOT NULL 判定镜像 compileTableDdl：默认值存在 → 存量行可填充→无 NOT NULL；否则列声明层可空性
   return s.defaultVal !== undefined || s.nullable === true
 }
 
-function tableDdlToSql(t: Extract<DdlQuery, { op: 'createTable' }>): string {
+function tableDdlToSql(t: DdlQuery): string {
   const colDefs: string[] = []
   const inlineUniques: string[] = []
   const checks: string[] = []
@@ -182,7 +182,7 @@ function tableDdlToSql(t: Extract<DdlQuery, { op: 'createTable' }>): string {
   return `CREATE TABLE IF NOT EXISTS ${t.table} (\n${[...colDefs, ...inlineUniques, ...checks].join(',\n')}\n);`
 }
 
-function indexDdlToSql(s: Extract<DdlQuery, { op: 'createIndex' }>): string {
+function indexDdlToSql(s: DdlQuery): string {
   const ix = s.index
   if (!ix) return ''
   const unique = ix.unique ? 'UNIQUE ' : ''
