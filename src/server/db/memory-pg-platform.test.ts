@@ -1,35 +1,28 @@
 /**
- * MemoryPostgresServer — 平台场景覆盖契约（W1：shape+operator 数据层计划）
+ * 平台声明式 Schema 契约（W3b 改版：wire 面消亡 → memory 引擎直执 + compileQuery SQL 形状静态契约）
  *
- * 锁定点（探针实证——补齐后翻转）：
- * - 声明式 Schema（tables.ts 单源）→ 内存引擎按声明构造（wire 服务器执行基座）
+ * W1 锁定点（探针实证——补齐后翻转）：
+ * - 声明式 Schema（tables.ts 单源）→ 内存引擎按声明构造（applySchema 直构造元数据）
  * - 平台查询面采样结果正确性（COUNT FILTER/RETURNING/JOIN/upsert/ILIKE/now() 表达式）
- * - 全部经 wire（postgres client ↔ MemoryPostgresServer 全链路——非 MemorySql 直调）
+ * - compileQuery SQL 形状静态契约（单向封闭输出——wire 消亡后编译面金丝雀：
+ *   FILTER 子句/参数化/别名——AST→SQL 正确性不再靠服务器 round-trip）
  *
  * 判负（平台面外——不补）：
  * - WHERE 子查询（业务查询 0 处——仅迁移 DO 块（迁移面 SQL 保留——真栈跑））
- * - ::int/::uuid cast（wire 服务器按行值类型推 OID——cast 语法面在真库；等价断言不需要）
+ * - ::int/::uuid cast（内存按行值类型推 OID——cast 语法面在真库；等价断言不需要）
  */
-import { test, before, after } from 'node:test'
+import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { MemoryPostgresServer } from './postgres-server.ts'
-import { postgres } from '../postgres/client.ts'
+import { MemorySql, createMemoryOrm } from './memory-sql.ts'
 import { AGENT_PLATFORM_SCHEMA } from '../../../apps/agent-platform/src/db/tables.ts'
+import { compileQuery, compileSelect } from './query.ts'
 import { nowAgo } from './ops.ts'
 
-const pgServer = new MemoryPostgresServer()
-await pgServer.start()
-after(async () => { await pgServer.close() })
+const mem = new MemorySql()
+mem.applySchema(AGENT_PLATFORM_SCHEMA)
+const db = createMemoryOrm(mem)
 
-const db = postgres({ connection: pgServer.url })
-
-before(async () => {
-  // 声明式 Schema（tables.ts 单源）→ 内存引擎按声明构造表元数据（wire 服务器执行基座）
-  ;(pgServer as unknown as { engine: { applySchema: (m: unknown) => void } }).engine.applySchema(AGENT_PLATFORM_SCHEMA)
-})
-
-test('平台声明式 Schema 经 wire 建库（24 表·无错）', async () => {
-  // information_schema 为 PG 目录表（内存无 catalog 面——判负：建表验证走业务表）
+test('平台声明式 Schema 建库（24 表·无错）', async () => {
   for (const tbl of ['agents', 'departments', 'messages', 'department_members', 'kb_chunks', 'survey_campaigns']) {
     await db.orm.query.from(tbl).count('*', 'n').run()
   }
@@ -72,7 +65,6 @@ test('ILIKE 搜索（messages/departments 面）', async () => {
 
 test('upsert（ON CONFLICT DO UPDATE——平台 3 处）', async () => {
   await db.orm.query.insert('role_templates').rows([{ name: '模板A', slug: 'tpl-a' }]).run()
-  // 冲突（slug 唯一）→ DO UPDATE：非冲突列更新·returning 读更新后行（D1 语义）
   const [up] = await db.orm.query.insert('role_templates').rows([{ name: '模板A2', slug: 'tpl-a' }]).onConflict('slug', true).returning('name').run()
   assert.equal((up as { name?: string })?.name, '模板A2')
   const [n] = await db.orm.query.from('role_templates').count('*', 'n').where({ slug: { eq: 'tpl-a' } }).run()
@@ -83,4 +75,17 @@ test('now() 表达式（平台 80 处 cast 面）', async () => {
   const rows = await db.orm.query.from('departments').select('id', 'created_at')
     .where({ created_at: { gte: nowAgo(1, 'day') }, app_id: { eq: 'a1' } }).run()
   assert.ok(rows.length >= 1, 'cast + now() 面')
+})
+
+test('compileQuery SQL 形状静态契约（wire 消亡后单向封闭输出金丝雀）', () => {
+  // 参数顺序契约：聚合 FILTER 参数先于 WHERE（编译顺序=出现顺序——诚实断言）
+  const q = { kind: 'select', table: 'agents', alias: undefined, cols: ['id'], where: { app_id: { eq: 'a1' }, state: { eq: 'active' } }, joins: undefined, sub: undefined, groupBy: undefined, having: undefined, orderBy: [{ col: 'created_at', dir: 'desc' }], limit: 10, offset: undefined, aggregate: [{ fn: 'count', col: '*', as: 'cnt', filter: { state: { eq: 'active' } } }], distinct: false } as const
+  const c = compileSelect(q as never)
+  assert.match(c.sql, /COUNT\(\*\) FILTER \(WHERE state = \$1\) AS cnt/)
+  assert.match(c.sql, /WHERE app_id = \$2 AND state = \$3/)
+  assert.match(c.sql, /ORDER BY created_at DESC LIMIT \$4/)
+  assert.deepEqual(c.params, ['active', 'a1', 'active', 10])
+  // upsert 编译（ON CONFLICT DO UPDATE SET 排除冲突列）
+  const up = compileQuery({ kind: 'insert', table: 'role_templates', rows: [{ name: 'x', slug: 's' }], onConflict: { col: 'slug', update: true } } as never)
+  assert.match(up.sql, /ON CONFLICT \(slug\) DO UPDATE SET name = EXCLUDED\.name/)
 })

@@ -27,5 +27,3 @@ export interface DBServer {
 
 export { MemoryRedisServer } from './redis-server.ts'
 export type { RedisServerOptions } from './redis-server.ts'
-export { MemoryPostgresServer } from './postgres-server.ts'
-export type { PostgresServerOptions } from './postgres-server.ts'

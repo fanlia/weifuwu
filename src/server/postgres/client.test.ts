@@ -10,18 +10,19 @@
  * 锁定契约：
  * - idle_timeout > 0：空闲超时后池容量收缩（open 递减），再次查询自动重建
  * - 默认（不传）：不收缩——旧行为不变（峰值连接常驻）
+ *
+ * 运行：RUN_DOCKER_TESTS=1（W3b：wire 内存服务器消亡后需真库——DATABASE_URL）
  */
-import { describe, it, before, after } from 'node:test'
+import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { MemoryPostgresServer } from '../db/postgres-server.ts'
 import { postgres } from './client.ts'
 
-const pgServer = new MemoryPostgresServer()
-await pgServer.start()
-after(async () => { await pgServer.close() })
-const DB_URL = pgServer.url
+// W3b：wire 内存服务器消亡——idle_timeout 契约改真库 gate（RUN_DOCKER_TESTS=1）
+const DB_URL = process.env.TEST_PG_URL ?? process.env.DATABASE_URL ?? ''
+const SKIP = process.env.RUN_DOCKER_TESTS !== '1'
+if (SKIP) console.log('[client-test] 跳过（RUN_DOCKER_TESTS 未设——wire 服务器消亡后需真库 gate）')
 
-describe('postgres middleware idle_timeout（空闲收缩透传）', () => {
+describe('postgres middleware idle_timeout（空闲收缩透传）', { skip: SKIP }, () => {
   it('idle_timeout > 0：空闲超时后连接回收（open 收缩）——再次查询自动重建', async () => {
     // 池 4 连接（init 全量建连）+ idle 50ms（测试快拍）——reaper interval = idle_timeout
     const db = postgres({ connection: DB_URL, max: 4, idle_timeout: 60 })
@@ -50,7 +51,7 @@ describe('postgres middleware idle_timeout（空闲收缩透传）', () => {
   })
 })
 
-describe('postgres middleware idle_timeout（init 全量建连也参与收缩）', () => {
+describe('postgres middleware idle_timeout（init 全量建连也参与收缩）', { skip: SKIP }, () => {
   it('从未使用过的连接同样被回收（lastUsed=0 边界——init 后置起点）', async () => {
     // 池 4：只跑 1 次查询（其余 3 条从未使用）——收缩后应趋零（旧代码 lastUsed=0 跳过）
     const db = postgres({ connection: DB_URL, max: 4, idle_timeout: 60 })

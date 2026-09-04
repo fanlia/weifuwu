@@ -3,12 +3,11 @@ import assert from 'node:assert/strict'
 import { PgConnection } from './connection.ts'
 import { ConnectionError } from '../errors.ts'
 
-// 内存 Postgres 服务器（进程内——零外部依赖；真实 PG v3 线协议交互保留）
-import { MemoryPostgresServer } from '../postgres-server.ts'
-const pgServer = new MemoryPostgresServer()
-await pgServer.start()
-after(async () => { await pgServer.close() })
-const DB_URL = pgServer.url
+// W3b：wire 内存服务器（MemoryPostgresServer）消亡——PgConnection 协议契约改
+// 真库 gate（RUN_DOCKER_TESTS=1——对齐 sandbox 专项口径；DATABASE_URL 直连）
+const DB_URL = process.env.TEST_PG_URL ?? process.env.DATABASE_URL ?? ''
+const SKIP = process.env.RUN_DOCKER_TESTS !== '1'
+if (SKIP) console.log('[connection-test] 跳过（RUN_DOCKER_TESTS 未设——wire 服务器消亡后需真库 gate）')
 
 interface DbConfig {
   host: string
@@ -29,7 +28,7 @@ function parseDbUrl(url: string): DbConfig {
   }
 }
 
-describe('postgres connection (memory server)', () => {
+describe('postgres connection (real database)', { skip: SKIP }, () => {
   const cfg = parseDbUrl(DB_URL)
   let conn: PgConnection
 
@@ -87,15 +86,11 @@ describe('postgres connection (memory server)', () => {
   })
 
   it('rejects with ConnectionError on bad credentials', async () => {
-    // 带密码的独立服务器——认证失败路径（客户端 SCRAM/MD5 握手被拒）
-    const secure = new MemoryPostgresServer({ port: 0, password: 'secret' })
-    await secure.start()
-    try {
-      const bad = new PgConnection({ ...parseDbUrl(secure.url), password: 'wrong-password' })
-      await assert.rejects(() => bad.connect(), (e: unknown) => e instanceof ConnectionError)
-    } finally {
-      await secure.close()
-    }
+    // 真库认证失败路径（客户端 SCRAM/MD5 握手被拒）——根因防线（原内存服务器
+    // 密码注入；真库时用 DATABASE_URL 带错密码验证）
+    const u = new URL(DB_URL)
+    const bad = new PgConnection({ host: u.hostname, port: Number(u.port || 5432), user: decodeURIComponent(u.username), password: 'wrong-password', database: u.pathname.replace(/^\//, '') })
+    await assert.rejects(() => bad.connect(), (e: unknown) => e instanceof ConnectionError)
   })
 
   it('terminates cleanly on close', async () => {
@@ -106,7 +101,7 @@ describe('postgres connection (memory server)', () => {
   })
 })
 
-describe('postgres parameterized queries (real database)', () => {
+describe('postgres parameterized queries (real database)', { skip: SKIP }, () => {
   const cfg = parseDbUrl(DB_URL)
   let conn: PgConnection
 

@@ -4,27 +4,24 @@
  * 锁定：
  * - SDL 生成（类型/Filter 输入/Sort 枚举/Insert/Patch/Query/Mutation——快照断言）
  * - resolver 桥执行（内置链路：makeExecutableSchema + graphql 执行——
- *   list/one/filter 算子/排序分页/insert/update/delete——MemoryPostgresServer wire）
+ *   list/one/filter 算子/排序分页/insert/update/delete——MemorySql 引擎（W3b：wire 消亡））
  * - 租户 scope（tenant 自动注入——跨租户隔离）
  * - 校验面（insertSchema 校验错误——GraphQL 错误上抛）
  */
-import { test, before, after } from 'node:test'
+import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { graphql } from 'graphql'
-import { MemoryPostgresServer } from './postgres-server.ts'
+import { MemorySql, createMemoryOrm } from './memory-sql.ts'
 import { AGENT_PLATFORM_SCHEMA } from '../../../apps/agent-platform/src/db/tables.ts'
-import { postgres } from '../postgres/client.ts'
 import { makeExecutableSchema } from '../make-executable-schema.ts'
 import { gqlFromShape } from './gql-from-shape.ts'
 import { shape, f } from './shape.ts'
 import { z } from '../../shared/zod.ts'
 
-const pgServer = new MemoryPostgresServer()
-await pgServer.start()
-after(async () => { await pgServer.close() })
-const db = postgres({ connection: pgServer.url })
+const mem = new MemorySql()
+mem.applySchema(AGENT_PLATFORM_SCHEMA)
+const db = createMemoryOrm(mem)
 before(async () => {
-  ;(pgServer as unknown as { engine: { applySchema: (m: unknown) => void } }).engine.applySchema(AGENT_PLATFORM_SCHEMA)
   await db.orm.query.insert('agents').rows([
     { id: '11111111-1111-4111-8111-111111111111', app_id: 'a1000000-0000-4000-8000-000000000001', name: '甲', type: 'user' },
   ]).run()

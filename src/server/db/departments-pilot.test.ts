@@ -2,8 +2,8 @@
  * departments 试点（W4：shape+operator 数据层计划——平台真实表结构端到端）
  *
  * 链路：shape（对齐 schema.sql departments）→ ops（WhereExpr）→ compileWhere
- * （参数化 SQL）→ postgres client → MemoryPostgresServer → MemorySql 引擎
- * —— 全部 wire·不经 MemorySql 直调（与平台真库路径同构——仅执行引擎替换）
+ * （参数化 SQL）→ MemorySql 引擎（W3b：wire 面消亡——memory 直执——AST 协议层
+ * 与真库仅执行引擎替换）
  *
  * 锁定：
  * - shape 定义对准真实表（列名映射/默认值/租户列）
@@ -16,22 +16,18 @@
  *
  * 判负（试点外）：子查询（部门列表的 COUNT 子查询保持 SQL 面——W7 面外）
  */
-import { test, before, after } from 'node:test'
+import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { MemoryPostgresServer } from './postgres-server.ts'
+import { MemorySql, createMemoryOrm } from './memory-sql.ts'
 import { AGENT_PLATFORM_SCHEMA } from '../../../apps/agent-platform/src/db/tables.ts'
-import { postgres } from '../postgres/client.ts'
 import { shape, f, type Shape } from './shape.ts'
 import { z } from '../../shared/zod.ts'
 import { eq, ilike, and, inArray, between, contains, eqCol, or } from './ops.ts'
 
-const pgServer = new MemoryPostgresServer()
-await pgServer.start()
-after(async () => { await pgServer.close() })
-const db = postgres({ connection: pgServer.url })
+const mem = new MemorySql()
+mem.applySchema(AGENT_PLATFORM_SCHEMA)
+const db = createMemoryOrm(mem)
 before(async () => {
-  // 声明式 Schema（tables.ts 单源）→ 内存引擎构造（wire 服务器执行基座）
-  ;(pgServer as unknown as { engine: { applySchema: (m: unknown) => void } }).engine.applySchema(AGENT_PLATFORM_SCHEMA)
   // agents 表种子（department_members 外键依赖）
   await db.orm.query.insert('agents').rows([
     { id: '11111111-1111-4111-8111-111111111111', app_id: 'a1000000-0000-4000-8000-000000000001', name: '用户甲', type: 'user' },

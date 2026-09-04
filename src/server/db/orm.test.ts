@@ -4,7 +4,7 @@
  * 锁定：
  * - 表注册（列引用表 c——类型收窄面）
  * - 表绑定 CRUD（select/insert/update/delete——builder 链）
- * - 双 adapter：memoryAdapter（AST 直执行）· postgresAdapter（compile→SQL→服务器 wire）
+ * - 单一 adapter：memoryAdapter（AST 直执行——W3b：wire 面消亡）
  *   ——同一 orm 代码两种执行面·结果等价
  * - filters/ops 组合（eq/ilike/and/orderBy/limit）
  * - 防全表删除（builder delete 需 where——首版防护）
@@ -12,13 +12,11 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { MemorySql } from './memory-sql.ts'
-import { createOrm, memoryAdapter, postgresAdapter } from './orm.ts'
+import { createOrm, memoryAdapter } from './orm.ts'
 import { f } from './shape.ts'
 import { z } from '../../shared/zod.ts'
 import { compileQuery } from './query.ts'
 import { compileSchemaDdl } from './schema.ts'
-import { MemoryPostgresServer } from './postgres-server.ts'
-import { postgres } from '../postgres/client.ts'
 import { eq, ilike, and, gt } from './ops.ts'
 import { graphql } from 'graphql'
 import { makeExecutableSchema } from '../make-executable-schema.ts'
@@ -67,24 +65,7 @@ test('orm：update 部分更新 + delete（必须 where）', async () => {
   assert.equal(gone.length, 0)
 })
 
-// ── postgres adapter（compile→SQL→服务器 wire）────────────
-
-const pgServer = new MemoryPostgresServer()
-await pgServer.start()
-after(async () => { await pgServer.close() })
-const pool = postgres({ connection: pgServer.url })
-// wire 面迁移表前置（对齐真库启动链路：pg.migrate() 建 _weifuwu_migrations——
-// 缺失时 isMigrated 的 SELECT 直接 42P01（memory 面有容错——wire 面无））
-await pool.migrate()
-await pool.runMigration('orm-test-agents', 'CREATE TABLE agents (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), app_id UUID, name TEXT, type TEXT, created_at TEXT)')
-// adapter 直连（wire 面——compileQuery → SQL → 服务器；与 client 注入同口径）
-const pgOrm = pool.orm
-const PgAgent = pgOrm.table('agents', {
-  id: f.pk(z.uuid()),
-  appId: f.col(z.uuid(), 'app_id'),
-  name: z.string(),
-  type: f.req(z.enum(['ai', 'user'])),
-} as never)
+// ── memory adapter（AST 直执行——W3b：wire 面消亡后统一内存执行）────────────
 
 test('orm：D1 onConflict（insert().onConflict——DO UPDATE 内存面/编译面同语义）', async () => {
   await mem.unsafe('CREATE TABLE up (id TEXT UNIQUE, val TEXT)')
@@ -343,21 +324,11 @@ test('orm.gql：端到端（SDL+resolver 挂接 orm——内置链路执行）',
   assert.ok(!del.errors, del.errors?.map((e) => e.message).join('; '))
 })
 
-test('orm：postgres adapter（wire——AST→SQL→服务器→执行）', async () => {
-  const ins = await PgAgent.select().run()
-  assert.equal(ins.length, 0)
-  await PgAgent.insert({ appId: 'a1000000-0000-4000-8000-000000000001', name: '线上助手', type: 'ai' }).run()
-  const all = await PgAgent.select().run()
-  assert.equal(all.length, 1)
-  assert.equal(all[0].name, '线上助手')
-  const ai = await PgAgent.select().where(and(eq(PgAgent.c.type, 'ai'), ilike(PgAgent.c.name, '%助%'))).run()
-  assert.equal(ai.length, 1)
-  await PgAgent.update({ type: 'user' }).where(eq(PgAgent.c.id, all[0].id)).run()
-  const [updated] = await PgAgent.select().where(eq(PgAgent.c.id, all[0].id)).run()
-  assert.equal(updated.type, 'user')
-  await PgAgent.delete().where(eq(PgAgent.c.id, all[0].id)).run()
-  const gone = await PgAgent.select().run()
-  assert.equal(gone.length, 0)
+test('orm：E1 compile SQL 含 FILTER (WHERE ...)（参数顺序=出现顺序）', async () => {
+  const q = { kind: 'select', table: 't1', alias: undefined, cols: undefined, where: undefined, joins: undefined, sub: undefined, groupBy: undefined, having: undefined, orderBy: undefined, limit: undefined, offset: undefined, aggregate: [{ fn: 'count', col: '*', as: 'a', filter: { active: { eq: true } } }, { fn: 'sum', col: 'score', as: 's', filter: { grp: { eq: 'x' } } }], distinct: false } as const
+  const c = compileQuery(q as never)
+  assert.ok(c.sql.includes('COUNT(*) FILTER (WHERE active = $1) AS a'), c.sql)
+  assert.ok(c.sql.includes('SUM(score) FILTER (WHERE grp = $2) AS s'), c.sql)
 })
 
 // ── E1 聚合面（FILTER 计数 + min/max/avg 投影——compile/memory 同语义）──────
@@ -409,17 +380,11 @@ test('orm：E1 compile SQL 含 FILTER (WHERE ...)（参数顺序=出现顺序）
   assert.ok(c.sql.includes('SUM(score) FILTER (WHERE grp = $2) AS s'), c.sql)
 })
 
-test('orm：E1 PG wire（真协议——FILTER/min/max 服务器端执行）', async () => {
-  await pool.runMigration('orm-e1pg', `CREATE TABLE IF NOT EXISTS orme1pg (id TEXT, grp TEXT, score INT, active BOOLEAN)`)
-  await pool.runMigration('orm-e1pg-del', `DELETE FROM orme1pg`)
-  const T = pgOrm.table('orme1pg', { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() } as never)
-  await T.insert([
-    { id: 'a1', grp: 'x', score: 30, active: true },
-    { id: 'a2', grp: 'x', score: 10, active: false },
-    { id: 'a3', grp: 'y', score: 50, active: true },
-  ]).run()
+test('orm：E1 聚合根（max/count FILTER——内存面；wire 面随 W3b 消亡）', async () => {
+  const T = orm.table('orme1m', { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() } as never)
+  await mem.unsafe('INSERT INTO orme1m (id, grp, score, active) VALUES ($1, $2, $3, $4)', ['a4', 'x', 60, true])
   const [r] = await T.select().max('score', 'top').count('*', 'n', { active: { eq: true } }).count('*', 'grp', { grp: { eq: 'x' } }).run()
-  assert.equal(r.top, 50, 'PG wire max')
-  assert.equal(r.n, 2, 'PG wire FILTER count')
-  assert.equal(r.grp, 2, 'PG wire FILTER count 2')
+  assert.equal(r.top, 60, 'max')
+  assert.equal(r.n, 3, 'FILTER count（a1/a3/a4 active）')
+  assert.equal(r.grp, 3, 'FILTER count 2（a1/a2/a4 grp=x）')
 })
