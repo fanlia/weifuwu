@@ -88,6 +88,14 @@ toast-fire/confirm-command · use-controlled/breakpoint/tween/drag ·
 覆盖哨兵：`scripts/audit-component-coverage.mjs`（组件×三层矩阵——零覆盖=缺口
 exit 1——CI 可挂）。
 
+### 平台 e2e 层（apps/agent-platform/test/——route 契约纪律）
+
+协议层测试（memory orm + handler 直调零浏览器）→ UI 层（playwright 真 server
+`POSTGRES_MEMORY=1`）。**新 route 必带契约测试**——模板复制即用：
+`apps/agent-platform/test/_template.contract.ts`（5 行核心：memory orm →
+handler 直调 → 状态码断言）· route 覆盖哨兵：`npm run audit:routes`
+（黄报未引用清单——新 route 无测试 = 可见）。
+
 ## 3. 组件作者契约（精华——完整检查清单见 docs/client.md §5）
 
 > 一条规则：工厂**同步**（async 即编译错）；异步边界**全在 hooks**；渲染**纯同步**。

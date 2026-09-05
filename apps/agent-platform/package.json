@@ -15,6 +15,7 @@
     "pretest": "node -e \"try{const fs=require('fs');const p=fs.readFileSync('/tmp/ap-shared-server.pid','utf8').trim();process.kill(Number(p))}catch{}\"",
     "test:docker": "RUN_DOCKER_TESTS=1 node --env-file=.env --test --test-concurrency=1 test/sandbox.test.ts",
     "test:ui": "node --env-file=.env --test --test-concurrency=1 'test/ui/**/*.test.ts'",
-    "check:shapes": "node scripts/shape-check.mjs"
+    "check:shapes": "node scripts/shape-check.mjs",
+    "audit:routes": "node scripts/audit-route-coverage.mjs"
   }
 }
