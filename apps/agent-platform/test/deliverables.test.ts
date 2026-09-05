@@ -14,6 +14,7 @@ import { mkdtemp, mkdir, writeFile, rm, truncate, utimes } from 'node:fs/promise
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { registerDeliverableRoutes } from '../src/routes/deliverables.ts'
+import { errorResponse } from 'weifuwu'
 
 interface Handler { (req: Request, ctx: any): Promise<Response> }
 
@@ -52,7 +53,12 @@ function makeSql(depts: Array<Record<string, unknown>>) {
 async function call(handlers: Map<string, Handler>, query: string, ctx: any): Promise<Response> {
   const h = handlers.get('GET /api/deliverables')
   assert.ok(h, 'GET /api/deliverables 已注册')
-  return h!(new Request(`http://localhost/api/deliverables${query}`), ctx)
+  try {
+    return await h!(new Request(`http://localhost/api/deliverables${query}`), ctx)
+  } catch (e) {
+    // 链语义代理：route 抛错 → errorResponse（error 收口后 throw HttpError 形态）
+    return errorResponse(e)
+  }
 }
 
 /** 临时工作区 + 预置文件（返回部门行列表） */

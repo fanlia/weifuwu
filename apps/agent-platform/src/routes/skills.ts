@@ -3,6 +3,7 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import { HttpError } from 'weifuwu'
 import { and, eq } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { tables } from '../db/orm.ts'
@@ -16,7 +17,7 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
       .select('id')
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
       .run()
-    if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    if (!agent) throw new HttpError('Agent 不存在', 404)
 
     const skills = await T.agent_skills
       .select('id', 'skill_name', 'skill_dir', 'enabled', 'created_at')
@@ -32,7 +33,7 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
     const body = await req.json() as { skill_name: string; skill_dir: string }
 
     if (!body.skill_name || !body.skill_dir) {
-      return Response.json({ error: 'skill_name 和 skill_dir 为必填' }, { status: 400 })
+      throw new HttpError('skill_name 和 skill_dir 为必填', 400)
     }
 
     const T = tables(orm)
@@ -40,14 +41,14 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
       .select('id')
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
       .run()
-    if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    if (!agent) throw new HttpError('Agent 不存在', 404)
 
     const [existing] = await T.agent_skills
       .select('id')
       .where(and(eq(T.agent_skills.c.agent_id, params.id), eq(T.agent_skills.c.skill_name, body.skill_name)))
       .run()
     if (existing) {
-      return Response.json({ error: '该技能已经绑定到此 Agent' }, { status: 409 })
+      throw new HttpError('该技能已经绑定到此 Agent', 409)
     }
 
     const [skill] = await T.agent_skills
@@ -64,13 +65,13 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
 
     const T = tables(orm)
     const [agent] = await T.agents.select('id').where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId))).run()
-    if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    if (!agent) throw new HttpError('Agent 不存在', 404)
 
     const [skill] = await T.agent_skills
       .select('id')
       .where(and(eq(T.agent_skills.c.id, params.skillId), eq(T.agent_skills.c.agent_id, params.id)))
       .run()
-    if (!skill) return Response.json({ error: '技能绑定不存在' }, { status: 404 })
+    if (!skill) throw new HttpError('技能绑定不存在', 404)
 
     const [updated] = await T.agent_skills
       .update({ enabled: body.enabled ?? true })
@@ -86,7 +87,7 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
 
     const T = tables(orm)
     const [agent] = await T.agents.select('id').where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId))).run()
-    if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    if (!agent) throw new HttpError('Agent 不存在', 404)
 
     const result = await T.agent_skills
       .delete()
@@ -94,7 +95,7 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
       .returning('id')
       .run()
     if (result.length === 0) {
-      return Response.json({ error: '技能绑定不存在' }, { status: 404 })
+      throw new HttpError('技能绑定不存在', 404)
     }
     return Response.json({ success: true })
   })

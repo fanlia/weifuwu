@@ -2,6 +2,7 @@
  * 问卷批量化路由（S1——2027-09）——Campaign API（agent 工具面——S2 包装）
  */
 import type { AppCtx } from '../middleware/ctx.ts'
+import { HttpError } from 'weifuwu'
 
 export function registerSurveyRoutes(app: any): void {
   // W2 开箱：一键角色池 + 活动（替代手工 seed-survey-agents.mjs）
@@ -10,7 +11,7 @@ export function registerSurveyRoutes(app: any): void {
       const body = await req.json()
       const personas = (body.personas ?? []).slice(0, 10)
       if (!body.url || personas.length === 0) {
-        return Response.json({ error: 'url 和 personas 为必填' }, { status: 400 })
+        throw new HttpError('url 和 personas 为必填', 400)
       }
       const { setupSurveyRoster } = await import('../services/survey-setup.ts')
       const out = await setupSurveyRoster(ctx, {
@@ -55,7 +56,7 @@ export function registerSurveyRoutes(app: any): void {
     try {
       const { getCampaign } = await import('../services/survey-campaign.ts')
       const out = await getCampaign(ctx, String(ctx.params.id))
-      if (!out) return Response.json({ error: 'campaign 不存在' }, { status: 404 })
+      if (!out) throw new HttpError('campaign 不存在', 404)
       const { campaign, runs } = out
       return Response.json({
         campaign,

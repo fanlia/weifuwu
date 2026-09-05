@@ -9,6 +9,7 @@
  */
 
 import type { Router } from 'weifuwu'
+import { HttpError } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 
 export function registerSandboxRoutes(app: Router<AppCtx>): void {
@@ -95,7 +96,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
         .where({ id: { eq: body.department_id }, app_id: { eq: appId } })
         .limit(1)
         .run()
-      if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+      if (!dept) throw new HttpError('部门不存在', 404)
       deptName = deptName ?? String(dept.name ?? '工作环境')
       // 三层模型：部门 = 工作目录——手动创建沙盒挂载部门目录（默认 {root}/{id}）
       try {
@@ -150,7 +151,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
     const row = await manager.get(params.id, appId)
-    if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
+    if (!row) throw new HttpError('沙盒不存在', 404)
     // 容器实际状态 + 资源
     const { sandbox } = await import('../sandbox/docker.ts')
     const stats = await sandbox.containerStats(`ap-sandbox-${row.id}`)
@@ -175,7 +176,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
     const row = await manager.get(params.id, appId)
-    if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
+    if (!row) throw new HttpError('沙盒不存在', 404)
     await manager.updateConfig(String(row.id), appId, {
       image: body.image, network: body.network, memoryMb: body.memory_mb, cpus: body.cpus,
     })
@@ -191,13 +192,13 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { sql, orm, appId, params } = ctx
     const action = params.action as 'start' | 'stop' | 'restart' | 'terminate'
     if (!['start', 'stop', 'restart', 'terminate'].includes(action)) {
-      return Response.json({ error: '不支持的 action' }, { status: 400 })
+      throw new HttpError('不支持的 action', 400)
     }
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
     const id = params.id
     const row = await manager.get(id, appId)
-    if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
+    if (!row) throw new HttpError('沙盒不存在', 404)
     let r: { ok: boolean; error?: string }
     if (action === 'terminate') {
       await manager.terminate(id, appId)
@@ -220,7 +221,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
     const row = await manager.get(params.id, appId)
-    if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
+    if (!row) throw new HttpError('沙盒不存在', 404)
     const { sandbox } = await import('../sandbox/docker.ts')
     const running = sandbox.runningExecs.get(String(row.id)) ?? null
     const events = await manager.eventHistory(String(row.id), 30)
@@ -244,7 +245,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
     const row = await manager.get(params.id, appId)
-    if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
+    if (!row) throw new HttpError('沙盒不存在', 404)
     const { sandbox } = await import('../sandbox/docker.ts')
     const procs = await sandbox.containerProcesses(`ap-sandbox-${row.id}`)
     return Response.json({ name: row.name, processes: procs })
@@ -255,7 +256,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
     const row = await manager.get(params.id, appId)
-    if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
+    if (!row) throw new HttpError('沙盒不存在', 404)
     const { sandbox } = await import('../sandbox/docker.ts')
     const stats = await sandbox.containerStats(`ap-sandbox-${row.id}`)
     return Response.json({ name: row.name, stats: stats ?? null })

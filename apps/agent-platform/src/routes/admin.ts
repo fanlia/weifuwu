@@ -107,7 +107,7 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
   app.post('/api/admin/enterprises', async (req: Request, ctx: AppCtx): Promise<Response> => {
     await requireAdmin(ctx)
     const body = await req.json() as { name?: string; ownerEmail?: string }
-    if (!body.name?.trim()) return Response.json({ error: 'name 必填' }, { status: 400 })
+    if (!body.name?.trim()) throw new HttpError('name 必填', 400)
     let ownerId: string | null = null
     if (body.ownerEmail) {
       const [u] = await ctx.orm.query.from('_weifuwu_users').select('id').where({ email: { eq: body.ownerEmail.trim().toLowerCase() } }).limit(1).run()
@@ -124,7 +124,7 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
   app.post('/api/admin/enterprises/:id/apps', async (req: Request, ctx: AppCtx): Promise<Response> => {
     await requireAdmin(ctx)
     const body = await req.json() as { appId?: string }
-    if (!body.appId) return Response.json({ error: 'appId 必填' }, { status: 400 })
+    if (!body.appId) throw new HttpError('appId 必填', 400)
     await ctx.orm.query.update('_weifuwu_apps').set({ enterprise_id: ctx.params.id }).where({ id: { eq: body.appId }}).run()
     return Response.json({ ok: true })
   })

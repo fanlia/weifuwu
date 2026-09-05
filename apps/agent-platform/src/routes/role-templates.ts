@@ -6,6 +6,7 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import { HttpError } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { BUILTIN_TOOL_DEFS } from './agents.ts'
 
@@ -197,7 +198,7 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: `模板 "${body.template_slug}" 不存在` }, { status: 400 })
     }
     if (!body.name?.trim()) {
-      return Response.json({ error: 'name 为必填' }, { status: 400 })
+      throw new HttpError('name 为必填', 400)
     }
 
     const [agent] = await ctx.orm.query.insert('agents')

@@ -12,13 +12,14 @@
  * 消费：/deliverables 页（B1）+ Dashboard 卡片（B2——limit=3）
  */
 import type { AppCtx } from '../middleware/ctx.ts'
+import { HttpError } from 'weifuwu'
 
 export function registerDeliverableRoutes(app: any): void {
   app.get('/api/deliverables', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { orm, appId } = ctx
     const url = new URL(req.url)
     const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') ?? '200', 10)))
-    if (!appId) return Response.json({ error: '未认证' }, { status: 401 })
+    if (!appId) throw new HttpError('未认证', 401)
 
     const depts = await orm.query.from('departments d')
       .select('d.id', 'd.name', 'd.workspace_path')

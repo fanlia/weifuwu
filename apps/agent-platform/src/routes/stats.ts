@@ -8,6 +8,7 @@
  */
 import { tables } from '../db/orm.ts'
 import type { Router } from 'weifuwu'
+import { HttpError } from 'weifuwu'
 import { ops } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 
@@ -22,7 +23,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // ── 完整统计数据 ───────────────────────────────────────
   app.get('/api/stats', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!requireAppId(ctx)) throw new HttpError('Unauthorized', 401)
     return Response.json(await buildStats(ctx))
   })
 
@@ -156,7 +157,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // ── 试用期价值报告（销售转化物料：ROI/使用量/质量 → HTML 可打印 PDF） ──
   app.get('/api/stats/report', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!requireAppId(ctx)) throw new HttpError('Unauthorized', 401)
     const s = await buildStats(ctx) as any
     const [app] = await ctx.orm.query.from('_weifuwu_apps').select('name', 'plan', 'trial_ends_at').where({ id: { eq: ctx.appId } }).limit(1).run()
     const [used] = await ctx.orm.query.from('agent_logs')
@@ -228,7 +229,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // ── Token 成本排行（按 Agent，老板视角成本视图） ─────────────
   app.get('/api/stats/tokens-by-agent', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!requireAppId(ctx)) throw new HttpError('Unauthorized', 401)
     const { orm, appId } = ctx
     // orm-pg-subquery 判负修订：LEFT JOIN 聚合 + HAVING → 主查 agents + 组查 agent_logs
     // 聚合 Map 合并（HAVING COUNT>0 → 组查非零过滤）
@@ -252,7 +253,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // ── P3-1 运营看板：部门维度活跃/成本/配额（三层模型计量单元 = 部门） ──
   app.get('/api/stats/departments', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!requireAppId(ctx)) throw new HttpError('Unauthorized', 401)
     const { orm, appId } = ctx
     // orm-pg-subquery 判负修订：三级 LEFT JOIN 聚合 → 主查 departments + 3 组查 Map 合并
     const deps = await orm.query.from('departments').select('id', 'name', 'is_dm').where({ app_id: { eq: appId } }).run()
@@ -312,7 +313,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     const { orm, appId } = ctx
     const body = await req.json().catch(() => ({})) as { event?: string }
     if (!body.event || !TRACKABLE.has(body.event)) {
-      return Response.json({ error: 'event 必须是 register_complete/agent_created/first_message 之一' }, { status: 400 })
+      throw new HttpError('event 必须是 register_complete/agent_created/first_message 之一', 400)
     }
     try {
       await ctx.orm.query.insert('events').values({ app_id: appId, event: body.event }).run()
@@ -324,7 +325,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // 漏斗：本租户进度 + 全平台转化（去重租户）
   app.get('/api/stats/funnel', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!requireAppId(ctx)) throw new HttpError('Unauthorized', 401)
     const { orm, appId } = ctx
     const [rows] = await orm.query.from('events')
       .count('*', 'register_complete', { event: { eq: 'register_complete' }})
@@ -378,7 +379,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
 
   // ── O12 编排任务链（Wave 3）：租户内 agent_runs 列表——审计/ROI 面 ──
   app.get('/api/stats/runs', async (req: Request, ctx: AppCtx): Promise<Response> => {
-    if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!requireAppId(ctx)) throw new HttpError('Unauthorized', 401)
     const { orm, appId } = ctx
     const url = new URL(req.url ?? '', 'http://localhost')
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') ?? 20)))
