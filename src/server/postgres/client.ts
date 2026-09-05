@@ -27,7 +27,7 @@ const traceStore = new AsyncLocalStorage<string>()
 
 export function postgres(options?: string | PostgresOptions): PostgresClient {
   const opts: PostgresOptions = typeof options === 'string' ? { connection: options } : (options ?? {})
-  if (opts.memory) return createMemoryPostgres()
+  if (opts.memory) return createMemoryPostgres(opts)
 
   const connection = opts.connection ?? process.env.DATABASE_URL
   if (!connection) {
@@ -63,6 +63,7 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
   // 声明式 ORM：shape+operator+adapter（Query AST → compileQuery → SQL → 服务器）
   // adapter 执行面与 sql.query 同口径（编译/参数化/错误码映射一致——
   // wrapError 在此层：orm 路径 23505/23503 → 409/400（唯一/FK 冲突不再是 500））
+  // W1 接线：options.tenant 传入 createOrm（withCtx 自动 scope 面——中间件 ctx.orm 注入）
   const orm = createOrm(postgresAdapter(
     {
       // 查询面（编译 AST → 参数化 → 池执行；wrapError 错误码映射 23505/23503 → 409/400）
@@ -72,10 +73,12 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
         pool.transaction(fn as never) as Promise<T2>),
     } as never,
     compileQuery,
-  ))
+  ), opts.tenant)
 
   const mw = ((req: Request, ctx: Context, next: Handler) => {
-    ctx.orm = orm
+    // W1：tenant 配置 → 中间件自动 scope（ctx.orm = withCtx(ctx)——应用零改动）；
+    // 未配置 → 原样 orm（无 scope 语义——显式面不受影响）
+    ctx.orm = opts.tenant ? orm.withCtx(ctx) : orm
     // 请求级 traceId：x-trace-id 头（无则空串——onQuery 层转 undefined）
     return traceStore.run(req.headers.get('x-trace-id') ?? '', () => next(req, ctx))
   }) as unknown as PostgresClient
@@ -130,12 +133,12 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
 /** PG 错误码 → HttpError 映射（框架默认，业务无需手写 catch） */
 
 /** 内存模式 PostgresClient（测试——AST 直执行零 wire；DDL/迁移走 migrateModule AST 面） */
-function createMemoryPostgres(): PostgresClient {
+function createMemoryPostgres(opts: PostgresOptions = {}): PostgresClient {
   const mem = new MemorySql()
-  const orm = createOrm(memoryAdapter(mem))
+  const orm = createOrm(memoryAdapter(mem), opts.tenant)
   const applied = new Set<string>()
   const mw = ((req: Request, ctx: Context, next: Handler) => {
-    ctx.orm = orm
+    ctx.orm = opts.tenant ? orm.withCtx(ctx) : orm
     return next(req, ctx)
   }) as unknown as PostgresClient
   mw.__meta = { injects: ['orm'], depends: [] }

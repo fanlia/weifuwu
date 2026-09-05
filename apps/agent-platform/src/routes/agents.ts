@@ -36,9 +36,10 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)))
 
     const T = tables(orm)
+    // W1 试点：ctxTable 自动 scope（tenant 接线——app_id 自动预置——手写过滤删除）
     const typeOk = !!type && AGENT_TYPE_LIST.includes(type as any)
-    const where = typeOk ? and(eq(T.agents.c.app_id, appId), eq(T.agents.c.type, type)) : { app_id: { eq: String(appId) } }
-    const agents = await T.agents
+    const where = typeOk ? eq(T.agents.c.type, type) : {}
+    const agents = await orm.ctxTable('agents')
       .select('id', 'type', 'name', 'avatar_url', 'description',
         'model', 'system_prompt', 'temperature', 'max_tokens', 'human_in_the_loop',
         'user_id', 'webhook_url', 'chunk_size', 'chunk_overlap',

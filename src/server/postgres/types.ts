@@ -1,10 +1,12 @@
 import type { Context, Middleware, Closeable } from '../types.ts'
 import type { Row } from '../db/contracts.ts'
-import type { Orm } from '../db/orm.ts'
+import type { Orm, OrmTenant, CtxOrm } from '../db/orm.ts'
 
 export interface PostgresInjected {
-  /** 声明式 ORM（shape+operator+adapter——业务唯一数据入口；ctx.sql 已删除） */
-  orm: import('../db/orm.ts').Orm
+  /** 声明式 ORM（shape+operator+adapter——业务唯一数据入口；ctx.sql 已删除）
+   *  W1：tenant 配置后为 CtxOrm（ctxTable 自动 scope 面）；未配置时 ctxTable
+   *  等价 table（无 scope 语义——类型统一 CtxOrm——诚实标注） */
+  orm: CtxOrm
 }
 
 export interface PostgresOptions {
@@ -19,6 +21,9 @@ export interface PostgresOptions {
   /** 语句超时 ms（慢查询保护，会话级 SET statement_timeout）。默认 0 = 禁用。 */
   statementTimeoutMs?: number
   /** 查询观测钩子（慢查询日志/审计） */
+  /** 租户 scope（W1 接线——中间件注入 ctx.orm = orm.withCtx(ctx)——select/update/delete
+   *  自动预置 tenant 条件 + insert 自动注入字段——平台手写 app_id 过滤收口） */
+  tenant?: OrmTenant
   /** 查询观测钩子（慢查询日志/审计）；第 4 参数为请求级 traceId（x-trace-id 头，无则 undefined） */
   onQuery?: (query: string, durationMs: number, rowCount: number, traceId?: string) => void
   /** postgres.js 兼容名（= max） */

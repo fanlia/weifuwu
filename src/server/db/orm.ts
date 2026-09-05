@@ -216,13 +216,18 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
   }
 
   const scoped = (ctx: unknown): CtxOrm => {
-    const v = tenant?.value(ctx)
+    // W1 修复（agent 实证 2026-09）：v 延迟求值——pg 中间件在 auth 之前注册
+    // （ctx.appId 后注入）——withCtx 时立即求值会读到 undefined → scope 永不生效
+    // → list 无过滤全租户泄漏（页面 aiCount 误判）。每次操作时读当前 ctx 值。
+    const ctxV = (): string | undefined => tenant?.value(ctx)
     const ctxTable = <S2 extends ZodRawShape>(name2: string, shapeDef2?: S2): OrmTable<S2> => {
       const base = table(name2, shapeDef2 as never)
       const sh2 = (base as unknown as { __shape: { dbFields: Record<string, { column?: string }> } }).__shape
       const col = tenant ? sh2.dbFields[tenant.field]?.column ?? tenant.field : null
-      const scopeCond = (): Record<string, unknown> | null =>
-        v !== undefined && col ? { [col]: { eq: v } } : null
+      const scopeCond = (): Record<string, unknown> | null => {
+        const v = ctxV()
+        return v !== undefined && col ? { [col]: { eq: v } } : null
+      }
       return {
         ...base,
         select: (...sel) => {
@@ -233,6 +238,7 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
         },
         insert: (values) => {
           const rows = Array.isArray(values) ? values : [values]
+          const v = ctxV()
           const withScope = rows.map((r) => {
             const scope = scopeCond()
             return scope && r[tenant!.field] === undefined ? { ...r, [tenant!.field]: v } : r

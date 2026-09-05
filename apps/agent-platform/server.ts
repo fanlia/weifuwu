@@ -100,6 +100,9 @@ async function main() {
     idle_timeout: parseInt(process.env.DATABASE_POOL_IDLE_TIMEOUT ?? '30000', 10),
     // W4：平台测试 memory 模式（POSTGRES_MEMORY=1——零 wire 直执行——ui 共享 server 用）
     ...(process.env.POSTGRES_MEMORY === '1' ? { memory: true } : {}),
+    // W1 接线：租户 scope（ctx.orm 自动 withCtx——应用层 ctxTable 面自动预置 app_id
+    // ——手写 app_id 过滤逐步收口；现有 table() 面不受影响（scope 仅 ctxTable 生效）
+    tenant: { field: 'app_id', value: (c) => (c as { appId?: string })?.appId },
   })
   app.use(pg)
   // 事件日志独立池（2026-08——沙盒事件专用）
