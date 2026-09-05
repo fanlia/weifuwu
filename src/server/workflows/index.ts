@@ -118,6 +118,7 @@ export function createScheduler(
     start: () => {
       if (timer) return
       timer = setInterval(() => void tick(), intervalMs)
+      timer.unref?.() // 不保活进程（serve 场景无影响——测试/库场景进程可退出）
       void tick() // 启动立即评估（服务重启刚过分钟点也不漏）
     },
     stop: () => {
