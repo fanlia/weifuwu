@@ -397,3 +397,23 @@ test('orm：E1 聚合根（max/count FILTER——内存面；wire 面随 W3b 消
   assert.equal((r as any).n, 3, 'FILTER count（a1/a3/a4 active）')
   assert.equal((r as any).grp, 3, 'FILTER count 2（a1/a2/a4 grp=x）')
 })
+
+test('W3 tsd：paginate.sort.field 类型化（keyof S——字面量多余键红）', async () => {
+  fx('ormsort', { id: z.string(), name: z.string(), age: z.number() })
+  const T = orm.table('ormsort', {
+    id: f.pk(z.string()).meta({ pk: true }),
+    name: z.string(),
+    age: z.number(),
+  })
+  await T.insert({ id: 's1', name: 'a', age: 1 } as never).run()
+  // 合法：keyof S 内字段
+  const r = await T.paginate({ sort: [{ field: 'name', dir: 'desc' }], limit: 10 })
+  assert.equal(r.rows.length, 1)
+  // @ts-expect-error —— field: 'bogus'（非 shape 键——编译期红）
+  T.paginate({ sort: [{ field: 'bogus' }] }).catch(() => {})
+  // @ts-expect-error —— dir 非 'asc'|'desc'（字面量联合收紧）
+  T.paginate({ sort: [{ field: 'name', dir: 'sideways' }] }).catch(() => {})
+  // 可选 dir（缺省 asc）
+  const r2 = await T.paginate({ sort: [{ field: 'age' }] })
+  assert.equal(r2.rows.length, 1)
+})

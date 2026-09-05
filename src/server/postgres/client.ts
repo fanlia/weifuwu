@@ -17,6 +17,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import type { PostgresOptions, PostgresClient } from './types.ts'
 import { compileQuery } from '../db/query.ts'
 import { compileSchemaDdl, ddlToSql, type SchemaModule } from '../db/schema.ts'
+import { diffConsistency, type ConsistencyIssue, type LiveTable } from '../db/consistency.ts'
 import { createOrm, memoryAdapter, postgresAdapter } from '../db/orm.ts'
 import { MemorySql } from '../db/memory-sql.ts'
 
@@ -125,6 +126,21 @@ export function postgres(options?: string | PostgresOptions): PostgresClient {
 
   mw.poolStats = () => ({ active: 0, idle: pool.size, waiting: 0, max: pool.size })
 
+  // W3 一致性诊断：声明（orm 注册表）vs 实况（information_schema——diff 共用）
+  mw.checkConsistency = async () => {
+    const cols = await pool.unsafe(`
+      SELECT table_name AS tbl, column_name AS col, data_type AS dt
+      FROM information_schema.columns WHERE table_schema = current_schema()
+    `)
+    const liveMap = new Map<string, LiveTable>()
+    for (const r of cols as Row[]) {
+      const t = r.tbl as string
+      if (!liveMap.has(t)) liveMap.set(t, { name: t, columns: [] })
+      ;(liveMap.get(t) as LiveTable).columns.push({ name: r.col as string, type: r.dt as string })
+    }
+    return diffConsistency(orm.tables(), [...liveMap.values()])
+  }
+
   mw.close = () => pool.close()
 
   return mw
@@ -175,6 +191,8 @@ function createMemoryPostgres(opts: PostgresOptions = {}): PostgresClient {
   }
   mw.transaction = orm.transaction as never
   mw.poolStats = () => ({ active: 0, idle: 0, waiting: 0, max: 1 })
+  // W3：memory 面一致性诊断（schemaSnapshot——同 diff 纯函数）
+  mw.checkConsistency = async () => diffConsistency(orm.tables(), mem.schemaSnapshot())
   mw.close = async () => {}
   return mw
 }

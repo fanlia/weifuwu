@@ -509,6 +509,15 @@ export class MemorySql {
     }
   }
 
+  /** 全表快照（W3 一致性诊断——schemaSnapshot：表/列/类型——透明面） */
+  schemaSnapshot(): { name: string; columns: { name: string; type: string }[] }[] {
+    const out: { name: string; columns: { name: string; type: string }[] }[] = []
+    for (const [name, t] of this.tables) {
+      out.push({ name, columns: t.columns.map((c) => ({ name: c, type: (t.columnTypes[c] ?? 'TEXT').toLowerCase() })) })
+    }
+    return out
+  }
+
   /** PG 服务器 Describe：列类型 → OID 推断辅助 */
   getColumnType(table: string, col: string): string | undefined {
     return this.tables.get(table)?.columnTypes[col]

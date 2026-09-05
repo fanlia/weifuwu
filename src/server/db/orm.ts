@@ -57,7 +57,8 @@ export interface OrmTable<S extends ZodRawShape> {
   /** 列表模式（count+list 双查收口——平台列表面样板） */
   paginate(opts: {
     filter?: import('./query.ts').WhereExpr
-    sort?: { field: string; dir?: 'asc' | 'desc' }[]
+    /** W3：sort 字段类型化（keyof S——字面量多余键编译红） */
+    sort?: { field: keyof S & string; dir?: 'asc' | 'desc' }[]
     limit?: number
     offset?: number
   }): Promise<{ rows: RowOf<S>[]; total: number }>
@@ -103,6 +104,8 @@ export interface Orm {
   transaction<T>(fn: (tx: Orm) => Promise<T>): Promise<T>
   /** AST 执行面（协议层 = AST——Query 纯数据可序列化；测试播种/嵌入执行入口） */
   execute(q: Query): Promise<QueryResult>
+  /** 注册表枚举（state-machine 透明化——checkConsistency 输入面/诊断可见） */
+  tables(): { name: string; fields: Record<string, unknown>; dbFields: Record<string, { column?: string }> }[]
 }
 
 // ── 实现 ──────────────────────────────────────────────────
@@ -213,6 +216,7 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
       },
       shapeDef,
       __shape: sh,
+      __shapeDbFields: sh.dbFields,
     }
     tables.set(name, { t: t as unknown as OrmTable<ZodRawShape> })
     return t as unknown as OrmTable<S>
@@ -294,6 +298,12 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
     },
     withCtx: scoped,
     execute: (q: Query) => adapter.executeQuery(q),
+    tables: () => {
+      // registry 枚举（透明化）——名称/字段/列映射（诊断面——checkConsistency 输入）
+      const out: { name: string; fields: Record<string, unknown>; dbFields: Record<string, { column?: string }> }[] = []
+      for (const [name, rec] of tables) out.push({ name, fields: rec.t.shapeDef as Record<string, unknown>, dbFields: (rec.t as unknown as { __shapeDbFields: Record<string, { column?: string }> }).__shapeDbFields })
+      return out
+    },
     transaction: <T2>(fn: (tx: Orm) => Promise<T2>) => {
       if (!adapter.transaction) {
         // memory/无事务面：单线程直跑（无并发交错——no-op 等价·诚实标注）

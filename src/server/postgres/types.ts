@@ -58,5 +58,13 @@ export interface PostgresClient extends Middleware<Context, Context & PostgresIn
   transaction: <T>(fn: (orm: Orm) => Promise<T>, retryOpts?: { maxRetries?: number }) => Promise<T>
   /** Connection pool configuration summary. */
   poolStats: () => { active: number; idle: number; waiting: number; max: number }
+  /** 一致性诊断（W3）：orm 注册表（声明权威）vs information_schema（库实况）——
+   *  表缺失/列缺失 error（必须修）· 类型不匹配 warn（声明/DDL 对齐面·粗粒度
+   *  等价组）· 库多余表/列 warn（残留提示）——零参数（registry 自动枚举——
+   *  惰性注册先用 tables(orm) 先行） */
+  checkConsistency: () => Promise<{
+    ok: boolean
+    issues: { level: 'error' | 'warn'; kind: string; table: string; column?: string; expected?: string; found?: string }[]
+  }>
   close: () => Promise<void>
 }
