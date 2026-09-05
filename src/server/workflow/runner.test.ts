@@ -30,17 +30,17 @@ describe('runner: 步骤链执行 + ctx 传递', () => {
     assert.equal(r.status, 'success')
     assert.deepEqual(r.executed, ['probe', 'msg'])
     assert.deepEqual(r.skippedSteps, [])
-    assert.equal(r.stepResults.probe.ok, true)
-    assert.equal(r.stepResults.probe.data.status, 200)
-    assert.deepEqual(r.stepResults.probe.data.json.items, [{ price: 100 }])
-    assert.equal(r.stepResults.msg.data.text, '价格 100 状态 up')
+    assert.equal((r.stepResults.probe as any).ok, true)
+    assert.equal((r.stepResults.probe as any).data.status, 200)
+    assert.deepEqual((r.stepResults.probe as any).data.json.items, [{ price: 100 }])
+    assert.equal((r.stepResults.msg as any).data.text, '价格 100 状态 up')
   })
   it('http 非 2xx 也记成功（数据含 status——判定交给 if）', async () => {
     const wf = workflow({ fetch: (async () => new Response('oops', { status: 500 })) as typeof fetch, log: () => {} })
     const r = await wf.execute({ steps: [{ id: 'p', type: 'http', config: { url: 'x' } }] })
     assert.equal(r.status, 'success')
-    assert.equal(r.stepResults.p.ok, true)
-    assert.equal(r.stepResults.p.data.status, 500)
+    assert.equal((r.stepResults.p as any).ok, true)
+    assert.equal((r.stepResults.p as any).data.status, 500)
   })
   it('http 网络错误 → 步骤失败终止 + 错误消息', async () => {
     const wf = workflow({ fetch: (async () => { throw new Error('ECONNREFUSED') }) as typeof fetch, log: () => {} })
@@ -134,7 +134,7 @@ describe('runner: dry 模式', () => {
     const r = await wf.execute(def, { mode: 'dry' })
     assert.equal(r.status, 'success')
     assert.equal(r.dry, true)
-    assert.equal(r.stepResults.p.ok, true) // http 照常（用户要看数据）
+    assert.equal((r.stepResults.p as any).ok, true) // http 照常（用户要看数据）
     assert.deepEqual(r.stepResults.s, { ok: true, dry: true }) // 打桩
   })
 })
@@ -147,7 +147,7 @@ describe('runner: 自定义步骤 + input', () => {
       run: (config, ctx) => ({ got: `${String(config.prefix)}:${JSON.stringify(ctx.input)}` }),
     })
     const r = await wf.execute({ steps: [{ id: 'c', type: 'check', config: { prefix: 'IN' } }] }, { input: { n: 1 } })
-    assert.equal(r.stepResults.c.data.got, 'IN:{"n":1}')
+    assert.equal((r.stepResults.c as any).data.got, 'IN:{"n":1}')
   })
 })
 

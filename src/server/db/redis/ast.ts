@@ -43,8 +43,8 @@ export function parseCommand(input: string | Uint8Array): RedisCommand {
   return { name: name.toUpperCase(), args: decoded.slice(1).map((a) => (typeof a === 'number' ? a : String(a))) }
 }
 
-/** RedisCommand AST → RESP 字节（客户端发送面） */
-export function stringifyCommand(cmd: RedisCommand | [string, ...(string | number)[]]): string {
+/** RedisCommand AST → RESP 字节（客户端发送面）——真类型为字节（W1 守卫面实证：签名误写 string） */
+export function stringifyCommand(cmd: RedisCommand | [string, ...(string | number)[]]): Uint8Array {
   if (Array.isArray(cmd) && (typeof cmd[0] === 'string' || typeof cmd[0] === 'number')) {
     return encodeCommand(cmd as [string, ...(string | number)[]])
   }

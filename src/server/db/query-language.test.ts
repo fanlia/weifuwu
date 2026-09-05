@@ -20,8 +20,8 @@ import type { SelectQuery } from '../db/query.ts'
 import { z } from '../../shared/zod.ts'
 
 /** fixture 建表（AST 声明面——零 SQL 文本） */
-function fx(mem: { applySchema: (m: unknown) => void }, name: string, columns: Record<string, unknown>, extra: Record<string, unknown> = {}): void {
-  mem.applySchema({ name: 'fx', tables: [{ name, columns, ...extra }] })
+function fx(mem: import('./memory-sql.ts').MemorySql, name: string, columns: Record<string, unknown>, extra: Record<string, unknown> = {}): void {
+  mem.applySchema({ tables: [{ name, columns, ...extra }] })
 }
 
 describe('query language — compile (SQL 生成面)', () => {

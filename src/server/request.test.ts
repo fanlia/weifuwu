@@ -36,9 +36,9 @@ describe('parseBody', () => {
       await parseBody(req)
       assert.fail('应抛出错误')
     } catch (e) {
-      assert.ok(e instanceof HttpError)
-      assert.equal((e as HttpError).status, 400)
-      assert.ok((e as HttpError).message.includes('Invalid JSON'))
+      assert.ok(typeof (e as { status?: unknown }).status === 'number') // W1: HttpError 是工厂函数——instanceof 类型谓词非法
+      assert.equal((e as { status: number }).status, 400)
+      assert.ok((e as { message: string }).message.includes('Invalid JSON'))
     }
   })
 
@@ -51,8 +51,8 @@ describe('parseBody', () => {
       await parseBody(req)
       assert.fail('应抛出错误')
     } catch (e) {
-      assert.ok(e instanceof HttpError)
-      assert.equal((e as HttpError).status, 400)
+      assert.ok(typeof (e as { status?: unknown }).status === 'number') // W1: HttpError 是工厂函数——instanceof 类型谓词非法
+      assert.equal((e as { status: number }).status, 400)
     }
   })
 })

@@ -337,7 +337,7 @@ test('OpenAi 构造：middleware 注入 ctx.ai + 独立可用（queue 式混合�
 test('BYOK：chat per-call apiKey/baseUrl 覆盖全局配置（租户自带模型）', async () => {
   const global = await createMemoryAiServer({ onChat: async () => chatOf('g') })
   const byok = await createMemoryAiServer({ onChat: async () => chatOf('t') })
-  const a = OpenAi({ apiKey: 'global-key', baseUrl: `${global.url}/v1` })
+  const a = OpenAi({ apiKey: 'global-key', baseUrl: `${global.url}/v1`, defaultModel: 'test-model' })
   try {
     const res = await a.chat({
       messages: [{ role: 'user', content: 'hi' }],
@@ -363,7 +363,7 @@ test('BYOK：chat per-call apiKey/baseUrl 覆盖全局配置（租户自带模�
 test('BYOK：stream per-call 覆盖同样生效', async () => {
   const global = await createMemoryAiServer({ onChat: async () => chatOf('g') })
   const byok = await createMemoryAiServer({ onChat: async () => chatOf('t') })
-  const a = OpenAi({ apiKey: 'global-key', baseUrl: `${global.url}/v1` })
+  const a = OpenAi({ apiKey: 'global-key', baseUrl: `${global.url}/v1`, defaultModel: 'test-model' })
   try {
     const res = a.stream({ messages: [{ role: 'user', content: 'hi' }], apiKey: 'tenant-key', baseUrl: byok.url })
     await collectEvents(res)

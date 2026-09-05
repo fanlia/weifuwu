@@ -16,7 +16,7 @@ function tc(id: string, name: string, args: string): ToolCall {
 }
 
 test('new MemoryAi 构造 = 模块（同 ai() 形态——app.use 注入 ctx.ai——三种入口等价）', async () => {
-  const m = new MemoryAi()
+  const m = (MemoryAi as unknown as () => ReturnType<typeof MemoryAi>)() // W1: 工厂函数非 class
   // 模块形态：中间件 + 全能力（非裸 provider）
   assert.equal(typeof m.chat, 'function')
   assert.equal(typeof m.agent, 'function')

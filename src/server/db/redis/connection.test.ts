@@ -170,7 +170,7 @@ describe('redis connection health (memory server)', () => {
   it('commandTimeoutMs: 服务器不响应 → 超时 reject（防 promise 永久挂起）', async () => {
     // 假 Redis 服务器：接受连接但吞掉所有命令（永不响应）——模拟服务器挂起
     const server = net.createServer(() => { /* 不响应 */ })
-    await new Promise((r) => server.listen(0, r))
+    await new Promise((r) => server.listen(0, () => r(undefined)))
     const fakePort = (server.address() as any).port
     try {
       const c = new RedisConnection({ port: fakePort, commandTimeoutMs: 120 })
@@ -227,7 +227,7 @@ describe('redis socket timeout (zombie detection, real database)', () => {
   it('socketTimeoutMs: 服务器不响应 → 主动断开连接（僵尸自愈）而非命令级放弃', async () => {
     // 假服务器：接受连接但吞掉命令（模拟僵尸：TCP 不断开也不响应）
     const server = net.createServer(() => { /* 不响应 */ })
-    await new Promise((r) => server.listen(0, r))
+    await new Promise((r) => server.listen(0, () => r(undefined)))
     const fakePort = (server.address() as any).port
     try {
       const c = new RedisConnection({ port: fakePort, socketTimeoutMs: 120, retryDelayMs: 50 })

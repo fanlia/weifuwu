@@ -12,8 +12,8 @@ describe('wfjs: 基础编译', () => {
     const def = await compileWfjs(`// 头注释
 const n = 6 / 2 // 行尾注释
 const m = n + 1`)
-    assert.equal(def.steps[0].config.value, '(6 / 2)')
-    assert.equal(def.steps[1].config.value, '(vars.n + 1)')
+    assert.equal((def.steps[0].config as any).value, '(6 / 2)')
+    assert.equal((def.steps[1].config as any).value, '(vars.n + 1)')
   })
   it('const 绑定内置调用 → http 步骤（data 解包映射）', async () => {
     const def = await compileWfjs(`const res = await http({ url: 'https://api.test/items' })`)
@@ -28,7 +28,7 @@ const m = n + 1`)
   })
   it('模板串 → DSL 插值（表达式改写）', async () => {
     const def = await compileWfjs('const r = await http({ url: `https://api.test?p=${1}` })')
-    assert.equal(def.steps[0].config.url, 'https://api.test?p={{1}}')
+    assert.equal((def.steps[0].config as any).url, 'https://api.test?p={{1}}')
   })
   it('嵌套对象参数（headers）', async () => {
     const def = await compileWfjs(`const r = await http({ url: 'x', headers: { 'a-b': '1', c: '2' } })`)
@@ -48,9 +48,9 @@ describe('wfjs: 控制流编译', () => {
     const def = await compileWfjs(`let n = 1\nif (n > 1) { await log({ message: 'a' }) } else { await log({ message: 'b' }) }`)
     const s = def.steps[1]
     assert.equal(s.type, 'if')
-    assert.equal(s.config.when, '(vars.n > 1)')
-    assert.equal(s.config.then.steps[0].config.message, 'a')
-    assert.equal(s.config.else.steps[0].config.message, 'b')
+    assert.equal((s.config as any).when, '(vars.n > 1)')
+    assert.equal((s.config as any).then.steps[0].config.message, 'a')
+    assert.equal((s.config as any).else.steps[0].config.message, 'b')
   })
   it('if 分支 + std 导入（E）——隐式约定', async () => {
     // if 条件引用步骤绑定 + std import
@@ -58,25 +58,25 @@ describe('wfjs: 控制流编译', () => {
     assert.deepEqual(def.imports, [{ from: 'wf://std/math', names: [{ name: 'sum' }] }])
     const s = def.steps[1]
     assert.equal(s.type, 'if')
-    assert.equal(s.config.when, '(sum(steps.r.data.json.items) > 1)')
-    assert.equal(s.config.then.steps[0].type, 'email')
+    assert.equal((s.config as any).when, '(sum(steps.r.data.json.items) > 1)')
+    assert.equal((s.config as any).then.steps[0].type, 'email')
   })
   it('while → while 步骤（体内引用外层变量）', async () => {
     const def = await compileWfjs(`let page = 0\nwhile (page < 3) { page = page + 1 }`)
     assert.equal(def.steps.length, 2) // set + while（体内 set 在 while.step 内）
     const w = def.steps[1]
     assert.equal(w.type, 'while')
-    assert.equal(w.config.when, '(vars.page < 3)')
-    assert.deepEqual(w.config.step.steps[0].config, { target: 'page', value: '(vars.page + 1)' })
+    assert.equal((w.config as any).when, '(vars.page < 3)')
+    assert.deepEqual((w.config as any).step.steps[0].config, { target: 'page', value: '(vars.page + 1)' })
   })
   it('for-of → forEach + loop.item 映射', async () => {
     const def = await compileWfjs(`const r = await http({ url: 'x' })\nfor (const it of r.json.items) { await log({ message: it.name }) }`)
     const f = def.steps[1]
     assert.equal(f.type, 'for')
-    assert.equal(f.config.items, 'steps.r.data.json.items')
-    const inner = f.config.step.steps[0]
+    assert.equal((f.config as any).items, 'steps.r.data.json.items')
+    const inner = (f.config as any).step.steps[0]
     assert.equal(inner.type, 'log')
-    assert.equal(inner.config.message, '{{loop.item.name}}')
+    assert.equal((inner.config as any).message, '{{loop.item.name}}')
   })
   it('return 步骤', async () => {
     const def = await compileWfjs(`return 42`)
@@ -138,14 +138,14 @@ describe('wfjs: 编译期检查（静态面——错误在写的时候暴露）'
   it('块级遮蔽（v2）：块内声明同名 → mangle 内部名 + 块后原名恢复', async () => {
     const def = await compileWfjs(`let x = 1\nif (x > 0) { let x = 2\nconst y = x + 1 }\nconst z = x`)
     // 外层 x → x；块内 x → x$1（遮蔽）；块后 z 引用 x（原名恢复）
-    assert.equal(def.steps[0].config.target, 'x')
-    assert.equal(def.steps[1].config.then.steps[0].config.target, 'x$1')
-    assert.equal(def.steps[2].config.value, 'vars.x')
+    assert.equal((def.steps[0].config as any).target, 'x')
+    assert.equal((def.steps[1].config as any).then.steps[0].config.target, 'x$1')
+    assert.equal((def.steps[2].config as any).value, 'vars.x')
   })
   it('块级遮蔽（v2）：for 循环变量与外层同名 → 允许（JS 一致）', async () => {
     const def = await compileWfjs(`let it = 'a'\nfor (const it of input.arr) { const r = it }`)
     assert.equal(def.steps[1].type, 'for')
-    assert.equal(def.steps[1].config.items, 'input.arr')
+    assert.equal((def.steps[1].config as any).items, 'input.arr')
   })
   it('两个函数参数同名 → 各自作用域（v2——不再全局唯一）', async () => {
     const def = await compileWfjs(`function a(x) { return x }\nfunction b(x) { return x }`)
@@ -228,18 +228,18 @@ const a = await pay(100, 0.1)`)
     const def = await compileWfjs(`let x = 1\nfunction f(x) { return x }`)
     // 参数同名覆盖（IR 名不变——运行期 vars 注入遮蔽层；函数体内 x → 参数）
     const steps = def.functions![0].step.steps
-    assert.equal(steps[0].config.value, 'vars.x')
+    assert.equal((steps[0].config as any).value, 'vars.x')
     // 执行验证：调用 f(5) → 5（参数值——非全局 1）
     const { workflow } = await import('./index.ts')
     const def2 = await compileWfjs(`let x = 1\nfunction f(x) { return x }\nconst r = await f(5)`)
-    const rr = await workflow({}).execute(def2, { args: { x: 1 } })
+    const rr = await (workflow as any)({}).execute(def2, { args: { x: 1 } })
     assert.equal(rr.stepResults.r.data, 5)
   })
   it('return 值 → 函数返回表达式', async () => {
     const def = await compileWfjs(`function f(n) { return n + 1 }`)
     const ret = def.functions![0].step.steps[0]
     assert.equal(ret.type, 'return')
-    assert.equal(ret.config.value, '(vars.n + 1)')
+    assert.equal((ret.config as any).value, '(vars.n + 1)')
   })
 })
 
@@ -306,11 +306,11 @@ describe('wfjs: 完整例子（用户场景）——编译产物结构', () => {
     assert.deepEqual(def.steps.map(s => s.type), ['http', 'store', 'if'])
     const sentStep = def.steps[1]
     assert.deepEqual(sentStep.config, { op: 'get', key: 'stock:alert:sent' })
-    assert.equal(def.steps[2].config.edge, undefined)
-    const then = def.steps[2].config.then.steps
+    assert.equal((def.steps[2].config as any).edge, undefined)
+    const then = (def.steps[2].config as any).then.steps
     assert.deepEqual(then.map(s => s.type), ['ai', 'email', 'store'])
-    assert.equal(then[0].config.prompt, '总结库存数据：{{steps.res.data.json.items}}')
-    assert.equal(then[1].config.body, '{{steps.msg.data.text}}') // msg 绑定 ai 步骤 id='msg'
+    assert.equal((then[0].config as any).prompt, '总结库存数据：{{steps.res.data.json.items}}')
+    assert.equal((then[1].config as any).body, '{{steps.msg.data.text}}') // msg 绑定 ai 步骤 id='msg'
     assert.deepEqual(then[2].config, { op: 'set', key: 'stock:alert:sent', value: '1' })
   })
 })

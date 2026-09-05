@@ -66,7 +66,7 @@ test('ops：类型收窄（编译期——tsd 风格）', () => {
   eq(C.num, 'x')
   // ilike 仅 string 列
   // @ts-expect-error —— num 列 ilike 非法
-  ilike(C.num as unknown as { ref: string; __out: string }, '%x%')
+  ilike(C.num, '%x%') // W1: cast 绕过收窄（断言原意 = num 列禁 ilike）
   // and/or 组合类型保真
   const w = and(eq(C.num, 1), or(eq(C.st, 'a'), eq(C.st, 'b')))
   assert.ok(w)
@@ -76,7 +76,7 @@ test('ops：类型收窄（编译期——tsd 风格）', () => {
 
 test('ops：builder 集成（where(ops)——MemorySql 执行）', async () => {
   const { orm: sql, mem } = createMemoryOrm()
-  mem.applySchema({ name: 'fx', tables: [{ name: 't', columns: { num: z.number().int(), txt: z.string(), st: z.string() }, columnTypes: { num: 'INT' } }] })
+  mem.applySchema({ tables: [{ name: 't', columns: { num: z.number().int(), txt: z.string(), st: z.string() }, columnTypes: { num: 'INT' } }] })
   await sql.query.insert('t').rows([
     { num: 1, txt: '张三', st: 'a' }, { num: 2, txt: '李四', st: 'b' }, { num: 3, txt: '王五', st: 'a' },
   ]).run()
@@ -94,7 +94,7 @@ test('ops：builder 集成（where(ops)——MemorySql 执行）', async () => {
 
 test('ops：escapeLike（%/_ 字面量——DSL contains 与 SQL 转义同语义）', async () => {
   const { orm: sql, mem } = createMemoryOrm()
-  mem.applySchema({ name: 'fx2', tables: [{ name: 't2', columns: { txt: z.string() } }] })
+  mem.applySchema({ tables: [{ name: 't2', columns: { txt: z.string() } }] })
   await sql.query.insert('t2').rows([
     { txt: '50%off' }, { txt: '50off' }, { txt: 'a_b' }, { txt: 'axb' },
   ]).run()

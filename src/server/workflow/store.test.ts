@@ -17,12 +17,12 @@ function mem() {
   }
 }
 
-function makeWf(e: { fetch?: typeof fetch; email?: { send: (m: { to: string; subject: string; body: string }) => Promise<{ ok: boolean }> } } = {}) {
+function makeWf(e: { fetch?: typeof fetch; email?: { send: (m: { to: string | string[]; subject: string; body: string }) => Promise<{ ok: boolean; id?: string }> } } = {}) {
   const sent: string[] = []
   const m = mem()
   const wf = workflow({
     fetch: e.fetch ?? (async () => new Response(JSON.stringify({ items: [{ id: 1 }] }), { status: 200 })) as typeof fetch,
-    email: e.email ?? { send: async (msg) => { sent.push(msg.to); return { ok: true } } },
+    email: e.email ?? { send: async (msg) => { sent.push(String(msg.to)); return { ok: true, id: 'x' } } },
     store: m.store,
   })
   return { wf, sent, kv: m.kv }
@@ -68,7 +68,7 @@ describe('store: KV 记账（「发一次」全周期）', () => {
   it('发送失败 → 不记账 → 下次重试（at-least-once——不丢信）', async () => {
     let fail = true
     const { wf, sent, kv } = makeWf({
-      email: { send: async (msg) => { if (fail) throw new Error('smtp down'); sent.push(msg.to); return { ok: true } } },
+      email: { send: async (msg) => { if (fail) throw new Error('smtp down'); sent.push(...(Array.isArray(msg.to) ? msg.to : [msg.to])); return { ok: true } } },
     })
     const r1 = await wf.execute(alertDef())
     assert.equal(r1.status, 'error')

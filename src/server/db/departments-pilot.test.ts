@@ -150,7 +150,7 @@ test('试点：escapeLike round-trip（%/_ 字面量经 wire）', async () => {
 
 test('试点：orm.transaction（postgres 真事务——rollback 撤销/commit 可见）', async () => {
   const orm = db.orm as { transaction: (fn: (tx: { table: (n: string, d: unknown) => unknown }) => Promise<unknown>) => Promise<unknown> }
-  const T = (tx: { table: (n: string, d: unknown) => unknown }) => tx.table('departments', Departments.fields) as never
+  const T = (tx: { table: (n: string, d: unknown) => unknown }) => tx.table('departments', Departments.fields) as any
   // rollback：抛错撤销
   await assert.rejects(() =>
     orm.transaction(async (tx) => {
@@ -184,12 +184,12 @@ test('试点：inArray/between/and/or 组合', async () => {
   assert.equal(r2.length, 2)
 })
 
-function colsOf<S extends Shape<any>>(shapeDef: S): Record<keyof S['fields'], { ref: string; __out: unknown }> {
+function colsOf<S extends Shape<any>>(shapeDef: S): Record<keyof S['fields'], { ref: string; __out: any }> {
   const out = {} as Record<string, { ref: string; __out: unknown }>
   for (const [name, meta] of Object.entries((shapeDef as any).dbFields as Record<string, { column?: string }>)) {
-    out[name] = { ref: meta.column ?? name, __out: undefined }
+    out[name] = { ref: meta.column ?? name, __out: undefined as any }
   }
-  return out as never
+  return out as any
 }
 
 /** 清洗 undefined 键（zod optional 解析产物——PG 参数不接受 undefined） */

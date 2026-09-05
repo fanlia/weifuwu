@@ -11,10 +11,10 @@ import { scheduler } from './index.ts'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 /** deadline 轮询（S9——SERVER-PERF-PLAN：替代固定 sleep 的正向断言——5s 上限，条件满足即过） */
-const waitFor = async (cond: () => boolean, timeoutMs = 5000): Promise<void> => {
+const waitFor = async (cond: () => boolean, timeoutMs = 5000, message = ''): Promise<void> => {
   const deadline = Date.now() + timeoutMs
   while (!cond()) {
-    if (Date.now() > deadline) throw new Error(`waitFor timeout (${timeoutMs}ms)`)
+    if (Date.now() > deadline) throw new Error(message || `waitFor timeout (${timeoutMs}ms)`)
     await sleep(50)
   }
 }

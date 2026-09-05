@@ -4,7 +4,7 @@ import { workflowToDag, toJsonSchema } from './views.ts'
 import type { StepSchema } from './validate.ts'
 
 test('toJsonSchema: stepSchemas → JsonSchema 形状（字段/必填/标题）', () => {
-  const schemas: (StepSchema & { type: string })[] = [
+  const schemas: any[] = [
     { type: 'http', label: 'HTTP 请求', fields: [
       { name: 'url', label: 'URL', type: 'string', placeholder: 'https://…' },
       { name: 'method', label: '方法', type: 'string' },

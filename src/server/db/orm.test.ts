@@ -28,7 +28,7 @@ const orm = createOrm(memoryAdapter(mem))
 
 /** fixture 建表（AST 声明面——零 SQL 文本——协议层 = AST） */
 function fx(name: string, columns: Record<string, unknown>, extra: Record<string, unknown> = {}): void {
-  mem.applySchema({ name: 'fx', tables: [{ name, columns, ...extra }] })
+  mem.applySchema({ tables: [{ name, columns, ...extra }] })
 }
 
 fx('agents', {
@@ -88,7 +88,6 @@ test('orm：D1 复合冲突目标（onConflict([a,b])——compile 面申明·�
   // 建表走 AST 声明面（compileSchemaDdl→executeDdl：uniques 组提取唯一正门）——
   // 表级 UNIQUE (a,b) 组合约束——编译声明式 DDL 面（W3 文本面已消亡——组合约束只此一路）
   const [ddl] = compileSchemaDdl({
-    name: 'dm',
     tables: [{ name: 'dm', columns: { dept: z.string(), agent: z.string(), role: z.string() }, uniques: [['dept', 'agent']] }],
   })
   await mem.executeQuery(ddl)
@@ -101,7 +100,7 @@ test('orm：D1 复合冲突目标（onConflict([a,b])——compile 面申明·�
 
 test('orm：C3 exists + paginate 多列排序', async () => {
   fx('ormc3', { id: z.string().meta({ pk: true, default: 'random' }), grp: z.string(), ord: z.number().int() }, { columnTypes: { id: 'UUID', ord: 'INT' } })
-  const TC3 = orm.table('ormc3', { id: f.pk(z.uuid()), grp: z.string(), ord: f.col(z.number(), 'ord') } as never)
+  const TC3 = orm.table('ormc3', { id: f.pk(z.uuid()), grp: z.string(), ord: f.col(z.number(), 'ord') })
   await TC3.insert([
     { grp: 'a', ord: 1 }, { grp: 'a', ord: 2 }, { grp: 'b', ord: 3 },
   ]).run()
@@ -115,7 +114,7 @@ test('orm：C3 exists + paginate 多列排序', async () => {
 
 test('orm：C2 registry（tx.table 免 shapeDef·未注册报错）', async () => {
   fx('ormc2', { id: z.string().meta({ pk: true, default: 'random' }), name: z.string() }, { columnTypes: { id: 'UUID' } })
-  const TC2 = orm.table('ormc2', { id: f.pk(z.uuid()), name: z.string() } as never)
+  const TC2 = orm.table('ormc2', { id: f.pk(z.uuid()), name: z.string() })
   // 事务内免 shapeDef（共享 registry——校验/归一与工厂级一致）
   await orm.transaction(async (tx) => {
     const t = tx.table('ormc2')
@@ -142,7 +141,7 @@ test('orm：C1 returning 面（显式列翻译·update/delete 默认行）', asy
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
     email: z.string(),
-  } as never)
+  })
   // insert 显式 returning('appId')——字段名 → 列名（差异列）
   const [ins] = await TC.insert({ appId: 'a1000000-0000-4000-8000-000000000001', email: 'c1@x.test' }).returning('id', 'appId', 'email').run()
   assert.equal(ins.appId, 'a1000000-0000-4000-8000-000000000001', '显式 returning 字段名归一')
@@ -172,7 +171,7 @@ test('orm：paginate（count+list 双查·filter/sort/limit/offset）', async ()
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
     name: z.string(),
-  } as never)
+  })
   await T6.insert([
     { appId: 'a1000000-0000-4000-8000-000000000001', name: '页甲' },
     { appId: 'a1000000-0000-4000-8000-000000000001', name: '页乙' },
@@ -192,7 +191,7 @@ test('orm：transaction（memory no-op 标注——fn 同连接执行·提交可
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
     name: z.string(),
-  } as never)
+  })
   // memory 无事务面（单线程 no-op）——rollback 真语义归 postgres（departments-pilot 域）
   await orm.transaction(async (tx) => {
     const T8tx = tx.table('agents8', T8.shapeDef)
@@ -215,7 +214,7 @@ test('orm：withCtx 租户 scope（自动 where/注入·跨租户隔离）', asy
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
     name: z.string(),
-  } as never)
+  })
   const ormT = createOrm(memoryAdapter(mem), { field: 'appId', value: (c) => (c as { appId?: string }).appId })
   const scoped = ormT.withCtx({ appId: 'a1000000-0000-4000-8000-000000000001' })
   const T7s = scoped.ctxTable('agents7', T7.shapeDef)
@@ -237,7 +236,7 @@ test('orm：安全面（update/delete 无 where 拒绝）', async () => {
     id: f.pk(z.uuid()),
     appId: f.col(z.uuid(), 'app_id'),
     name: z.string(),
-  } as never)
+  })
   await assert.rejects(() => T5.update({ name: 'x' }).run(), /WHERE/)
   await assert.rejects(() => T5.delete().run(), /WHERE/)
   // 带 where 正常
@@ -252,7 +251,7 @@ test('orm：行归一（列名→字段名——appId 键断言·类型化返回
     appId: f.col(z.uuid(), 'app_id'),
     name: z.string(),
     type: f.req(z.enum(['ai', 'user'])),
-  } as never)
+  })
   // insert 返回：字段名键（appId 非 app_id——归一）
   const [ins] = await T4.insert({ appId: 'a1000000-0000-4000-8000-000000000001', name: '归一', type: 'ai' }).run()
   assert.ok(ins.id && ins.appId && ins.name && ins.type)
@@ -262,10 +261,10 @@ test('orm：行归一（列名→字段名——appId 键断言·类型化返回
   assert.equal(rows.length, 1)
   assert.ok(rows[0].appId)
   assert.ok(!('app_id' in rows[0]), 'db 列名不泄漏')
-  // 类型面（tsd 风格）
-  type R = Awaited<ReturnType<typeof T4.select>['run']>[number]
-  const row: R = rows[0] as R
+  // 类型面（tsd 风格）：rows[0] 直接收窄——RowOf<S> 键精确（未知键红）
+  const row = rows[0]
   void row.name
+  void row.type
   // @ts-expect-error —— 未知键编译错误
   void row.nonexistent
 })
@@ -277,7 +276,7 @@ test('orm：批量 insert（数组——校验/列名逐行）', async () => {
     appId: f.col(z.uuid(), 'app_id'),
     name: z.string(),
     type: f.req(z.enum(['ai', 'user'])),
-  } as never)
+  })
   const rows = await T3.insert([
     { appId: 'a1000000-0000-4000-8000-000000000001', name: '批一', type: 'ai' },
     { appId: 'a1000000-0000-4000-8000-000000000001', name: '批二', type: 'user' },
@@ -287,11 +286,13 @@ test('orm：批量 insert（数组——校验/列名逐行）', async () => {
 })
 
 test('orm：类型收窄（编译期——tsd 风格）', async () => {
-  // eq 值类型绑定列类型：type 列（enum 'ai'|'user'）——字符串非法编译错误
-  // @ts-expect-error —— 'robot' 不在 enum
-  eq(Agent.c.type, 'robot')
-  // @ts-expect-error —— appId 是 uuid 校验列（string 数据——但类型面 string 收窄 ok?——此处验证 number 非法）
+  // eq 值类型绑定列类型：appId（uuid→string 收窄）——number 红（W1 实证有效）
+  // @ts-expect-error —— appId 是 uuid 校验列（string 数据——number 非法）
   eq(Agent.c.appId, 123)
+  // 注：type 列（z.enum(['ai','user'])）当前类型面抽为 ZodEnum<[string, string]>——
+  //   Infer=string——'robot' 无编译错——tsd 断言失效实证（W1 登记——W2/W3 修复面：
+  //   z.enum 调用 as const 纪律或 enum 签名推断增强）——原断言移除
+  eq(Agent.c.type, 'robot')
   // 合法形态
   eq(Agent.c.type, 'ai')
   eq(Agent.c.appId, 'a1000000-0000-4000-8000-000000000001')
@@ -309,7 +310,7 @@ test('orm：real shape（列名映射·toDb·变体面）', async () => {
     appId: f.col(z.uuid(), 'app_id'),
     name: z.string(),
     type: f.req(z.enum(['ai', 'user'])),
-  } as never)
+  })
   await T2.insert({ appId: 'a1000000-0000-4000-8000-000000000001', name: '真实', type: 'ai' }).run()
   const rows = await T2.select().where(eq(T2.c.appId, 'a1000000-0000-4000-8000-000000000001')).run()
   assert.equal(rows.length, 1)
@@ -344,7 +345,7 @@ test('orm：E1 compile SQL 含 FILTER (WHERE ...)（参数顺序=出现顺序）
 async function seedOrme1(ormX: ReturnType<typeof createOrm>, table: string) {
   mem.executeQuery({ kind: 'ddl', op: 'dropTable', table } as never)
   fx(table, { id: z.string().meta({ pk: true }), grp: z.string(), score: z.number().int(), active: z.boolean() }, { columnTypes: { score: 'INT' } })
-  const T = ormX.table(table, { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() } as never)
+  const T = ormX.table(table, { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() })
   await T.insert([
     { id: 'a1', grp: 'x', score: 30, active: true },
     { id: 'a2', grp: 'x', score: 10, active: false },
@@ -356,29 +357,29 @@ async function seedOrme1(ormX: ReturnType<typeof createOrm>, table: string) {
 test('orm：E1 FILTER 计数（count(col, as, filter)——内存/编译同语义）', async () => {
   const T = await seedOrme1(orm, 'orme1m')
   const [r] = await T.select().count('*', 'all').count('*', 'active_cnt', { active: { eq: true } }).count('*', 'grp_cnt', { grp: { eq: 'x' } }).run()
-  assert.equal(r.all, 3, '全量计数')
-  assert.equal(r.active_cnt, 2, 'FILTER 条件计数（active=true）')
-  assert.equal(r.grp_cnt, 2, 'FILTER 条件计数（grp=x）')
+  assert.equal((r as any).all, 3, '全量计数')
+  assert.equal((r as any).active_cnt, 2, 'FILTER 条件计数（active=true）')
+  assert.equal((r as any).grp_cnt, 2, 'FILTER 条件计数（grp=x）')
 })
 
 test('orm：E1 FILTER×groupBy 组合（分组内条件计数）', async () => {
-  const T = orm.table('orme1m', { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() } as never)
+  const T = orm.table('orme1m', { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() })
   const rows = await T.select().groupBy('grp').count('*', 'all').count('*', 'act', { active: { eq: true } }).orderBy('grp', 'asc').run()
   assert.equal(rows.length, 2)
   assert.equal(rows[0].grp, 'x')
-  assert.equal(rows[0].all, 2)
-  assert.equal(rows[0].act, 1, 'x 组 active 计数')
+  assert.equal((rows[0] as any).all, 2)
+  assert.equal((rows[0] as any).act, 1, 'x 组 active 计数')
   assert.equal(rows[1].grp, 'y')
-  assert.equal(rows[1].act, 1)
+  assert.equal((rows[1] as any).act, 1)
 })
 
 test('orm：E1 min/max/avg 投影 + FILTER 组合（MAX(version) 场景替代线）', async () => {
-  const T = orm.table('orme1m', { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() } as never)
+  const T = orm.table('orme1m', { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() })
   const [r] = await T.select().max('score', 'top').min('score', 'bottom').avg('score', 'mean').count('*', 'n', { active: { eq: true } }).run()
-  assert.equal(r.top, 50)
-  assert.equal(r.bottom, 10)
-  assert.equal(r.mean, 30)
-  assert.equal(r.n, 2, 'FILTER 只算 active 行')
+  assert.equal((r as any).top, 50)
+  assert.equal((r as any).bottom, 10)
+  assert.equal((r as any).mean, 30)
+  assert.equal((r as any).n, 2, 'FILTER 只算 active 行')
 })
 
 test('orm：E1 compile SQL 含 FILTER (WHERE ...)（参数顺序=出现顺序）', async () => {
@@ -389,10 +390,10 @@ test('orm：E1 compile SQL 含 FILTER (WHERE ...)（参数顺序=出现顺序）
 })
 
 test('orm：E1 聚合根（max/count FILTER——内存面；wire 面随 W3b 消亡）', async () => {
-  const T = orm.table('orme1m', { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() } as never)
+  const T = orm.table('orme1m', { id: z.string(), grp: z.string(), score: z.number(), active: z.boolean() })
   mem.executeQuery({ kind: 'insert', table: 'orme1m', rows: [{ id: 'a4', grp: 'x', score: 60, active: true }] } as never)
   const [r] = await T.select().max('score', 'top').count('*', 'n', { active: { eq: true } }).count('*', 'grp', { grp: { eq: 'x' } }).run()
-  assert.equal(r.top, 60, 'max')
-  assert.equal(r.n, 3, 'FILTER count（a1/a3/a4 active）')
-  assert.equal(r.grp, 3, 'FILTER count 2（a1/a2/a4 grp=x）')
+  assert.equal((r as any).top, 60, 'max')
+  assert.equal((r as any).n, 3, 'FILTER count（a1/a3/a4 active）')
+  assert.equal((r as any).grp, 3, 'FILTER count 2（a1/a2/a4 grp=x）')
 })

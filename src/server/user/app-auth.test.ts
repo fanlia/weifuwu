@@ -26,7 +26,7 @@ async function run(mw: any, headers: Record<string, string> = {}, extra: any = {
 }
 
 test('appAuth：验签解析 → ctx.session/user/appId 注入（token 含 email/name）', async () => {
-  const token = signToken({ sub: 'u-1', appId: 'app-9', role: 'owner', email: 'a@x.com', name: '阿' }, SECRET)
+  const token = signToken({ sub: 'u-1', appId: 'app-9', role: 'owner', email: 'a@x.com', name: '阿' }, SECRET, 3600)
   const { ctx } = await run(appAuth({ secret: SECRET }), { authorization: `Bearer ${token}` })
   assert.equal(ctx.session.userId, 'u-1')
   assert.equal(ctx.session.appId, 'app-9')
@@ -48,7 +48,7 @@ test('appAuth：无 token / 无效 token → session null（匿名通过）· re
 })
 
 test('appAuth：平台态 token（无 appId）→ session null（非应用会话）', async () => {
-  const token = signToken({ sub: 'u-9' }, SECRET)
+  const token = signToken({ sub: 'u-9' }, SECRET, 3600)
   const { ctx } = await run(appAuth({ secret: SECRET }), { authorization: `Bearer ${token}` })
   assert.equal(ctx.session, null)
   assert.equal(ctx.user.id, 'u-9')
@@ -79,7 +79,7 @@ test('appAuth：ctx.builtin 机器客户端——X-Wf-App-Id/Key 自动带·错�
 })
 
 test('appAuth：verifyToken 在线校验——false → 会话失效（分离即时性）', async () => {
-  const token = signToken({ sub: 'u-1', appId: 'app-9', role: 'member' }, SECRET)
+  const token = signToken({ sub: 'u-1', appId: 'app-9', role: 'member' }, SECRET, 3600)
   const okOn = await run(appAuth({ secret: SECRET, verifyToken: async () => true }), { authorization: `Bearer ${token}` })
   assert.equal(okOn.ctx.session.role, 'member')
   const off = await run(appAuth({ secret: SECRET, verifyToken: async () => false }), { authorization: `Bearer ${token}` })
@@ -110,7 +110,7 @@ test('appAuth：跨进程对称——userSystem 签发（register-app 真 token�
   const res = await h(new Request('http://localhost/api/auth/register-app', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: 'sym@x.test', password: 'password123', name: '对称' }),
-  }), { params: {}, query: {} })
+  }), { params: {}, query: {} } as never)
   const body = await res.json()
   assert.ok(body.token)
   // 业务侧（分离进程）用同一 secret 解析

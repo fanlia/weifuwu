@@ -188,7 +188,7 @@ describe('email — E3 超时', () => {
 
 describe('MemoryEmail', () => {
   it('new MemoryEmail = 模块：send 直用 + 中间件注入 ctx.email + sent 记录', async () => {
-    const m = new MemoryEmail()
+    const m = (MemoryEmail as unknown as () => ReturnType<typeof MemoryEmail>)() // W1: 工厂函数
     // 模块形态（同 email() 返回——send 直接可用）
     assert.equal(typeof m.send, 'function')
     const r = await m.send({ to: 'a@x.com', subject: 'S', text: 't' })

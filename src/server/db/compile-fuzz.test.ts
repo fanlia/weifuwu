@@ -9,7 +9,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createMemoryOrm } from './memory-sql.ts'
+import { createMemoryOrm, type MemorySql } from './memory-sql.ts'
 import { compileQuery } from './query.ts'
 import { eq, ne, gt, gte, lt, lte, inArray, between, ilike, contains, isNull, and, or, mergeInc, mergeAppend } from './ops.ts'
 import * as ops from './ops.ts'
@@ -33,8 +33,8 @@ function assertCompiled(sqlText: string, params: unknown[]): void {
   assert.equal(Math.max(...phs, 0), params.length, `$n 无跳号（SQL: ${sqlText}）`)
 }
 
-function fx(mem: { applySchema: (m: unknown) => void }, name: string, columns: Record<string, unknown>, extra: Record<string, unknown> = {}): void {
-  mem.applySchema({ name: 'fx', tables: [{ name, columns, ...extra }] })
+function fx(mem: MemorySql, name: string, columns: Record<string, unknown>, extra: Record<string, unknown> = {}): void {
+  mem.applySchema({ tables: [{ name, columns, ...extra }] })
 }
 
 test('compile fuzz：AST 生成 → 编译不变量 + 内存执行（200 对/种子）', async () => {

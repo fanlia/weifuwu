@@ -58,7 +58,8 @@
     "audit:theme": "node scripts/audit-theme.mjs",
     "audit:api": "node scripts/audit-api.mjs",
     "audit:bundle": "node scripts/audit-bundle.mjs",
-    "audit:vdom": "node scripts/audit-vdom.mjs"
+    "audit:vdom": "node scripts/audit-vdom.mjs",
+    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
     "esbuild": "^0.28.1",

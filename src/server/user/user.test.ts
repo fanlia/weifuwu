@@ -16,7 +16,7 @@ import { verifyPassword } from '../user/password.ts'
 import { verifyToken, signToken, hashRefreshToken } from '../user/token.ts'
 import { Router } from '../core/router.ts'
 
-const mkCtx = () => ({ params: {}, query: {} })
+const mkCtx = () => ({ params: {}, query: {} } as never)
 
 describe('userSystem (memory sql)', () => {
   const db = createMemoryOrm()

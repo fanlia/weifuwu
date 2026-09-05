@@ -16,7 +16,7 @@ const n = res.json.items.length
 await log({ message: '失败' })
 }`)
   assert.equal(def.steps.length, 1)
-  const cfg = def.steps[0].config as TryConfig
+  const cfg = def.steps[0].config as unknown as TryConfig // W1: 判别联合——先 unknown 再定向
   assert.equal(def.steps[0].type, 'try')
   assert.equal(cfg.step.steps.length, 2) // http + assign
   assert.equal(cfg.catch.steps.length, 1)

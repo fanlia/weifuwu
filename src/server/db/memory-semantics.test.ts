@@ -27,11 +27,11 @@ import { z } from '../../shared/zod.ts'
 
 /** fixture 建表（AST 声明面——零 SQL 文本） */
 function fx(mem: MemorySql, name: string, columns: Record<string, unknown>, extra: { uniques?: string[][]; columnTypes?: Record<string, string> } = {}): void {
-  mem.applySchema({ name: 'fx', tables: [{ name, columns, ...extra }] })
+  mem.applySchema({ tables: [{ name, columns, ...extra }] })
 }
-const ins = (mem: MemorySql, table: string, rows: Record<string, unknown>[]) => mem.executeQuery({ kind: 'insert', table, rows } as never)
-const sel = (mem: MemorySql, table: string, cols: string[] = ['*'], where?: never) => mem.executeQuery({ kind: 'select', table, cols, where } as never)
-const upd = (mem: MemorySql, table: string, sets: Record<string, unknown>, where: never) => mem.executeQuery({ kind: 'update', table, sets, where } as never)
+const ins = (mem: MemorySql, table: string, rows: Record<string, unknown>[]) => mem.executeQuery({ kind: 'insert', table, rows })
+const sel = (mem: MemorySql, table: string, cols: string[] = ['*'], where?: any) => mem.executeQuery({ kind: 'select', table, cols, where })
+const upd = (mem: MemorySql, table: string, sets: Record<string, unknown>, where: any) => mem.executeQuery({ kind: 'update', table, sets, where })
 
 describe('MemoryRedis — set 语义（真库对齐）', () => {
   it('sadd 返回新增数：已存在成员不计（修复前返回 3）', async () => {
@@ -91,7 +91,7 @@ describe('MemorySql — 快照/约束/投影（真库对齐）', () => {
     fx(mem, 't', { id: z.number().int() })
     ins(mem, 't', [{ id: 1 }])
     const snap = mem.snapshot()
-    mem.executeQuery({ kind: 'ddl', op: 'dropTable', table: 't' } as never)
+    mem.executeQuery({ kind: 'ddl', op: 'dropTable', table: 't' })
     assert.equal(mem.hasTable('t'), false)
     mem.restore(snap)
     // 复活：表存在 + 数据完整
@@ -122,7 +122,7 @@ describe('MemorySql — 快照/约束/投影（真库对齐）', () => {
     )
     // 无冲突更新不受影响
     upd(mem, 'u', { email: 'c@x.c' }, { id: { eq: 2 } })
-    assert.deepEqual(sel(mem, 'u', ['email'], { id: { eq: 2 } } as never), [{ email: 'c@x.c' }])
+    assert.deepEqual(sel(mem, 'u', ['email'], { id: { eq: 2 } }), [{ email: 'c@x.c' }])
   })
 
   it('UPDATE 唯一约束按更新后状态校验（自身同值更新不误报）', async () => {
@@ -131,7 +131,7 @@ describe('MemorySql — 快照/约束/投影（真库对齐）', () => {
     ins(mem, 'u', [{ id: 1, slot: 'a' }, { id: 2, slot: 'b' }])
     // 自身同值更新：排除自身行——不误报冲突
     upd(mem, 'u', { slot: 'a' }, { id: { eq: 1 } })
-    assert.deepEqual(sel(mem, 'u', ['slot'], { id: { eq: 1 } } as never), [{ slot: 'a' }])
+    assert.deepEqual(sel(mem, 'u', ['slot'], { id: { eq: 1 } }), [{ slot: 'a' }])
     // 更新到他人值：冲突
     assert.throws(() => upd(mem, 'u', { slot: 'b' }, { id: { eq: 1 } }), /duplicate/)
   })
@@ -140,19 +140,19 @@ describe('MemorySql — 快照/约束/投影（真库对齐）', () => {
     const { orm, mem } = createMemoryOrm()
     fx(mem, 'p', { name: z.string() })
     ins(mem, 'p', [{ name: 'xbx' }, { name: 'bx' }])
-    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'b%' } } as never), [{ name: 'bx' }]) // 前缀
-    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'x%' } } as never), [{ name: 'xbx' }])
-    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: '%b%' } } as never), [{ name: 'xbx' }, { name: 'bx' }])
-    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: '_bx' } } as never), [{ name: 'xbx' }]) // 单字符
-    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'x' } } as never), []) // 全等才匹配
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'b%' } }), [{ name: 'bx' }]) // 前缀
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'x%' } }), [{ name: 'xbx' }])
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: '%b%' } }), [{ name: 'xbx' }, { name: 'bx' }])
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: '_bx' } }), [{ name: 'xbx' }]) // 单字符
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'x' } }), []) // 全等才匹配
   })
 
   it('ILIKE 大小写不敏感', async () => {
     const { orm, mem } = createMemoryOrm()
     fx(mem, 'p', { name: z.string() })
     ins(mem, 'p', [{ name: 'Hello' }])
-    assert.deepEqual(sel(mem, 'p', ['name'], { name: { ilike: 'he%' } } as never), [{ name: 'Hello' }])
-    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'he%' } } as never), [])
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { ilike: 'he%' } }), [{ name: 'Hello' }])
+    assert.deepEqual(sel(mem, 'p', ['name'], { name: { like: 'he%' } }), [])
   })
 
   it('INSERT affectedRows = 实际插入数（onConflict 跳过行不计）', () => {

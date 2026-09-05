@@ -329,7 +329,7 @@ describe('serve graceful shutdown (S2)', () => {
     const p = fetch(`http://localhost:${s.port}/slow`)
     await sleep(100)
     await s.stop(0)
-    await assert.rejects(p, undefined, 'timeoutMs=0 → 立即强杀')
+    await assert.rejects(p, () => true, 'timeoutMs=0 → 立即强杀')
   })
 
   it('stop() closes WebSocket connections with 1001', async () => {

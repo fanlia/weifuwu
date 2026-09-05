@@ -67,7 +67,7 @@ describe('A2: mount 深水区', () => {
 
   test('ws 通配路由 mount 展平（A1Ws 同根因）', async () => {
     const sub = new Router()
-    sub.ws('/chat/*', () => {}) as never
+    sub.ws('/chat/*', { open: () => {} }) as never
     const app = new Router(); app.mount('/ws', sub)
     // 展平面验证：collectAllWs 收集到通配路径（E 拆解后模块函数）
     const routes = collectAllWs((app as any).wsRoot, '').map((r: any) => r.path)
@@ -171,7 +171,7 @@ describe('A3: Trie 匹配对账 fuzz（参考模型终态等价）', () => {
       const patterns = genPatterns(rnd)
       // Trie 注册（value = pattern 字符串——可辨识）
       const trie = createTrie<{ id: number }>()
-      for (const p of patterns) trieRegister(trie, p.path, { id: p.id }, p.path.includes('*'))
+      for (const p of patterns) trieRegister(trie, p.path, { id: p.id })
       // 随机请求 × 200
       const statics = ['a', 'b', 'c', 'd', 'e', 'zz']
       for (let i = 0; i < 200; i++) {

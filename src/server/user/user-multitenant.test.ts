@@ -20,8 +20,9 @@ import { createOrm } from '../db/orm.ts'
 import { userSystem, WEIFUWU_USER_SCHEMA } from '../user/index.ts'
 import { verifyToken, signToken } from '../user/token.ts'
 import { Router } from '../core/router.ts'
+import type { Context } from '../types.ts'
 
-const mkCtx = () => ({ params: {}, query: {} })
+const mkCtx = (): any => ({ params: {}, query: {} }) // W1: Context 模块增强面（redis/ui 必填）——mock 逃逸（auth 注入面运行时有）
 
 describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
   const db = createMemoryOrm()
@@ -61,7 +62,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       }),
-      { params: {}, query: {} },
+      { params: {}, query: {} } as never,
     )
     return res
   }
@@ -390,7 +391,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('B4 listMyApps 单 JOIN 查询（消除 N+1——3 应用 = 1 次 exec）', async () => {
       const mem = new MemorySql()
       let execs = 0
-      const counting = (async (s: TemplateStringsArray, ...v: unknown[]) => mem.tag(s, v)) as any
+      // W1: mem.tag 已随 W3c 消亡——counting 未被消费（死代码）——删除
       const countingExec = async (q: any) => {
         execs++
         return mem.executeQuery(q)
@@ -461,7 +462,9 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
     it('onRegisterApp hook 触发（平台 onboarding 注入点）', async () => {
       let hooked: { userId: string; appSlug: string } | null = null
       const h = userSystem({
-        orm: db.orm, secret, hooks: { onRegisterApp: async (userId, app) => { hooked = { userId, appSlug: app.slug } } } })
+        orm: db.orm, secret, hooks: { onRegisterApp: (userId: string, app: { slug: string }): void => {
+          hooked = { userId, appSlug: app.slug }
+        } } })
       await h.migrate()
       const hApp = new Router()
       hApp.use(h)
@@ -476,8 +479,9 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       )
       assert.equal(hRes.status, 201)
       assert.ok(hooked, 'hook 触发')
-      assert.ok(hooked!.userId.length > 0, 'userId 透传')
-      assert.ok(hooked!.appSlug.length > 0, 'app slug 透传')
+      const hookedData = hooked as { userId: string; appSlug: string } | null
+      assert.ok(hookedData!.userId.length > 0, 'userId 透传')
+      assert.ok(hookedData!.appSlug.length > 0, 'app slug 透传')
     })
 
     it('V2 me()：应用 token → { user, session: { appId, role } }（前端角色单源）', async () => {
@@ -539,11 +543,12 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       return { port, close: () => new Promise<void>((r) => server.close(() => r())) }
     }
 
-    function ssoUsers(extra: Parameters<typeof userSystem>[0] = {}) {
+    function ssoUsers(extra: Partial<Parameters<typeof userSystem>[0]> = {}) {
       const h = userSystem({
-        orm: db.orm, secret,
-        sso: { issuer: 'http://127.0.0.1:9999', clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost' },
+        orm: db.orm,
+        secret,
         ...extra,
+        sso: extra.sso ?? { issuer: 'http://127.0.0.1:9999', clientId: 'cid', clientSecret: 'csec', redirectBase: 'http://localhost' },
       })
       return h
     }
@@ -687,7 +692,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const mk = async (token: string | null) => {
         const req = new Request('http://localhost/x', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
         const ctx = mkCtx()
-        await h2(req, ctx, async () => {})
+        await h2(req, ctx, async (req2: Request, ctx2: Context): Promise<Response> => { void req2; void ctx2; return new Response('ok') })
         return ctx
       }
       const owner = await h2.seedBuiltinOwners(['owner2@sys.test'])
@@ -738,9 +743,9 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const p = new Router(); p.use(h); h.routes(p)
       const handler = p.handler()
       // 绕过认证直接调 AuthApi（构造 ctx）
-      const req = new Request('http://localhost/x', { headers: { Authorization: `Bearer ${signToken({ sub: String(raw.id) }, secret)}` } })
+      const req = new Request('http://localhost/x', { headers: { Authorization: `Bearer ${signToken({ sub: String(raw.id) }, secret, 3600)}` } })
       const ctx = mkCtx()
-      await h(req, ctx, async () => {})
+      await h(req, ctx, async (req2: Request, ctx2: Context): Promise<Response> => { void req2; void ctx2; return new Response('ok') })
       await assert.rejects(() => ctx.auth!.createApp({ slug: `noqual-${uniq()}`, name: 'X' }), /应用管理面/)
       // _ 前缀保留名
       await assert.rejects(() => ctx.auth!.createApp({ slug: '_hack', name: 'X' }), /保留名/)
@@ -771,7 +776,7 @@ describe('userSystem 多应用（平台 → 应用 → 应用用户）', () => {
       const app = owner.app
       // 邀请加入（open_registration=false）
       // 邀请 token 直接构造（signToken 面——不依赖响应形状）
-      const invToken = signToken({ type: 'app-invite', appId: app.id, role: 'member' }, secret)
+      const invToken = signToken({ type: 'app-invite', appId: app.id, role: 'member' }, secret, 3600)
       const joinEmail = uniqEmail()
       const join = await post(`/api/auth/apps/${app.slug}/auth/register`, { email: joinEmail, password: 'password123', name: 'J', inviteToken: invToken })
       assert.equal(join.status, 201)

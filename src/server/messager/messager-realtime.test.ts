@@ -17,7 +17,7 @@ import { messager } from './index.ts'
 
 const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms))
 
-function fakeWs() {
+function fakeWs(): any { // W1: WebSocket mock（open/message 面缺失——mock 逃逸）
   const sent: string[] = []
   return {
     readyState: 1,
