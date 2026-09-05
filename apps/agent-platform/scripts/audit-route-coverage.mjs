@@ -10,7 +10,8 @@ import { join } from 'node:path'
 
 const ROUTE_FILES = ['src/routes/agents.ts', 'src/routes/messages.ts', 'src/routes/departments.ts',
   'src/routes/admin.ts', 'src/routes/sandboxes.ts', 'src/routes/skills.ts', 'src/routes/stats.ts',
-  'src/routes/workspace.ts', 'src/routes/survey.ts', 'src/routes/knowledge.ts', 'server.ts']
+  'src/routes/workspace.ts', 'src/routes/survey.ts', 'src/routes/knowledge.ts',
+  'src/bootstrap/routes-public.ts', 'src/bootstrap/routes-protected.ts']
 
 const routes = new Set()
 for (const f of ROUTE_FILES) {

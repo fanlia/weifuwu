@@ -25,8 +25,8 @@ const BUSINESS_TABLES = [
 
 /** 豁免登记（文件 + SQL 特征 + 理由）——审查通过才可登记 */
 const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
-  { file: 'server.ts', match: 'information_schema', reason: '元数据检查（表存在性）' },
-  { file: 'server.ts', match: 'ALTER TABLE', reason: 'DDL migration（schema 级）' },
+  { file: 'src/bootstrap/deps.ts', match: 'information_schema', reason: '元数据检查（表存在性）' },
+  { file: 'src/bootstrap/deps.ts', match: 'ALTER TABLE', reason: 'DDL migration（schema 级）' },
 
   // ── 间接隔离批量登记（外键归属上游已校验——逐条审查过） ──
 ]
@@ -34,7 +34,7 @@ const EXEMPTIONS: Array<{ file: string; match: string; reason: string }> = [
 /** 扫描目标文件 */
 function scanFiles(): Array<{ file: string; src: string }> {
   const files: string[] = ['server.ts']
-  const dirs = ['src/routes', 'src/services', 'src/middleware', 'src/sandbox', 'src/tools']
+  const dirs = ['src/routes', 'src/services', 'src/middleware', 'src/sandbox', 'src/tools', 'src/bootstrap']
   for (const d of dirs) {
     const abs = join(root, d)
     if (!existsSync(abs)) continue

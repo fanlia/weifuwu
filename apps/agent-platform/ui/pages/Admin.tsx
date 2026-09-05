@@ -38,11 +38,28 @@ export const Admin: Component = (_props, ctx) => {
       return d.apps ?? []
     } catch (e) { loadError = errMsg(e, '加载租户列表失败'); return null }
   }, 'admin-apps')
-  const [getOverview] = ctx.ui.useAsyncData(async () => (await ctx.api.get<any>('/api/admin/overview')), 'admin-overview')
-  const [getOps] = ctx.ui.useAsyncData(async () => (await ctx.api.get<any>('/api/ops')), 'admin-ops')
-  const [getCapacity] = ctx.ui.useAsyncData(async () => (await ctx.api.get<any>('/api/admin/sandbox-capacity')), 'admin-capacity')
-  const [getEnts, reloadEnts] = ctx.ui.useAsyncData(async () => (await ctx.api.get<any>('/api/admin/enterprises')).enterprises ?? [], 'admin-ents')
-  const [getContainers, reloadContainers] = ctx.ui.useAsyncData(async () => (await ctx.api.get<any>('/api/sandbox/containers')).containers ?? [], 'admin-containers')
+  // 非管理员访问 /admin（直达 URL）→ 403——catch 降级（loadError 显示进
+  // 页面文案）——不抛不打印（smoke 零 console.error 红线——老世代同语义）
+  const [getOverview] = ctx.ui.useAsyncData(async () => {
+    try { return await ctx.api.get<any>('/api/admin/overview') }
+    catch { return null }
+  }, 'admin-overview')
+  const [getOps] = ctx.ui.useAsyncData(async () => {
+    try { return await ctx.api.get<any>('/api/ops') }
+    catch { return null }
+  }, 'admin-ops')
+  const [getCapacity] = ctx.ui.useAsyncData(async () => {
+    try { return await ctx.api.get<any>('/api/admin/sandbox-capacity') }
+    catch { return null }
+  }, 'admin-capacity')
+  const [getEnts, reloadEnts] = ctx.ui.useAsyncData(async () => {
+    try { return (await ctx.api.get<any>('/api/admin/enterprises')).enterprises ?? [] }
+    catch { return [] }
+  }, 'admin-ents')
+  const [getContainers, reloadContainers] = ctx.ui.useAsyncData(async () => {
+    try { return (await ctx.api.get<any>('/api/sandbox/containers')).containers ?? [] }
+    catch { return [] }
+  }, 'admin-containers')
 
   const loadContainers = () => reloadContainers()
   const containerAction = async (name: string, action: string) => {
