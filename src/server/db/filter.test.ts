@@ -156,3 +156,51 @@ test('W1/I3：orm.gql 自动派生 tenant（createOrm.tenant 单源——gql 面
   const rows = (r.data as { t3List: { id: string }[] }).t3List
   assert.deepEqual(rows.map((x) => x.id), ['t1'], '租户 scope 自动注入——app-2 行不可见')
 })
+
+// ── W2：enum filter 值面 + vector 字段呈现（I4/I5） ─────────────
+
+const Typed = shape({
+  table: 'typed_agents',
+  fields: {
+    id: f.pk(z.uuid()),
+    type: f.req(z.enum(['ai', 'user', 'webhook'])),
+    name: f.req(z.string()),
+    embedding: z.vector(3).nullable(),
+  },
+})
+
+const mem4 = new MemorySql()
+mem4.applySchema({ tables: [{ name: 'typed_agents', columns: { id: z.string(), type: z.string(), name: z.string(), embedding: z.json().nullable() } }] })
+const db4 = createMemoryOrm(mem4)
+db4.orm.table('typed_agents', { id: z.string(), type: z.string(), name: z.string(), embedding: z.json().nullable() })
+await db4.orm.query.insert('typed_agents').rows([
+  { id: 't1', type: 'ai', name: '甲', embedding: [1, 2, 3] },
+  { id: 't2', type: 'webhook', name: '乙', embedding: null },
+]).run()
+
+const typedGql = gqlFromShape(Typed)
+const typedSchema = makeExecutableSchema({ typeDefs: typedGql.typeDefs, resolvers: typedGql.resolvers })
+async function runT(source: string, variableValues: Record<string, unknown> = {}) {
+  const r = await graphql({ schema: typedSchema, source, variableValues, contextValue: { orm: db4.orm } })
+  if (r.errors) throw new Error(`[gql] ${r.errors.map((e) => e.message).join('; ')}`)
+  return r.data as Record<string, any>
+}
+
+test('W2/I4：enum 列 Filter——eq/ne/in 值面（GraphQL enum——编译期白名单）', async () => {
+  // SDL：enum 过滤器存在且值是 GraphQL enum 类型
+  assert.ok(typedGql.typeDefs.includes('input TypedAgentsTypeFilter'))
+  assert.ok(typedGql.typeDefs.includes('enum TypedAgentsTypeEnum { ai user webhook }'))
+  assert.ok(typedGql.typeDefs.includes('  type: TypedAgentsTypeFilter'), '顶层 Filter 引用 enum 列')
+  // 求值：eq/in
+  const eq = await runT('{ typedAgentsList(filter: { type: { eq: ai } }) { id name } }')
+  assert.deepEqual((eq.typedAgentsList as { id: string }[]).map((r) => r.id), ['t1'])
+  const in2 = await runT('{ typedAgentsList(filter: { type: { in: [ai, webhook] } }) { id } }')
+  assert.equal((in2.typedAgentsList as unknown[]).length, 2)
+})
+
+test('W2/I5：vector 列 SDL 呈现 [Float!] + 求值返回 number[]（不再静默消失）', async () => {
+  assert.ok(typedGql.typeDefs.includes('embedding: [Float!]'))
+  const data = await runT('{ typedAgentsList(filter: { id: { eq: "t1" } }) { id embedding } }')
+  const row = (data.typedAgentsList as { embedding: unknown }[])[0]
+  assert.deepEqual(row.embedding, [1, 2, 3])
+})

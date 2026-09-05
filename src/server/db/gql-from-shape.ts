@@ -20,7 +20,7 @@ import { type Shape } from './shape.ts'
 import { filterToWhere } from './filter.ts'
 import {
   z, ZodString, ZodNumber, ZodBoolean, ZodDate, ZodEnum, ZodLiteral, ZodArray,
-  ZodOptional, ZodNullable, ZodDefault, ZodTransform, ZodEffects,
+  ZodVector, ZodOptional, ZodNullable, ZodDefault, ZodTransform, ZodEffects,
   type ZodType, type ZodRawShape,
 } from '../../shared/zod.ts'
 
@@ -98,6 +98,8 @@ function zodToGql(
     const item = zodToGql(inner.itemSchema, `${enumName}Item`, enumNames, enumDefs)
     return item ? `[${item}!]` : null
   }
+  // I5（W2）：vector → [Float!]（Infer=number[] 对齐——旧版静默跳过——字段从 SDL 消失不透明）
+  if (inner instanceof ZodVector) return '[Float!]'
   // 嵌套对象/union——首版跳过（判负记录）
   return null
 }
@@ -129,7 +131,14 @@ export function gqlFromShape<S extends ZodRawShape>(
       : inner instanceof ZodNumber ? 'num'
       : inner instanceof ZodBoolean ? 'bool'
       : null
-    if (!base) continue // enum/对象/数组——首版 filter 跳过（判负记录）
+    if (!base) {
+      // I4（W2）：enum/literal 列 Filter（值面 GraphQL enum——旧版无过滤面——agents.type 类查询缺失）
+      if (inner instanceof ZodEnum || inner instanceof ZodLiteral) {
+        const enumType = zodToGql(fschema, `${name}${pascal(fname)}Enum`, enumNames, enumDefs)
+        if (enumType) filterDefs.push(`input ${name}${pascal(fname)}Filter {\n  eq: ${enumType}\n  ne: ${enumType}\n  in: [${enumType}!]\n  notIn: [${enumType}!]\n  isNull: Boolean\n}`)
+      }
+      continue // 对象/数组——首版 filter 跳过（判负记录）
+    }
     const ops: string[] = ['eq', 'ne', 'in', 'notIn', 'isNull']
     if (base === 'str') ops.push('contains', 'ilike', 'startsWith', 'endsWith')
     if (base === 'num') ops.push('gt', 'gte', 'lt', 'lte')
@@ -155,6 +164,7 @@ export function gqlFromShape<S extends ZodRawShape>(
     if (isHidden(f)) return false
     const inner = unwrap((shapeDef.fields as Record<string, ZodType>)[f])
     return inner instanceof ZodString || inner instanceof ZodDate || inner instanceof ZodNumber || inner instanceof ZodBoolean
+      || inner instanceof ZodEnum || inner instanceof ZodLiteral // I4：enum 列可过滤
   })
 
   const sdl = [
