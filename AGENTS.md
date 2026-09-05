@@ -103,6 +103,34 @@ type RenderFn<P> = (props: P) => VNode | null | (VNode | null)[]
   `() => T`——任意位置读最新
 - 清理 → `ctx.ui.hold(fn)`；事件回调内 await 合法（渲染无关）；工厂期禁
 
+## 3.5 orm 架构纪律（2027-xx——状态机管理原则）
+
+> **orm = shape + operator + adapter**——三个组成部分的内部状态都是确定的，
+> 采用**状态机管理**方式处理：透明（状态可查询）· 可控（转换点唯一·非法转换
+> 显式拒绝）· 健壮（行为矩阵替代隐式 if——无隐藏分叉）。
+
+- **shape**：单态冻结（构造即终态——不可变）；平台 shapes 唯一合法形态
+  `satisfies ZodRawShape`（**禁止** `: ZodRawShape` 注解——Infer 坍缩根因）；
+  行类型单源派生 `RowOf<SHAPES.xxx>`（禁止手动双写接口）
+- **operator**：无状态纯函数（定义即值——同一输入恒同输出）；值形态唯一
+  （`{ eq: v }`/`{ in: [...] }`/`{ isNull: true }`——**禁止裸标量/数组/null**
+  ——旧的数组/`= NULL` 歧义已解除）；`{ eq: null }` 语义 = IS NULL（双端一致）
+- **adapter**：真状态机——MemoryTable 状态
+  `absent →(applySchema/executeDdl) declared →(insert) populated` 与
+  `absent →(insert 直建) observed`——行为矩阵按状态分发：
+  declared=声明列集校验+columnTypes 解码 · observed=行键事实+行键值启发解码 ·
+  observed 上 DDL 拒绝（显式对齐才允许）——`inspectTable()` 状态可见
+- **一致性铁律**：同一声明/同一算子在任何 adapter 行为等价——**不一致即 bug
+  修复而非登记**；无法一致的（事务 memory no-op/FK 无 memory 面/vectorScore
+  浮点精度）显式声明（文档+契约标注）；**声明了但无行为 = 不透明 = 定案**
+  （实现或移除——softDelete 先例：零行为 → 判负移除）
+- **单源**：同一逻辑列的声明只允许一处（禁止 DDL 面/shape 面双写——enum/
+  vector 双源违规已修）
+- **协议层**：业务/测试禁止 SQL 文本面（sql 模板/unsafe/whereRaw 已全链消亡
+  ——audit-orm 三域 0 防回流）——唯一数据入口 = ORM AST 面
+- **盲区警惕**：fuzz 对账全绿 ≠ 行为一致——确定性审计必须覆盖生成器盲区
+  （`eq:null`/jsonb 解码路径/状态转换路径——盲区先补测再信绿）
+
 ## 4. 复用与修复纪律（先查库再写——排查先归类）
 
 ### 4.1 复用纪律（写功能前先查 weifuwu 已有能力——前端/后端 30 秒成本）
