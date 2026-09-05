@@ -1,5 +1,7 @@
 import { WebSocketServer } from 'ws'
 import { HttpError, type Context, type Handler, type Middleware, type MiddlewareMeta, type ErrorHandler, type WebSocket, type Closeable } from '../types.ts'
+import { errorResponse } from '../response.ts'
+import { DbError, ValidationError } from '../db/errors.ts'
 import {
   type WebSocketHandler,
   type WsUpgradeHandler,
@@ -324,12 +326,11 @@ export class Router<T extends object = Context> {
     const err = e instanceof Error ? e : new Error(String(e))
     // 自定义 onError 优先（可覆盖一切，含 HttpError）
     if (this.errorHandler) return this.errorHandler(err, req, ctx as T)
-    // HttpError → 对应状态码（README 承诺：serve 自动返回对应状态码）
-    if (err instanceof HttpError) {
-      return new Response(JSON.stringify({ error: err.message }), {
-        status: err.status,
-        headers: { 'Content-Type': 'application/json' },
-      })
+    // 默认链（W0 api 计划——错误面单源：errorResponse 总面——
+    // HttpError → status 权威 · DbError/ValidationError → 400/409（orm 错误
+    // 不该 500）· 普通 Error → 500（意外诚实现形——不泄漏消息））
+    if (err instanceof HttpError || err instanceof DbError || err instanceof ValidationError) {
+      return errorResponse(err)
     }
     // **日志去重（C1——error-counter 思想移植）**：同路由错误只报一次
     // （风暴不刷日志——恢复清出再报）；path 传入避免二次 new URL

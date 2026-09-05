@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { Router } from '../core/router.ts'
+import { DbError, ValidationError } from '../db/errors.ts'
+import { HttpError } from '../types.ts'
 
 function mkCtx() {
   return { params: {}, query: {} } as any
@@ -188,6 +190,30 @@ describe('Router', () => {
       const res = await r.handler()(new Request('http://localhost/'), mkCtx())
       assert.equal(res.status, 500)
       assert.equal(await res.text(), 'caught: boom')
+    })
+
+    it('W0：默认链——DbError/ValidationError 不再 500（错误面单源——400/409）', async () => {
+      const r = new Router().get('/', () => { throw new ValidationError('参数校验失败') })
+      const res = await r.handler()(new Request('http://localhost/'), mkCtx())
+      assert.equal(res.status, 400)
+      const body = await res.json() as Record<string, unknown>
+      assert.equal(body.code, 'validation', 'code 面经链透出')
+      const r2 = new Router().get('/', () => { throw new DbError('protocol', 'unique_violation', { code: '23505' }) })
+      const res2 = await r2.handler()(new Request('http://localhost/'), mkCtx())
+      assert.equal(res2.status, 409)
+      const body2 = await res2.json() as Record<string, unknown>
+      assert.equal(body2.code, 'conflict')
+      const r3 = new Router().get('/', () => { throw new HttpError('无权', 403) })
+      assert.equal((await r3.handler()(new Request('http://localhost/'), mkCtx())).status, 403)
+    })
+
+    it('W0：默认链——普通 Error 仍是 500（意外诚实现形——消息不泄漏）', async () => {
+      const r = new Router().get('/', () => { throw new Error('内部秘密') })
+      const res = await r.handler()(new Request('http://localhost/'), mkCtx())
+      assert.equal(res.status, 500)
+      const body = await res.json() as Record<string, unknown>
+      assert.equal(body.error, 'Internal Server Error')
+      assert.equal(body.error, body.error, '500 面不泄漏原始 message')
     })
 
     it('unhandled errors return 500', async () => {

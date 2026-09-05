@@ -33,7 +33,8 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
 
     // W4 试点：手写 parseInt ×2 + typeOk 白名单 → listQuery（行为等价——枚举白名单
     // 显式 400（原静默忽略非法 type——不静默改进）；sort 固定 created_at desc）
-    try {
+    // W0 试点：错误面单源——无 try/catch（链捕获——errorResponse 同函数——
+    // listQuery 枚举错 → 400 · orm 错误 → 400/409）
     const { filter: qFilter, limit, offset } = listQuery(url, tables(orm).agents as never, { defaultLimit: 50 })
     const page = await orm.ctxTable('agents').paginate({
       filter: qFilter as never,
@@ -62,7 +63,6 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     }
 
     return Response.json({ agents: agentsWithStats, total })
-    } catch (e) { return errorResponse(e) }
   })
 
   // ── 创建 Agent ───────────────────────────────────────────

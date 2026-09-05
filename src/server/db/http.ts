@@ -78,12 +78,8 @@ export function listQuery(
 }
 
 /**
- * 错误 → Response（状态码映射——catch 样板收口）。
- * - 显式 status 优先（业务守卫抛错 403 等——调用方定语义）
- * - DbError：validation → 400 · 23505 唯一冲突 → 409 · 其余 → 400（缺省）
+ * 错误 → Response（总错误面——W0 api 计划：单源迁移至 response.ts——
+ * HTTP 链/route 内 catch 同函数——code 面 { error, code }（validation/
+ * conflict/kind——前端可 switch）——本文件 re-export（消费不断））
  */
-export function errorResponse(e: unknown, status?: number): Response {
-  const msg = e instanceof Error ? e.message : String(e)
-  const st = status ?? (e instanceof DbError ? (e.code === '23505' ? 409 : 400) : 400)
-  return Response.json({ error: msg }, { status: st })
-}
+export { errorResponse } from '../response.ts'

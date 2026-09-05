@@ -9,7 +9,7 @@ import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context, QueueWorker } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, queue, ui, userSystem, appAuth, OpenAi, messager, rateLimit, verifyPassword, hashPassword, email, workflowSystem, ops } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, queue, ui, userSystem, appAuth, OpenAi, messager, rateLimit, verifyPassword, hashPassword, email, workflowSystem, ops , errorResponse } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -77,6 +77,9 @@ async function main() {
 
   // ── 全局中间件 ──────────────────────────────────────────
   app.use(cors())
+  // W0 api 计划：错误面单源——链捕获（DbError/HttpError/校验 → errorResponse
+  // 状态码+code 面；route 内未 catch 的意外 → 500 诚实现形）
+  app.onError((e: unknown) => errorResponse(e))
 
 
   // ── 数据库 ──────────────────────────────────────────────
@@ -647,6 +650,8 @@ async function main() {
 
   // ── 需要登录 + 租户隔离的路由 ─────────────────────────
   const protectedRoutes = new Router<AppCtx>()
+  // W0：受保护面错误链（与主 app 同面）
+  protectedRoutes.onError((e: unknown) => errorResponse(e))
   // 登录保护（框架 ctx.auth.requireAuth：未登录抛 401）
   protectedRoutes.use((req: Request, ctx: Context, next: any) => {
     ;(ctx as unknown as AppCtx).auth.requireAuth()

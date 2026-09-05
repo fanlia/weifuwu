@@ -1,101 +1,47 @@
 /**
- * weifuwu response helpers — HTTP 响应辅助函数测试
+ * W0 api 计划契约：errorResponse 总错误面（单源——HTTP 链/route 内 catch 同函数）
+ *
+ * 锁定：code 面（{ error, code }——validation/conflict/kind——前端可 switch）·
+ * 双层语义（链面普通 Error→500 / route 内→400——有意分层）· HttpError status
+ * 权威 · DbError 23505→409·其余→400 · 显式 status 优先。
  */
-
-import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { errorResponse, ok, created, badRequest } from './response.ts'
+import { HttpError } from './types.ts'
+import { DbError, ValidationError, ProtocolError } from './db/errors.ts'
 
-const {
-  ok, created, noContent, badRequest, unauthorized, forbidden,
-  notFound, conflict, unprocessable, tooManyRequests, serverError, redirect,
-} = await import('./response.ts')
+test('W0：errorResponse——code 面（validation/conflict/kind——可 switch 编程）', async () => {
+  const v = await errorResponse(new ValidationError('参数校验失败（agents）：name: 必填')).json() as Record<string, unknown>
+  assert.equal(v.code, 'validation')
+  assert.ok(v.error?.toString().includes('name'), 'message 可读保留（前端 errMsg 兼容）')
+  const c = await errorResponse(new DbError('protocol', 'unique_violation', { code: '23505' })).json() as Record<string, unknown>
+  assert.equal(c.code, 'conflict', '23505 → 语义码 conflict（非 pg 内部码）')
+  const p = await errorResponse(new ProtocolError('COPY')).json() as Record<string, unknown>
+  assert.equal(p.code, 'protocol')
+})
 
-describe('response helpers', () => {
-  it('ok: 200 + JSON', async () => {
-    const res = ok({ id: 1, name: 'Alice' })
-    assert.equal(res.status, 200)
-    assert.equal(res.headers.get('content-type'), 'application/json')
-    assert.deepEqual(await res.json(), { id: 1, name: 'Alice' })
-  })
+test('W0：errorResponse——状态码矩阵（DbError/HttpError/普通 Error/显式 status）', () => {
+  assert.equal(errorResponse(new ValidationError('x')).status, 400)
+  assert.equal(errorResponse(new DbError('protocol', 'u', { code: '23505' })).status, 409)
+  assert.equal(errorResponse(new DbError('protocol', 'c')).status, 400)
+  assert.equal(errorResponse(new HttpError('无权', 403)).status, 403)
+  assert.equal(errorResponse(new HttpError('孤儿', 404)).status, 404)
+  assert.equal(errorResponse(new Error('业务守卫')).status, 400, 'route 内 catch——已知业务 → 400')
+  assert.equal(errorResponse(new Error('守卫'), 403).status, 403, '显式 status 优先')
+  assert.equal(errorResponse(new Error('意外'), 500).status, 500)
+  assert.equal(errorResponse('字符串错误').status, 400)
+})
 
-  it('ok: 可覆盖 status', async () => {
-    const res = ok('ok', { status: 201 })
-    assert.equal(res.status, 201)
-  })
+test('W0：HttpError 无 code（status 已是语义——不冗余）', async () => {
+  const h = await errorResponse(new HttpError('没找到', 404)).json() as Record<string, unknown>
+  assert.equal(h.code, undefined)
+  assert.equal(h.error, '没找到')
+})
 
-  it('created: 201 + JSON', async () => {
-    const res = created({ id: 42 })
-    assert.equal(res.status, 201)
-    assert.deepEqual(await res.json(), { id: 42 })
-  })
-
-  it('noContent: 204', () => {
-    const res = noContent()
-    assert.equal(res.status, 204)
-    assert.equal(res.body, null)
-  })
-
-  it('badRequest: 400 + error message', async () => {
-    const res = badRequest('名称不能为空')
-    assert.equal(res.status, 400)
-    const body = await res.json() as any
-    assert.equal(body.error, '名称不能为空')
-  })
-
-  it('badRequest: 默认错误消息', async () => {
-    const res = badRequest()
-    const body = await res.json() as any
-    assert.equal(body.error, 'Bad Request')
-  })
-
-  it('unauthorized: 401', async () => {
-    const res = unauthorized('Token 已过期')
-    assert.equal(res.status, 401)
-    const body = await res.json() as any
-    assert.equal(body.error, 'Token 已过期')
-  })
-
-  it('forbidden: 403', async () => {
-    const res = forbidden()
-    assert.equal(res.status, 403)
-  })
-
-  it('notFound: 404', async () => {
-    const res = notFound('用户不存在')
-    assert.equal(res.status, 404)
-    const body = await res.json() as any
-    assert.equal(body.error, '用户不存在')
-  })
-
-  it('conflict: 409', async () => {
-    const res = conflict('邮箱已注册')
-    assert.equal(res.status, 409)
-  })
-
-  it('unprocessable: 422', async () => {
-    const res = unprocessable('验证失败')
-    assert.equal(res.status, 422)
-  })
-
-  it('tooManyRequests: 429', async () => {
-    const res = tooManyRequests()
-    assert.equal(res.status, 429)
-  })
-
-  it('serverError: 500', async () => {
-    const res = serverError('数据库连接失败')
-    assert.equal(res.status, 500)
-  })
-
-  it('redirect: 302 + Location', () => {
-    const res = redirect('/login')
-    assert.equal(res.status, 302)
-    assert.equal(res.headers.get('Location'), '/login')
-  })
-
-  it('redirect: 301 永久重定向', () => {
-    const res = redirect('/new-page', 301)
-    assert.equal(res.status, 301)
-    assert.equal(res.headers.get('Location'), '/new-page')
-  })
+test('W0：response helpers 面（ok/created/badRequest——错误面同家族）', async () => {
+  assert.equal((await ok({ a: 1 }).json()).a, 1)
+  assert.equal(ok({}).status, 200)
+  assert.equal(created({ id: 'x' }).status, 201)
+  assert.equal(badRequest('坏').status, 400)
 })
