@@ -87,7 +87,33 @@ platform shapes.ts: const agents: ZodRawShape = {...}
   NOT NULL DEFAULT NOW()（schema.sql）——shape-check 24 表对齐绿
 - 回归门：平台 **451/451**（14 skip docker）· shape 对齐 24 表 · audit-orm
   三域 0 · 平台 tsc 0 · typecheck:tests 0
-| W3 | **跨表 typedQuery**：`createTypedQuery<TSchema>(orm, schema)`（纯类型面——运行时 = orm.query 零成本）· 表/alias 解析（`from('kb_chunks kc')` + join 链 alias 累积）· 列解析（裸列→主表·`alias.col`→alias 表·`col AS alias`→键别名）· 行类型 = select 列 Infer 映射 + aggregate/vectorScore as 键并入 · 未知列/未知 alias 编译期红 · 契约：tsd 断言 6+（列拼错/别名错/AS 别名/join 后裸列歧义?——W3 探针定） | tsd 断言绿 · query-language/orm 运行时契约全绿 · 平台试点（chat 知识检索/messages 会话）类型化——as unknown 删除 |
+| ✅ W3 | **跨表 typedQuery**（dd0bf7a8）：`createTypedQuery<TSchema>(orm, schema)`（纯类型面——运行时 = orm.query 零成本）· 表/alias 解析（`from('kb_chunks kc')` + join 链 alias 累积）· 列解析（裸列→主表·`alias.col`→alias 表）· 行类型 = select 列 Infer 映射 + aggregate/vectorScore as 键并入 · 未知列/未知 alias 编译期红 · 契约：tsd 断言 8+ | tsd 断言绿 · query-language/orm 运行时契约全绿 · 平台试点（embedding 知识检索/chat 同事名单/messages 会话）类型化——as unknown 删除 |
+
+#### W3 实录（2027-xx）
+
+- **类型机制实证**（/tmp/w3 探针 4 版收敛）：模板字面量解析（Split/AddAlias）·
+  ColShape 泛型退化 → **两层 extends 展开**（OutOf<Z>——Z[K] extends
+  ZodType<infer O>）通过 · 行类型 = `SelRow`（列名去 alias 前缀——`kc.id`
+  → `id`——mapped as 键）· 未知列/未知 alias → never → 编译红 ·
+  ColRefs 白名单约束 select/where 键（'zz.id' 红）
+- **API 面**：`createTypedQuery(orm, schema)`（schema = 表名→shape 注册表）·
+  TSelect（join/select/where/聚合/vectorScore/orderBy/limit/run/one）——
+  运行时 TQB 类纯转发（Proxy 不必要——方法清单转发；node strip-only
+  不支持参数属性——显式字段构造）
+- **判负（探针定）**：`col AS alias` 键别名不做（平台 0 消费——聚合/vectorScore
+  的 as 参数面已覆盖键别名）· where 值×列类型不做（z.enum 坍缩——W1 登记）·
+  and/or 组合内层键不校验（外层白名单覆盖主要场景）
+- **平台试点（as unknown as 35→2）**：embedding.ts 知识检索（kb_chunks kc
+  join kb_documents kd + vectorScore——r.id: string · r.similarity: number
+  精确）· chat.ts RosterMember 跨表 join · messages.ts 返回行断言删
+  （W2 面顺带）——**试点抓真 bug**：RosterMember.roleLabel 键与查询列
+  role_label 不一致——**运行时永远 undefined**（角色标签从未注入
+  systemPrompt——P0-2 名单缺陷）——role_label 对齐 + persona.test fixture
+  同步（4/4 绿恢复）
+- **剩 2 处登记**：video-gen row（ensureVideoTasksTable 动态 schema——
+  列存在性调用方保证）· stats.ts ctx（非行面）
+- 回归门：框架 **801/801**（+5 typed-query）· 契约 **433/433** · 平台
+  **451/451**（14 skip docker）· tsc 双 0 · dist 重建（平台经 dist 引框架）
 | W4 | **回归 + 文档 + 收尾**：docs/server.md §5 补 typedQuery 用法 + SHAPES satisfies 纪律（平台 shapes 指南）· audit 补类型断言守卫?（判负登记见下）· 全量回归门 | 五域 + audit 七线 + 平台 451+155 全绿 · tsc 双 0 · 计划收尾 |
 
 ## 判负记录（可被新论证推翻）
