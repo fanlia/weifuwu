@@ -176,7 +176,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       const [message] = (await T.messages
         .insert({ department_id: params.id, sender_id: String(sender.id), content, msg_type: body.msg_type ?? 'text', reply_to: body.reply_to ?? null })
         .returning('id')
-        .run()) as Array<Record<string, any>>
+        .run())
       const attachDir = pathMod.join(process.cwd(), 'data', 'uploads', String(appId), String(params.id), String(message.id))
       await fs.mkdir(attachDir, { recursive: true })
       attachmentMeta = []
@@ -210,7 +210,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [message] = (await T.messages
       .insert({ department_id: params.id, sender_id: String(sender.id), content, msg_type: body.msg_type ?? 'text', reply_to: body.reply_to ?? null })
       .returning('id', 'department_id', 'sender_id', 'content', 'msg_type', 'created_at')
-      .run()) as Array<Record<string, any>>
+      .run())
 
     // WebSocket 推送新消息
     ctx.msg.broadcast(String(params.id), {
