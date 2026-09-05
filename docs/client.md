@@ -142,6 +142,27 @@ style-audit 文件数基线 +1 · 覆盖哨兵跑绿（`scripts/audit-component-
 R-03：类名/结构变更**反查测试选择器**（`[class*="..."]` 定位器）·
 行为变化**必带契约测试** · 机制化优先（能进审计不靠记忆）
 
+---
+
+### 6.1 认证接线范式（fullstack W4——onRefresh 时序契约）
+
+```ts
+// uiServe options（v3-main.tsx）——auth 客户端接线（token 双源防线）
+auth: auth({ storage, onAuth: (c) => {...}, onRefresh: async () => {
+  // onRefresh 闭包直引（2027-09 教训：间接层 authRef 曾致 401 死循环——
+  // refresh 后 token 未更新——闭包直引 source 是唯一的）
+  const ok = await api.post('/api/auth/refresh', undefined, { skipAuth: true })
+  ...
+}})
+```
+
+- **时序契约**：onRefresh 返回 true 语义 = token 已重写（storage 就绪）——
+  false/异常 = 401 踢登录——**未配置 onRefresh → refresh() 恒 false + warn**
+  （机制化防线——401 时 console.warn 提示「未接线」——不再静默）
+- 401 → refresh 重试一次（ApiClient 层）→ 仍失败清 token 跳登录（兜底）
+
+---
+
 ## 6. 前端架构导论
 
 ```

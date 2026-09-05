@@ -375,6 +375,28 @@ export const agents: ZodRawShape = { ... }
   ——BodyOf 判定失效——平台 44 处 dflt 已迁移框架 `f.dflt`）；字面量默认值
   任意值域（jsonb 默认 `[]` 等——f.dflt 泛型不限）
 
+### 5.6 跨端类型共享（fullstack W0——RowOf 派生 + import type 零打包）
+
+> 前端行类型从后端 SHAPES 单源派生——**类型共享（import）优于类型生成**
+> （codegen 有同步/漂移——文件产物天然落后于源）。
+
+```ts
+// 前端（应用 ui/lib/types.ts——import type 编译后零代码）
+import type { RowOf } from 'weifuwu'
+import type { SHAPES } from '../../src/db/shapes.ts'
+export type Agent = RowOf<(typeof SHAPES)['agents']> & {
+  token_usage?: TokenUsage        // 查询附加字段——交叉扩展（shape 无的面）
+}
+```
+
+- **纪律**：行类型 = RowOf 派生 + 附加交叉（查询增强）——字段零手写
+  （shape 新增列前端自动获得——漂移 bug 根除）；派生严格化（req 列必填）
+  是特征不是破坏（后端返回必有）
+- **零打包**：import type 编译后移除（esbuild bundle 验证——后端关键词 0 处）
+- **判负**：codegen（type 生成管线）不做——类型共享优于生成（同步面零漂移）
+
+---
+
 ## 6. 实时与渲染
 
 - **scheduler**：`src/server/middleware/scheduler.ts`——`ctx.schedule.cron/once` +
