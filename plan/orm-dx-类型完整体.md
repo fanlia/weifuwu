@@ -1,4 +1,11 @@
-# orm 开发者体验（DX）优化——类型完整体 + 契约真守卫（2027-xx）
+# orm 开发者体验（DX）优化——类型完整体 + 契约真守卫（✅ 完成——2027-xx）
+
+> **终态**：W1-W3 全波次闭环交付——单表类型复活（satisfies 29+1 表）· 跨表
+> typedQuery 推导（纯类型面——运行时零成本）· 类型契约真守卫（typecheck:tests
+> 0 错——CI 可挂一行）。**实证抓 3 个真 bug**：redis/ast.ts stringifyCommand
+> 返回类型（签名错 3+ 年）· sandboxes updated_at 三单源漏列（真库写不存在列会
+> 炸）· RosterMember roleLabel vs role_label 键不一致（运行时永远 undefined）。
+> as unknown as 35→2（登记 2 处——跨表/动态 schema 判负面）——目标面达成。
 
 > 一句话目标：**让 orm 的"类型安全"名副其实**——平台 35 处 `as unknown as` +
 > 24 处 `Record<string, any>` 的主体是 orm 查询行类型断言；探针实证根因 =
@@ -145,3 +152,39 @@ platform shapes.ts: const agents: ZodRawShape = {...}
   平台 451+155 + audit 七线 + tsc 双 0
 □ 规则并入 docs/server.md §5 + 平台 shapes 指南
 ```
+
+
+## ✅ 验收勾选（W4 终局）
+
+| 验收项 | 结果 |
+| --- | --- |
+| W1 typecheck:tests 0 错 + CI 挂点 | ✅ 0 错 · 挂点判负登记（无 CI 基建——script 已备）|
+| W1 现有断言真实生效 | ✅ 负向验证（删 @ts-expect-error → 红）|
+| W2 平台 tsc 0 · as unknown as ≤5 | ✅ 0 错 · 35→2（登记：video-gen 动态 schema · stats ctx 非行面）|
+| W2 typecheck:tests 绿 | ✅ |
+| W3 tsd 断言绿 | ✅ 8+（跨表行精确/裸列主表/未知列/未知 alias/where 非法列/聚合键）|
+| W3 query-language/orm 运行时契约全绿 | ✅ 框架 801（+5 typed-query）· 契约 433 |
+| W3 平台试点类型化 | ✅ embedding 知识检索 · chat 同事名单 · messages 会话——as unknown 删除 |
+| W4 五域+七线 | ✅ 契约 433 · 场景 123 · showcase 328 · server 801 · shared 37 · audit 七线全绿 · 平台 451+155 · tsc 双 0 · audit-orm 三域 0 |
+
+## W4 实录（2027-xx）
+
+- docs/server.md §5.1 typedQuery 用法 + §5.2 shape satisfies 纪律（禁止
+  ZodRawShape 注解——行类型坍缩根因——审计/tsc 面持续捕杀）
+- 全量回归门：**五域 1722**（433+123+328+801+37）全绿 · audit 七线
+  （semantics/interactivity/vdom/theme/api/bundle/showcase 135 页/227 点击
+  零问题）· 平台 **451 + ui 155** · tsc 双 0 · audit-orm 三域 0
+- **提交栈**：`b85438ee`(W1) → `56666c63`+`a2341aae`(W2) → `dd0bf7a8`+
+  `cedbfb23`(W3) → `152b2c42`(docs) → 本收尾
+- **真 bug 修复清单**（守卫面实证——typecheck 的价值证明）：
+  1. redis/ast.ts `stringifyCommand` 返回签名 string→Uint8Array（旧签名错 3+年）
+  2. sandboxes 表 `updated_at` 三单源漏列（manager 11 处读写——真库写
+     不存在列会炸——memory 掩盖）+ 存量库 ALTER ADD COLUMN
+  3. RosterMember.roleLabel vs 查询列 role_label（运行时 undefined——角色
+     标签从未注入 systemPrompt——P0-2 名单缺陷）
+  4. describeVideoTask switch 无 default（enum 坍缩后不穷尽——未知状态
+     兜底诚实面）
+- **已知边界（诚实）**：z.enum 字面量坍缩（无 as const 时
+  ZodEnum<[string,string]>）——W3 后仍是 string 面——修复面 = enum 签名
+  推断增强（`readonly string[]` + 元组保序）或 as const 纪律——已入文档
+  §5.2 已知边界——可新计划立项
