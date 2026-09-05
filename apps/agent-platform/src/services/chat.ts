@@ -14,6 +14,8 @@ import type { Context } from 'weifuwu'
 import { and, eq, ne, inArray, isNotNull, ops } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { runAgent, streamAgent } from './agent-runner.ts'
+import { createTypedQuery } from 'weifuwu'
+import { SHAPES } from '../db/shapes.ts'
 import { buildRosterText, buildHistoryContent, buildPersonaLayer, buildWorkspaceLayer, QUICK_REPLY_GUIDE, type RosterMember } from './persona.ts'
 import { tables } from '../db/orm.ts'
 
@@ -271,12 +273,13 @@ export async function handleNewMessage(
   // 追加当前消息
   chatMessages.push({ role: 'user', content: messageContent })
 
-  // P0-2 同事名单
-  const rosterMembers = (await orm.query.from('department_members dm')
+  // P0-2 同事名单（W3 typedQuery——跨表 join 行类型化）
+  const Q = createTypedQuery(orm, { department_members: SHAPES.department_members, agents: SHAPES.agents })
+  const rosterMembers = (await Q.from('department_members dm')
     .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
     .select('a.id', 'a.type', 'a.name', 'dm.role', 'a.role_label', 'a.expertise')
     .where({ 'dm.department_id': { eq: departmentId }})
-    .run()) as unknown as RosterMember[] // W2: 跨表 join 手动接口（W3 typedQuery 面）
+    .run()) as RosterMember[] // W2: 跨表 join 手动接口（W3 typedQuery 面）
 
   // 为每个 AI Agent 生成回复（@ 定向时只回复被 @ 的目标）
   for (const agent of targets) {
@@ -817,12 +820,13 @@ async function runAllAgents(
   }
   chatMessages.push({ role: 'user', content: messageContent })
 
-  // P0-2 同事名单（注入所有 AI 的 systemPrompt——分工共识）
-  const rosterMembers = (await ctx.orm.query.from('department_members dm')
+  // P0-2 同事名单（注入所有 AI 的 systemPrompt——分工共识）（W3 typedQuery——同上）
+  const Q = createTypedQuery(ctx.orm, { department_members: SHAPES.department_members, agents: SHAPES.agents })
+  const rosterMembers = (await Q.from('department_members dm')
     .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
     .select('a.id', 'a.type', 'a.name', 'dm.role', 'a.role_label', 'a.expertise')
     .where({ 'dm.department_id': { eq: departmentId }})
-    .run()) as unknown as RosterMember[] // W2: 跨表 join 手动接口（W3 typedQuery 面）
+    .run()) as RosterMember[] // W2: 跨表 join 手动接口（W3 typedQuery 面）
   const rosterText = buildRosterText(rosterMembers, '')
 
   // P4 群共识摘要（AI 记得群里决定过什么——记忆层闭环）

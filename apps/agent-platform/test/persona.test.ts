@@ -15,8 +15,8 @@ describe('persona 成员协议（P0/P1）', () => {
   it('P0-2 buildRosterText：名单含人/AI 身份与专长', () => {
     const members: RosterMember[] = [
       { id: 'u1', name: '王总', type: 'user', role: 'admin' },
-      { id: 'a1', name: '财务助手', type: 'ai', role: 'member', roleLabel: '财务分析', expertise: 'Excel/报表/预算' },
-      { id: 'a2', name: '产品知识库', type: 'knowledge_base', role: 'member', roleLabel: '产品资料', expertise: '文档检索' },
+      { id: 'a1', name: '财务助手', type: 'ai', role: 'member', role_label: '财务分析', expertise: 'Excel/报表/预算' },
+      { id: 'a2', name: '产品知识库', type: 'knowledge_base', role: 'member', role_label: '产品资料', expertise: '文档检索' },
     ]
     const text = buildRosterText(members, 'a1')
     assert.ok(text.includes('王总'), '真人成员在名单中')
@@ -44,7 +44,7 @@ describe('persona 成员协议（P0/P1）', () => {
 
   it('P2-1 buildPersonaLayer：统一注入层（名单 + 纪律）', () => {
     const rosterText = buildRosterText(
-      [{ id: 'a1', name: '财务助手', type: 'ai', roleLabel: '财务分析' }],
+      [{ id: 'a1', name: '财务助手', type: 'ai', role_label: '财务分析' }],
       'a1',
     )
     const layer = buildPersonaLayer({ rosterText, selfName: '财务助手' })

@@ -4,6 +4,8 @@
 
 import type { Context } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
+import { createTypedQuery } from 'weifuwu'
+import { SHAPES } from '../db/shapes.ts'
 
 export interface ChunkResult {
   chunks: string[]
@@ -47,8 +49,9 @@ export async function searchKnowledgeBase(
 
   const queryEmbedding = await ai.embed(query)
 
-  // orm-pg-vector 判负修订：vectorScore 特化（框架编译 `1-(col<=>vec) as as` + ORDER BY）
-  const results = await orm.query.from('kb_chunks kc')
+  // W3 typedQuery：跨表 join 类型化（行键/值编译期精确——r.id: string · similarity: number）
+  const Q = createTypedQuery(orm, { kb_chunks: SHAPES.kb_chunks, kb_documents: SHAPES.kb_documents })
+  const results = await Q.from('kb_chunks kc')
     .join('kb_documents kd', { 'kd.id': { col: 'kc.document_id' } })
     .select('kc.id', 'kc.content', 'kc.document_id', 'kd.filename')
     .vectorScore('kc.embedding', queryEmbedding, 'similarity')
@@ -56,7 +59,7 @@ export async function searchKnowledgeBase(
     .limit(topK)
     .run()
 
-  return results.map((r: any) => ({
+  return results.map((r) => ({
     id: r.id,
     content: r.content,
     documentId: r.document_id,

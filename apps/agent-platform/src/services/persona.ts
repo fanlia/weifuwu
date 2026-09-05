@@ -18,8 +18,8 @@ export interface RosterMember {
   type: string
   /** department_members.role：admin | member */
   role?: string | null
-  /** agents.role_label：角色标签（如"财务分析"） */
-  roleLabel?: string | null
+  /** agents.role_label：角色标签（如"财务分析"）——W3: 键与查询列对齐（role_label 非 roleLabel——原 bug：运行时永远 undefined） */
+  role_label?: string | null
   /** agents.expertise：专长描述（如"Excel/报表/预算"） */
   expertise?: string | null
 }
@@ -46,7 +46,7 @@ function typeLabelOf(type: string): string {
 export function buildRosterText(members: RosterMember[], selfId: string): string {
   const lines = members.map((m) => {
     const typePart = [typeLabelOf(m.type), m.role === 'admin' ? '管理员' : ''].filter(Boolean).join('·')
-    const tag = m.roleLabel ? `·${m.roleLabel}` : ''
+    const tag = m.role_label ? `·${m.role_label}` : ''
     const expert = m.expertise ? `——${m.expertise}` : ''
     const selfMark = m.id === selfId ? ' ← 你' : ''
     return `- ${m.name}（${typePart}${tag}）${expert}${selfMark}`
