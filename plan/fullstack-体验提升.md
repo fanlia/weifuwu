@@ -56,7 +56,13 @@
 
 - W0（c4a223ee）：类型单源跨端——Agent/Department 从 SHAPES 派生（试点 2 个
   ——37 interface 开始下降）· 探针三面裁决（路径/循环/hover）· bundle 零泄漏
-- W2（本提交）：权限单源——src/shared/roles.ts（ROLES/CAPABILITIES/hasCapability
+- W3（564ccb13）：三层测试动线收口（契约模板 + route 覆盖哨兵 48.1% 黄报 +
+  AGENTS.md 平台段）
+- W4（38449b22）：docs 增补（§5.6 跨端类型共享 · 6.1 认证接线范式）+ 场景
+  123/123
+- W4b（本提交）：全量回归门——contract 433 · scenario 123 · showcase 328 ·
+  server 856/857 · 平台 475 · audit:all 八线 · tsc 三 0
+- W2（893bf2b0）：权限单源——src/shared/roles.ts（ROLES/CAPABILITIES/hasCapability
   ——矩阵注释代码化——ASCII 表消失）· 后端 requireWriter → hasCapability(role,
   'write')（viewer/unknown/null 拒——行为等价）· 前端 canWrite/isTenantOwner →
   hasCapability（write/tenant 面——同源查表）· requireDeptManager 不并入

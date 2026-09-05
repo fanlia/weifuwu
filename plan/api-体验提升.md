@@ -67,7 +67,7 @@ route 内 try/catch 绕过链。
   非列表查询面；listQuery 适配集 = orm 直查 list（agents 已收）——manager
   封装面（sandboxes）与业务参数面不适配）——推翻条件：语义操作体出现「同
   shape 多字段校验样板」>3 处
-- W3（本提交）：消噪专项——**-91 处**（250 → 159 routes 域）· 清理面：
+- W3（bad2e6ad）：消噪专项——**-91 处**（250 → 159 routes 域）· 清理面：
   `eq: String(x)` 幂等噪音 79（x 已知 string——tsc 证型）· `String(auth!.userId)`
   10 · insert/值面幂等 58（appId/params.id/auth.userId 已知 string）· 风险面
   修复：双重 String(String())→单层 · String(null) 风险显式化（department_id

@@ -52,7 +52,15 @@
 
 ## 执行实录（边做边记）
 
-（待 W0 起填）
+- W0（bf456664）：ctx 注入面类型收口（UiServeOptions 类型化 · CommandsInjected
+  组合 · 平台 201 断言清零 198→0）
+- W1（987f629c）：页面世代迁移（Agents/Departments——getter 快照 bug 实证）·
+  audit 哨兵（async 工厂红·老世代黄）· 手册 §7.1
+- W2（f1a18ca6）：ListScaffold 骨架原语（-23 行样板——Agents/Departments）
+- W3（4468ee9c）：memo 试点（AgentGrid——静态邻居零 diff）+ 指南 §5.1
+- W4（本提交）：全量回归门——contract 433 · scenario 123 · showcase 328 ·
+  server 856/857 · 平台 475 · audit:all 八线（135 页/227 点击零问题 +
+  audit:docs 66/66）· tsc 三 0 · audit-orm 双范围 0
 
 ## 验收标准
 

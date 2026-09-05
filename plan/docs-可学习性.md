@@ -47,7 +47,14 @@
 
 ## 执行实录（边做边记）
 
-（待 W0 起填）
+- W0（1cde266c）：快速上手 4 段动线（探针逐段跑通——serve/shape+bodyOf/
+  useAsyncData/契约测试——示例照抄即真）
+- W1（9150f25a）：API 速查 §0（8 域 66 项——audit:docs 100% 覆盖守卫挂
+  audit:all 第八线）
+- W2（8130a603）：CHANGELOG 域分组（changelog-format 可测面——scope 域标签·
+  核心层·Other 保留——契约 4/4）· release.mjs 接线 [0.92+ 生效
+- W3（本提交）：全量回归门——五域+audit 八线 · tsc 三 0 · docs 纪律核对
+  （速查/动线是索引与路径——§0/§1/§7.1 无重复维护（引用源码路径））
 
 ## 验收标准
 
