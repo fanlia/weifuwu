@@ -59,7 +59,8 @@
     "audit:api": "node scripts/audit-api.mjs",
     "audit:bundle": "node scripts/audit-bundle.mjs",
     "audit:vdom": "node scripts/audit-vdom.mjs",
-    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
+    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
+    "test:perf": "PERF_BASELINE=1 node --env-file=.env --test src/server/core/router-contract.test.ts"
   },
   "dependencies": {
     "esbuild": "^0.28.1",

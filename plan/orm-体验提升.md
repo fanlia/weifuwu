@@ -60,9 +60,16 @@ platform：53 文件/10348 行 · routes 3807 行
 - **pg 错误码全表中文化**：不做（高频三件套已映射——上轮判负保留）
 - **query 兜底面深度类型化**：不做（typed-query 已有——上轮判负保留）
 
-## 执行实录（边做边记）
+## 执行实录（2027-xx 已实施——W0-W5 全波次闭环）
 
-（待 W0 起填——探针重定位/波次结果/回归数字）
+| 波次 | 提交 | 实录 |
+| --- | --- | --- |
+| W0 | 8871186d | `bodyOf`（命名修正：parseBody 已被 request.ts 占用（通用 JSON 解析）——一个词一个概念——bodyOf 对齐 BodyOf 类型）+ BodyOf/PatchOf + withMeta 类型保留（meta 字面量不坍缩——BodyOf 的 auto 列省略根基·平台 dflt 迁移 f.dflt）+ f.dflt 值域放宽（jsonb 默认 []）· 契约 8/8 · **判负**：TS 条件类型惰性（映射+嵌套+索引访问组合——多形态验证全触发）——BodyOf required/optional 精确性判负（全字段键级可选——运行时校验权威） |
+| W1 | cc568a09 | listQuery + errorResponse（rest 私有提取——行为等价 rest 回归 8/8；唯一冲突 400→409 行为增强——对齐契约层承诺 + 契约 7/7） |
+| W2 | f3326284 | undefined 四层显式拒绝（filterToWhere/qb 三入口/compileWhere/memory 入口——**空表逃逸实证**（filter 惰性：无行不判定——校验前移「声明即校验」）· fuzz 3 种子×201 对双面对账 · **判负**：undefined 编译期拒绝（`eq?: V` 可选属性 undefined 面——无 exactOptionalPropertyTypes；全局开启迁移风险） |
+| W3 | 1be54c61 | paginate.sort field: keyof S（tsd bogus/sideways 红）+ orm.tables() 注册表枚举 + pg.checkConsistency()（diffConsistency 纯函数双后端共用——normalizeType 宽等价组·表/列缺失 error·残留/类型 warn）· 契约 5/5 |
+| W4 | cf478590 | 平台试点：agents POST 30 行 body 类型+必填/枚举 → bodyOf 1 行（-48/+13 净 -35 行）· list → listQuery（非法 type 静默忽略→显式 400）· 框架支撑：bodyOf.omit（变体生成剔除——required 豁免）+ **OrmTable.__shape 收紧 Shape<S>**（unknown → BodyOf S 推断坍缩 {} 实证——收紧后精确）· T3 断言升级（AGENT_TYPE_LIST 引用消亡——bodyOf 单源更强） |
+| W5 | （本次） | docs §5.3 增补（bodyOf/listQuery/errorResponse 用法·undefined 契约·sort 类型化·checkConsistency 诊断·判负登记）+ 全量回归门 |
 
 ## 验收标准
 

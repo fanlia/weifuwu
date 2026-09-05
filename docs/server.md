@@ -342,6 +342,47 @@ await ctx.orm.transaction(async (tx) => {
 **分页（W5）**：`orm.ctxTable('x').paginate({ filter, sort, limit, offset })` →
 `{ rows, total }`——count+list 单调用（同一 scope 面——不手写双查）
 
+**协议面 helpers（W0-W4 体验提升——handler 样板消亡）**：
+```ts
+// body：shape → 校验（手写 body 类型/必填/枚举校验消亡——build 面 30 行 → 1 行）
+const body = await bodyOf(req, T.agents, { variant: 'insert', omit: ['app_id'] })
+// variant: 'insert'（缺省——裸行）| 'patch'（全可选——部分更新）
+// omit：系统列（租户/服务端注入面）——变体生成时剔除（required 豁免——
+//   body 传该键被忽略而非校验——注入面权威）
+// 错误：ValidationError（400 面——字段路径+期望可读）
+// 类型面：BodyOf<typeof shape>（字段名/值类型/枚举编译期精确——auto 列
+//   （f.pk/f.now）自动省略）
+
+// query：URL → list 参数（手写 parseInt/枚举白名单/sort 解析消亡）
+const { filter, sort, limit, offset } = listQuery(url, T.agents, { defaultLimit: 50 })
+
+// 错误：catch 样板消亡（状态码映射——DbError validation→400 · 23505→409）
+catch (e) { return errorResponse(e) }
+```
+
+**undefined 值契约（W2 定案）**——`{ eq: undefined }` 等 everywhere 显式
+拒绝（不静默跳过/不序列化分裂）：`省略该键或显式 isNull`——四层同语义
+（filterToWhere / qb where 入口 / compileWhere / memory 执行入口——空表不
+逃逸——声明即校验）；update 的 **set** 值 undefined 保留（部分更新面）；
+判空显式 `isNull`（`{ eq: null }` = IS NULL）。
+
+**sort 类型化（W3）**：`paginate.sort.field: keyof S`——字面量多余键编译红。
+
+**一致性诊断（W3——启动对齐面）**：
+```ts
+const r = await pg.checkConsistency()   // 零参数——orm 注册表自动枚举
+// r.issues：表/列缺失 error（必须修）· 类型不匹配 warn（宽等价组不误报）·
+//   库残留表/列 warn · r.ok = 无 error
+```
+惰性注册纪律：route 时才 `tables(orm)` 的注册——诊断前先 `tables(orm)`
+先行（否则空声明——全表 extra warn——诚实提示）。
+
+**判负登记（体验提升计划——推翻条件见 plan/orm-体验提升.md）**：BodyOf 的
+required/optional 精确性（TS 条件类型惰性——运行时校验权威）· undefined
+编译期拒绝（无 exactOptionalPropertyTypes）· route 生成器（业务纪律——
+只提取样板层）· 平台 23 处全量迁移（试点 2 处——诚实判据：平台无纯 CRUD
+可迁）。
+
 **透明面（诚实裁剪）**：
 - FK 约束：memory 无校验面（真库 23503 → 400）——跨表引用依赖先插主行
 - vectorScore 精度：内存余弦 vs 真库 ivfflat 近似——结果排序可能差异

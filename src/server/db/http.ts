@@ -49,14 +49,17 @@ export function listQuery(
 ): { filter: Record<string, unknown>; sort: { field: string; dir: 'asc' | 'desc' }[]; limit: number; offset: number } {
   const maxLimit = opts.maxLimit ?? 100
   const defaultLimit = opts.defaultLimit ?? 20
+  // Shape 实体 / OrmTable（__shape 解包——与 bodyOf 对称——直传 table 面）
+  const withShape = shapeDef as unknown as { __shape?: Shape<ZodRawShape> }
+  const sh = withShape.__shape ?? (shapeDef as Shape<ZodRawShape>)
   const search = url.searchParams
-  const cols = Object.keys(shapeDef.fields as Record<string, ZodType>)
+  const cols = Object.keys(sh.fields as Record<string, ZodType>)
   const colSet = new Set(cols)
   // eq 直排（flat 面——标量列只接受标量值；枚举白名单校验）
   const filter: Record<string, unknown> = {}
   for (const [k, v] of search.entries()) {
     if (k === 'sort' || k === 'limit' || k === 'offset') continue
-    const values = enumOf(shapeDef, k)
+    const values = enumOf(sh, k)
     if (values && !values.includes(v)) throw new Error(`invalid enum value for ${k}: ${v}（允许：${values.join(' | ')}）`)
     filter[k] = { eq: v }
   }
