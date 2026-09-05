@@ -1,6 +1,44 @@
 # orm gql 提升——declaration-实现一致性 × 可用面补全（2027-xx）
 
-> 一句话目标：**gqlFromShape 链路（shape→SDL+resolvers→app.graphql）与
+> 一句话目标：**数据面 shape 单源 → 协议面（gql/rest）声明式暴露**——消除
+> 「SDL 声明 vs resolver 实现」不一致与「声明了但无行为」不透明点，补全可用面
+> （分页 total/enum filter/vector 列），平台试点（第二消费者入库）。
+
+## 设计前提（分层纪律——架构约束）
+
+> 正常分层：**HTTP client ←→ graphql/restful（协议面）←→ handler（业务面）←→ orm（数据面）**。
+> 自动生成**不是绕过 handler**，是 **handler 默认实现的生成器**：
+
+| 层 | 可自动派生 | 说明 |
+| --- | --- | --- |
+| 协议面（SDL/路由表/参数 schema） | ✅ | shape 投影——Hasura/postgraphile 路径成立 |
+| handler——样板默认（解析→校验→租户→orm→响应→错误） | ✅ | 平台 45 route 的重叠部分 |
+| handler——业务（权限/事务/编排/响应定制） | ❌ 手写 | 覆盖/钩子接缝在生成面之上 |
+
+- **判别标准**（一票）：_「除了 参数→orm→响应 还有别的行为吗？」有 → 手写；没有 → 生成_
+- **接缝三级**：字段/resolver 覆盖（gql）· 路由钩子 before/after（rest）· 整体手写（事务编排）
+- **安全一等公民**：租户自动注入（单源）· 敏感列 fieldPolicy(hidden)——声明一次三面生效
+
+## 命名契约（一个词一个概念——先定名再动工）
+
+| 概念 | 命名 | 现状 |
+| --- | --- | --- |
+| 数据面 | `shape`（f/z） | ✓ 已有 |
+| 代码内查询面 | `orm.table` / `typedQuery` | ✓ 已有 |
+| GraphQL 面 | `orm.gql(Table)` + `gqlFromShape(shapeDef, opts)` | ✓ 已有 |
+| RESTful 面 | `orm.rest(Table)` + `restFromShape(shapeDef, opts)` | ➕ 新（对称） |
+| filter→WhereExpr 桥 | `filterToWhere(filter, shapeDef)` | ⚠️ 提取（现 gql 私有 whereFrom——三面共享一处） |
+| 字段策略 | `fieldPolicy`（`hidden?: string[]` 首版——敏感列豁免） | ➕ 新 |
+
+**规则**：① 入口对称 `orm.<协议小写词>` ② 生成器对称 `<协议>FromShape` ③ `create*` 构造对象 / `*FromShape` 派生协议面——不混用 ④ 协议短名（gql/rest）仅用于 orm 入口与生成器；HTTP 层协议中间件全称（graphql()/ui()/ws()——一层一个风格）。
+
+## 设计目标（体验预演——波次验收心智锚）
+
+> **「定义数据形状 → 选一个动词（table/gql/rest）→ 写你的业务」——其余（校验、分页、租户、错误、类型、文档、安全列）是框架的承诺。**
+> 最大提升不是省代码，而是**信任**：schema 说的与实际行为一致（I1-I5 修完）、声明了就有行为、敏感列不可见、租户漏不了。
+> 边界判别一句话：_「除了参数→orm→响应还有别的行为吗？」有 → 手写；没有 → 生成。_（学习完整个框架的时间：十分钟。）
+
+*gqlFromShape 链路（shape→SDL+resolvers→app.graphql）与
 > W1-W5 已确立的确定性原则对齐**——消除「SDL 声明 vs resolver 实现」不一致
 > 与「声明了但无行为」不透明点，补全可用面（分页 total/enum filter/vector 列），
 > 平台试点（第二消费者——框架能力通用性验证）。**探针实证**（2027-xx）：
@@ -45,11 +83,13 @@ subscription（无场景）；connection 分页（简单 rows+total 对齐 pagin
 
 | 波次 | 内容 | 验收 |
 | --- | --- | --- |
-| W1 | **一致性收口**：I1 eq:null→isNull（filter 桥——O1 对齐）· I2 sort 多字段链（SDL 数组真实化）· I3 orm.gql 自动派生 tenant（createOrm.tenant 单源——gql 面不可绕过租户）| gql 契约 5+（eq:null 双端/多字段排序顺序/租户自动注入） |
+| W0 | **命名契约 + 共享地基**：docs §5.4 命名表（gql/rest 对称入口 + filterToWhere/fieldPolicy 定名）· `filterToWhere` 提取（gql 私有 whereFrom→共享——三面一处实现）· `fieldPolicy.hidden` 首版（敏感列豁免——gql 接线）| 命名表文档化 · gql 契约回归绿（filterToWhere 提取行为等价）· hidden 契约（SDL 不出现/不返回） |
+| W1 | **一致性收口**：I1 eq:null→isNull（O1 对齐）· I2 sort 多字段链（SDL 数组真实化）· I3 orm.gql 自动派生 tenant（createOrm.tenant 单源——gql 面不可绕过租户）| gql 契约 5+（eq:null 双端/多字段排序顺序/租户自动注入） |
 | W2 | **enum filter + vector 字段面**：I4 enum 列 Filter（GraphQL enum 值面）· I5 vector→[Float!]（number[] 对齐）| 契约（enum filter 算子集/vector 列 SDL 呈现） |
 | W3 | **分页 total**：`xxxListPage(filter, sort, limit, offset): Page`（rows+total——count 单查同 where/scope——与 paginate 对齐）；list 保持向后兼容 | 契约（total 计数/scope 隔离下的 total） |
-| W4 | **平台试点（第二消费者）**：/api/gql 挂 orm.gql（agents 单表——字段面与 REST 对齐）+ 端到端（SDL 挂载/租户 scope 上下文贯通/校验错误 GraphQL 错误面）| 平台试点测试绿（查询+租户隔离断言）· 五域回归 |
-| W5 | **docs + 回归门**：docs/server.md §5.4（gqlFromShape 用法/边界/判负清单）+ 全量回归门 | 五域+audit 七线 · tsc 双 0 |
+| W4 | **REST 生成器**：`restFromShape` + `orm.rest`（5 路由：list/one/insert/update/delete——参数 schema 从 shape 派生+limit clamp+枚举白名单·404/204 语义·hidden 字段策略·hooks 接缝 before/after）| rest 契约（路由矩阵/参数校验/错误语义/hooks） |
+| W5 | **平台试点（第二消费者）**：/api/gql 挂 orm.gql（agents 单表）+ REST 试点 1 个纯 CRUD 表迁移（diff 验证样板消除——业务 route 零改动）| 试点测试绿（gql 查询+租户隔离断言 · rest 前后 diff）· 五域回归 |
+| W6 | **docs + 回归门**：docs/server.md §5.4 完整（三面用法/命名表/分层纪律/边界判别/判负清单）+ 全量回归门 | 五域+audit 七线 · tsc 双 0 |
 
 ## 判负记录（可被新论证推翻）
 
@@ -71,8 +111,11 @@ subscription（无场景）；connection 分页（简单 rows+total 对齐 pagin
 
 ## 验收标准（全部满足才收尾）
 
-- [ ] I1-I5 全部定案（实现 4 项 + 判负登记 1 项及以上——不透明归零）
-- [ ] gql 契约新增 ≥ 10 断言（W1-W3 各波次契约绿）
-- [ ] 平台试点 /api/gql 端到端绿（查询 + 租户隔离断言）
+- [ ] 命名契约文档化（docs §5.4——对称入口/生成器/共享层命名表）
+- [ ] I1-I5 全部定案（实现 4 项 + 判负登记——不透明归零）
+- [ ] filterToWhere 三面共享（gql 提取后行为等价——契约回归绿）
+- [ ] gql 契约新增 ≥ 10 断言（W1-W3 契约绿）
+- [ ] rest 契约（W4——路由矩阵/参数校验/错误语义/hooks/hidden）
+- [ ] 平台试点端到端绿（gql 查询+租户隔离断言 · rest 样板削减 diff）
 - [ ] 五域回归 + audit 七线 exit 0 + tsc 双 0
-- [ ] docs §5.4（用法/边界/判负清单）
+- [ ] docs §5.4 完整（三面用法/分层纪律/边界判别/判负清单）
