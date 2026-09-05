@@ -73,17 +73,11 @@ async function main() {
   if (!dryRun) try {
     const prevTag = execSync('git describe --tags --abbrev=0 HEAD~1', { cwd: root }).toString().trim()
     const log = execSync(`git log --oneline ${prevTag}..HEAD --grep="release:" --invert-grep`, { cwd: root }).toString().trim()
-    const groups = { feat: [], fix: [], docs: [], test: [], chore: [], other: [] }
-    for (const line of log.split('\n')) {
-      const m = line.match(/^\w+ ((?:feat|fix|docs|test|chore))(?:\([^)]*\))?: (.+)$/)
-      if (m) groups[m[1]].push(m[2].trim())
-      else if (line) groups.other.push(line.replace(/^\w+\s/, '').trim())
-    }
-    const title = { feat: '### Added', fix: '### Fixed', docs: '### Docs', test: '### Tests', chore: '### Chore', other: '### Other' }
-    const entry = [`## [${version}] - ${new Date().toISOString().slice(0, 10)}`, '']
-    for (const [k, label] of Object.entries(title)) {
-      if (groups[k].length) entry.push(label, '', ...groups[k].map((x) => `- ${x}`), '')
-    }
+    // docs-可学习性 W2：域分组逻辑提取到 changelog-format.mjs（可测面——
+    // scope 为域标签 · 无 scope → 核心层 · 非 conventional → Other 保留）
+    const { parseCommits, formatEntry } = await import('./changelog-format.mjs')
+    const { groups, scopes } = parseCommits(log)
+    const entry = formatEntry(version, new Date().toISOString().slice(0, 10), groups, scopes)
     let changelog = readFileSync(changelogPath, 'utf-8')
     const UNREL = '## [Unreleased]\n\n（release.mjs 发布时自动生成——不要手写）\n\n'
     changelog = changelog.replace(UNREL, `## [Unreleased]\n\n（release.mjs 发布时自动生成——不要手写）\n\n${entry.join('\n').trim()}\n\n`)

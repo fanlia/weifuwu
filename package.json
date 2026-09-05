@@ -61,7 +61,8 @@
     "audit:vdom": "node scripts/audit-vdom.mjs",
     "audit:docs": "node scripts/audit-docs-api.mjs",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
-    "test:perf": "PERF_BASELINE=1 node --env-file=.env --test src/server/core/router-contract.test.ts"
+    "test:perf": "PERF_BASELINE=1 node --env-file=.env --test src/server/core/router-contract.test.ts",
+    "test:format": "node --test scripts/changelog-format.test.mjs"
   },
   "dependencies": {
     "esbuild": "^0.28.1",
