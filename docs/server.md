@@ -5,13 +5,116 @@
 
 ## 目录
 
+- [0. API 速查](#0-api-速查)
 - [1. 快速上手](#1-快速上手)
 - [2. 中间件清单](#2-中间件清单)
 - [3. 环境变量](#3-环境变量)
 - [4. AI Stream Protocol](#4-ai-stream-protocol)
-- [5. 数据层](#5-数据层)
+- [5. 数据层](#5-数据层)（含 [5.5 错误/响应面](#55-错误响应面api-计划-w0链落地后的-handler-最小形态)）
 - [6. 实时与渲染](#6-实时与渲染)
 - [7. workflow 执行引擎](#7-workflow-执行引擎)
+
+---
+
+## 0. API 速查
+
+> 服务端主导出（`import { ... } from 'weifuwu'`）——按域速查。签名是
+> 类型话的速记——以源码类型定义为准（`src/server/index.ts`）。
+
+### 0.1 HTTP 层
+
+```ts
+serve(app, opts?)            // 启动——app: Router——Web 标准 Request/Response
+Router<T>()                  // 自研 Trie 路由——get/post/put/delete/patch/mount/use/onError
+HttpError(msg, status)       // 错误面——status 权威——链捕获 { error }
+createMiddleware(fn)         // 中间件声明（injects/depends 依赖注入）
+cors()/compress()/serveStatic(dir)/rateLimit(opts)   // 内置中间件
+parseBody(req)               // 通用 JSON 解析（bodyOf 是 orm shape 面——勿混）
+```
+
+```ts
+const app = new Router().get('/', () => Response.json({ ok: true }))
+serve(app, { port: 3000 })
+```
+
+### 0.2 响应面（response.ts 家族——单源）
+
+```ts
+ok(data, init?) · created · noContent · badRequest · unauthorized · forbidden
+· notFound · conflict · unprocessable · tooManyRequests · serverError · redirect
+errorResponse(e)             // 总错误面：DbError→400/409(code) · HttpError→status · 意外→500
+```
+
+```ts
+return ok({ user })                       // 200
+throw new HttpError('无权', 403)          // 链捕获 → { error: '无权' }（无 code）
+```
+
+### 0.3 ORM 面（数据层——见 §5）
+
+```ts
+z / shape / f                // zod 别名 + shape 构造器（f.pk/f.req/f.now/dflt……）
+createOrm(opts)              // Orm 实例——tables()/ctxTable/query/checkConsistency
+memoryAdapter()·postgresAdapter()         // 双后端 adapter
+bodyOf(req, shape, opts)     // shape 输入面——{ variant: 'insert'|'patch', omit }——BodyOf/PatchOf
+listQuery(url, shape, opts)  // 列表查询——过滤白名单/排序/limit clamp（20/100）
+diffConsistency(a, b)        // checkConsistency 纯函数——表/列 diff——error/warn 两级
+ops                         // 算子域：eq/ne/gt/gte/lt/lte/inArray/ilike/contains/startsWith/endsWith/eqCol/isNull/isNotNull/and/or/not
+createTypedQuery(shape)      // 跨表查询类型化（typed-query.ts）
+buildQuery / createQueryBuilder           // 表达式构建（AST 面）
+compileSchemaDDL(module)     // schema 模块 → DDL（DDL 单源）
+```
+
+```ts
+// route 内：T = ctx.orm.ctxTable 注册表（tables(orm) 或 ctx.orm.ctxTable）
+const T = tables(ctx.orm)
+const body = await bodyOf(req, T.agents, { variant: 'insert', omit: ['app_id'] })
+const { filter, limit } = listQuery(url, T.agents, { defaultLimit: 50 })
+await ctx.orm.checkConsistency(SHAPES)
+```
+
+### 0.4 AI 面
+
+```ts
+new OpenAi({ apiKey, ... })                // OpenAI 兼容——llm/embedding/image/video
+new MemoryAi({ onChat, onEmbed, ... })     // 内存确定性（测试/离线）
+createMemoryAi(opts) · MemoryAiServer      // 协议替身（HTTP 面——respond 注入）
+```
+
+### 0.5 认证面
+
+```ts
+userSystem(opts)             // 注册/登录/token/角色/租户（ctx.auth/ctx.user）
+appAuth(opts)                // 应用隔离（appId 注入）
+hashPassword(pw) · verifyPassword(pw, hash) · signToken(payload) · verifyToken(t)
+generateRefreshToken()
+BUILTIN_APP_ID               // 框架内置 app id
+```
+
+### 0.6 实时/调度/消息
+
+```ts
+messager(opts)               // 部门消息（ctx.msg——房间广播 + Redis 跨进程）
+queue(opts)                  // 任务队列（worker/retry/backoff）
+scheduler(opts)              // 任务调度（持久化/恢复）
+workflowSystem(opts)         // 工作流引擎（见 §7）
+ui(opts)                     // SSR + JS/CSS 编译
+postgres(opts) · redis(opts) // 数据中间件（PG v3/RESP2 自研协议）
+```
+
+### 0.7 内存替身族（测试/离线——诚实内存化矩阵）
+
+```ts
+MemorySql(opts)·MemoryRedis(opts)          // 数据内存实现
+MemoryRedisServer·MemoryPostgresServer     // 线协议替身（TCP——客户端零改）
+createMemoryOrm(opts) · MemoryEmail · createMemoryEmail · MemoryEmailServer  // 协议替身（HTTP——respond 注入）
+```
+
+### 0.8 schema 常量
+
+```ts
+WEIFUWU_USER_SCHEMA · WEIFUWU_MESSAGER_SCHEMA · WEIFUWU_WORKFLOW_SCHEMA · MIGRATIONS_TABLE
+```
 
 ---
 
@@ -561,3 +664,47 @@ app.get('/api/agents', async (req: Request, ctx: AppCtx): Promise<Response> => {
   dist 引框架——改 src 后必须 build——本轮 3 次 build 教训）
 - **盲区教训**：契约层 enum 测试只测 filter（输入面）——输出序列化/字面量
   输入（GraphQL 规范：enum 不带引号）首见于平台试点——盲区先补测再信绿
+
+### 5.5 错误/响应面（api 计划 W0——链落地后的 handler 最小形态）
+
+> **链路**：route 抛错 → Router 链捕获（onError 自定义优先）→ 默认链
+> `errorResponse(e)` 单源——handler 只写业务，错误交给链。
+
+**handler 最小形态**（参数→orm→响应——错误零处理）：
+
+```ts
+app.get('/api/agents/:id', async (req, ctx) => {
+  const agent = await ctx.orm.table('agents').find(params.id)   // 抛错 = 链兜
+  if (!agent) throw new HttpError('Agent 不存在', 404)           // 一行错误
+  return ok(agent)
+})
+```
+
+**错误码面**（`{ error, code }`——前端可 switch——不解析 message）：
+
+```ts
+// 后端（route 内不用 catch——链捕获统一）
+throw new ValidationError('参数校验失败')          // → 400 { error, code: 'validation' }
+// orm 冲突（23505）自动 → 409 { error, code: 'conflict' }
+
+// 前端
+const res = await api.get('/api/agents')
+catch (e) {
+  switch (e.code) {          // 'validation' | 'conflict' | DbError.kind ...
+    case 'validation': return formErrors(e)
+    case 'conflict': return notify('已存在')
+  }
+}
+```
+
+**双层语义（有意分层——不是遗漏）**：
+
+| 错误源 | 链面（未捕获） | route 内 catch（已知业务） |
+| --- | --- | --- |
+| 普通 Error | 500 `{ error: 'Internal Server Error' }`（意外诚实现形——消息不泄漏） | 400 `{ error }`（已知业务显式化） |
+| HttpError | status 权威（400/401/403/404/409...） | 同（双面一致） |
+| DbError/ValidationError | 400/409 + code（orm 错误不该 500） | 同 |
+
+**判负**：响应信封统一（`{ data, total }` 包装所有 200）不做——裸 JSON 保持
+（信封是审美不是需求——架构成本 > 收益）；前端解析规则：200 = 业务数据本体；
+4xx/5xx = `{ error, code? }`。
