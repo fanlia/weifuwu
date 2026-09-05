@@ -37,7 +37,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const departmentId = url.searchParams.get('department_id') ?? undefined
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
-    const rows = await manager.list(String(appId), { status, department_id: departmentId })
+    const rows = await manager.list(appId, { status, department_id: departmentId })
     // 部门名 join（显示用）
     const deptIds = rows.map(r => r.department_id).filter(Boolean) as string[]
     const deptMap = new Map<string, string>()
@@ -58,7 +58,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
       runningExec: sandbox.runningExecs.get(String(r.id)) ?? null,
     }))
     // M5-1 配额用量（per-app）：used/limit + 压力（≥80% 黄条）
-    const [q] = await orm.query.from('_weifuwu_apps').select('sandbox_quota').where({ id: { eq: String(appId) } }).limit(1).run()
+    const [q] = await orm.query.from('_weifuwu_apps').select('sandbox_quota').where({ id: { eq: appId } }).limit(1).run()
     const quotaLimit = Number(q?.sandbox_quota ?? 5)
     const usedCount = items.filter(i => i.status !== 'terminated').length
     return Response.json({
@@ -92,7 +92,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     if (body.department_id) {
       const [dept] = await orm.query.from('departments')
         .select('id', 'name', 'is_dm', 'workspace_path')
-        .where({ id: { eq: body.department_id }, app_id: { eq: String(appId) } })
+        .where({ id: { eq: body.department_id }, app_id: { eq: appId } })
         .limit(1)
         .run()
       if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
@@ -107,7 +107,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     manager.init(orm)
     try {
       const row = await manager.create({
-        appId: String(appId),
+        appId: appId,
         departmentId: body.department_id ?? null,
         name: deptName ?? '工作环境',
         workspace: wsPath ?? undefined,
@@ -149,7 +149,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { sql, orm, appId, params } = ctx
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
-    const row = await manager.get(String(params.id), String(appId))
+    const row = await manager.get(params.id, appId)
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
     // 容器实际状态 + 资源
     const { sandbox } = await import('../sandbox/docker.ts')
@@ -174,9 +174,9 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const body = await req.json().catch(() => ({})) as { image?: string; network?: boolean; memory_mb?: number; cpus?: number }
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
-    const row = await manager.get(String(params.id), String(appId))
+    const row = await manager.get(params.id, appId)
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
-    await manager.updateConfig(String(row.id), String(appId), {
+    await manager.updateConfig(String(row.id), appId, {
       image: body.image, network: body.network, memoryMb: body.memory_mb, cpus: body.cpus,
     })
     await audit(ctx, 'sandbox_config_change', String(row.id), { ...body })
@@ -195,19 +195,19 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     }
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
-    const id = String(params.id)
-    const row = await manager.get(id, String(appId))
+    const id = params.id
+    const row = await manager.get(id, appId)
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
     let r: { ok: boolean; error?: string }
     if (action === 'terminate') {
-      await manager.terminate(id, String(appId))
+      await manager.terminate(id, appId)
       r = { ok: true }
     } else if (action === 'start') {
-      r = await manager.start(id, String(appId))
+      r = await manager.start(id, appId)
     } else if (action === 'stop') {
-      r = await manager.stop(id, String(appId))
+      r = await manager.stop(id, appId)
     } else {
-      r = await manager.restart(id, String(appId))
+      r = await manager.restart(id, appId)
     }
     if (!r.ok) return Response.json({ error: r.error }, { status: 400 })
     await audit(ctx, `sandbox_${action}`, id, { name: row.name })
@@ -219,7 +219,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { sql, orm, appId, params } = ctx
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
-    const row = await manager.get(String(params.id), String(appId))
+    const row = await manager.get(params.id, appId)
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
     const { sandbox } = await import('../sandbox/docker.ts')
     const running = sandbox.runningExecs.get(String(row.id)) ?? null
@@ -243,7 +243,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { sql, orm, appId, params } = ctx
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
-    const row = await manager.get(String(params.id), String(appId))
+    const row = await manager.get(params.id, appId)
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
     const { sandbox } = await import('../sandbox/docker.ts')
     const procs = await sandbox.containerProcesses(`ap-sandbox-${row.id}`)
@@ -254,7 +254,7 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
     const { sql, orm, appId, params } = ctx
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
-    const row = await manager.get(String(params.id), String(appId))
+    const row = await manager.get(params.id, appId)
     if (!row) return Response.json({ error: '沙盒不存在' }, { status: 404 })
     const { sandbox } = await import('../sandbox/docker.ts')
     const stats = await sandbox.containerStats(`ap-sandbox-${row.id}`)

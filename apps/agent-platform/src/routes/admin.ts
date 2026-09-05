@@ -25,7 +25,7 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
     const row = await getAppPlan(ctx.orm, ctx.appId)
     const [usedRow] = await ctx.orm.query.from('agent_logs')
       .sum('tokens_total', 'used')
-      .where({ app_id: { eq: String(ctx.appId) }, created_at: { gte: ops.monthStart() } })
+      .where({ app_id: { eq: ctx.appId }, created_at: { gte: ops.monthStart() } })
       .run()
     return Response.json(planStatusOf(row, Number((usedRow as any)?.used ?? 0)))
   })
@@ -110,7 +110,7 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
     if (!body.name?.trim()) return Response.json({ error: 'name 必填' }, { status: 400 })
     let ownerId: string | null = null
     if (body.ownerEmail) {
-      const [u] = await ctx.orm.query.from('_weifuwu_users').select('id').where({ email: { eq: String(body.ownerEmail).trim().toLowerCase() } }).limit(1).run()
+      const [u] = await ctx.orm.query.from('_weifuwu_users').select('id').where({ email: { eq: body.ownerEmail.trim().toLowerCase() } }).limit(1).run()
       ownerId = u ? String((u as any).id) : null
     }
     const [row] = await ctx.orm.query.insert('enterprises')
@@ -135,7 +135,7 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
     const { orm } = ctx
     // 相关子查询 → 两查合并
     const apps = await orm.query.from('_weifuwu_apps').select('id', 'slug', 'name', 'plan', 'status', 'created_at')
-      .where({ enterprise_id: { eq: String(ctx.params.id) } }).orderBy('created_at', 'asc').run()
+      .where({ enterprise_id: { eq: ctx.params.id } }).orderBy('created_at', 'asc').run()
     const appIds = apps.map((a) => String(a.id))
     if (appIds.length) {
       const tokenSums = await orm.query.from('agent_logs').select('app_id').sum('tokens_total', 'tokens_month', { created_at: { gte: ops.monthStart() } })

@@ -20,7 +20,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .select('m.id', 'm.department_id', 'm.content', 'm.ai_draft', 'm.created_at',
         'a.name as agent_name', 'a.type as agent_type',
         'd.name as department_name')
-      .where(and({ 'a.app_id': { eq: String(appId) } }, { 'm.ai_draft': { ne: null } }, { 'm.ai_approved': { isNull: true } }))
+      .where(and({ 'a.app_id': { eq: appId } }, { 'm.ai_draft': { ne: null } }, { 'm.ai_approved': { isNull: true } }))
       .orderBy('m.created_at', 'desc')
       .limit(50)
       .run()
@@ -41,19 +41,19 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const rows = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .select('m.id', 'm.department_id')
-      .where(and({ 'a.app_id': { eq: String(appId) } }, { 'm.ai_draft': { ne: null } }, { 'm.ai_approved': { isNull: true } }, { 'm.id': { in: ids } }))
+      .where(and({ 'a.app_id': { eq: appId } }, { 'm.ai_draft': { ne: null } }, { 'm.ai_approved': { isNull: true } }, { 'm.id': { in: ids } }))
       .run()
     const byId = new Map(rows.map((r: any) => [String(r.id), r]))
     // 当前用户的部门 admin 集合（一次查——跨部门批量逐条判定）
     const adminDepts = new Set((await orm.query.from('department_members dm')
       .join('agents ua', { 'ua.id': { col: 'dm.agent_id' } })
       .select('dm.department_id')
-      .where(and({ 'ua.user_id': { eq: String(auth!.userId) } }, { 'ua.app_id': { eq: String(appId) } }, { 'dm.role': { eq: 'admin' } }))
+      .where(and({ 'ua.user_id': { eq: auth.userId } }, { 'ua.app_id': { eq: appId } }, { 'dm.role': { eq: 'admin' } }))
       .run()).map((r: any) => String(r.department_id)))
     // [owner/tenant-admin 租户级放行——单条语义同源（departments.ts L447 三方放行）]
     const [tenantRole] = await orm.query.from('_weifuwu_app_members')
       .select('role')
-      .where(and({ app_id: { eq: String(appId) } }, { user_id: { eq: String(auth!.userId) } }))
+      .where(and({ app_id: { eq: appId } }, { user_id: { eq: auth.userId } }))
       .run()
     const isTenantOwner = tenantRole?.role === 'owner'
     let approvedCount = 0
@@ -62,7 +62,8 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     for (const id of ids) {
       const msg = byId.get(id)
       if (!msg) { failed.push({ id, error: '不存在或已审批' }); continue }
-      if (!isTenantOwner && !adminDepts.has(String(msg.department_id))) {
+      // null 部门（防御面——department_id 类型 nullable）——显式拒绝不 String(null)
+      if (!isTenantOwner && !(msg.department_id && adminDepts.has(String(msg.department_id)))) {
         failed.push({ id, error: '只有部门管理员可以审批' }); continue
       }
       const T = tables(ctx.orm)
@@ -85,7 +86,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     // 验证部门存在
     const [dept] = await orm.query.from('departments d')
       .select('d.id')
-      .where(and({ 'd.id': { eq: params.id }}, { 'd.app_id': { eq: String(appId) } }))
+      .where(and({ 'd.id': { eq: params.id }}, { 'd.app_id': { eq: appId } }))
       .run()
     if (!dept) {
       throw new HttpError('部门不存在', 404)
@@ -149,9 +150,9 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .run()
     if (!sender) {
       // 自愈：老用户缺少绑定 agent 时自动创建
-      const [u] = await orm.query.from('_weifuwu_users').select('name').where({ id: { eq: String(auth!.userId) } }).run()
+      const [u] = await orm.query.from('_weifuwu_users').select('name').where({ id: { eq: auth.userId } }).run()
       ;[sender] = await T.agents
-        .insert({ app_id: String(appId), type: 'user', name: u ? String((u as any).name ?? '用户') : '用户', user_id: String(auth!.userId), is_active: true })
+        .insert({ app_id: appId, type: 'user', name: u ? String((u as any).name ?? '用户') : '用户', user_id: String(auth!.userId), is_active: true })
         .returning('id')
         .run()
     }
@@ -160,7 +161,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const memberships = await orm.query.from('department_members dm')
       .join('departments d', { 'd.id': { col: 'dm.department_id' } })
       .select('dm.department_id')
-      .where(and({ 'd.app_id': { eq: String(appId) } }, { 'dm.department_id': { eq: params.id }}, { 'dm.agent_id': { eq: String(sender.id) } }))
+      .where(and({ 'd.app_id': { eq: appId } }, { 'dm.department_id': { eq: params.id }}, { 'dm.agent_id': { eq: sender.id } }))
       .limit(1)
       .run()
     if (memberships.length === 0) {
@@ -177,7 +178,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
         .insert({ department_id: params.id, sender_id: String(sender.id), content, msg_type: body.msg_type ?? 'text', reply_to: body.reply_to ?? null })
         .returning('id')
         .run())
-      const attachDir = pathMod.join(process.cwd(), 'data', 'uploads', String(appId), String(params.id), String(message.id))
+      const attachDir = pathMod.join(process.cwd(), 'data', 'uploads', appId, params.id, String(message.id))
       await fs.mkdir(attachDir, { recursive: true })
       attachmentMeta = []
       for (const f of attachments) {
@@ -196,7 +197,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       ;(message as any).msg_type = body.msg_type ?? 'text'
       ;(message as any).created_at = new Date().toISOString()
       // WS 推送 + 异步回复继续走下方公共代码
-      ctx.msg.broadcast(String(params.id), {
+      ctx.msg.broadcast(params.id, {
         type: 'new_message',
         departmentId: params.id,
         message: { id: message.id, sender_id: message.sender_id, sender_name: (sender as any).name ?? '', content: message.content, attachments: attachmentMeta },
@@ -213,7 +214,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .run())
 
     // WebSocket 推送新消息
-    ctx.msg.broadcast(String(params.id), {
+    ctx.msg.broadcast(params.id, {
       type: 'new_message',
       departmentId: params.id,
       message: { id: message.id, sender_id: message.sender_id, sender_name: (sender as any).name ?? '', content: message.content },
@@ -259,9 +260,9 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'user'), eq(T.agents.c.user_id, auth!.userId)))
       .run()
     if (!sender) {
-      const [u] = await orm.query.from('_weifuwu_users').select('name').where({ id: { eq: String(auth!.userId) } }).run()
+      const [u] = await orm.query.from('_weifuwu_users').select('name').where({ id: { eq: auth.userId } }).run()
       ;[sender] = await T.agents
-        .insert({ app_id: String(appId), type: 'user', name: u ? String((u as any).name ?? '用户') : '用户', user_id: String(auth!.userId), is_active: true })
+        .insert({ app_id: appId, type: 'user', name: u ? String((u as any).name ?? '用户') : '用户', user_id: String(auth!.userId), is_active: true })
         .returning('id')
         .run()
     }
@@ -270,7 +271,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const memberships = await orm.query.from('department_members dm')
       .join('departments d', { 'd.id': { col: 'dm.department_id' } })
       .select('dm.department_id')
-      .where(and({ 'd.app_id': { eq: String(appId) } }, { 'dm.department_id': { eq: params.id }}, { 'dm.agent_id': { eq: String(sender.id) } }))
+      .where(and({ 'd.app_id': { eq: appId } }, { 'dm.department_id': { eq: params.id }}, { 'dm.agent_id': { eq: sender.id } }))
       .limit(1)
       .run()
     if (memberships.length === 0) {
@@ -284,7 +285,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .run()
 
     // WS 推送新消息（让其他 WS 客户端也能看到）
-    ctx.msg.broadcast(String(params.id), {
+    ctx.msg.broadcast(params.id, {
       type: 'new_message',
       departmentId: params.id,
       message: { id: message.id, sender_id: message.sender_id, sender_name: (sender as any).name ?? '', content: message.content },
@@ -338,7 +339,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [msg] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .select('m.id', 'm.sender_id', 'm.created_at', 'm.department_id', 'a.user_id as owner_user_id', 'a.app_id')
-      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
+      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: appId } }))
       .run()
     if (!msg) {
       throw new HttpError('消息不存在', 404)
@@ -359,7 +360,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     await T.messages.update({ content: body.content.trim() }).where(eq(T.messages.c.id, params.id)).run()
 
     // WS 推送编辑事件
-    ctx.msg.broadcast(String(String(msg.department_id)), {
+    ctx.msg.broadcast(String(msg.department_id), {
       type: 'message_edited',
       messageId: params.id,
       content: body.content.trim(),
@@ -376,7 +377,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [msg] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .select('m.id', 'm.sender_id', 'm.created_at', 'a.user_id as owner_user_id', 'm.department_id')
-      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
+      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: appId } }))
       .run()
     if (!msg) {
       throw new HttpError('消息不存在', 404)
@@ -403,7 +404,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     await T.messages.delete().where(eq(T.messages.c.id, params.id)).run()
 
     // WS 推送删除事件
-    ctx.msg.broadcast(String(String(msg.department_id)), {
+    ctx.msg.broadcast(String(msg.department_id), {
       type: 'message_deleted',
       messageId: params.id,
     })
@@ -426,7 +427,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [msg] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .select('m.id')
-      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }, { 'a.type': { eq: 'ai' } }))
+      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: appId } }, { 'a.type': { eq: 'ai' } }))
       .run()
     if (!msg) {
       throw new HttpError('消息不存在', 404)
@@ -449,7 +450,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [msg] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .select('m.id', 'm.department_id', 'm.ai_draft')
-      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }, { 'm.ai_approved': { isNull: true } }))
+      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: appId } }, { 'm.ai_approved': { isNull: true } }))
       .run()
     if (!msg) {
       throw new HttpError('草稿不存在或已处理', 404)
@@ -458,12 +459,12 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [caller] = await orm.query.from('department_members dm')
       .join('agents ua', { 'ua.id': { col: 'dm.agent_id' } })
       .select('dm.role')
-      .where(and({ 'dm.department_id': { eq: String(msg.department_id) } }, { 'ua.user_id': { eq: String(auth!.userId) } }))
+      .where(and({ 'dm.department_id': { eq: msg.department_id } }, { 'ua.user_id': { eq: auth.userId } }))
       .limit(1)
       .run()
     const [callerOwner] = await orm.query.from('_weifuwu_app_members')
       .select('role')
-      .where(and({ app_id: { eq: String(appId) } }, { user_id: { eq: String(auth!.userId) } }))
+      .where(and({ app_id: { eq: appId } }, { user_id: { eq: auth.userId } }))
       .run()
     // 部门级 admin（department_members.role——合法角色 710 实例——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
     if ((!caller || caller.role !== 'admin') && callerOwner?.role !== 'owner') {
@@ -473,7 +474,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     await T.messages.update({ ai_draft: draft }).where(eq(T.messages.c.id, params.id)).run()
     try {
       const { writeAudit } = await import('../services/audit.ts')
-      await writeAudit(ctx as any, { action: 'approval_draft_edit', target_type: 'message', target_id: String(params.id), detail: {} })
+      await writeAudit(ctx as any, { action: 'approval_draft_edit', target_type: 'message', target_id: params.id, detail: {} })
     } catch { /* 尽力 */ }
     return Response.json({ success: true })
   })
@@ -487,7 +488,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [msg] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .select('m.id', 'm.ai_draft', 'm.ai_approved', 'm.department_id')
-      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
+      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: appId } }))
       .run()
     if (!msg) {
       throw new HttpError('消息不存在', 404)
@@ -501,7 +502,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [approver] = await orm.query.from('department_members dm')
       .join('agents ua', { 'ua.id': { col: 'dm.agent_id' } })
       .select('dm.role')
-      .where(and({ 'dm.department_id': { eq: String(msg.department_id) } }, { 'ua.user_id': { eq: String(auth!.userId) } }))
+      .where(and({ 'dm.department_id': { eq: msg.department_id } }, { 'ua.user_id': { eq: auth.userId } }))
       .limit(1)
       .run()
     // 部门级 admin（department_members.role——合法——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
@@ -528,7 +529,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const [msg] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .select('m.id', 'm.department_id', 'm.content')
-      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }, { 'a.type': { eq: 'user' } }))
+      .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: appId } }, { 'a.type': { eq: 'user' } }))
       .run()
     if (!msg) throw new HttpError('消息不存在', 404)
 

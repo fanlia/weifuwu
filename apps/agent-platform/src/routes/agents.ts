@@ -55,7 +55,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
           .sum('tokens_prompt', 'total_prompt')
           .sum('tokens_completion', 'total_completion')
           .count('*', 'run_count')
-          .where({ agent_id: { eq: String(a.id) } })
+          .where({ agent_id: { eq: a.id } })
           .run()
         agentsWithStats.push({ ...a, token_usage: tokenSum })
       } else {
@@ -155,7 +155,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       if (!body.system_prompt) {
         try {
           const { refreshManagerPrompt } = await import('../services/org-manager.ts')
-          await refreshManagerPrompt(orm, String(appId), String(body.department_id))
+          await refreshManagerPrompt(orm, appId, String(body.department_id))
         } catch { /* 刷新失败不阻断 */ }
       }
     }
@@ -177,7 +177,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
         'a.approval_policy', 'a.webhook_platform', 'a.risk_policy', 'a.light_model',
         'u.email as bound_email', 'u.name as bound_user_name')
       .join('_weifuwu_users u', { 'u.id': { col: 'a.user_id' } }, { type: 'left' })
-      .where(and({ 'a.id': { eq: String(params.id) }}, { 'a.app_id': { eq: String(appId) } }))
+      .where(and({ 'a.id': { eq: params.id }}, { 'a.app_id': { eq: appId } }))
       .one()
     if (!agent) {
       throw new HttpError('Agent 不存在', 404)
@@ -262,7 +262,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     // 审计：Agent 删除（Wave 9）
     try {
       const { writeAudit } = await import('../services/audit.ts')
-      await writeAudit(ctx as any, { action: 'agent_delete', target_type: 'agent', target_id: String(params.id) })
+      await writeAudit(ctx as any, { action: 'agent_delete', target_type: 'agent', target_id: params.id })
     } catch { /* 尽力 */ }
     return Response.json({ success: true })
   })

@@ -30,7 +30,7 @@ export function registerSurveyRoutes(app: any): void {
       const { orm, appId } = ctx
       const rows = await orm.query.from('survey_campaigns')
         .select('id', 'status', 'total', 'completed', 'failed', 'url', 'retry', 'concurrency', 'created_at')
-        .where({ app_id: { eq: String(appId) } })
+        .where({ app_id: { eq: appId } })
         .orderBy('created_at', 'desc')
         .limit(50)
         .run()

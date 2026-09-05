@@ -202,7 +202,7 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
 
     const [agent] = await ctx.orm.query.insert('agents')
       .values({
-        app_id: String(appId), type: 'ai', name: body.name.trim(), description: body.description ?? template.description,
+        app_id: appId, type: 'ai', name: body.name.trim(), description: body.description ?? template.description,
         model: body.model ?? template.default_model, system_prompt: body.system_prompt ?? template.default_system_prompt,
         temperature: body.temperature ?? template.default_temperature, max_tokens: body.max_tokens ?? template.default_max_tokens,
         workspace_path: body.workspace_path ?? template.default_workspace_hint ?? null,

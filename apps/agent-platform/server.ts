@@ -189,7 +189,7 @@ async function main() {
     hooks: {
       // 注册建默认应用后：建 user Agent + free 试用（原 auth.ts register 业务面下沉）
       onRegisterApp: async (userId, app) => {
-        const [u] = await pg.orm.query.from('_weifuwu_users').select('name').where({ id: { eq: String(userId) } }).run()
+        const [u] = await pg.orm.query.from('_weifuwu_users').select('name').where({ id: { eq: userId } }).run()
         await pg.orm.query.insert('agents').rows([
           { app_id: String(app.id), type: 'user', name: u?.name ?? '成员', user_id: String(userId), is_active: true },
         ]).onConflict(undefined, false).run().catch(() => {})
@@ -198,22 +198,22 @@ async function main() {
             plan: 'free',
             trial_ends_at: ops.nowInterval(14, 'day'),
             monthly_token_limit: 50000,
-          }).where({ id: { eq: String(app.id) } }).run()
+          }).where({ id: { eq: app.id } }).run()
         } catch { /* 旧库无列——migrate 负责 */ }
       },
       // 邀请加入：建默认 user Agent（原 auth.ts join 业务面）
       onJoinApp: async (userId, appId) => {
-        const [u] = await pg.orm.query.from('_weifuwu_users').select('name').where({ id: { eq: String(userId) } }).run()
+        const [u] = await pg.orm.query.from('_weifuwu_users').select('name').where({ id: { eq: userId } }).run()
         await pg.orm.query.insert('agents').rows([
-          { app_id: String(appId), type: 'user', name: u?.name ?? '成员', user_id: String(userId), is_active: true },
+          { app_id: appId, type: 'user', name: u?.name ?? '成员', user_id: String(userId), is_active: true },
         ]).onConflict(undefined, false).run().catch(() => {})
       },
       // SSO 登录：加入目标应用时建 Agent
       onSsoLogin: async (userId, appId) => {
         if (!appId) return
-        const [u] = await pg.orm.query.from('_weifuwu_users').select('name').where({ id: { eq: String(userId) } }).run()
+        const [u] = await pg.orm.query.from('_weifuwu_users').select('name').where({ id: { eq: userId } }).run()
         await pg.orm.query.insert('agents').rows([
-          { app_id: String(appId), type: 'user', name: u?.name ?? '成员', user_id: String(userId), is_active: true },
+          { app_id: appId, type: 'user', name: u?.name ?? '成员', user_id: String(userId), is_active: true },
         ]).onConflict(undefined, false).run().catch(() => {})
       },
     },
@@ -450,7 +450,7 @@ async function main() {
     // key 统一 basename（绝对/相对路径一致）
     const key = String(body.skill_dir).split(/[\\/]/).filter(Boolean).pop() ?? String(body.skill_dir)
     const [row] = await pg.orm.query.insert('skill_ratings').rows([
-      { skill_dir: key.slice(0, 200), app_id: String(ctx.appId), liked },
+      { skill_dir: key.slice(0, 200), app_id: ctx.appId, liked },
     ]).onConflict(['skill_dir', 'app_id'], true).returning('skill_dir', 'liked').run()
     return Response.json({ rating: row })
   })
@@ -663,7 +663,7 @@ async function main() {
     if (String(req.url ?? '').includes('/api/admin/')) return next(req, ctx)
     const c = ctx as unknown as AppCtx
     if (c.appId) {
-      const rows = await c.orm.query.from('_weifuwu_apps').select('status').where({ id: { eq: String(c.appId) } }).run()
+      const rows = await c.orm.query.from('_weifuwu_apps').select('status').where({ id: { eq: c.appId } }).run()
       if (rows[0]?.status === 'disabled') {
         throw new HttpError('该团队已被停用，请联系管理员', 403)
       }
@@ -704,7 +704,7 @@ async function main() {
   // P1 任务执行总览：部门执行状态聚合（复用 sandbox_events/runningExecs/产物 mtime）
   protectedRoutes.get('/api/departments/:id/executions', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { orm, appId, params } = ctx
-    const [dept] = await orm.query.from('departments').select('id').where({ id: { eq: String(params.id) }, app_id: { eq: String(appId) } }).run()
+    const [dept] = await orm.query.from('departments').select('id').where({ id: { eq: params.id }, app_id: { eq: appId } }).run()
     if (!dept) throw new HttpError('部门不存在', 404)
     const { manager } = await import('./src/sandbox/manager.ts')
     manager.init(orm)
@@ -713,18 +713,18 @@ async function main() {
     const members = await orm.query.from('department_members dm')
       .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
       .select('a.id', 'a.name', 'a.role_label', 'a.type', 'a.department_id')
-      .where({ 'dm.department_id': { eq: String(params.id) }, 'a.type': { in: ['ai', 'department'] } }).run()
+      .where({ 'dm.department_id': { eq: params.id }, 'a.type': { in: ['ai', 'department'] } }).run()
     // 部门最近**用户**消息时间（任务派发起点——AI 回复会推后时间导致早期完成者误判 stalled）
     const [lastMsg] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .max('m.created_at', 'at')
-      .where({ 'm.department_id': { eq: String(params.id) }, 'a.type': { eq: 'user' } }).run()
+      .where({ 'm.department_id': { eq: params.id }, 'a.type': { eq: 'user' } }).run()
     const taskStart = lastMsg?.at ? new Date(String(lastMsg.at)).getTime() : Date.now()
     const now = Date.now()
     const tasks = []
     for (const m of members ?? []) {
       const agentId = String((m as any).id)
-      const execDeptId = (m as any).department_id ? String((m as any).department_id) : String(params.id)
+      const execDeptId = (m as any).department_id ? String((m as any).department_id) : params.id
       // 执行归属沙盒（角色独立部门沙盒 / 当前部门沙盒）
       let sb = null
       try { sb = await manager.byDepartment(execDeptId) } catch { sb = null }
@@ -833,7 +833,7 @@ async function main() {
     } catch { /* 沙盒不可用 */ }
     let auditToday = 0
     try {
-      const [row] = await ctx.orm.query.from('audit_logs').count('*', 'n').where({ created_at: { gte: ops.nowAgo(1, 'day') }, app_id: { eq: String(ctx.appId) } }).run()
+      const [row] = await ctx.orm.query.from('audit_logs').count('*', 'n').where({ created_at: { gte: ops.nowAgo(1, 'day') }, app_id: { eq: ctx.appId } }).run()
       auditToday = Number((row as any)?.n ?? 0)
     } catch { /* 无审计表 */ }
     return Response.json({ sandbox: sandboxInfo, auditToday, license: licenseInfo })
@@ -867,14 +867,14 @@ async function main() {
     const { orm, appId } = ctx
     const body = await req.json() as { baseUrl?: string; apiKey?: string; model?: string; clear?: boolean }
     if (body.clear) {
-      await orm.query.delete('app_ai_configs').where({ app_id: { eq: String(appId) } }).run()
+      await orm.query.delete('app_ai_configs').where({ app_id: { eq: appId } }).run()
       return Response.json({ ok: true, cleared: true })
     }
     // 已存 key 不回显：apiKey 为空 = 保持原值
-    const [cur] = await orm.query.from('app_ai_configs').select('api_key').where({ app_id: { eq: String(appId) } }).run()
+    const [cur] = await orm.query.from('app_ai_configs').select('api_key').where({ app_id: { eq: appId } }).run()
     const finalKey = body.apiKey?.trim() ? body.apiKey.trim() : String((cur as any)?.api_key ?? '')
     await orm.query.insert('app_ai_configs').rows([
-      { app_id: String(appId), base_url: body.baseUrl?.trim() ?? null, api_key: finalKey || null, model: body.model?.trim() ?? null, updated_at: ops.now() },
+      { app_id: appId, base_url: body.baseUrl?.trim() ?? null, api_key: finalKey || null, model: body.model?.trim() ?? null, updated_at: ops.now() },
     ]).onConflict('app_id', true).run()
     try {
       const { writeAudit } = await import('./src/services/audit.ts')
@@ -914,7 +914,7 @@ async function main() {
     }
     // 框架用户表（_weifuwu_users）——应用层更新扩展字段
     const [user] = await orm.query.update('_weifuwu_users').set({ name: body.name.trim() })
-      .where({ id: { eq: String(auth!.userId) } }).returning('id', 'email', 'name', 'role', 'created_at').run()
+      .where({ id: { eq: auth.userId } }).returning('id', 'email', 'name', 'role', 'created_at').run()
     return Response.json({ user })
   })
 
@@ -923,16 +923,16 @@ async function main() {
   protectedRoutes.get('/api/auth/export', async (_req: Request, ctx: AppCtx): Promise<Response> => {
     const { orm, auth } = ctx
     const uid = auth!.userId
-    const [profile] = await orm.query.from('_weifuwu_users').select('id', 'email', 'name', 'created_at').where({ id: { eq: String(uid) } }).run()
+    const [profile] = await orm.query.from('_weifuwu_users').select('id', 'email', 'name', 'created_at').where({ id: { eq: uid } }).run()
     const memberships = await orm.query.from('_weifuwu_app_members m')
       .join('_weifuwu_apps a', { 'a.id': { col: 'm.app_id' } })
       .select('a.slug', 'a.name', 'm.role')
-      .where({ 'm.user_id': { eq: String(uid) } }).run()
-    const agents = await orm.query.from('agents').select('id', 'app_id', 'type', 'name', 'description', 'created_at').where({ user_id: { eq: String(uid) } }).run()
+      .where({ 'm.user_id': { eq: uid } }).run()
+    const agents = await orm.query.from('agents').select('id', 'app_id', 'type', 'name', 'description', 'created_at').where({ user_id: { eq: uid } }).run()
     const messages = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .select('m.id', 'm.department_id', 'm.content', 'm.msg_type', 'm.created_at')
-      .where({ 'a.user_id': { eq: String(uid) } }).run()
+      .where({ 'a.user_id': { eq: uid } }).run()
     const data = { profile, memberships, agents, messages }
     return new Response(JSON.stringify(data, null, 2), {
       headers: { 'Content-Type': 'application/json', 'Content-Disposition': 'attachment; filename="my-data.json"' },
@@ -945,13 +945,13 @@ async function main() {
     const { orm, auth } = ctx
     const uid = auth!.userId
     // 1) 匿名化平台账号（email 唯一约束 → 用 deleted-{id} 占位；密码失效）
-    await orm.query.update('_weifuwu_users').set({ email: `deleted-${String(uid).slice(0, 8)}@deleted.local`, name: '已删除用户', password_hash: null }).where({ id: { eq: String(uid) } }).run()
+    await orm.query.update('_weifuwu_users').set({ email: `deleted-${String(uid).slice(0, 8)}@deleted.local`, name: '已删除用户', password_hash: null }).where({ id: { eq: uid } }).run()
     // 2) 停用绑定的 user Agent（消息历史 sender 不再关联真实身份）
-    await orm.query.update('agents').set({ is_active: false, name: '已删除用户' }).where({ user_id: { eq: String(uid) } }).run()
+    await orm.query.update('agents').set({ is_active: false, name: '已删除用户' }).where({ user_id: { eq: uid } }).run()
     // 3) 移除成员关系
-    await orm.query.delete('_weifuwu_app_members').where({ user_id: { eq: String(uid) } }).run()
+    await orm.query.delete('_weifuwu_app_members').where({ user_id: { eq: uid } }).run()
     // 4) 清除会话（refresh token 失效）
-    await orm.query.delete('_weifuwu_sessions').where({ user_id: { eq: String(uid) } }).run()
+    await orm.query.delete('_weifuwu_sessions').where({ user_id: { eq: uid } }).run()
     // 审计（用户 id 已匿名——记录 app 级事件）
     try {
       const { writeAudit } = await import('./src/services/audit.ts')
@@ -971,7 +971,7 @@ async function main() {
       throw new HttpError('新密码至少 6 位', 400)
     }
 
-    const [user] = await orm.query.from('_weifuwu_users').select('password_hash').where({ id: { eq: String(auth!.userId) } }).run()
+    const [user] = await orm.query.from('_weifuwu_users').select('password_hash').where({ id: { eq: auth.userId } }).run()
     if (!user) throw new HttpError('用户不存在', 404)
 
     const valid = await verifyPassword(body.currentPassword, user.password_hash as string)
@@ -981,7 +981,7 @@ async function main() {
 
     // 业务侧（appAuth 薄面）无 AuthApi 方法面——密码更新为通用原语（hashPassword 导出）
     const newHash = await hashPassword(body.newPassword)
-    await orm.query.update('_weifuwu_users').set({ password_hash: newHash }).where({ id: { eq: String(auth!.userId) } }).run()
+    await orm.query.update('_weifuwu_users').set({ password_hash: newHash }).where({ id: { eq: auth.userId } }).run()
     return Response.json({ success: true })
   })
 
@@ -1233,7 +1233,7 @@ async function main() {
       const body = await req.json()
       // R3 计量收口：Webhook 调用受计划配额约束（免费版到期/超限 → 402）
       const { planBlockForApp } = await import('./src/services/webhook.ts')
-      const [whAgent] = await ctx.orm.query.from('agents').where({ id: { eq: String(ctx.params.agentId) }, type: { eq: 'webhook' } }).select('app_id').limit(1).run()
+      const [whAgent] = await ctx.orm.query.from('agents').where({ id: { eq: ctx.params.agentId }, type: { eq: 'webhook' } }).select('app_id').limit(1).run()
       const whAppId = whAgent ? String(whAgent.app_id ?? '') : ''
       if (whAppId) {
         const block = await planBlockForApp(ctx, whAppId)
@@ -1469,7 +1469,7 @@ async function main() {
       if (missing.length > 0) {
         return Response.json({ error: `缺少角色部门：${missing.join('、')}（先跑 seed-survey-agents.mjs）` }, { status: 404 })
       }
-      const [sender] = await pg.orm.query.from('agents').where({ app_id: { eq: String(ctx.appId) }, type: { eq: 'user' } }).select('id').limit(1).run()
+      const [sender] = await pg.orm.query.from('agents').where({ app_id: { eq: ctx.appId }, type: { eq: 'user' } }).select('id').limit(1).run()
       const senderId = sender ? String(sender.id) : 'system'
       const { handleNewMessageStream } = await import('./src/services/chat.ts')
       // 并发派单（各部门沙盒同时执行浏览器任务）；分批 3 个控制瞬时连接/容器启动峰值

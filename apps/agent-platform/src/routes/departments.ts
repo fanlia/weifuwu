@@ -24,7 +24,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
 
     // orm-pg-subquery 判负修订：4 个标量子查询投影 → 主查 departments + 组查（成员计数/最近消息）Map 合并
     const deps0 = await orm.query.from('departments').select('id', 'app_id', 'name', 'is_dm', 'created_at')
-      .where({ app_id: { eq: String(appId) }, ...(q ? { name: { ilike: `%${q}%` } } : {}) })
+      .where({ app_id: { eq: appId }, ...(q ? { name: { ilike: `%${q}%` } } : {}) })
       .limit(limit).offset(offset).run()
     const depIds = deps0.map((d) => String(d.id))
     const memRows = depIds.length ? await orm.query.from('department_members').select('department_id', 'agent_id')
@@ -98,11 +98,11 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .select('d.id')
       .join('department_members dm1', and(
         { 'dm1.department_id': { col: 'd.id' } },
-        { 'dm1.agent_id': { eq: String(me.id) } },
+        { 'dm1.agent_id': { eq: me.id } },
       ))
       .join('department_members dm2', and(
         { 'dm2.department_id': { col: 'd.id' } },
-        { 'dm2.agent_id': { eq: String(target.id) } },
+        { 'dm2.agent_id': { eq: target.id } },
       ))
       .where({ 'd.is_dm': { eq: true } })
       .exists(
@@ -215,7 +215,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       // 组织层级：经理提示词单源（org-manager.ts）——成员名单实时化（成员增删刷新）
       try {
         const { refreshManagerPrompt } = await import('../services/org-manager.ts')
-        await refreshManagerPrompt(orm, String(appId), String(department.id))
+        await refreshManagerPrompt(orm, appId, String(department.id))
       } catch { /* 提示词生成失败不阻断 */ }
       manager = { id: mgr.id, name: mgr.name }
     }
@@ -243,7 +243,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     const { sql } = ctx
     const { manager } = await import('../sandbox/manager.ts')
     manager.init(orm)
-    const sb = await manager.byDepartment(String(params.id))
+    const sb = await manager.byDepartment(params.id)
     const envMap: Record<string, { status: string; label: string }> = {
       running: { status: 'ready', label: 'AI 随时能干活' },
       stopped: { status: 'cold', label: 'AI 休息中，干活时自动唤醒' },
@@ -256,7 +256,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     let files: Array<{ name: string; type: string; size: number; mtime: string }> = []
     try {
       const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
-      const ws = await resolveDepartmentWorkspace(String(params.id), (dept as any).workspace_path, true)
+      const ws = await resolveDepartmentWorkspace(params.id, (dept as any).workspace_path, true)
       if (ws) {
         const { readdir, stat } = await import('node:fs/promises')
         const { join } = await import('node:path')
@@ -299,7 +299,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
         .run()
       for (const m of mgrRows ?? []) {
         const subDeptId = String((m as any).department_id)
-        if (subDeptId === String(params.id)) continue // 排除自我引用（经理代表本部门）
+        if (subDeptId === params.id) continue // 排除自我引用（经理代表本部门）
         const [sd] = await T.departments
           .select('id', 'name', 'workspace_path')
           .where(and(eq(T.departments.c.id, subDeptId), eq(T.departments.c.app_id, appId)))
@@ -398,7 +398,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
         if (turningOff) {
           const { sql } = ctx
           const { flushPendingArtifacts } = await import('../services/artifact-review.ts')
-          await flushPendingArtifacts(sql, String(params.id))
+          await flushPendingArtifacts(sql, params.id)
         }
       } catch { /* 切换失败不阻断 */ }
     }
@@ -440,7 +440,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     try {
       const { manager } = await import('../sandbox/manager.ts')
       manager.init(orm)
-      await manager.terminateByDepartment(String(params.id))
+      await manager.terminateByDepartment(params.id)
     } catch { /* 沙盒清理失败不阻断删除——孤儿清理兜底 */ }
     const result = await T.departments
       .delete()
@@ -457,7 +457,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     // 三层模型：部门删除 → 工作目录清理（保留期 SANDBOX_WORKSPACE_RETENTION_DAYS 默认 0=立即删）
     try {
       const { resolveDepartmentWorkspace, getDefaultWorkspaceRoot } = await import('../middleware/workspace.ts')
-      const ws = await resolveDepartmentWorkspace(String(params.id), null, true)
+      const ws = await resolveDepartmentWorkspace(params.id, null, true)
       if (ws) {
         const retentionDays = Number(process.env.SANDBOX_WORKSPACE_RETENTION_DAYS ?? 0)
         if (retentionDays <= 0) {
@@ -526,7 +526,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     // 组织层级：成员变化 → 刷新部门经理提示词（成员名单实时化）
     try {
       const { refreshManagerPrompt } = await import('../services/org-manager.ts')
-      await refreshManagerPrompt(orm, String(appId), String(params.id))
+      await refreshManagerPrompt(orm, appId, params.id)
     } catch { /* 刷新失败不阻断 */ }
 
     return Response.json({ success: true })
@@ -555,7 +555,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     // 组织层级：成员变化 → 刷新部门经理提示词（成员名单实时化）
     try {
       const { refreshManagerPrompt } = await import('../services/org-manager.ts')
-      await refreshManagerPrompt(orm, String(appId), String(params.id))
+      await refreshManagerPrompt(orm, appId, params.id)
     } catch { /* 刷新失败不阻断 */ }
 
     return Response.json({ success: true })
@@ -573,7 +573,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     if (!dept) throw new HttpError('部门不存在', 404)
     const { sql } = ctx
     const { listPendingArtifacts } = await import('../services/artifact-review.ts')
-    const items = await listPendingArtifacts(sql, String(params.id))
+    const items = await listPendingArtifacts(sql, params.id)
     return Response.json({ pending: items })
   })
 
@@ -610,8 +610,8 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     const { sql } = ctx
     const { approveArtifact, rejectArtifact } = await import('../services/artifact-review.ts')
     const r = action === 'approve'
-      ? await approveArtifact(sql, String(params.id), relPath)
-      : await rejectArtifact(sql, String(params.id), relPath)
+      ? await approveArtifact(sql, params.id, relPath)
+      : await rejectArtifact(sql, params.id, relPath)
     if (!r.ok) return Response.json({ error: r.error }, { status: 400 })
     return Response.json({ success: true, path: relPath })
   })

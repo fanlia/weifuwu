@@ -17,7 +17,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
   // 静默空数据（违反无静默原则）。显式 401 → 前端走续期/重登录链。
   const requireAppId = (ctx: AppCtx): string | null => {
     const appId = (ctx as unknown as { appId?: string }).appId
-    return appId ? String(appId) : null
+    return appId ? appId : null
   }
 
   // ── 完整统计数据 ───────────────────────────────────────
@@ -38,28 +38,28 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       .count('*', 'webhook_count', { type: { eq: 'webhook' }})
       .count('*', 'kb_count', { type: { eq: 'knowledge_base' }})
       .count('*', 'user_count', { type: { eq: 'user' }})
-      .where({ app_id: { eq: String(appId) } })
+      .where({ app_id: { eq: appId } })
       .run()
 
-    const [deptStats] = await orm.query.from('departments').count('*', 'total').where({ app_id: { eq: String(appId) } }).run()
+    const [deptStats] = await orm.query.from('departments').count('*', 'total').where({ app_id: { eq: appId } }).run()
 
     const [msgStats] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .count('*', 'total')
-      .where({ 'a.app_id': { eq: String(appId) } })
+      .where({ 'a.app_id': { eq: appId } })
       .run()
 
     const [tokenStats] = await orm.query.from('agent_logs')
       .sum('tokens_prompt', 'total_prompt')
       .sum('tokens_completion', 'total_completion')
       .sum('tokens_total', 'total_tokens')
-      .where({ app_id: { eq: String(appId) } })
+      .where({ app_id: { eq: appId } })
       .run()
 
     // 近 14 天成本趋势（agent_logs 按天聚合——老板看运营成本走势）
     // orm-pg-date-trunc 判负修订：DATE() 分组投影 → 拉窗口数据内存聚合（语义等价）
     const costLogs = await orm.query.from('agent_logs').select('created_at', 'tokens_prompt', 'tokens_completion', 'tokens_total')
-      .where({ app_id: { eq: String(appId) }, created_at: { gte: ops.nowAgo(14, 'day') } }).run()
+      .where({ app_id: { eq: appId }, created_at: { gte: ops.nowAgo(14, 'day') } }).run()
     const dayBy = new Map<string, { prompt: number; completion: number; total: number }>()
     for (const r of costLogs) {
       const d = String(r.created_at).slice(0, 10)
@@ -76,7 +76,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     const msgRows = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .select('m.created_at', 'm.sender_id')
-      .where({ 'a.app_id': { eq: String(appId) }, 'm.created_at': { gte: ops.nowAgo(14, 'day') } }).run()
+      .where({ 'a.app_id': { eq: appId }, 'm.created_at': { gte: ops.nowAgo(14, 'day') } }).run()
     const trendBy = new Map<string, { count: number; senders: Set<string> }>()
     for (const r of msgRows) {
       const d = String(r.created_at).slice(0, 10)
@@ -95,7 +95,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       .select('a.id', 'a.name', 'a.type')
       .count('m.id', 'message_count')
       .max('m.created_at', 'last_active_at')
-      .where({ 'a.app_id': { eq: String(appId) }, 'm.created_at': { gte: ops.nowAgo(7, 'day') } })
+      .where({ 'a.app_id': { eq: appId }, 'm.created_at': { gte: ops.nowAgo(7, 'day') } })
       .groupBy('a.id', 'a.name', 'a.type')
       .orderBy('message_count', 'desc')
       .limit(8)
@@ -120,13 +120,13 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       .select()
       .count('*', 'runs')
       .count('*', 'ok_runs', { success: { eq: true }})
-      .where({ app_id: { eq: String(appId) } })
+      .where({ app_id: { eq: appId } })
       .run()
     const [feedback] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .count('*', 'likes', { 'm.feedback': { eq: 'like' }})
       .count('*', 'dislikes', { 'm.feedback': { eq: 'dislike' }})
-      .where({ 'a.app_id': { eq: String(appId) }, 'm.feedback': { isNull: false } })
+      .where({ 'a.app_id': { eq: appId }, 'm.feedback': { isNull: false } })
       .run()
     const toolSuccessRate = Number((quality as any)?.runs ?? 0) > 0
       ? Math.round(Number((quality as any)?.ok_runs ?? 0) / Number((quality as any)?.runs ?? 0) * 100)
@@ -135,7 +135,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     const [aiMsgRow] = await orm.query.from('messages m')
       .join('agents a', { 'a.id': { col: 'm.sender_id' } })
       .count('*', 'cnt')
-      .where({ 'a.app_id': { eq: String(appId) }, 'a.type': { eq: 'ai' }, 'm.ai_approved': { isNull: false }, 'm.created_at': { gte: ops.monthStart() } })
+      .where({ 'a.app_id': { eq: appId }, 'a.type': { eq: 'ai' }, 'm.ai_approved': { isNull: false }, 'm.created_at': { gte: ops.monthStart() } })
       .run()
     const aiRepliesMonth = Number((aiMsgRow as any)?.cnt ?? 0)
     const savedYuan = Math.max(0, aiRepliesMonth * COST_PER_AI_REPLY - estCostYuan).toFixed(2)
@@ -158,10 +158,10 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
   app.get('/api/stats/report', async (req: Request, ctx: AppCtx): Promise<Response> => {
     if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
     const s = await buildStats(ctx) as any
-    const [app] = await ctx.orm.query.from('_weifuwu_apps').select('name', 'plan', 'trial_ends_at').where({ id: { eq: String(ctx.appId) } }).limit(1).run()
+    const [app] = await ctx.orm.query.from('_weifuwu_apps').select('name', 'plan', 'trial_ends_at').where({ id: { eq: ctx.appId } }).limit(1).run()
     const [used] = await ctx.orm.query.from('agent_logs')
       .sum('tokens_total', 'used')
-      .where({ app_id: { eq: String(ctx.appId) }, created_at: { gte: ops.monthStart() } })
+      .where({ app_id: { eq: ctx.appId }, created_at: { gte: ops.monthStart() } })
       .run()
     const appName = String(app?.name ?? '本应用')
     const planLabel = String(app?.plan ?? 'free') === 'pro' ? '专业版' : '免费试用'
@@ -232,14 +232,14 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     const { orm, appId } = ctx
     // orm-pg-subquery 判负修订：LEFT JOIN 聚合 + HAVING → 主查 agents + 组查 agent_logs
     // 聚合 Map 合并（HAVING COUNT>0 → 组查非零过滤）
-    const ag = await orm.query.from('agents').select('id', 'name', 'type').where({ app_id: { eq: String(appId) } }).run()
+    const ag = await orm.query.from('agents').select('id', 'name', 'type').where({ app_id: { eq: appId } }).run()
     const agIds = ag.map((a) => String(a.id))
     const aggRows = agIds.length ? await orm.query.from('agent_logs').select('agent_id')
       .count('*', 'run_count')
       .sum('tokens_total', 'tokens_total')
       .sum('tokens_prompt', 'tokens_prompt')
       .sum('tokens_completion', 'tokens_completion')
-      .where({ agent_id: { in: agIds }, app_id: { eq: String(appId) } })
+      .where({ agent_id: { in: agIds }, app_id: { eq: appId } })
       .groupBy('agent_id').run() : []
     const aggMap = new Map(aggRows.map((x) => [String(x.agent_id), x]))
     const rows = ag
@@ -255,7 +255,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     if (!requireAppId(ctx)) return Response.json({ error: 'Unauthorized' }, { status: 401 })
     const { orm, appId } = ctx
     // orm-pg-subquery 判负修订：三级 LEFT JOIN 聚合 → 主查 departments + 3 组查 Map 合并
-    const deps = await orm.query.from('departments').select('id', 'name', 'is_dm').where({ app_id: { eq: String(appId) } }).run()
+    const deps = await orm.query.from('departments').select('id', 'name', 'is_dm').where({ app_id: { eq: appId } }).run()
     const depIds = deps.map((d) => String(d.id))
     const mCnt = depIds.length ? await orm.query.from('messages').select('department_id').count('*', 'messages')
       .where({ department_id: { in: depIds }, ai_approved: { ne: false } }).groupBy('department_id').run() : []
@@ -264,7 +264,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       .count('*', 'runs_ok', { success: { eq: true } })
       .sum('tokens_total', 'tokens')
       .max('created_at', 'last_active')
-      .where({ department_id: { in: depIds }, app_id: { eq: String(appId) } })
+      .where({ department_id: { in: depIds }, app_id: { eq: appId } })
       .groupBy('department_id').run() : []
     const mMap = new Map(mCnt.map((x) => [String(x.department_id), Number((x as any).messages ?? 0)]))
     const aMap = new Map(aAgg.map((x) => [String(x.department_id), x]))
@@ -293,9 +293,9 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     }
     // P3-2 告警：配额压力（active sandbox / quota ≥ 80%）
     try {
-      const [q] = await ctx.orm.query.from('_weifuwu_apps').select('sandbox_quota').where({ id: { eq: String(appId) } }).limit(1).run()
+      const [q] = await ctx.orm.query.from('_weifuwu_apps').select('sandbox_quota').where({ id: { eq: appId } }).limit(1).run()
       const limit = Number((q as any)?.sandbox_quota ?? 5)
-      const [c] = await ctx.orm.query.from('sandboxes').count('*', 'n').where({ app_id: { eq: String(appId) }, status: { ne: 'terminated' } }).run()
+      const [c] = await ctx.orm.query.from('sandboxes').count('*', 'n').where({ app_id: { eq: appId }, status: { ne: 'terminated' } }).run()
       quotaPressure = limit > 0 && Number(c?.n ?? 0) / limit >= 0.8
       if (quotaPressure) {
         console.warn(`[agent-platform] 沙盒配额压力：${c?.n}/${limit}（≥80%）——app ${appId}`)
@@ -315,7 +315,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: 'event 必须是 register_complete/agent_created/first_message 之一' }, { status: 400 })
     }
     try {
-      await ctx.orm.query.insert('events').values({ app_id: String(appId), event: body.event }).run()
+      await ctx.orm.query.insert('events').values({ app_id: appId, event: body.event }).run()
     } catch {
       // 部分唯一索引冲突（first_message 已记）——幂等，忽略
     }
@@ -330,7 +330,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       .count('*', 'register_complete', { event: { eq: 'register_complete' }})
       .count('*', 'agent_created', { event: { eq: 'agent_created' }})
       .count('*', 'first_message', { event: { eq: 'first_message' }})
-      .where({ app_id: { eq: String(appId) } })
+      .where({ app_id: { eq: appId } })
       .run()
     const mine = rows[0] as { register_complete: number; agent_created: number; first_message: number } | undefined
     // DISTINCT app_id×event → 主查 events（app/event 列）内存去重计数
@@ -356,7 +356,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       .select('id', 'messages_count', 'steps_count',
         'tokens_prompt', 'tokens_completion', 'tokens_total',
         'elapsed_ms', 'success', 'created_at')
-      .where({ agent_id: { eq: params.agentId }, app_id: { eq: String(appId) } })
+      .where({ agent_id: { eq: params.agentId }, app_id: { eq: appId } })
       .orderBy('created_at', 'desc')
       .limit(50)
       .run()
@@ -369,7 +369,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     const logs = await orm.query.from('webhook_logs')
       .select('id', 'request_body', 'response_body', 'response_status',
         'elapsed_ms', 'success', 'created_at')
-      .where({ agent_id: { eq: params.agentId }, app_id: { eq: String(appId) } })
+      .where({ agent_id: { eq: params.agentId }, app_id: { eq: appId } })
       .orderBy('created_at', 'desc')
       .limit(30)
       .run()
@@ -387,7 +387,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       .select('r.id', 'r.kind', 'r.status', 'r.plan_json', 'r.worker_results', 'r.request_id',
         'r.created_at', 'r.updated_at',
         'a.name AS orchestrator_name')
-      .where({ 'r.app_id': { eq: String(appId) } })
+      .where({ 'r.app_id': { eq: appId } })
       .orderBy('r.created_at', 'desc')
       .limit(limit)
       .run()

@@ -22,7 +22,7 @@ export function registerDeliverableRoutes(app: any): void {
 
     const depts = await orm.query.from('departments d')
       .select('d.id', 'd.name', 'd.workspace_path')
-      .where({ 'd.app_id': { eq: String(appId) } })
+      .where({ 'd.app_id': { eq: appId } })
       .run()
     if (depts.length === 0) return Response.json({ files: [] })
 

@@ -51,7 +51,7 @@ export function registerSkillRoutes(app: Router<AppCtx>): void {
     }
 
     const [skill] = await T.agent_skills
-      .insert({ agent_id: String(params.id), skill_name: body.skill_name, skill_dir: body.skill_dir })
+      .insert({ agent_id: params.id, skill_name: body.skill_name, skill_dir: body.skill_dir })
       .returning('id', 'skill_name', 'skill_dir', 'enabled', 'created_at')
       .run()
     return Response.json({ skill }, { status: 201 })

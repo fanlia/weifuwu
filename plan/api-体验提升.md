@@ -59,7 +59,7 @@ route 内 try/catch 绕过链。
   接线 · agents list 删 try/catch（链兜底试点）
 - W1（d2c69ba4）：响应面收口——六面 104 处手写 error json → throw HttpError
   （链单源——形状等价 · status 权威）· 契约 2（throw/return 等价 + 家族矩阵）
-- W2（本提交）：手写面按需迁移——bodyOf 试点 2 处（departments patch 变体 +
+- W2（e5f2a00e）：手写面按需迁移——bodyOf 试点 2 处（departments patch 变体 +
   messages insert omit 系统列）· **判负登记：bodyOf 全量迁移**（33 处中适配集
   极小——多数是语义操作体（密码/房间/技能配置/审批面——非 shape 输入面）；
   bodyOf 是表输入面不是通用 JSON 面——通用解析 = parseBody）· **listQuery
@@ -67,6 +67,14 @@ route 内 try/catch 绕过链。
   非列表查询面；listQuery 适配集 = orm 直查 list（agents 已收）——manager
   封装面（sandboxes）与业务参数面不适配）——推翻条件：语义操作体出现「同
   shape 多字段校验样板」>3 处
+- W3（本提交）：消噪专项——**-91 处**（250 → 159 routes 域）· 清理面：
+  `eq: String(x)` 幂等噪音 79（x 已知 string——tsc 证型）· `String(auth!.userId)`
+  10 · insert/值面幂等 58（appId/params.id/auth.userId 已知 string）· 风险面
+  修复：双重 String(String())→单层 · String(null) 风险显式化（department_id
+  nullable——msg.department_id && has()——不 String(null)）· **判负归档**：
+  剩余 159 处为语义用途（Map 键归一 ~40 · `?? ''` 防护面 · uuid 对象归一）——
+  String() 全清判负延续（类型已对——剩面是语义）——推翻：String(null/undefined)
+  进库实例出现
 
 ## 验收标准
 

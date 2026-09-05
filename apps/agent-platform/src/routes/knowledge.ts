@@ -57,7 +57,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
     const [doc] = await ctx.orm.query.from('kb_documents d')
       .join('agents a', { 'a.id': { col: 'd.agent_id' } })
       .select('d.id', 'd.filename', 'd.content', 'd.chunk_count', 'd.created_at')
-      .where(and({ 'd.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
+      .where(and({ 'd.id': { eq: params.id }}, { 'a.app_id': { eq: appId } }))
       .run()
     if (!doc) {
       throw new HttpError('文档不存在', 404)
@@ -233,7 +233,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
     const [own] = await ctx.orm.query.from('kb_documents d')
       .join('agents a', { 'a.id': { col: 'd.agent_id' } })
       .select('d.id')
-      .where(and({ 'd.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
+      .where(and({ 'd.id': { eq: params.id }}, { 'a.app_id': { eq: appId } }))
       .run()
     if (!own) throw new HttpError('文档不存在', 404)
     const result = await T.kb_documents
@@ -296,7 +296,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
         .run()
       for (let i = 0; i < chunks.length; i++) {
         await T.kb_chunks
-          .insert({ document_id: String(doc.id), agent_id: String(params.id), content: chunks[i], chunk_index: i, embedding: `[${embeddings[i].join(',')}]` })
+          .insert({ document_id: String(doc.id), agent_id: params.id, content: chunks[i], chunk_index: i, embedding: `[${embeddings[i].join(',')}]` })
           .run()
       }
       reindexed++
@@ -332,7 +332,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .join('kb_documents kd', { 'kd.id': { col: 'kc.document_id' } })
       .select('kc.id', 'kc.content', 'kc.chunk_index', 'kc.document_id', 'kd.filename')
       .vectorScore('kc.embedding', queryEmbedding, 'similarity')
-      .where({ 'kc.agent_id': { eq: String(params.id) } })
+      .where({ 'kc.agent_id': { eq: params.id } })
       .limit(topK)
       .run()
 

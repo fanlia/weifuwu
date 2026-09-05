@@ -34,7 +34,7 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
     const { orm, appId } = ctx
     const [dept] = await orm.query.from('departments')
       .select('id', 'is_dm', 'workspace_path')
-      .where({ id: { eq: departmentId }, app_id: { eq: String(appId) } })
+      .where({ id: { eq: departmentId }, app_id: { eq: appId } })
       .limit(1)
       .run()
     if (!dept) return null
