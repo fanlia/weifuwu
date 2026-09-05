@@ -383,3 +383,91 @@ insert/update/delete——query 参数 schema/limit clamp/枚举白名单/404·2
 
 **真实化承诺**：SDL/路由表是 **shape 投影**——「声明了就有行为」，没有
 「声明但静默跳过」（vector 列显式 [Float!]、未知字段显式报错）。
+
+### 5.4.1 用法（两分钟上手）
+
+**gql 面**（`/api/gql`——租户 scope/hidden/校验全自动）：
+
+```ts
+const agentGql = pg.orm.gql(pg.orm.table('agents'), { hidden: ['webhook_secret'] })
+app.graphql('/api/gql', async (req, ctx) => ({
+  schema: agentGql.typeDefs,          // SDL（shape 投影——声明即有行为）
+  resolvers: agentGql.resolvers,
+  context: () => ({ orm: ctx.orm, appId: ctx.appId }),  // tenant.value 读 appId
+}))
+// query { agentsList(filter: {type: {eq: ai}}, sort: [{field: created_at, dir: desc}], limit: 10) { id name } }
+// mutation { agentsInsert(data: {type: ai, name: "x"}) { id } }   // app_id 自动注入
+```
+
+**rest 面**（`orm.rest(Table).mount(app, base)`——5 个标准路由）：
+
+```ts
+pg.orm.rest(pg.orm.table('agents'), {
+  hidden: ['webhook_secret'],
+  hooks: {
+    beforeList: (req, ctx) => { if (!canRead(ctx)) throw new Error('403') },  // 业务守卫
+    afterList: async (rows) => rows.map((r) => ({ ...r, annotated: true })), // 响应增强
+  },
+}).mount(app, '/api/rest-agents')
+// GET  /api/rest-agents?type=ai&sort=-created_at&limit=20   → { agents, total }
+// GET  /api/rest-agents/:id        → 200/404（跨租户 404）
+// POST /api/rest-agents            → 201（app_id 自动注入·校验 400）
+// PATCH /api/rest-agents/:id       → 200/404
+// DELETE /api/rest-agents/:id      → 204/404
+```
+
+### 5.4.2 边界判别（写业务前先问）
+
+**一票判别**：_「除了 参数→orm→响应 还有别的行为吗？」_
+
+| 场景 | 判别 | 平台实证 |
+| --- | --- | --- |
+| agents/departments list（成员计数/最近消息/token 聚合） | 有聚合 → **手写** | departments.ts:17（组查+Map 合并） |
+| agents/resp 校验业务逻辑（DM 编排/from-template） | 有业务 → **手写** | departments.ts:72 / role-templates.ts:180 |
+| 新纯 CRUD 表（无聚合/无跨表/无权限分支） | 无 → **生成** | role_templates（当前无路由消费——未来表化直接 rest/gql） |
+| 权限守卫/响应增强 | **hooks 接缝**（before*/after*） | agents-rest 试点 |
+| 跨表查询（join/子查询） | typedQuery（手写——关系面判负） | agents.ts stats 聚合 |
+
+**接缝覆盖序**：hooks（before/after）→ 覆盖 resolvers map（gql）→ 整路由
+替换（rest——mount 前不注册同名路径）。
+
+### 5.4.3 三条铁律
+
+1. **租户列表在 gql/rest 面恒可缺省**——服务端自动注入（SDL/校验面不
+   强制客户端传 app_id；显式传=优先）
+2. **无租户列的表（全局表）在 tenant 中间件下不 scope**——不注入不存在的
+   列（role_templates/workflows 可用）
+3. **hidden 列三面不出现**——SDL 不生成/路由不返回/未知字段显式报错
+   （不可查询≠静默丢弃——声明即行为）
+
+### 5.4.4 判负清单（可被新论证推翻）
+
+- json 字段标量化：不做——String 序列化（平台 12 jsonb 列 0 gql 消费）
+- uuid→ID 标量：不做——String 面已契约化（迁移破坏旧契约无收益）
+- 关系面（JOIN/嵌套对象）：不做（typedQuery 集成复杂度高且无消费者）
+- connection/cursor 分页：不做——rows+total 对齐 paginate（数据量级 <10^4）
+- subscription：不做（ws 中间件已有订阅面）
+- graphql 包移除（自研执行器）：不做——graphql ^16 生态成熟（与
+  esbuild/ws 同级——非四类核心内存化矩阵范围）
+- 嵌套路由 REST（/api/agents/:id/skills）：不做——rest 路由是表平面
+- 批量 upsert mutation：不做——无场景（workflow 批量走 query 面）
+
+### 5.4.5 执行实录（gql/rest 提升——2027-xx）
+
+- **I1** `{eq:null}` 被吞 → `isNull`（Filter 桥与 O1 判空单源——filterToWhere）
+- **I2** sort SDL `[SortInput!]` 声明 vs resolver 只取 sort[0] → 多字段链真实化
+- **I3** gql 租户双源（gqlFromShape opts.tenant vs createOrm tenant）→
+  orm.gql 自动派生 createOrm.tenant（单源——gql 不可绕过租户隔离）
+- **I4** enum 列无过滤面 → Filter 值面 GraphQL enum（eq/ne/in/notIn/isNull）
+- **I5** vector 列 SDL 静默消失 → `[Float!]`（zodToGql 认识 ZodVector）
+- **W4 执行实录**（rest 面）：ctxTable 兼容（无 CtxOrm → table）；POST/PATCH
+  校验与映射单源（ctxTable 内部——rest 前置 parse 时序错已修）；错误 catch →
+  400 语义；migrateModule 列需带 meta（memory observed 态无 pk 补位——
+  t.pk 仅 declared 设置——平台 migrate 同构）
+- **W5 执行实录**（平台试点）：① isOptional 缺 ZodNullable（insert input
+  nullable 列 required 化——agents 20+ 列）② insert 租户注入先于校验
+  （parse 拒绝缺省 app_id）③ 租户列 SDL 声明 required → 恒可选 ④ CtxOrm
+  全局表注入不存在的列 → 字段不存在不 scope ⑤ dist 重建纪律（平台经
+  dist 引框架——改 src 后必须 build——本轮 3 次 build 教训）
+- **盲区教训**：契约层 enum 测试只测 filter（输入面）——输出序列化/字面量
+  输入（GraphQL 规范：enum 不带引号）首见于平台试点——盲区先补测再信绿

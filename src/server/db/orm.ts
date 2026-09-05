@@ -21,7 +21,7 @@ import type { Query } from './query.ts'
 import type { QueryResult } from './contracts.ts'
 import type { ZodRawShape } from '../../shared/zod.ts'
 import { shape } from './shape.ts'
-import { gqlFromShape, type GqlShapeOptions } from './gql-from-shape.ts'
+import { gqlFromShape, type GqlShapeOptions, type GqlShapeOutput } from './gql-from-shape.ts'
 import { restFromShape } from './rest-from-shape.ts'
 import type { SelectBuilder, InsertBuilder, UpdateBuilder, DeleteBuilder, QueryBuilder, WhereExpr } from './query.ts'
 import type { Infer } from '../../shared/zod.ts'
@@ -96,7 +96,7 @@ export interface Orm {
   /** 兜底查询面（复杂 JOIN/嵌套——builder 原生） */
   query: QueryBuilder
   /** GraphQL 生成（shape → SDL + resolvers——内置链路输入） */
-  gql<S extends ZodRawShape>(table: OrmTable<S>, opts?: GqlShapeOptions): unknown
+  gql<S extends ZodRawShape>(table: OrmTable<S>, opts?: GqlShapeOptions): GqlShapeOutput
   /** RESTful 面（W4——restFromShape 入口对称：`rest = orm.rest(table); rest.mount(app, base)`） */
   rest<S extends ZodRawShape>(table: OrmTable<S>, opts?: import('./rest-from-shape.ts').RestShapeOptions): import('./rest-from-shape.ts').RestShapeOutput
   /** 事务（fn 内同连接执行——commit 可见/rollback 撤销；memory 单线程 no-op 等价） */

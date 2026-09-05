@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs'
 
 // ── 路由 ──────────────────────────────────────────────────
 import { registerAgentRoutes } from './src/routes/agents.ts'
+import { tables } from './src/db/orm.ts'
 import { registerWorkspaceRoutes } from './src/routes/workspace.ts'
 import { registerDepartmentRoutes } from './src/routes/departments.ts'
 import { registerDemoRoutes } from './src/routes/demo.ts'
@@ -667,6 +668,18 @@ async function main() {
   // 公司
   // Agent
   registerAgentRoutes(protectedRoutes)
+
+  // ── W5：/api/gql —— agents 声明式 GraphQL 面（orm.gql——样板 resolver 生成；
+  //   租户 scope 自动注入（contextValue.appId）+ webhook_secret hidden 豁免；
+  //   复杂查询（token 聚合等）仍走手写 route——分层纪律） ──
+  // 注意：tables(pg.orm) 先行使注册（平台注册面是惰性的——route 处理时注册；
+  //   registry 幂等——route 面共享实例——启动路径先行调用是安全的）
+  const agentGql = pg.orm.gql(tables(pg.orm).agents, { hidden: ['webhook_secret'] })
+  protectedRoutes.graphql('/api/gql', async (_req, ctx) => ({
+    schema: agentGql.typeDefs,
+    resolvers: agentGql.resolvers,
+    context: () => ({ orm: (ctx as unknown as AppCtx).orm, appId: (ctx as unknown as AppCtx).appId }),
+  }))
 
   // ── workflow 系统（框架：引擎存储/编排——routes 必须在 mount 前注册——mount 快照收集） ──
   const workflowSystemInstance = workflowSystem({

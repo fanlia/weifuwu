@@ -81,6 +81,14 @@ export function getSharedServer(): Promise<AgentServer> {
       await new Promise((r) => setTimeout(r, 300))
     }
     if (!(await probeShared())) {
+      // 失败路径清理（真实级联防泄漏——启动失败的 spawn 子进程必须 kill——
+      // 否则残留 server 进程占端口/资源——下一轮 pretest 只清 pid 文件写了
+      // 的情形——失败路径 pid 未写——kill 是唯一可靠面）
+      try { server.kill('SIGKILL') } catch { /* 尽力 */ }
+      try {
+        const { rmSync } = await import('node:fs')
+        rmSync('/tmp/ap-shared-server.pid', { force: true })
+      } catch { /* 尽力 */ }
       throw new Error(`共享 server 启动超时（30s）——端口 ${SHARED_PORT}`)
     }
     // PID 文件（posttest 清理用——pkill 匹配不到 env PORT——PID 最可靠）
