@@ -131,21 +131,25 @@ export async function createCampaign(ctx: AppCtx, body: CreateCampaignBody): Pro
   }
   const chosen = pool.slice(0, total)
 
-  const T = tables(orm)
-  const [campaign] = await T.survey_campaigns
-    .insert({ app_id: String(appId), total: chosen.length, concurrency, url: body.url ?? '', retry, status: 'running' })
-    .returning('*')
-    .run()
-  const rows: RunRow[] = []
-  for (const a of chosen as any[]) {
-    const [run] = await T.survey_campaign_runs
-      .insert({ campaign_id: String((campaign as any).id), agent_id: String(a.id), agent_name: String(a.name), dept_id: String(a.department_id), status: 'queued' })
+  // W2 事务收口（试点 1）：campaign + runs（1+N 写）原子化——任一写失败整链回滚
+  // （真库同连接语义；memory 单线程无并发交错——no-op 等价诚实标注）
+  const { campaign: row, runs: rows } = await ctx.orm.transaction(async (tx) => {
+    const T = tables(tx)
+    const [campaign] = await T.survey_campaigns
+      .insert({ app_id: String(appId), total: chosen.length, concurrency, url: body.url ?? '', retry, status: 'running' })
       .returning('*')
       .run()
-    rows.push(run as RunRow)
-  }
+    const runsOut: RunRow[] = []
+    for (const a of chosen as any[]) {
+      const [run] = await T.survey_campaign_runs
+        .insert({ campaign_id: String((campaign as any).id), agent_id: String(a.id), agent_name: String(a.name), dept_id: String(a.department_id), status: 'queued' })
+        .returning('*')
+        .run()
+      runsOut.push(run as RunRow)
+    }
+    return { campaign: campaign as CampaignRow, runs: runsOut }
+  })
 
-  const row = campaign as CampaignRow
   // 启动调度循环（请求闭包——campaign 完成/取消即停）
   startCampaignLoop(ctx, row.id)
   return { campaign: row, runs: rows }
