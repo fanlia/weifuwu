@@ -27,13 +27,13 @@ export const Approvals: Component = (_props, ctx) => {
   function saveDraft(m: PendingApproval) {
     const draft = $.editDraft.trim()
     if (!draft) return
-    ctx.api!.put(`/api/messages/${m.id}/draft`, { draft })
+    ctx.api.put(`/api/messages/${m.id}/draft`, { draft })
       .then(() => { m.ai_draft = draft; $.editingId = ''; rerender() })
       .catch(() => { rerender() })
   }
 
   function load() {
-    ctx.api!.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals')
+    ctx.api.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals')
       .then(d => { $.items = d.pending ?? []; $.loading = false; rerender() })
       .catch(() => { $.loading = false; rerender() })
   }
@@ -42,31 +42,31 @@ export const Approvals: Component = (_props, ctx) => {
   async function decide(msgId: string, approved: boolean) {
     $.handling = msgId; rerender()
     try {
-      await ctx.api!.post(`/api/messages/${msgId}/approve`, { approved })
-      ctx.toast!(approved ? '已批准发布' : '已拒绝', approved ? 'success' : 'info')
+      await ctx.api.post(`/api/messages/${msgId}/approve`, { approved })
+      ctx.toast(approved ? '已批准发布' : '已拒绝', approved ? 'success' : 'info')
       $.items = $.items.filter((m) => m.id !== msgId)
-    } catch (e) { ctx.toast!(`操作失败：${errMsg(e, '请稍后重试')}`, 'error') }
+    } catch (e) { ctx.toast(`操作失败：${errMsg(e, '请稍后重试')}`, 'error') }
     $.handling = ''; rerender()
   }
 
   // CHAT-INTERACTION 延伸：批量批准（二次确认——批量动作不可逆；结果汇总 toast）
   async function bulkApprove() {
-    if ($.picked.length === 0) { ctx.toast!('请先勾选草稿', 'warning'); return }
-    const ok = await ctx.confirm!(`确定批量批准选中的 ${$.picked.length} 条草稿？批准后将正式发布`)
+    if ($.picked.length === 0) { ctx.toast('请先勾选草稿', 'warning'); return }
+    const ok = await ctx.confirm(`确定批量批准选中的 ${$.picked.length} 条草稿？批准后将正式发布`)
     if (!ok) return
     $.bulkBusy = true; rerender()
     try {
-      const r = await ctx.api!.post<{ approved: number; failed: Array<{ id: string; error: string }> }>(
+      const r = await ctx.api.post<{ approved: number; failed: Array<{ id: string; error: string }> }>(
         '/api/messages/pending-approvals/bulk', { ids: $.picked })
       const denied = (r.failed ?? []).filter((f) => f.error.includes('管理员')).length
       const parts = [`已批准 ${r.approved} 条`]
       if (denied > 0) parts.push(`${denied} 条无权限（需部门管理员）`)
       if ((r.failed ?? []).length - denied > 0) parts.push(`${r.failed.length - denied} 条失败`)
-      ctx.toast!(parts.join('，'), r.approved > 0 ? 'success' : 'error')
+      ctx.toast(parts.join('，'), r.approved > 0 ? 'success' : 'error')
       // 成功的从列表移除；失败（无权限/已审批等）保留仍可逐条处理
       const failedIds = new Set((r.failed ?? []).map((f) => f.id))
       $.items = $.items.filter((m) => !$.picked.includes(m.id) || failedIds.has(m.id))
-    } catch (e) { ctx.toast!(`批量批准失败：${errMsg(e, '请稍后重试')}`, 'error') }
+    } catch (e) { ctx.toast(`批量批准失败：${errMsg(e, '请稍后重试')}`, 'error') }
     $.picked = []; $.bulkBusy = false; rerender()
   }
 

@@ -15,6 +15,9 @@ import { createComponentRegistry } from './node/component.ts'
 import type { UIContext } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
 import type { Browser } from '../browser/Browser.ts'
+import type { ApiClient } from '../middlewares/api.ts'
+import type { AuthClient } from '../middlewares/auth-i18n.ts'
+import type { WsClient } from '../middlewares/ws.ts'
 import { createDevVerifier } from './patch/verify.ts'
 import { installEffectGuard } from '../dev/effect-guard.ts'
 
@@ -109,13 +112,27 @@ export interface UiServeOptions {
   root: string | HTMLElement
   /** 错误熔断回退（R1——应用可配置） */
   errorFallback?: (err: Error, ctx: UIContext) => VNode
-  api?: unknown
-  auth?: unknown
-  ws?: unknown
-  i18n?: unknown
-  toast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning', duration?: number) => void
-  confirm?: unknown
-  notification?: unknown
+  /** 数据客户端（W0 web——装配面类型化——api 形状错编译红） */
+  api?: ApiClient
+  /** 认证客户端 */
+  auth?: AuthClient
+  /** WebSocket 客户端 */
+  ws?: WsClient
+  /** 国际化 */
+  i18n?: import('../middlewares/auth-i18n.ts').I18nState
+  /** 命令式轻提示（形状与 ToastInjected 对齐——签名内联避免 core→components 依赖） */
+  toast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning', duration?: number, action?: { label: string; onClick: () => void }) => void
+  /** 命令式确认 */
+  confirm?: (message: string, options?: { title?: string } & Record<string, unknown>) => Promise<boolean>
+  /** 命令式通知（对齐 NotificationInjected 形状——对象式 + open/success/error/info/warning 面） */
+  notification?: {
+    (title: string, opts?: { type?: 'success' | 'error' | 'info' | 'warning'; description?: string; duration?: number; action?: { label: string; onClick: () => void } }): void
+    open: (opts: { type?: 'success' | 'error' | 'info' | 'warning'; title: string; description?: string; duration?: number; action?: { label: string; onClick: () => void } }) => void
+    success: (opts: { title: string; description?: string; duration?: number }) => void
+    error: (opts: { title: string; description?: string; duration?: number }) => void
+    info: (opts: { title: string; description?: string; duration?: number }) => void
+    warning: (opts: { title: string; description?: string; duration?: number }) => void
+  }
   [key: string]: unknown
 }
 

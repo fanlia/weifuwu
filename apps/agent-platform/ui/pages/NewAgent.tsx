@@ -48,12 +48,12 @@ export const NewAgent: Component = (_props, ctx) => {
   $.roleTemplates = []; $.loading = true
   $.deptId = ''; $.deptOptions = []
 
-  ctx.api!.get<{ templates: RoleTemplate[] }>('/api/role-templates')
+  ctx.api.get<{ templates: RoleTemplate[] }>('/api/role-templates')
     .then(d => { $.roleTemplates = d.templates ?? []; $.loading = false; rerender() })
     .catch(() => { $.loading = false; rerender() })
 
   // 组织层级：部门列表（经理绑定用）
-  ctx.api!.get<{ departments: Array<{ id: string; name: string; is_dm: boolean }> }>('/api/departments')
+  ctx.api.get<{ departments: Array<{ id: string; name: string; is_dm: boolean }> }>('/api/departments')
     .then(d => { $.deptOptions = (d.departments ?? []).filter((x) => !x.is_dm).map((x) => ({ id: x.id, name: x.name })); rerender() })
     .catch(() => {})
 
@@ -112,7 +112,7 @@ export const NewAgent: Component = (_props, ctx) => {
       body.allow_command_exec = $.allowCommandExec
       body.allow_network = $.allowNetwork
       try {
-        const data = await ctx.api!.post<{ agent: { id: string } }>('/api/agents/from-template', body)
+        const data = await ctx.api.post<{ agent: { id: string } }>('/api/agents/from-template', body)
         track('agent_created')
         ctx.app?.navigate(`/agents/${data.agent.id}`)
       } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false }
@@ -133,7 +133,7 @@ export const NewAgent: Component = (_props, ctx) => {
     if ($.type === 'knowledge_base') body.chunk_size = parseInt($.chunkSize) || 500
 
     try {
-      const data = await ctx.api!.post<{ agent: { id: string } }>('/api/agents', body)
+      const data = await ctx.api.post<{ agent: { id: string } }>('/api/agents', body)
       track('agent_created')
       ctx.app?.navigate(`/agents/${data.agent.id}`)
     } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }

@@ -55,7 +55,7 @@ export const Deliverables: Component = (_init, ctx) => {
     // B-修复（2026-08）：改 Promise.then 模式（与 Reports 一致性——Reports 是
     // 唯一正常的同类页面——其 rerender 在 .then 回调（异步外部）——await 续段
     // 可能被框架当工厂 await 处理——DOM 不更新实证）
-    return ctx.api!.get<{ files: DeliverableFile[] }>('/api/deliverables')
+    return ctx.api.get<{ files: DeliverableFile[] }>('/api/deliverables')
       .then((d) => {
         $.files = d.files ?? []
         $.error = ''
@@ -92,7 +92,7 @@ export const Deliverables: Component = (_init, ctx) => {
     $.previewLoading = true
     rerender()
     try {
-      const d = await ctx.api!.get<{ content: string; binary: boolean; truncated: boolean }>(
+      const d = await ctx.api.get<{ content: string; binary: boolean; truncated: boolean }>(
         `/api/departments/${f.deptId}/workspace/file?path=${encodeURIComponent(f.path)}`)
       $.preview = { deptId: f.deptId, path: f.path, name: f.name, content: d.content ?? '', binary: d.binary ?? false, truncated: d.truncated ?? false }
     } catch (e) {

@@ -57,7 +57,7 @@ export const Sandboxes: Component = (_props, ctx) => {
   const load = () => {
     loading = true; error = ''
     rerender()
-    return ctx.api!.get<{ sandboxes: SandboxItem[]; quota?: { used: number; limit: number; pressure: boolean } }>('/api/sandboxes')
+    return ctx.api.get<{ sandboxes: SandboxItem[]; quota?: { used: number; limit: number; pressure: boolean } }>('/api/sandboxes')
       .then((d) => { sandboxes = d.sandboxes ?? []; quota = d.quota ?? null; loading = false; rerender() })
       .catch((e: any) => { error = errMsg(e, '加载失败'); loading = false; rerender() })
   }
@@ -66,26 +66,26 @@ export const Sandboxes: Component = (_props, ctx) => {
   const loadDebug = async (id: string) => {
     debugOf = id; debugData = null; debugLoading = true; rerender()
     try {
-      const d = await ctx.api!.get<any>(`/api/sandboxes/${id}/debug`)
+      const d = await ctx.api.get<any>(`/api/sandboxes/${id}/debug`)
       debugData = d; debugLoading = false; rerender()
     } catch { debugLoading = false; rerender() }
   }
 
   async function action(id: string, action: string, confirmText?: string) {
     if (confirmText) {
-      const ok = await ctx.confirm!(confirmText)
+      const ok = await ctx.confirm(confirmText)
       if (!ok) return
     }
     busyId = id + action; rerender()
     try {
-      const r = await ctx.api!.post<{ ok?: boolean; success?: boolean }>(`/api/sandboxes/${id}/${action}`)
+      const r = await ctx.api.post<{ ok?: boolean; success?: boolean }>(`/api/sandboxes/${id}/${action}`)
       if (r.ok || r.success) {
-        ctx.toast!(`操作成功：${action}`, 'success')
+        ctx.toast(`操作成功：${action}`, 'success')
       } else {
-        ctx.toast!((r as any).error ?? `操作失败：${action}`, 'error')
+        ctx.toast((r as any).error ?? `操作失败：${action}`, 'error')
       }
     } catch (e: any) {
-      ctx.toast!(errMsg(e, `操作失败：${action}`), 'error')
+      ctx.toast(errMsg(e, `操作失败：${action}`), 'error')
     }
     busyId = ''; rerender()
     await load()

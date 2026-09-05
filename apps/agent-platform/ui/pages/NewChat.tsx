@@ -26,7 +26,7 @@ export const NewChat: Component = (_props, ctx) => {
   const rerender = () => ctx.render()
 
   $.depts = []; $.loading = true
-  ctx.api!.get<DepartmentListResponse>('/api/departments')
+  ctx.api.get<DepartmentListResponse>('/api/departments')
     .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
     .catch(() => { $.loading = false; rerender() })
 

@@ -48,7 +48,7 @@ export const Surveys: Component = (_props, ctx) => {
 
   async function load(): Promise<void> {
     try {
-      const d = await ctx.api!.get<{ campaigns: CampaignRow[] }>('/api/survey/campaigns')
+      const d = await ctx.api.get<{ campaigns: CampaignRow[] }>('/api/survey/campaigns')
       $.campaigns = d.campaigns ?? []
     } catch { $.campaigns = [] }
     $.loading = false
@@ -58,12 +58,12 @@ export const Surveys: Component = (_props, ctx) => {
 
   async function create(): Promise<void> {
     const personas = BUILTIN_PERSONAS.filter(p => $.selected[p.name])
-    if (personas.length === 0) { ctx.toast!('至少选择一个调查员人设', 'error'); return }
-    if (!$.url.trim()) { ctx.toast!('请填写问卷地址', 'error'); return }
+    if (personas.length === 0) { ctx.toast('至少选择一个调查员人设', 'error'); return }
+    if (!$.url.trim()) { ctx.toast('请填写问卷地址', 'error'); return }
     $.creating = true; $.error = ''; rerender()
     try {
-      await ctx.api!.post('/api/survey/setup', { url: $.url.trim(), personas })
-      ctx.toast!('问卷活动已创建——调查员将开始填写', 'success')
+      await ctx.api.post('/api/survey/setup', { url: $.url.trim(), personas })
+      ctx.toast('问卷活动已创建——调查员将开始填写', 'success')
       await load()
     } catch (e) {
       $.error = errMsg(e, '创建失败')
@@ -74,9 +74,9 @@ export const Surveys: Component = (_props, ctx) => {
 
   async function action(id: string, act: 'retry' | 'cancel'): Promise<void> {
     try {
-      await ctx.api!.post(`/api/survey/campaigns/${id}/${act}`)
+      await ctx.api.post(`/api/survey/campaigns/${id}/${act}`)
       await load()
-    } catch { ctx.toast!('操作失败', 'error') }
+    } catch { ctx.toast('操作失败', 'error') }
   }
 
   return () => {

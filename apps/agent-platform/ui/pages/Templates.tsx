@@ -44,7 +44,7 @@ export const Templates: Component = (_props, ctx) => {
     async () => {
       loadError = ''
       try {
-        const res = await ctx.api!.get<{ templates: RoleTemplate[] }>('/api/role-templates')
+        const res = await ctx.api.get<{ templates: RoleTemplate[] }>('/api/role-templates')
         return res.templates ?? []
       } catch {
         loadError = '加载模板失败'
@@ -59,7 +59,7 @@ export const Templates: Component = (_props, ctx) => {
 
   async function createFromTemplate(t: RoleTemplate) {
     creating = t.slug; createError = ''; ctx.render()
-    const ok = await ctx.api!.post<{ agent: { id: string } }>('/api/agents/from-template', {
+    const ok = await ctx.api.post<{ agent: { id: string } }>('/api/agents/from-template', {
       template_slug: t.slug,
       name: t.name,
     }).catch((e: unknown) => {

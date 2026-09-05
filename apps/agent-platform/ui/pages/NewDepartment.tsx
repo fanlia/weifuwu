@@ -16,7 +16,7 @@ export const NewDepartment: Component = (_props, ctx) => {
 
   $.name = ''; $.selected = []; $.submitting = false; $.error = ''
   $.agents = []; $.loading = true
-  ctx.api!.get<AgentListResponse>('/api/agents').then(d => d.agents ?? []).catch(() => [])
+  ctx.api.get<AgentListResponse>('/api/agents').then(d => d.agents ?? []).catch(() => [])
     .then(agents => { $.agents = agents; $.loading = false; rerender() })
 
   function toggle(id: string) {
@@ -32,7 +32,7 @@ export const NewDepartment: Component = (_props, ctx) => {
     $.submitting = true; $.error = ''
     rerender()
     try {
-      await ctx.api!.post('/api/departments', { name: $.name.trim(), member_ids: $.selected })
+      await ctx.api.post('/api/departments', { name: $.name.trim(), member_ids: $.selected })
       ctx.app?.navigate('/departments')
     } catch (e) { $.error = errMsg(e, '创建失败'); $.submitting = false; rerender() }
   }

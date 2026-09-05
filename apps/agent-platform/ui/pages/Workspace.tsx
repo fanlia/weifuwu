@@ -73,21 +73,21 @@ export const Workspace: Component = (_props, ctx) => {
   async function demoSpace(): Promise<void> {
     $.demoCreating = true; rerender()
     try {
-      const d = await ctx.api!.post<{ department: { id: string } }>('/api/demo/space')
-      ctx.toast!('演示空间已创建——试试 @ 客服小知 或 @ 演示项目经理', 'success')
+      const d = await ctx.api.post<{ department: { id: string } }>('/api/demo/space')
+      ctx.toast('演示空间已创建——试试 @ 客服小知 或 @ 演示项目经理', 'success')
       ctx.app?.navigate(`/chat/${d.department.id}`)
     } catch (e) {
-      ctx.toast!(errMsg(e, '创建演示空间失败'), 'error')
+      ctx.toast(errMsg(e, '创建演示空间失败'), 'error')
       $.demoCreating = false; rerender()
     }
   }
 
   Promise.all([
-    ctx.api!.get<DepartmentListResponse>('/api/departments').catch(() => ({ departments: [] })),
-    ctx.api!.get<{ sandboxes: Array<{ department_id: string | null; status: string }> }>('/api/sandboxes').catch(() => ({ sandboxes: [] })),
-    ctx.api!.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals').catch(() => ({ pending: [] })),
-    ctx.api!.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
-    ctx.api!.get<{ files: Array<{ deptId: string; deptName: string; path: string; name: string; size: number; mtime: string }> }>('/api/deliverables?limit=3').catch(() => ({ files: [] })),
+    ctx.api.get<DepartmentListResponse>('/api/departments').catch(() => ({ departments: [] })),
+    ctx.api.get<{ sandboxes: Array<{ department_id: string | null; status: string }> }>('/api/sandboxes').catch(() => ({ sandboxes: [] })),
+    ctx.api.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals').catch(() => ({ pending: [] })),
+    ctx.api.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
+    ctx.api.get<{ files: Array<{ deptId: string; deptName: string; path: string; name: string; size: number; mtime: string }> }>('/api/deliverables?limit=3').catch(() => ({ files: [] })),
   ]).then(([depts, sb, pend, agents, dels]) => {
     const sbMap = new Map<string, string>()
     for (const s of sb.sandboxes ?? []) {

@@ -28,12 +28,12 @@ export const Dashboard: Component = (_props, ctx) => {
   const rerender = () => ctx.render()
   $.loading = true; $.stats = {}; $.agents = []; $.deptCount = 0; $.pendingCount = 0; $.costAgents = []; $.funnel = null
   Promise.all([
-    ctx.api!.get<StatsData>('/api/stats').catch(() => ({})),
-    ctx.api!.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
-    ctx.api!.get<DepartmentListResponse>('/api/departments').catch(() => ({ departments: [] })),
-    ctx.api!.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals').catch(() => ({ pending: [] })),
-    ctx.api!.get<{ agents: CostAgentRow[] }>('/api/stats/tokens-by-agent').catch(() => ({ agents: [] })),
-    ctx.api!.get<FunnelData>('/api/stats/funnel').catch(() => ({ mine: { register_complete: false, agent_created: false, first_message: false }, platform: {} })),
+    ctx.api.get<StatsData>('/api/stats').catch(() => ({})),
+    ctx.api.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
+    ctx.api.get<DepartmentListResponse>('/api/departments').catch(() => ({ departments: [] })),
+    ctx.api.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals').catch(() => ({ pending: [] })),
+    ctx.api.get<{ agents: CostAgentRow[] }>('/api/stats/tokens-by-agent').catch(() => ({ agents: [] })),
+    ctx.api.get<FunnelData>('/api/stats/funnel').catch(() => ({ mine: { register_complete: false, agent_created: false, first_message: false }, platform: {} })),
   ]).then(([stats, agents, depts, pend, cost, funnel]) => {
     $.stats = stats; $.agents = agents.agents ?? []; $.deptCount = depts.departments?.length ?? 0
     $.pendingCount = pend.pending?.length ?? 0

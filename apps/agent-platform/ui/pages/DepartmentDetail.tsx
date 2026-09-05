@@ -40,7 +40,7 @@ export const DepartmentDetail: Component = (_props, ctx) => {
   // 执行面板（2026-12：AI 成员执行状态总览——演示可见性）
   const loadExecutions = () => {
     if (!deptId || $.dept?.is_dm) return
-    void ctx.api!.get<any>(`/api/departments/${deptId}/executions`).then((d) => {
+    void ctx.api.get<any>(`/api/departments/${deptId}/executions`).then((d) => {
       $.executions = d.tasks ?? []; $.execProgress = d.progress ?? null
       rerender()
     }).catch(() => {})
@@ -49,7 +49,7 @@ export const DepartmentDetail: Component = (_props, ctx) => {
   // 产物审批（开关 + 待审列表）
   const loadReview = () => {
     if (!deptId || $.dept?.is_dm) return
-    void ctx.api!.get<any>(`/api/departments/${deptId}/artifacts/pending`).then((d) => {
+    void ctx.api.get<any>(`/api/departments/${deptId}/artifacts/pending`).then((d) => {
       $.pendingArtifacts = d.pending ?? []
       rerender()
     }).catch(() => {})
@@ -57,18 +57,18 @@ export const DepartmentDetail: Component = (_props, ctx) => {
   const toggleReview = async (on: boolean) => {
     $.reviewBusy = 'toggle'; rerender()
     try {
-      await ctx.api!.put(`/api/departments/${deptId}`, { artifact_review: on })
+      await ctx.api.put(`/api/departments/${deptId}`, { artifact_review: on })
       $.artifactReview = on
-      ctx.toast!(on ? '已开启产物审批——AI 新产物先入待审区' : '已关闭——待审产物已全部发布', 'success')
-    } catch { ctx.toast!('切换失败', 'error') }
+      ctx.toast(on ? '已开启产物审批——AI 新产物先入待审区' : '已关闭——待审产物已全部发布', 'success')
+    } catch { ctx.toast('切换失败', 'error') }
     $.reviewBusy = ''; loadReview(); rerender()
   }
   const reviewAction = async (action: string, path: string) => {
     $.reviewBusy = action + path; rerender()
     try {
-      await ctx.api!.post(`/api/departments/${deptId}/artifacts/${action}`, { path })
-      ctx.toast!(action === 'approve' ? `已发布 ${path}` : `已拒绝 ${path}`, 'success')
-    } catch { ctx.toast!('操作失败', 'error') }
+      await ctx.api.post(`/api/departments/${deptId}/artifacts/${action}`, { path })
+      ctx.toast(action === 'approve' ? `已发布 ${path}` : `已拒绝 ${path}`, 'success')
+    } catch { ctx.toast('操作失败', 'error') }
     $.reviewBusy = ''; loadReview(); rerender()
   }
 
@@ -76,26 +76,26 @@ export const DepartmentDetail: Component = (_props, ctx) => {
   // UX-PLAN-2 波次 1 实证：loadSandbox 原先只在手动刷新/sbAction 后调用
   // （后者要求 $.sandbox 非空——死路径）——页面打开永远空态提示即使沙盒已存在
   const loadSandbox = () => {
-    void ctx.api!.get<any>(`/api/sandboxes?department_id=${deptId}`).then((d) => {
+    void ctx.api.get<any>(`/api/sandboxes?department_id=${deptId}`).then((d) => {
       $.sandbox = d.sandboxes?.[0] ?? null
       rerender()
     }).catch(() => {})
   }
   const sbAction = async (action: string) => {
     if (!$.sandbox) return
-    const ok = action === 'terminate' ? await ctx.confirm!('确定终止该沙盒？容器将删除（工作目录文件保留）') : true
+    const ok = action === 'terminate' ? await ctx.confirm('确定终止该沙盒？容器将删除（工作目录文件保留）') : true
     if (!ok) return
     $.sbBusy = action; rerender()
     try {
-      const r = await ctx.api!.post<{ ok?: boolean; success?: boolean }>(`/api/sandboxes/${$.sandbox.id}/${action}`)
-      if (r.ok || r.success) ctx.toast!('操作成功', 'success')
-      else ctx.toast!((r as any).error ?? '操作失败', 'error')
-    } catch (e: any) { ctx.toast!(e?.message ?? '操作失败', 'error') }
+      const r = await ctx.api.post<{ ok?: boolean; success?: boolean }>(`/api/sandboxes/${$.sandbox.id}/${action}`)
+      if (r.ok || r.success) ctx.toast('操作成功', 'success')
+      else ctx.toast((r as any).error ?? '操作失败', 'error')
+    } catch (e: any) { ctx.toast(e?.message ?? '操作失败', 'error') }
     $.sbBusy = ''; loadSandbox(); rerender()
   }
 
     function loadDept() {
-      ctx.api!.get<{ department?: Department; members?: Member[] }>(`/api/departments/${deptId}`)
+      ctx.api.get<{ department?: Department; members?: Member[] }>(`/api/departments/${deptId}`)
         .then(data => {
           const d = data.department ?? null
           if (!d?.id) { $.notFound = true; $.loading = false; rerender(); return }
@@ -112,7 +112,7 @@ export const DepartmentDetail: Component = (_props, ctx) => {
 
     async function openMemberPicker() {
       $.showMemberPicker = true; $.picked = []; rerender()
-      ctx.api!.get<AgentListResponse>('/api/agents').then(d => {
+      ctx.api.get<AgentListResponse>('/api/agents').then(d => {
         const all = d.agents ?? []
         const inIds = new Set($.members.map((m) => m.id))
         // CHAT-INTERACTION 走查 P1 修复：不再排除人类成员（type='user'）——
@@ -120,30 +120,30 @@ export const DepartmentDetail: Component = (_props, ctx) => {
         // 分组渲染（AI 成员 / 同事），添加链路同 agent_id（user agent 也是 agent）
         $.allAgents = all.filter((a) => !inIds.has(a.id))
         rerender()
-      }).catch(() => { ctx.toast!('加载 Agent 列表失败', 'error') })
+      }).catch(() => { ctx.toast('加载 Agent 列表失败', 'error') })
     }
 
     async function addMembers() {
-      if ($.picked.length === 0) { ctx.toast!('请选择成员', 'warning'); return }
+      if ($.picked.length === 0) { ctx.toast('请选择成员', 'warning'); return }
       $.managing = true; rerender()
       try {
         for (const id of $.picked) {
-          await ctx.api!.post(`/api/departments/${deptId}/members`, { agent_id: id })
+          await ctx.api.post(`/api/departments/${deptId}/members`, { agent_id: id })
         }
-        ctx.toast!('已添加成员', 'success')
+        ctx.toast('已添加成员', 'success')
         $.showMemberPicker = false; $.picked = []; $.managing = false
         loadDept()
-      } catch { $.managing = false; ctx.toast!('添加失败', 'error'); rerender() }
+      } catch { $.managing = false; ctx.toast('添加失败', 'error'); rerender() }
     }
 
     async function removeMember(m: Member) {
-      const ok = await ctx.confirm!(`确定将 ${m.name} 移出部门？`)
+      const ok = await ctx.confirm(`确定将 ${m.name} 移出部门？`)
       if (!ok) return
       try {
-        await ctx.api!.delete(`/api/departments/${deptId}/members/${m.id}`)
-        ctx.toast!('已移除', 'success')
+        await ctx.api.delete(`/api/departments/${deptId}/members/${m.id}`)
+        ctx.toast('已移除', 'success')
         loadDept()
-      } catch { ctx.toast!('移除失败', 'error') }
+      } catch { ctx.toast('移除失败', 'error') }
     }
 
   return (props) => {

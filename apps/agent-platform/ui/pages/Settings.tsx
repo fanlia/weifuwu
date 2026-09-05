@@ -41,7 +41,7 @@ export const Settings: Component = (_props, ctx) => {
       const from = new Date(Date.now() - days * 86400 * 1000).toISOString()
       fromQ = `&from=${encodeURIComponent(from)}`
     }
-    return ctx.api!.get<{ entries: AuditEntry[] }>(`/api/audit?limit=20${q}${fromQ}`).then((d) => {
+    return ctx.api.get<{ entries: AuditEntry[] }>(`/api/audit?limit=20${q}${fromQ}`).then((d) => {
       auditEntries.push(...(d.entries ?? []))
       ctx.render()
     }).catch(() => {})
@@ -56,9 +56,9 @@ export const Settings: Component = (_props, ctx) => {
   $.sysHealth = null
   $.metrics = null
   // 系统状态（运营视角：健康 + 沙盒 + 今日审计）
-  void ctx.api!.get<OpsInfo>('/api/ops').then((d) => { $.sysHealth = d; ctx.render() }).catch(() => {})
+  void ctx.api.get<OpsInfo>('/api/ops').then((d) => { $.sysHealth = d; ctx.render() }).catch(() => {})
   // E2：服务健康（/api/metrics——公开端点）——5xx/异常细分计数可见
-  void ctx.api!.get<SettingsState['metrics']>('/api/metrics')
+  void ctx.api.get<SettingsState['metrics']>('/api/metrics')
     .then((d) => { $.metrics = d ?? null; ctx.render() }).catch(() => {})
   $.nameSubmitting = false; $.nameOk = ''; $.nameErr = ''
     $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
@@ -67,16 +67,16 @@ export const Settings: Component = (_props, ctx) => {
     $.plan = null
     $.byok = null; $.byokSubmitting = false; $.byokOk = ''; $.byokErr = ''
     // 计划状态（G1 付费墙：试用剩余/配额用量）
-    void ctx.api!.get('/api/plan').then((d: any) => { $.plan = d; ctx.render() }).catch(() => {})
+    void ctx.api.get('/api/plan').then((d: any) => { $.plan = d; ctx.render() }).catch(() => {})
     // BYOK（G4：租户自带模型 Key）
-    void ctx.api!.get('/api/settings/ai-config').then((d: any) => { $.byok = d; ctx.render() }).catch(() => {})
+    void ctx.api.get('/api/settings/ai-config').then((d: any) => { $.byok = d; ctx.render() }).catch(() => {})
 
   async function saveByok() {
     if (!$.byok) return
     $.byokSubmitting = true; $.byokErr = ''; $.byokOk = ''
     rerender()
     try {
-      await ctx.api!.put('/api/settings/ai-config', {
+      await ctx.api.put('/api/settings/ai-config', {
         baseUrl: $.byok.baseUrl, apiKey: $.byok.apiKey, model: $.byok.model,
       })
       $.byokOk = '已保存——新对话使用你的模型配置'
@@ -87,7 +87,7 @@ export const Settings: Component = (_props, ctx) => {
 
   async function clearByok() {
     try {
-      await ctx.api!.put('/api/settings/ai-config', { clear: true })
+      await ctx.api.put('/api/settings/ai-config', { clear: true })
       $.byok = { baseUrl: '', apiKey: '', apiKeySet: false, model: '' }
       $.byokOk = '已清除——恢复使用平台默认模型'
       rerender()
@@ -98,7 +98,7 @@ export const Settings: Component = (_props, ctx) => {
     $.inviteLink = ''; $.inviteCopied = false; $.inviteRole = 'member'; $.inviteErr = ''
     rerender()
     try {
-      const d = await ctx.api!.post<{ url: string; expiresInDays: number }>('/api/auth/invite', { role: $.inviteRole === 'viewer' ? 'viewer' : 'member' })
+      const d = await ctx.api.post<{ url: string; expiresInDays: number }>('/api/auth/invite', { role: $.inviteRole === 'viewer' ? 'viewer' : 'member' })
       $.inviteLink = d.url
       void ctx.browser?.copyText?.(location.origin + d.url)
       $.inviteCopied = true
@@ -112,7 +112,7 @@ export const Settings: Component = (_props, ctx) => {
     $.nameSubmitting = true; $.nameErr = ''; $.nameOk = ''
     rerender()
     try {
-      await ctx.api!.put('/api/auth/profile', { name: $.name.trim() })
+      await ctx.api.put('/api/auth/profile', { name: $.name.trim() })
       ctx.auth?.setUser({ ...((ctx.auth?.user ?? null) as object), name: $.name.trim() }); $.nameOk = '姓名已更新'
     } catch (e) { $.nameErr = errMsg(e, '保存失败') }
     finally { $.nameSubmitting = false; rerender() }
@@ -126,7 +126,7 @@ export const Settings: Component = (_props, ctx) => {
     $.pwdSubmitting = true; $.pwdErr = ''; $.pwdOk = ''
     rerender()
     try {
-      await ctx.api!.put('/api/auth/password', { currentPassword: $.currentPassword, newPassword: $.newPassword })
+      await ctx.api.put('/api/auth/password', { currentPassword: $.currentPassword, newPassword: $.newPassword })
       $.pwdOk = '密码已更新'
       $.currentPassword = ''; $.newPassword = ''; $.confirmPassword = ''
     } catch (e) { $.pwdErr = errMsg(e, '修改失败') }
@@ -295,7 +295,7 @@ export const Settings: Component = (_props, ctx) => {
             <Button size="sm" variant="danger" onClick={async () => {
               if (!window.confirm('确定删除账号？你的身份将被匿名化，此操作不可恢复。')) return
               try {
-                await ctx.api!.delete('/api/auth/account')
+                await ctx.api.delete('/api/auth/account')
                 ctx.auth?.logout?.()
                 ctx.app?.navigate('/login')
               } catch (e) { window.alert('删除失败：' + errMsg(e, '未知错误')) }

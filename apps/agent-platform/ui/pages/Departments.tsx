@@ -14,7 +14,7 @@ export const Departments: Component = (_props, ctx) => {
   $.depts = []; $.loading = true; $.q = ''
   let qTimer: ReturnType<typeof setTimeout> | null = null
   const load = (q: string) => {
-    ctx.api!.get<DepartmentListResponse>(`/api/departments${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+    ctx.api.get<DepartmentListResponse>(`/api/departments${q ? `?q=${encodeURIComponent(q)}` : ''}`)
       .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
       .catch(() => { $.loading = false; rerender() })
   }
@@ -28,17 +28,17 @@ export const Departments: Component = (_props, ctx) => {
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
-    const ok = await ctx.confirm!('确定删除这个部门吗？')
+    const ok = await ctx.confirm('确定删除这个部门吗？')
     if (!ok) return
     try {
       // API 封装返回 JSON body——res.ok 不存在——不 throw 即成功
       // （2026-08 UI 测试抓出：删除成功却报「删除失败」——响应判断错）
-      await ctx.api!.delete(`/api/departments/${id}`)
+      await ctx.api.delete(`/api/departments/${id}`)
       $.depts = $.depts.filter((d: Department) => d.id !== id)
       rerender()
-      ;ctx.toast!('部门已删除', 'success')
+      ;ctx.toast('部门已删除', 'success')
     } catch {
-      ;ctx.toast!('删除失败', 'error')
+      ;ctx.toast('删除失败', 'error')
     }
   }
   return (props) => (

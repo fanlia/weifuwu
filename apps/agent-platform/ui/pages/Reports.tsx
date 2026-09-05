@@ -27,13 +27,13 @@ export const Reports: Component = (_props, ctx) => {
   $.deptStats = []; $.quotaPressure = false
   $.runs = []
   Promise.all([
-    ctx.api!.get<StatsData>('/api/stats').catch(() => ({})),
-    ctx.api!.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
-    ctx.api!.get<{ agents: CostAgentRow[] }>('/api/stats/tokens-by-agent').catch(() => ({ agents: [] })),
-    ctx.api!.get<FunnelData>('/api/stats/funnel').catch(() => ({ mine: { register_complete: false, agent_created: false, first_message: false }, platform: {} })),
-    ctx.api!.get<{ departments: ReportsState['deptStats']; quotaPressure: boolean }>('/api/stats/departments').catch(() => ({ departments: [], quotaPressure: false })),
+    ctx.api.get<StatsData>('/api/stats').catch(() => ({})),
+    ctx.api.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
+    ctx.api.get<{ agents: CostAgentRow[] }>('/api/stats/tokens-by-agent').catch(() => ({ agents: [] })),
+    ctx.api.get<FunnelData>('/api/stats/funnel').catch(() => ({ mine: { register_complete: false, agent_created: false, first_message: false }, platform: {} })),
+    ctx.api.get<{ departments: ReportsState['deptStats']; quotaPressure: boolean }>('/api/stats/departments').catch(() => ({ departments: [], quotaPressure: false })),
     // O12 编排任务链（Wave 3）
-    ctx.api!.get<{ runs: ReportsState['runs'] }>('/api/stats/runs').catch(() => ({ runs: [] })),
+    ctx.api.get<{ runs: ReportsState['runs'] }>('/api/stats/runs').catch(() => ({ runs: [] })),
   ]).then(([stats, agents, cost, funnel, depts, runsRes]) => {
     $.runs = runsRes.runs ?? []
     $.stats = stats; $.agents = agents.agents ?? []; $.costAgents = cost.agents ?? []

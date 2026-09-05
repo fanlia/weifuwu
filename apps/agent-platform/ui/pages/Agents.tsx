@@ -15,7 +15,7 @@ export const Agents: Component = (_props, ctx) => {
   $.agents = []; $.loading = true; $.q = ''
   let qTimer: ReturnType<typeof setTimeout> | null = null
   const load = (q: string) => {
-    ctx.api!.get<AgentListResponse>(`/api/agents${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+    ctx.api.get<AgentListResponse>(`/api/agents${q ? `?q=${encodeURIComponent(q)}` : ''}`)
       .then(d => { $.agents = d.agents ?? []; $.loading = false; rerender() })
       .catch(() => { $.loading = false; rerender() })
   }
@@ -29,30 +29,30 @@ export const Agents: Component = (_props, ctx) => {
 
   async function remove(e: Event, id: string) {
     e.stopPropagation()
-    const ok = await ctx.confirm!('确定删除这个 Agent 吗？')
+    const ok = await ctx.confirm('确定删除这个 Agent 吗？')
     if (!ok) return
     try {
       // API 封装返回 JSON body（非 Response）——res.ok 不存在——
       // 只要不 throw 即成功（ApiError——2026-08 UI 测试抓出：删除成功
       // 却报「删除失败」——响应判断错——数据删了 UI 不刷新）
-      await ctx.api!.delete<{ ok?: boolean }>(`/api/agents/${id}`)
+      await ctx.api.delete<{ ok?: boolean }>(`/api/agents/${id}`)
       $.agents = $.agents.filter((a: Agent) => a.id !== id)
       rerender()
-      ;ctx.toast!('Agent 已删除', 'success')
+      ;ctx.toast('Agent 已删除', 'success')
     } catch (e) {
       // ROLES-OPTIMIZATION 波次 3：403 原因透出（如 viewer 删除 →「仅管理员可删除」）
-      ;ctx.toast!(`删除失败：${errMsg(e, '请稍后重试')}`, 'error')
+      ;ctx.toast(`删除失败：${errMsg(e, '请稍后重试')}`, 'error')
     }
   }
 
   async function startDm(e: Event, id: string) {
     e.stopPropagation()
     try {
-      const res = await ctx.api!.post<{ department: { id: string } }>('/api/departments/dm', { agent_id: id })
+      const res = await ctx.api.post<{ department: { id: string } }>('/api/departments/dm', { agent_id: id })
       const d = res.department
       if (d?.id) { ctx.app?.navigate(`/chat/${d.id}`) }
-      else { ctx.toast!('发起单聊失败', 'error') }
-    } catch { ctx.toast!('发起单聊失败', 'error') }
+      else { ctx.toast('发起单聊失败', 'error') }
+    } catch { ctx.toast('发起单聊失败', 'error') }
   }
   return (props) => (
     <div class="wf-stack wf-gap-lg">

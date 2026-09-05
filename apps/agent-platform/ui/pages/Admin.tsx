@@ -30,19 +30,19 @@ export const Admin: Component = (_props, ctx) => {
   let sbProcs: { name: string; list: any[] } | null = null
   let sbBusy = ''
   const loadContainers = () => {
-    void ctx.api!.get<any>('/api/sandbox/containers').then((d) => {
+    void ctx.api.get<any>('/api/sandbox/containers').then((d) => {
       sbContainers = d.containers ?? []
       ctx.render()
     }).catch(() => {})
   }
   const containerAction = async (name: string, action: string) => {
     sbBusy = name + action; ctx.render()
-    await ctx.api!.post(`/api/sandbox/containers/${name}/${action}`).catch(() => {})
+    await ctx.api.post(`/api/sandbox/containers/${name}/${action}`).catch(() => {})
     sbBusy = ''
     loadContainers()
   }
   const showProcesses = (name: string) => {
-    void ctx.api!.get<any>(`/api/sandbox/containers/${name}/processes`).then((d) => {
+    void ctx.api.get<any>(`/api/sandbox/containers/${name}/processes`).then((d) => {
       sbProcs = { name, list: d.processes ?? [] }
       ctx.render()
     }).catch(() => {})
@@ -54,25 +54,25 @@ export const Admin: Component = (_props, ctx) => {
   const load = () => {
     loading = true; error = ''
     ctx.render()
-    return ctx.api!.get<{ apps: AdminApp[] }>('/api/admin/apps')
+    return ctx.api.get<{ apps: AdminApp[] }>('/api/admin/apps')
       .then((d) => { apps = d.apps ?? []; loading = false; ctx.render() })
       .catch((e) => { error = errMsg(e, '加载租户列表失败'); loading = false; ctx.render() })
   }
   void load()
   // 平台使用概览（G11）
-  void ctx.api!.get<any>('/api/admin/overview').then((d) => { overview = d; ctx.render() }).catch(() => {})
-  void ctx.api!.get<any>('/api/ops').then((d) => { opsInfo = d; ctx.render() }).catch(() => {})
-  void ctx.api!.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.render() }).catch(() => {})
+  void ctx.api.get<any>('/api/admin/overview').then((d) => { overview = d; ctx.render() }).catch(() => {})
+  void ctx.api.get<any>('/api/ops').then((d) => { opsInfo = d; ctx.render() }).catch(() => {})
+  void ctx.api.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.render() }).catch(() => {})
   // C1 容量视图（2026-08）：宿主容量 + 占用 + 驱逐审计
-  void ctx.api!.get<any>('/api/admin/sandbox-capacity').then((d) => { capacity = d; ctx.render() }).catch(() => {})
+  void ctx.api.get<any>('/api/admin/sandbox-capacity').then((d) => { capacity = d; ctx.render() }).catch(() => {})
 
   async function createEnterprise() {
     if (!entName.trim()) { entErr = '企业名必填'; ctx.render(); return }
     entErr = ''
     try {
-      await ctx.api!.post('/api/admin/enterprises', { name: entName.trim(), ownerEmail: entEmail.trim() || undefined })
+      await ctx.api.post('/api/admin/enterprises', { name: entName.trim(), ownerEmail: entEmail.trim() || undefined })
       entName = ''; entEmail = ''
-      const d = await ctx.api!.get<any>('/api/admin/enterprises')
+      const d = await ctx.api.get<any>('/api/admin/enterprises')
       enterprises = d.enterprises ?? []
     } catch (e: any) { entErr = e?.message ?? '创建失败' }
     ctx.render()
@@ -82,7 +82,7 @@ export const Admin: Component = (_props, ctx) => {
     busyId = a.id
     ctx.render()
     try {
-      await ctx.api!.post(`/api/admin/apps/${a.id}/plan`, { plan: 'pro', monthlyTokenLimit: 1000000 })
+      await ctx.api.post(`/api/admin/apps/${a.id}/plan`, { plan: 'pro', monthlyTokenLimit: 1000000 })
       await load()
     } catch (e) { error = errMsg(e, '操作失败'); ctx.render() }
     finally { busyId = '' }
@@ -92,7 +92,7 @@ export const Admin: Component = (_props, ctx) => {
     busyId = a.id
     ctx.render()
     try {
-      await ctx.api!.post(`/api/admin/apps/${a.id}/status`, { status: a.status === 'disabled' ? 'active' : 'disabled' })
+      await ctx.api.post(`/api/admin/apps/${a.id}/status`, { status: a.status === 'disabled' ? 'active' : 'disabled' })
       await load()
     } catch (e) {
       error = errMsg(e, '操作失败')
@@ -216,8 +216,8 @@ export const Admin: Component = (_props, ctx) => {
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => {
                   const appId = window.prompt('挂入租户的 appId（管理后台列表可见）')
-                  if (appId) void ctx.api!.post(`/api/admin/enterprises/${e.id}/apps`, { appId }).then(() => {
-                    void ctx.api!.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.render() })
+                  if (appId) void ctx.api.post(`/api/admin/enterprises/${e.id}/apps`, { appId }).then(() => {
+                    void ctx.api.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.render() })
                   })
                 }}>挂租户</Button>
               </div>

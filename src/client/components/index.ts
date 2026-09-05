@@ -41,6 +41,9 @@ export type { ConfirmProps, ConfirmOptions } from './Confirm/Confirm.ts'
 
 export { Toast } from './Toast/Toast.ts'
 export type { ToastProps, ToastItem, ToastType, ToastPosition, ToastOptions, ToastInjected } from './Toast/Toast.ts'
+/** W0 web：命令式注入组合类型（应用 `UIContext & CommandsInjected` 一行——
+ *  不再逐组件手写 `& ToastInjected & ConfirmInjected & NotificationInjected`） */
+export type CommandsInjected = import('./Toast/Toast.ts').ToastInjected & import('./Confirm/Confirm.ts').ConfirmInjected & import('./Notification/Notification.ts').NotificationInjected
 
 export { Alert } from './Alert/Alert.ts'
 export type { AlertProps, AlertVariant } from './Alert/Alert.ts'

@@ -111,7 +111,7 @@ export const Chat: Component = (_props, ctx) => {
    *  消费面（无第二套逻辑——拖拽坏如按钮坏） */
   const addFiles = (files: File[]) => {
     for (const f of files) {
-      if (f.size > 20 * 1024 * 1024) { ctx.toast!(`「${f.name}」过大（上限 20MB）`, 'warning'); continue }
+      if (f.size > 20 * 1024 * 1024) { ctx.toast(`「${f.name}」过大（上限 20MB）`, 'warning'); continue }
       const reader = new FileReader()
       reader.onload = () => {
         const data = String(reader.result ?? '').split(',')[1] ?? ''
@@ -145,9 +145,9 @@ export const Chat: Component = (_props, ctx) => {
     if ($.reviewBusy) return
     $.reviewBusy = 'chat'; rerender()
     try {
-      const r = await ctx.api!.post<{ success: boolean; error?: string }>(`/api/departments/${deptId}/artifacts/${action}`, { path })
+      const r = await ctx.api.post<{ success: boolean; error?: string }>(`/api/departments/${deptId}/artifacts/${action}`, { path })
       if (r.success) {
-        ctx.toast!(action === 'approve' ? `已发布 ${path}` : `已拒绝 ${path}`, 'success')
+        ctx.toast(action === 'approve' ? `已发布 ${path}` : `已拒绝 ${path}`, 'success')
         // props 不可变契约：新建对象（原地改 msg → vdom3 audit + MessageItem 剪枝不更新审批态）
         $.msgs = $.msgs.map((x: ChatMessage) => x.msg_type === 'file_card' && x.content === path
           ? { ...x, pending: false, content: `${path}（已${action === 'approve' ? '发布' : '拒绝'}）` }
@@ -155,9 +155,9 @@ export const Chat: Component = (_props, ctx) => {
         bumpFilesVersion()
         notifyFilesReload()
       } else {
-        ctx.toast!(r.error ?? '操作失败', 'error')
+        ctx.toast(r.error ?? '操作失败', 'error')
       }
-    } catch { ctx.toast!('操作失败', 'error') }
+    } catch { ctx.toast('操作失败', 'error') }
     $.reviewBusy = ''; rerender()
   }
 
@@ -167,7 +167,7 @@ export const Chat: Component = (_props, ctx) => {
     if (reloadingWs) return
     reloadingWs = true
     try {
-      const wsRes = await ctx.api!.get<WsWorkspaceResponse>(`/api/departments/${deptId}/workspace`).catch(() => null)
+      const wsRes = await ctx.api.get<WsWorkspaceResponse>(`/api/departments/${deptId}/workspace`).catch(() => null)
       if (wsRes) {
         $.subDepts = wsRes.subDepartments ?? []
         if (wsRes.env) $.env = wsRes.env
@@ -397,7 +397,7 @@ export const Chat: Component = (_props, ctx) => {
   }
 
   async function loadMessages(merge = false) {
-    const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50`).catch(() => ({ messages: [] }))
+    const msgRes = await ctx.api.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50`).catch(() => ({ messages: [] }))
     const list = (msgRes.messages ?? []).reverse().map((m: Message) => {
       // B1（2026-08）：ai_step 持久化工具步骤——刷新后恢复工具条（error/done 状态可视）
       const tools = parseStoredTools((m as any).ai_step)
@@ -425,8 +425,8 @@ export const Chat: Component = (_props, ctx) => {
     // P1：聚合 API（部门+成员+环境状态一次拿）
     // CHAT-INTERACTION 波次 1：404 保留（原 catch(() => ({})) 把部门不存在
     // 吞成空态——「成员（0）暂无 AI 成员」误导——实测踩中）
-    ctx.api!.get<WsWorkspaceResponse>(`/api/departments/${deptId}/workspace`).catch((e: unknown) => (e instanceof Error ? e : new Error('加载失败'))),
-    ctx.api!.get<{ agents: Agent[] }>('/api/agents?type=user').catch(() => ({ agents: [] })),
+    ctx.api.get<WsWorkspaceResponse>(`/api/departments/${deptId}/workspace`).catch((e: unknown) => (e instanceof Error ? e : new Error('加载失败'))),
+    ctx.api.get<{ agents: Agent[] }>('/api/agents?type=user').catch(() => ({ agents: [] })),
   ]).then(([, wsRes, agentRes]) => {
     if (wsRes instanceof Error) {
       $.deptMissing = true
@@ -451,7 +451,7 @@ export const Chat: Component = (_props, ctx) => {
     if ($.loadingMore || !$.hasMore) return
     $.loadingMore = true; rerender()
     const oldest = $.msgs[0]
-    const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50&before=${oldest?.id ?? ''}`).catch(() => ({ messages: [] }))
+    const msgRes = await ctx.api.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50&before=${oldest?.id ?? ''}`).catch(() => ({ messages: [] }))
     const older = msgRes.messages ?? []
     if (older.length > 0) {
       // CHAT-UX 波次 2（L3）：与 loadMessages 同源——parseStoredTools（旧消息工具步骤
@@ -473,7 +473,7 @@ export const Chat: Component = (_props, ctx) => {
     if (!q) {
       await loadMessages(); $.searching = false; rerender(); return
     }
-    const msgRes = await ctx.api!.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50&q=${encodeURIComponent(q)}`).catch(() => ({ messages: [] }))
+    const msgRes = await ctx.api.get<MessageListResponse>(`/api/departments/${deptId}/messages?limit=50&q=${encodeURIComponent(q)}`).catch(() => ({ messages: [] }))
     $.msgs = [...(msgRes.messages ?? [])].reverse().map((m: Message) => ({ ...m } as ChatMessage))
     $.hasMore = false
     $.searching = false
@@ -687,7 +687,7 @@ export const Chat: Component = (_props, ctx) => {
       const requestId = crypto.randomUUID?.() ?? `r${Date.now().toString(36)}`
       // ROLES-OPTIMIZATION 波次 3：错误保留（原 .catch(() => null) 吞掉服务端
       // 403/409 语义——errMsg 透出「只读成员无权执行此操作」等原因）
-      const data = await ctx.api!.post<{ message: Message }>(`/api/departments/${deptId}/messages`, {
+      const data = await ctx.api.post<{ message: Message }>(`/api/departments/${deptId}/messages`, {
         content: trimmed,
         reply_to: replyId,
         request_id: requestId,
@@ -711,9 +711,9 @@ export const Chat: Component = (_props, ctx) => {
         }
       } else {
         $.input = saved; saveDraft(saved)
-        ctx.toast!(`发送失败：${errMsg(data as unknown, '服务无响应')}`, 'error')
+        ctx.toast(`发送失败：${errMsg(data as unknown, '服务无响应')}`, 'error')
       }
-    } catch { $.input = saved; saveDraft(saved); ctx.toast!('网络错误', 'error') }
+    } catch { $.input = saved; saveDraft(saved); ctx.toast('网络错误', 'error') }
     finally { $.sending = false; rerender() }
   }
 
@@ -721,10 +721,10 @@ export const Chat: Component = (_props, ctx) => {
     // C1 断点续跑：从中断处继续（后端注入已执行步骤，不重做）
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     try {
-      const d = await ctx.api!.post<{ resumed: boolean; doneSteps: number; totalSteps: number }>(`/api/messages/${fromMsgId}/continue`).catch(() => null)
-      if (d?.resumed) ctx.toast!(`继续执行（已 ${d.doneSteps}/${d.totalSteps} 步）`, 'info')
-      else ctx.toast!('无断点——从头执行', 'info')
-    } catch { ctx.toast!('续跑失败', 'error') }
+      const d = await ctx.api.post<{ resumed: boolean; doneSteps: number; totalSteps: number }>(`/api/messages/${fromMsgId}/continue`).catch(() => null)
+      if (d?.resumed) ctx.toast(`继续执行（已 ${d.doneSteps}/${d.totalSteps} 步）`, 'info')
+      else ctx.toast('无断点——从头执行', 'info')
+    } catch { ctx.toast('续跑失败', 'error') }
   }
 
   async function retryMessage(fromMsgId: string) {
@@ -737,7 +737,7 @@ export const Chat: Component = (_props, ctx) => {
     ctx.ws?.send({ type: 'subscribe', room: deptId })
     // CHAT-UX 波次 4（E4）：透传 reply_to（引用上下文不丢）；attachments 不透传——
     // 历史消息只有 name/size 元数据（无 data base64——重传是垃圾数据——降级注释）
-    await ctx.api!.post(`/api/departments/${deptId}/messages`, { content: lastUser.content, reply_to: lastUser.reply_to ?? null }).catch(() => {})
+    await ctx.api.post(`/api/departments/${deptId}/messages`, { content: lastUser.content, reply_to: lastUser.reply_to ?? null }).catch(() => {})
     $.sending = false
     rerender()
   }
@@ -748,12 +748,12 @@ export const Chat: Component = (_props, ctx) => {
 
   async function saveEdit() {
     if (!$.editingId || !$.editValue.trim()) return
-    await ctx.api!.put(`/api/messages/${$.editingId}`, { content: $.editValue }).then(() => cancelEdit()).catch(() => ctx.toast!('编辑失败', 'error'))
+    await ctx.api.put(`/api/messages/${$.editingId}`, { content: $.editValue }).then(() => cancelEdit()).catch(() => ctx.toast('编辑失败', 'error'))
   }
 
   async function feedbackMsg(msg: any, fb: 'like' | 'dislike' | null) {
     try {
-      await ctx.api!.post(`/api/messages/${msg.id}/feedback`, { feedback: fb })
+      await ctx.api.post(`/api/messages/${msg.id}/feedback`, { feedback: fb })
       // 新建对象（原地改 msg.feedback → vdom3 audit + MessageItem 剪枝点赞态不更新）
       $.msgs = $.msgs.map((m: ChatMessage) => m.id === msg.id ? { ...m, feedback: fb } : m)
       rerender()
@@ -762,21 +762,21 @@ export const Chat: Component = (_props, ctx) => {
 
   async function deleteMsg(msg: ChatMessage) {
     const mine = isOwn(msg)
-    const ok = await ctx.confirm!(mine ? '确定撤回这条消息？' : '作为管理员删除这条消息？删除后不可恢复。')
+    const ok = await ctx.confirm(mine ? '确定撤回这条消息？' : '作为管理员删除这条消息？删除后不可恢复。')
     if (!ok) return
-    await ctx.api!.delete(`/api/messages/${msg.id}`).then(() => { ctx.toast!(mine ? '消息已撤回' : '消息已删除', 'success'); rerender() }).catch(() => ctx.toast!('操作失败', 'error'))
+    await ctx.api.delete(`/api/messages/${msg.id}`).then(() => { ctx.toast(mine ? '消息已撤回' : '消息已删除', 'success'); rerender() }).catch(() => ctx.toast('操作失败', 'error'))
   }
 
   async function approveDraft(msgId: string) {
     $.approving = msgId
-    await ctx.api!.post(`/api/messages/${msgId}/approve`, { approved: true }).catch(() => {})
+    await ctx.api.post(`/api/messages/${msgId}/approve`, { approved: true }).catch(() => {})
     $.approving = null
     rerender()
   }
 
   async function rejectDraft(msgId: string) {
     $.approving = msgId
-    await ctx.api!.post(`/api/messages/${msgId}/approve`, { approved: false }).catch(() => {})
+    await ctx.api.post(`/api/messages/${msgId}/approve`, { approved: false }).catch(() => {})
     $.approving = null
     rerender()
   }

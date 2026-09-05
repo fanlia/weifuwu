@@ -94,7 +94,7 @@ export const Workflows: Component = (_props, ctx) => {
 
   async function load(): Promise<void> {
     try {
-      const d = await ctx.api!.get<{ workflows: WorkflowRow[] }>('/api/workflows')
+      const d = await ctx.api.get<{ workflows: WorkflowRow[] }>('/api/workflows')
       $.rows = d.workflows ?? []
     } catch { $.rows = [] }
     $.loading = false
@@ -103,12 +103,12 @@ export const Workflows: Component = (_props, ctx) => {
   void load()
 
   async function create(): Promise<void> {
-    if (!$.name.trim()) { ctx.toast!('请填写名称', 'error'); return }
-    if (!$.wfjs.trim()) { ctx.toast!('请填写 wfjs 源码', 'error'); return }
+    if (!$.name.trim()) { ctx.toast('请填写名称', 'error'); return }
+    if (!$.wfjs.trim()) { ctx.toast('请填写 wfjs 源码', 'error'); return }
     $.creating = true; $.error = ''; rerender()
     try {
-      await ctx.api!.post('/api/workflows', { name: $.name.trim(), wfjs: $.wfjs })
-      ctx.toast!('工作流已创建', 'success')
+      await ctx.api.post('/api/workflows', { name: $.name.trim(), wfjs: $.wfjs })
+      ctx.toast('工作流已创建', 'success')
       $.name = ''
       await load()
     } catch (e) {
@@ -120,20 +120,20 @@ export const Workflows: Component = (_props, ctx) => {
 
   async function runRow(id: string): Promise<void> {
     try {
-      const d = await ctx.api!.post<{ run: { status: string; error: string | null } }>(`/api/workflows/${id}/runs`, { args: {} })
+      const d = await ctx.api.post<{ run: { status: string; error: string | null } }>(`/api/workflows/${id}/runs`, { args: {} })
       const st = d.run?.status
-      ctx.toast!(st === 'success' ? '执行成功' : `执行：${st}${d.run?.error ? `——${d.run.error}` : ''}`, st === 'success' ? 'success' : 'error')
+      ctx.toast(st === 'success' ? '执行成功' : `执行：${st}${d.run?.error ? `——${d.run.error}` : ''}`, st === 'success' ? 'success' : 'error')
       await load()
     } catch (e: any) {
-      ctx.toast!(e?.message ?? '执行失败', 'error')
+      ctx.toast(e?.message ?? '执行失败', 'error')
     }
   }
 
   async function remove(id: string): Promise<void> {
     try {
-      await ctx.api!.delete(`/api/workflows/${id}`)
+      await ctx.api.delete(`/api/workflows/${id}`)
       await load()
-    } catch { ctx.toast!('删除失败', 'error') }
+    } catch { ctx.toast('删除失败', 'error') }
   }
 
   return () => {

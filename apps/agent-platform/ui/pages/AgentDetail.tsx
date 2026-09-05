@@ -67,11 +67,11 @@ export const AgentDetail: Component = (_props, ctx) => {
     $.boundSkills = []; $.availableSkills = []; $.showSkillPicker = false
 
     Promise.all([
-      ctx.api!.get<{ agent: Agent }>(`/api/agents/${agentId}`),
-      ctx.api!.get<{ skills: BoundSkill[] }>(`/api/agents/${agentId}/skills`).catch(() => ({ skills: [] })),
-      ctx.api!.get<{ skills: AvailableSkill[] }>('/api/skills/available').catch(() => ({ skills: [] })),
-      ctx.api!.get<{ agents: Agent[] }>('/api/agents?type=knowledge_base').catch(() => ({ agents: [] })),
-      ctx.api!.get<{ departments: Department[] }>('/api/departments').catch(() => ({ departments: [] })),
+      ctx.api.get<{ agent: Agent }>(`/api/agents/${agentId}`),
+      ctx.api.get<{ skills: BoundSkill[] }>(`/api/agents/${agentId}/skills`).catch(() => ({ skills: [] })),
+      ctx.api.get<{ skills: AvailableSkill[] }>('/api/skills/available').catch(() => ({ skills: [] })),
+      ctx.api.get<{ agents: Agent[] }>('/api/agents?type=knowledge_base').catch(() => ({ agents: [] })),
+      ctx.api.get<{ departments: Department[] }>('/api/departments').catch(() => ({ departments: [] })),
     ]).then(([agentRes, skillRes, availRes, kbRes, deptRes]) => {
       $.deptOptions = (deptRes.departments ?? []).filter((d: any) => !d.is_dm).map((d: any) => ({ id: d.id, name: d.name }))
       const a = (agentRes.agent ?? agentRes) as Agent
@@ -88,8 +88,8 @@ export const AgentDetail: Component = (_props, ctx) => {
       $.lightModel = a.light_model ?? ''
       $.webhookUrl = a.webhook_url ?? ''; $.webhookPlatform = a.webhook_platform ?? 'generic'; $.webhookSecret = a.webhook_secret ?? ''
       if (a.type === 'ai') {
-        void ctx.api!.get<any>(`/api/agents/${a.id}/memory`).then((d) => { $.memory = d.memory ?? ''; $.memoryLoaded = true; rerender() }).catch(() => { $.memoryLoaded = true; rerender() })
-        void ctx.api!.get<any>(`/api/agents/${a.id}/quality`).then((d) => { $.quality = d; rerender() }).catch(() => {})
+        void ctx.api.get<any>(`/api/agents/${a.id}/memory`).then((d) => { $.memory = d.memory ?? ''; $.memoryLoaded = true; rerender() }).catch(() => { $.memoryLoaded = true; rerender() })
+        void ctx.api.get<any>(`/api/agents/${a.id}/quality`).then((d) => { $.quality = d; rerender() }).catch(() => {})
       }
       $.webhookRetryCount = String(a.webhook_retry_count ?? 3)
       $.imBindDept = a.im_bind_dept ?? ''
@@ -108,7 +108,7 @@ export const AgentDetail: Component = (_props, ctx) => {
     // 组织层级：部门经理详情——代表部门 + 成员名单（只读面板）
     $.deptInfo = null
     if (a.type === 'department' && a.department_id) {
-      void ctx.api!.get<any>(`/api/departments/${a.department_id}`)
+      void ctx.api.get<any>(`/api/departments/${a.department_id}`)
         .then((d) => { $.deptInfo = { name: d.department?.name ?? '', members: d.members ?? [] }; rerender() })
         .catch(() => {}) // 面板显示部门链接即可
     }
@@ -132,11 +132,11 @@ export const AgentDetail: Component = (_props, ctx) => {
 
   async function startDm(id: string) {
     try {
-      const res = await ctx.api!.post<{ department: Department }>('/api/departments/dm', { agent_id: id })
+      const res = await ctx.api.post<{ department: Department }>('/api/departments/dm', { agent_id: id })
       const d = res.department
       if (d?.id) { ctx.app?.navigate(`/chat/${d.id}`) }
-      else { ctx.toast!('发起单聊失败', 'error') }
-    } catch { ctx.toast!('发起单聊失败', 'error') }
+      else { ctx.toast('发起单聊失败', 'error') }
+    } catch { ctx.toast('发起单聊失败', 'error') }
   }
 
   async function handleSubmit(e: Event) {
@@ -167,7 +167,7 @@ export const AgentDetail: Component = (_props, ctx) => {
       body.im_bind_dept = $.imBindDept || null
     }
     try {
-      await ctx.api!.put(`/api/agents/${agentId}`, body)
+      await ctx.api.put(`/api/agents/${agentId}`, body)
       $.ok = '保存成功'; $.saving = false
       rerender()
     } catch (e) { $.error = errMsg(e, '保存失败'); $.saving = false; rerender() }
@@ -178,7 +178,7 @@ export const AgentDetail: Component = (_props, ctx) => {
   async function loadWebhookLogs() {
     $.whLogsLoading = true
     try {
-      const d = await ctx.api!.get<{ logs: WebhookLog[] }>(`/api/stats/agents/${agentId}/webhook-logs`)
+      const d = await ctx.api.get<{ logs: WebhookLog[] }>(`/api/stats/agents/${agentId}/webhook-logs`)
       $.whLogs = d.logs ?? []; $.whLogsLoading = false
       rerender()
     } catch { $.whLogsLoading = false; rerender() }
@@ -225,7 +225,7 @@ export const AgentDetail: Component = (_props, ctx) => {
   function genSecret() {
     const s = crypto.randomUUID().replace(/-/g, '')
     $.webhookSecret = s; rerender()
-    void ctx.browser?.copyText(s); ctx.toast!('已生成并复制', 'success')
+    void ctx.browser?.copyText(s); ctx.toast('已生成并复制', 'success')
   }
 
   function webhookFullUrl() {
@@ -250,7 +250,7 @@ export const AgentDetail: Component = (_props, ctx) => {
   }
 
   function copyGuide(text: string) {
-    void ctx.browser?.copyText(text); ctx.toast!('示例已复制', 'success')
+    void ctx.browser?.copyText(text); ctx.toast('示例已复制', 'success')
   }
 
   return (props) => {
@@ -430,7 +430,7 @@ export const AgentDetail: Component = (_props, ctx) => {
                         <Button type="button" size="sm" variant="ghost" onClick={async () => {
                           if (!window.confirm('清除该 Agent 的记忆？')) return
                           try {
-                            await ctx.api!.delete(`/api/agents/${$.agent!.id}/memory`)
+                            await ctx.api.delete(`/api/agents/${$.agent!.id}/memory`)
                             $.memory = ''; rerender()
                           } catch { /* 静默 */ }
                         }}>清除记忆</Button>
@@ -497,7 +497,7 @@ export const AgentDetail: Component = (_props, ctx) => {
               <Field label="入站端点" hint="外部系统 POST JSON 到该地址即可触发 AI 应答（若设置 Secret，须带 X-Signature/X-Timestamp/X-Nonce 头）">
                 <div class="wf-row wf-gap-xs">
                   <Input readonly value={webhookFullUrl()} />
-                  <Button type="button" variant="ghost" onClick={() => { void ctx.browser?.copyText(webhookFullUrl()); ctx.toast!('已复制', 'success') }}><Icon name="copy" size={14} /></Button>
+                  <Button type="button" variant="ghost" onClick={() => { void ctx.browser?.copyText(webhookFullUrl()); ctx.toast('已复制', 'success') }}><Icon name="copy" size={14} /></Button>
                 </div>
               </Field>
               <Field label="IM 群绑定" hint="IM 入站：外部平台群消息（企微/钉钉/飞书回调）进该部门，AI 像群里同事一样回复并回显">
