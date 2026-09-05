@@ -8,6 +8,48 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.92.0] - 2026-09-06
+
+按域统计：plan 2 · core 30
+
+### Docs
+
+- plan：三计划完善（开发者视角）+ 新计划 docs 可学习性
+- plan：三计划立项——API/Web/全栈 体验提升（探针锚定）
+- core：§1 快速上手修正——createServer/ctx.json 是已消亡旧 API 残留
+- core：v0.91.0 文档收口——shape 三件套 / meta 保留纪律 / 手写 route 示例
+
+### Other（未分类——人工补域）
+
+- core：platform 优化计划实录收尾（W3 收尾两波 + 判负记录补全）
+- core：W3 收尾2(platform)：零引用 services 补测（6 服务全覆盖）
+- core：W3 收尾(platform)：protected 内联面补测（route 覆盖 76.9% → 98.1%）
+- core：W5(platform)：docs + 全量回归门收口
+- core：W4(platform)：噪声显式化（空吞 12 → 注释化）+ 类型小推进（Message 派生）
+- core：W3(platform)：测试热力补覆盖（route 覆盖 46.2% → 76.9%）
+- core：W2(platform)：as any 分域清理（469 → 350——W2 目标达成）
+- core：W1(platform)：server.ts 装配拆分（1562 → 48 行——四域 bootstrap）
+- core：W0(platform)：老世代零清零（Admin/Sandboxes → useAsyncData）+ as any 基线锚
+- core：plan：platform 质量优化立项（W0-W5——探针锚点）
+- core：api W1 补收：剩余响应级手写 error json 清零（30 → 1 业务返回面）
+- core：四计划收口：全量回归门全绿 + 执行实录归档
+- core：web W3：memo 试点——AgentGrid（高频输入页静态邻居零 diff）
+- core：web W2：列表页骨架原语——ListScaffold（>1 消费者入库——Agents/Departments）
+- core：web W1：页面 hooks 世代迁移——Agents/Departments + 哨兵 + 迁移手册
+- core：fullstack W4：docs 增补——跨端类型共享 §5.6 + 认证接线范式 6.1 + 场景回归
+- core：fullstack W3：三层测试动线收口——契约模板 + route 覆盖哨兵
+- core：fullstack W2：权限单源——roles 共享声明（矩阵代码化——ASCII 表消失）
+- core：fullstack W1：端点注册表判负（探针净结果——预判兑现）
+- core：docs W2：CHANGELOG 域分组——release.mjs 生成逻辑提取可测面
+- core：docs W0：快速上手 4 段动线（探针逐段跑通——示例照抄即真）
+- core：W4(api)+docs W1：docs/server §0 API 速查 + §5.5 错误响应面 + 覆盖守卫
+- core：W3(api)：消噪专项——String() -91 处（250→159）· 风险面清零
+- core：W2(api)：手写面按需迁移——bodyOf 试点 2 处 + 全量迁移判负登记
+- core：W1(api)：响应面收口——104 处手写 error json → throw HttpError（链单源）
+- core：W0(fullstack)：类型单源跨端——Agent/Department 从 SHAPES 派生（试点 2 个）
+- core：W0(web)：ctx 注入面类型收口——UiServeOptions 类型化 + CommandsInjected + 平台 198 断言清零
+- core：W0(api)：错误面单源——errorResponse 总面 + code 面 + 平台链接线
+
 ## [0.91.0] - 2026-09-05
 
 ### Added

@@ -80,7 +80,7 @@ async function main() {
     const entry = formatEntry(version, new Date().toISOString().slice(0, 10), groups, scopes)
     let changelog = readFileSync(changelogPath, 'utf-8')
     const UNREL = '## [Unreleased]\n\n（release.mjs 发布时自动生成——不要手写）\n\n'
-    changelog = changelog.replace(UNREL, `## [Unreleased]\n\n（release.mjs 发布时自动生成——不要手写）\n\n${entry.join('\n').trim()}\n\n`)
+    changelog = changelog.replace(UNREL, `## [Unreleased]\n\n（release.mjs 发布时自动生成——不要手写）\n\n${entry.trim()}\n\n`)
     writeFileSync(changelogPath, changelog)
     console.log(`  ✓ CHANGELOG → ${version}（${groups.feat.length + groups.fix.length + groups.docs.length + groups.test.length + groups.chore.length} 条主题）`)
   } catch (e) {
