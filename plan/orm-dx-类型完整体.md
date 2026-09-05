@@ -62,7 +62,31 @@ platform shapes.ts: const agents: ZodRawShape = {...}
   未来 CI 一行可挂；推翻条件：CI 基建出现时纳入
 - 回归门（W1 波次）：server **796/796** · 契约 **433/433** · 构建 tsc **0** ·
   typecheck:tests **0**
-| W2 | **单表类型复活（根因修复）**：platform SHAPES `: ZodRawShape` 注解 → `satisfies ZodRawShape`（23 表全模式——字段字面量类型保留）· `tables()` 行类型恢复（string/enum/date→string 精确——jsonb 列 unknown 诚实）· 平台 35+24 断言主体移除（tsc 报错面 = 精准清单——编译器指出所有"列不存在/值类型不符"隐患） | 平台 tsc 0 · as unknown as 归零或 5 内（判负：真需要处登记）· typecheck:tests 绿 |
+| ✅ W2 | **单表类型复活（根因修复）**（56666c63+a2341aae）：platform SHAPES `: ZodRawShape` 注解 → `satisfies ZodRawShape`（29 表全模式——字段字面量类型保留）· `tables()` 行类型恢复（string/enum/date→string 精确——jsonb 列 unknown 诚实）· 平台 35+24 断言主体移除（tsc 报错面 = 精准清单——编译器指出所有"列不存在/值类型不符"隐患） | 平台 tsc 0 · as unknown as 归零或 5 内（判负：真需要处登记）· typecheck:tests 绿 |
+
+#### W2 实录（2027-xx）
+
+- **转换面**：29 表 `: ZodRawShape` → `satisfies ZodRawShape`（字符级大括号
+  配对脚本——`}}` 双闭合陷阱实录：首脚本行级深度错位（函数调用 `})` 干扰）
+  + 平台 orm.ts weifuwuAppMembers 第 30 表同式（类型一致性）
+- **行类型复活验证**（探针）：`agents` 行 name=string · model=string|null
+  （nullable 语义保留）· jsonb=unknown（诚实）· **未知列编译期红**
+- **as unknown as 35→4**：RowOf/Row 精确后 25 处断言直接删除编译过（多余
+  断言实证）· manager.ts SandboxRow 行类型派生（RowOf<SHAPES.sandboxes>——
+  手动接口双写删除）+ 6 处查询绑表（orm.table 注册面——registry 幂等
+  零成本）· video-gen.ts VideoTaskRow 同派生 + status switch default 兜底
+  （enum 坍缩 string——诚实面）· **判负保留 4 处**：RosterMember×2
+  （跨表 join 手动接口——W3 typedQuery 修复面）· video-gen row
+  （ensureVideoTasksTable 动态 schema）· stats.ts ctx（非行面）
+- **W2 实证抓真 bug**：sandboxes 表 `updated_at` **三单源漏列**（schema.sql/
+  tables.ts/shapes.ts 都没有——但 manager 11 处读写：reconcile 自愈写
+  `.set({updated_at})` + 停止超时 `row.updated_at` 读——**真库运行时写不
+  存在的列会炸**——memory 引擎宽容掩盖（POSTGRES_MEMORY=1 测试面）——
+  设计意图明显（全文件都在更新它）→ 补列：三单源 + 存量库
+  `ALTER TABLE sandboxes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ
+  NOT NULL DEFAULT NOW()（schema.sql）——shape-check 24 表对齐绿
+- 回归门：平台 **451/451**（14 skip docker）· shape 对齐 24 表 · audit-orm
+  三域 0 · 平台 tsc 0 · typecheck:tests 0
 | W3 | **跨表 typedQuery**：`createTypedQuery<TSchema>(orm, schema)`（纯类型面——运行时 = orm.query 零成本）· 表/alias 解析（`from('kb_chunks kc')` + join 链 alias 累积）· 列解析（裸列→主表·`alias.col`→alias 表·`col AS alias`→键别名）· 行类型 = select 列 Infer 映射 + aggregate/vectorScore as 键并入 · 未知列/未知 alias 编译期红 · 契约：tsd 断言 6+（列拼错/别名错/AS 别名/join 后裸列歧义?——W3 探针定） | tsd 断言绿 · query-language/orm 运行时契约全绿 · 平台试点（chat 知识检索/messages 会话）类型化——as unknown 删除 |
 | W4 | **回归 + 文档 + 收尾**：docs/server.md §5 补 typedQuery 用法 + SHAPES satisfies 纪律（平台 shapes 指南）· audit 补类型断言守卫?（判负登记见下）· 全量回归门 | 五域 + audit 七线 + 平台 451+155 全绿 · tsc 双 0 · 计划收尾 |
 
