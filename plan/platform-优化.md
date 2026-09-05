@@ -29,6 +29,20 @@
 | W4 | **噪声显式化 + 类型小推进**：12 处 catch 空吞补注释/日志（无声吞 = 不透明定案——实现或移除）· ApiList/TokenUsage/Member 等 3-5 个共享响应类型 RowOf 派生 | 12 处空吞全部显式（注释带原因或日志）· 派生类型 tsc 0 · 审计可见 |
 | W5 | **docs + 回归门**：AGENTS.md/platform 装配图增补（bootstrap 边界）· as any 残余登记 · 全量回归门 | 平台 475 · 框架五域 · audit 八线 · tsc 三 0 |
 
+## 执行实录（2027-xx——全波次完成）
+
+| 波次 | commit | 结果 |
+| --- | --- | --- |
+| W0 | `881b4094` | 老世代 2→0（Admin 6 管道/Sandboxes 单管道 useAsyncData——getter 渲染期读 + interaction 闭包保持 · sbProcs/debug 点击驱动诚实保留）· audit:any 基线锚 469 黄报线（新增可见） |
+| W1 | `76b35c2b` | server.ts 1562→48 行（env/deps/routes-public/routes-protected 四域）· platform 461/0/14 绿 · 随行修 Admin 6 管道 catch 降级（W0 迁移缺口——smoke 零 console 红线）· tenant-isolation 扫描+豁免登记路径跟随 |
+| W2 | `3fb7c0ae` | as any 469→350（catch 66+5 点 unknown 严格化 · 回调注解 26 推断化 · count 行宽型 21 · Admin 管道响应类型化）——行为等价服务面 6/6 |
+| W3 | `7daa902f` | route 覆盖 46.2%→76.9%（routes-gap-public 7 + routes-gap-protected 9——真断言非贴片——memory schema 三模块声明面补齐）· platform 491（477/0/14） |
+| W4 | `20b21ca2` | 空吞 12→注释化 10（2 保留已内置注释——重连/ignore）· Message RowOf 派生（第 3 派生——Agent/Department 存量 + Message 新增）· RoleTemplate 派生判负（常量/表双面） |
+
+**验收对照**：规模 1562→48 ✓ · as any 469→350 ✓ · 老世代 0 ✓ ·
+空吞显式 10/12 ✓ · route 覆盖 76.9% (60%+ ✓) · 类型派生 3（3-5 ✓）·
+平台 491（477/0/14——skip 14 docker 边界）· tsc 0 ✓
+
 ## 判负记录（可被新论证推翻）
 
 - **as any 全清**：不做——残留是运行时动态面（消息体/第三方响应/组合子

@@ -94,7 +94,16 @@ exit 1——CI 可挂）。
 `POSTGRES_MEMORY=1`）。**新 route 必带契约测试**——模板复制即用：
 `apps/agent-platform/test/_template.contract.ts`（5 行核心：memory orm →
 handler 直调 → 状态码断言）· route 覆盖哨兵：`npm run audit:routes`
-（黄报未引用清单——新 route 无测试 = 可见）。
+（黄报未引用清单——新 route 无测试 = 可见——W3 补面 46.2%→76.9%）。
+
+**平台哨兵组（platform 质量优化——mechanism 化）**：
+`npm run audit:routes`（route 覆盖 <40% 红）· `npm run audit:pages`
+（页面世代/工厂契约——老世代 0）· `npm run audit:any`（as any 黄报
+线——基线 350 只降不升——超基线 10%+ warn）。**装配域**：server.ts →
+`src/bootstrap/`（env/deps/routes-public/routes-protected——server.ts
+只留组装清单——新装配进 bootstrap 对应域文件）。**memory 测试 schema
+三模块**：agent-platform + agent-platform-ext（_weifuwu_apps 平台扩展列
+——stats/report 面）+ users——缺一即 42P01/未知列。
 
 ## 3. 组件作者契约（精华——完整检查清单见 docs/client.md §5）
 
