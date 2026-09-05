@@ -106,19 +106,9 @@ export interface Message {
   /** 图片预览（2026-09——AI 生成图片——占位先行：loading 占位→ready 图/error 占位；
    * 三态同尺寸（300×300）——布局恒定零追滚零闪烁——非持久字段） */
   preview?: { state: 'loading' | 'ready' | 'error'; url?: string } | null
-  /** 回复引用（reply_to JOIN messages 预览） */
-  reply_to?: string | null
-  /** R6 质量反馈：AI 回复点赞/点踩 */
-  feedback?: 'like' | 'dislike' | null
-  /** O8 意图路由：本 AI 回复由语义路由派给的目标 Agent 名（显示「任务派给 X」） */
-  routed_to?: string | null
+  /** reply_to JOIN messages 预览（回复引用气泡） */
   reply_content?: string | null
   reply_sender?: string | null
-  /** HITL 草稿 */
-  ai_draft?: string | null
-  ai_approved?: boolean | null
-  /** CHAT-INTERACTION 波次 2：快捷确认选项（AI [[choices:...]] 剥离后——气泡 chip） */
-  quick_replies?: string[] | null
 }
 
 /** 角色模板 */

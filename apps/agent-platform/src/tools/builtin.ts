@@ -465,7 +465,7 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
       let runArgs: Record<string, unknown> = {}
       const rawArgs = String(args.args ?? '').trim()
       if (rawArgs && rawArgs !== '{}') {
-        try { runArgs = JSON.parse(rawArgs) } catch { return 'Error: args 不是合法 JSON 对象'
+        try { runArgs = JSON.parse(rawArgs) } catch { return 'Error: args 不是合法 JSON 对象' /* 参数面显式拒绝 */
         }
       }
       const appId = await resolveAppId(ctx, toolCtx)

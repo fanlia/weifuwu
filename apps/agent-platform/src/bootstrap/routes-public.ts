@@ -155,7 +155,7 @@ export function registerPublicRoutes(app: Router<AppCtx>, deps: PlatformDeps): v
     try {
       if (hasRedis) { await redisClient.redis.command('PING'); deps.redis = true }
       else deps.redis = 'disabled'
-    } catch { deps.redis = false }
+    } catch { deps.redis = false /* 探活失败——诚实降级 */ }
     try {
       const { sandbox } = await import('../sandbox/docker.ts')
       const st = await sandbox.status()

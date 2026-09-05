@@ -115,6 +115,7 @@ export class SandboxManager {
         .run()
       return (rows ?? []).map((r) => ({ type: String(r.type), detail: r.detail ? String(r.detail) : null, created_at: String(r.created_at) }))
     } catch {
+      // 事件表缺失/查询失败 → 空事件（诊断降级）
       return []
     }
   }
@@ -375,6 +376,7 @@ export class SandboxManager {
       for (const r of rows ?? []) out[String((r as any).status)] = Number((r as any).n ?? 0)
       return out
     } catch {
+      // 状态统计失败 → 空面（诊断降级——不阻断调用方）
       return {}
     }
   }
@@ -592,7 +594,7 @@ export class SandboxManager {
       await this.orm.query.delete('sandbox_events')
         .where({ created_at: { lt: new Date(Date.now() - retentionDays * 86_400_000).toISOString() } })
         .run()
-    } catch { /* 清理失败不阻断 */ }
+    } catch { /* 清理失败不阻断（孤儿残留由下一轮 reconcile 重试） */ }
     sandboxEmit('reconcile:end', undefined, { ...stats })
     return stats
   }

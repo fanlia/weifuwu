@@ -280,6 +280,7 @@ export class DockerSandbox implements SandboxHost {
       const parsed = JSON.parse(r.output)
       return parsed?.ok === true
     } catch {
+      // 输出非 JSON/损坏 → 执行失败语义（诚实判负）
       return false
     }
   }
@@ -400,6 +401,7 @@ export class DockerSandbox implements SandboxHost {
         if (parsed.ok) return { ok: true, output: String(parsed.output ?? '') }
         return { ok: false, error: String(parsed.error ?? 'unknown') }
       } catch {
+        // 输出解析失败 → 原样透传（原始输出面——不假解析）
         return { ok: true, output: er.output }
       }
     } finally {
@@ -504,6 +506,7 @@ export class DockerSandbox implements SandboxHost {
         if (parsed.ok) return { ok: true, output: String(parsed.output ?? '') }
         return { ok: false, error: String(parsed.error ?? 'unknown') }
       } catch {
+        // 输出解析失败 → 原样透传（原始输出面——不假解析）
         return { ok: true, output: r.output }
       }
     } finally {
