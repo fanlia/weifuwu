@@ -346,3 +346,40 @@ await ctx.orm.transaction(async (tx) => {
 - FK 约束：memory 无校验面（真库 23503 → 400）——跨表引用依赖先插主行
 - vectorScore 精度：内存余弦 vs 真库 ivfflat 近似——结果排序可能差异
 - tx/ctx 派生面：`table(name)` 免 shapeDef（registry 共享——同名表幂等）
+
+### 5.4 声明式 API 面（orm.gql / orm.rest——命名契约）
+
+> **设计分层纪律**：HTTP client ←→ 协议面（graphql/restful）←→ handler（业务面）
+> ←→ orm（数据面）。自动生成**不是绕过 handler**，是 **handler 默认实现的生成器**
+> （解析→校验→租户→orm→响应→错误语义）；业务（权限/事务/编排/响应定制）
+> 永远手写——以覆盖/钩子接缝在生成面之上。
+>
+> **判别标准（一票）**：_「除了 参数→orm→响应 还有别的行为吗？」有 → 手写；
+> 没有 → 生成。_
+
+**命名契约（一个词一个概念——学一个面等于学三个面）**：
+
+| 概念 | 命名 | 说明 |
+| --- | --- | --- |
+| 数据面 | `shape`（f/z） | 唯一事实源 |
+| 代码内查询 | `orm.table` / `typedQuery` | 类型化/跨表 |
+| GraphQL 面 | `orm.gql(Table)` / `gqlFromShape(shapeDef, opts)` | 入口对称 |
+| RESTful 面 | `orm.rest(Table)` / `restFromShape(shapeDef, opts)` | 入口对称 |
+| filter→WhereExpr | `filterToWhere(filter, shapeDef)` | 三面共享单源 |
+| 字段策略 | `fieldPolicy`（`hidden?: string[]` 首版） | 敏感列豁免——三面生效 |
+
+**规则**：① 入口对称 `orm.<协议小写词>` ② 生成器对称 `<协议>FromShape`
+③ `create*` 构造对象 / `*FromShape` 派生协议面——不混用 ④ 协议短名（gql/rest）
+仅用于 orm 入口与生成器；HTTP 层协议中间件全称（graphql()/ui()/ws()）。
+
+**gql 面（已有——`orm.gql(Table)`）**：shape → SDL + resolvers；Query
+（list/one——filter/sort/limit/offset）· Mutation（insert/update/delete）；
+租户 scope 自动注入；校验（insertSchema/updateSchema——API 边界）；
+`hidden` 字段豁免（敏感列 SDL/返回双面不出现）。
+
+**rest 面（W4——`orm.rest(Table)`）**：shape 派生路由组（list/one/
+insert/update/delete——query 参数 schema/limit clamp/枚举白名单/404·204
+语义/hooks before-after/字段策略）。
+
+**真实化承诺**：SDL/路由表是 **shape 投影**——「声明了就有行为」，没有
+「声明但静默跳过」（vector 列显式 [Float!]、未知字段显式报错）。

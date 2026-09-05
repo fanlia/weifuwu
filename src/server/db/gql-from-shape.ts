@@ -17,6 +17,7 @@
  *   复杂 mutation（批量/upsert/事务）·uuid→ID 映射（String 面）
  */
 import { type Shape } from './shape.ts'
+import { filterToWhere } from './filter.ts'
 import {
   z, ZodString, ZodNumber, ZodBoolean, ZodDate, ZodEnum, ZodLiteral, ZodArray,
   ZodOptional, ZodNullable, ZodDefault, ZodTransform, ZodEffects,
@@ -34,6 +35,9 @@ export interface GqlShapeOptions {
   tenant?: { field: string; value: (ctx: unknown) => string }
   /** 默认分页上限（默认 100） */
   maxLimit?: number
+  /** 字段策略（命名契约 W0——fieldPolicy 首版）：敏感列豁免——
+   *  SDL 不生成（字段/Filter/Sort/Insert/Patch 全不出现）+ resolver 不返回 */
+  hidden?: string[]
 }
 
 export interface GqlShapeOutput {
@@ -112,7 +116,10 @@ export function gqlFromShape<S extends ZodRawShape>(
   const insertDefs: string[] = []
   const patchDefs: string[] = []
 
+  const hidden = new Set(opts.hidden ?? [])
+  const isHidden = (fname: string) => hidden.has(fname)
   for (const [fname, fschema] of Object.entries(shapeDef.fields as Record<string, ZodType>)) {
+    if (isHidden(fname)) continue
     const nullable = isOptional(fschema) ? '' : '!'
     const gql = zodToGql(fschema, `${name}${pascal(fname)}Enum`, enumNames, enumDefs)
     if (gql) fieldDefs.push(`  ${fname}: ${gql}${nullable}`)
@@ -131,9 +138,9 @@ export function gqlFromShape<S extends ZodRawShape>(
     sortEnums.push(`  ${fname}`)
   }
 
-  // insert/patch 变体字段（省略 auto 列）
+  // insert/patch 变体字段（省略 auto 列 + hidden 列）
   for (const [fname, fschema] of Object.entries(shapeDef.fields as Record<string, ZodType>)) {
-    if (isAuto(shapeDef, fname)) continue
+    if (isAuto(shapeDef, fname) || isHidden(fname)) continue
     const g = zodToGql(fschema, `${name}${pascal(fname)}Enum`, enumNames, enumDefs)
     if (!g) continue
     // insert 可选性同 insertSchema 规则：zod optional 或 DB 默认值列（可缺省）
@@ -142,8 +149,9 @@ export function gqlFromShape<S extends ZodRawShape>(
     patchDefs.push(`  ${fname}: ${g}`)
   }
 
-  // 顶层 Filter 引用只列支持过滤的字段（enum/对象/数组字段无 Filter 输入——不引用）
+  // 顶层 Filter 引用只列支持过滤的字段（enum/对象/数组字段无 Filter 输入——不引用；hidden 列不可过滤）
   const filterable = Object.keys(shapeDef.fields as Record<string, unknown>).filter((f) => {
+    if (isHidden(f)) return false
     const inner = unwrap((shapeDef.fields as Record<string, ZodType>)[f])
     return inner instanceof ZodString || inner instanceof ZodDate || inner instanceof ZodNumber || inner instanceof ZodBoolean
   })
@@ -183,9 +191,15 @@ function buildResolvers<S extends ZodRawShape>(
 ): GqlShapeOutput['resolvers'] {
   const table = shapeDef.table
   const pk = shapeDef.pkField ?? 'id'
-  const cols = Object.keys(shapeDef.fields as Record<string, unknown>)
+  const hidden = new Set(opts.hidden ?? [])
+  const cols = Object.keys(shapeDef.fields as Record<string, unknown>).filter((c) => !hidden.has(c))
   const dbCols = cols.map((c) => shapeDef.dbFields[c]?.column ?? c)
-  const rowOf = (r: Record<string, unknown>) => (shapeDef as unknown as { fromDb: (x: Record<string, unknown>) => Record<string, unknown> }).fromDb(r)
+  // 列名映射 + hidden 剔除（声明面 + 返回面双保险——hidden 列不出现在任何叶子）
+  const rowOf = (r: Record<string, unknown>) => {
+    const out = (shapeDef as unknown as { fromDb: (x: Record<string, unknown>) => Record<string, unknown> }).fromDb(r)
+    for (const h of hidden) delete out[h]
+    return out
+  }
   const sqlOf = opts.sql ?? ((ctx: unknown) => (ctx as { orm?: unknown }).orm)
   const tenantCol = opts.tenant ? (shapeDef.dbFields[opts.tenant.field]?.column ?? opts.tenant.field) : undefined
 
@@ -193,38 +207,13 @@ function buildResolvers<S extends ZodRawShape>(
     return (sqlOf(ctx) as { query: any }).query
   }
 
-  /** filter 输入 → WhereExpr（逐字段算子收编——列名映射） */
+  /** filter 输入 → WhereExpr（W0：共享 filterToWhere——租户注入调用侧拼装——单源） */
   function whereFrom(filter: Record<string, unknown> | null | undefined, ctx?: unknown): Record<string, unknown> {
-    const out: Record<string, unknown> = {}
+    const out = filterToWhere(filter, shapeDef)
     // 租户 scope 自动注入（先于 filter 处理——无 filter 也生效）
     if (tenantCol && ctx) {
       const v = opts.tenant!.value(ctx)
       if (v !== undefined && out[tenantCol] === undefined) out[tenantCol] = { eq: v }
-    }
-    if (!filter) return out
-    for (const [fname, fval] of Object.entries(filter)) {
-      if (fname === 'and' || fname === 'or') {
-        const groups = (Array.isArray(fval) ? fval : [fval]).map((f: Record<string, unknown>) => whereFrom(f, ctx))
-        out[fname] = groups
-        continue
-      }
-      if (fval === null || typeof fval !== 'object') continue
-      const meta = shapeDef.dbFields[fname]
-      const col = meta?.column ?? fname
-      const v = fval as Record<string, unknown>
-      if (Object.keys(v).some((k) => k === 'eq') && Object.keys(v).length === 1 && typeof v.eq !== 'object') {
-        out[col] = { eq: v.eq as unknown }
-        continue
-      }
-      const ops: Record<string, unknown> = {}
-      for (const [op, val] of Object.entries(v)) {
-        if (val === undefined || val === null) continue
-        if (op === 'contains') { ops.ilike = `%${String(val).replace(/([%_])/g, '\\$1')}%`; continue }
-        if (op === 'startsWith') { ops.ilike = `${String(val).replace(/([%_])/g, '\\$1')}%`; continue }
-        if (op === 'endsWith') { ops.ilike = `%${String(val).replace(/([%_])/g, '\\$1')}`; continue }
-        ops[op] = val
-      }
-      if (Object.keys(ops).length) out[col] = ops
     }
     return out
   }
