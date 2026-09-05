@@ -38,6 +38,8 @@
 | W2 | `3fb7c0ae` | as any 469→350（catch 66+5 点 unknown 严格化 · 回调注解 26 推断化 · count 行宽型 21 · Admin 管道响应类型化）——行为等价服务面 6/6 |
 | W3 | `7daa902f` | route 覆盖 46.2%→76.9%（routes-gap-public 7 + routes-gap-protected 9——真断言非贴片——memory schema 三模块声明面补齐）· platform 491（477/0/14） |
 | W4 | `20b21ca2` | 空吞 12→注释化 10（2 保留已内置注释——重连/ignore）· Message RowOf 派生（第 3 派生——Agent/Department 存量 + Message 新增）· RoleTemplate 派生判负（常量/表双面） |
+| W3收尾 | `f9609529` | protected 内联面补测（registerProtectedRoutes 全量挂载 memory 可行性——auth/audit/settings/im/sandboxes-orm 10 真断言）· route 覆盖 76.9%→98.1% · 框架 scheduler timer unref（测试生态） |
+| W3收尾2 | `9098f67d` | 零引用 services 补测 6 服务全引用 · 非空断言 56 判负（auth! 惯用例）· console.log 30 判负（结构日志面） |
 
 **验收对照**：规模 1562→48 ✓ · as any 469→350 ✓ · 老世代 0 ✓ ·
 空吞显式 10/12 ✓ · route 覆盖 76.9% (60%+ ✓) · 类型派生 3（3-5 ✓）·
@@ -45,6 +47,15 @@
 
 ## 判负记录（可被新论证推翻）
 
+- **非空断言 56 全清**：不做——auth!.userId 惯用例（requireAuth 中间件
+  保证——链上守卫；env 面 OIDC_*! 有 ssoOn 守卫同体）；推翻：绕
+  requireAuth 面出现（新 route 不经中间件）
+- **console.log 30 全清**：不做——bootstrap 结构日志面（启动/依赖状态
+  观测——运营面合理保留）；推翻：业务热路径新增 log（噪声）
+- **/api/sandbox/containers 补测**：不做——docker 依赖（listContainers/
+  containerStats——平台 14 skip 同类边界·CI 无 docker 不稳定）
+- **test/orm memory 面**：不做——memory-sql 未实现 Query AST execute
+  （真库可用——测试桩 route——非消费面）
 - **as any 全清**：不做——残留是运行时动态面（消息体/第三方响应/组合子
   元素）——按语义归型后登记残余；推翻：出现「可类型化的具体实例集」
   （>20 处同构可归型）
