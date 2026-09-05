@@ -10,7 +10,7 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { z } from '../../shared/zod.ts'
+import { z, type Infer } from '../../shared/zod.ts'
 import { f } from './shape.ts'
 import { createMemoryOrm } from './memory-sql.ts'
 import { createTypedQuery } from './typed-query.ts'
@@ -134,4 +134,26 @@ test('typedQuery：运行时——聚合 + vectorScore 投影转发', async () =
   // vectorScore 转发（memory 引擎支持——项目已有契约）
   const scored = await q.from('kb_chunks').select('content').vectorScore('embedding', [0.1, 0.2], 'similarity').run()
   assert.ok(Array.isArray(scored))
+})
+
+test('W4：enum 字面量推断 + vector 断言——tsd（W1 登记失效断言恢复）', async () => {
+  // A) z.enum 字面量 tuple（U 技巧——修复 ZodEnum<[string,string]> 坍缩）
+  const En = z.enum(['ai', 'user'])
+  type Ev = Infer<typeof En>
+  const ev: Ev = 'ai'
+  // @ts-expect-error —— 'robot' 不在枚举（编译期红——W1 登记：eq(type,'robot') 无编译错）
+  const bad: Ev = 'robot'
+  void ev; void bad
+  // B) eq(type, 'robot') 红（typedQuery 面——列型字面量传播）
+  const db = createMemoryOrm(); const orm = db.orm
+  const agentsCols = { id: z.string(), type: z.enum(['ai', 'user', 'webhook']) }
+  orm.table('agents_types', agentsCols)
+  const q = createTypedQuery(orm, { agents_types: agentsCols })
+  void q.from('agents_types').where({ type: { eq: 'ai' } })
+  // @ts-expect-error —— eq type:'robot'（枚举外——编译期红）
+  void q.from('agents_types').where({ type: { eq: 'robot' } })
+  // C) z.vector Infer = number[]（S2——embedding 不再 unknown）
+  const V = z.vector(1024)
+  const vec: Infer<typeof V> = [0.1, 0.2]
+  void vec
 })

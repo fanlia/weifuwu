@@ -154,6 +154,24 @@ export class ZodDate extends ZodType<string> {
   }
 }
 
+/** 向量列（pgvector——dims 维度标注；传输/内存面按 number[] 数组成员；真库列型
+ *  vector(dims)——SchemaModule columnTypes 特化覆盖。Infer=number[]（S2——embedding
+ *  不再 ZodJson unknown） */
+export class ZodVector extends ZodType<number[]> {
+  readonly dims: number
+  constructor(dims: number) { super(); this.dims = dims }
+  _typeName() { return 'vector' }
+  _parse(v: unknown) {
+    if (typeof v !== 'object' || v === null || !Array.isArray(v) || !v.every((n) => typeof n === 'number')) {
+      return { ok: false, path: '', message: 'expected number[] vector' }
+    }
+    if (this.dims > 0 && v.length !== this.dims) {
+      return { ok: false, path: '', message: `expected vector(${this.dims})——got ${v.length} dims` }
+    }
+    return { ok: true, value: v }
+  }
+}
+
 export class ZodJson extends ZodType<unknown> {
   _typeName() { return 'json' }
   _parse(v: unknown) { return { ok: true, value: v } }
@@ -335,10 +353,12 @@ export const z = {
   number: () => new ZodNumber(),
   boolean: () => new ZodBoolean(),
   literal: <L extends string | number | boolean>(v: L) => new ZodLiteral(v),
-  enum: <T extends readonly [string, ...string[]]>(v: T) => new ZodEnum(v),
+  // W4：U 技巧（zod 官方）——数组字面量推断字面量 tuple（修复 ZodEnum<[string,string]> 坍缩）
+  enum: <U extends string, T extends readonly [U, ...U[]]>(v: T) => new ZodEnum(v),
   date: () => new ZodDate(),
   uuid: () => new ZodString().uuid(),
   json: () => new ZodJson(),
+  vector: (dims: number) => new ZodVector(dims),
   object: <S extends ZodRawShape>(shape: S) => new ZodObject(shape),
   array: <T extends ZodType>(item: T) => new ZodArray(item),
   union: <T extends [ZodType, ZodType, ...ZodType[]]>(opts: T) => new ZodUnion(opts),

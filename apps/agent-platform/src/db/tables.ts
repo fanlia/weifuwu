@@ -1,9 +1,11 @@
 import { z, f, type ZodRawShape } from 'weifuwu'
+import { AGENT_TYPES } from './shapes.ts'
 
 // 声明式 Schema（DDL 算子化）——schema.sql 事实源迁移（生成脚手架——人工校验）
 export const AGENT_PLATFORM_SCHEMA: import('weifuwu').SchemaModule = {
   extensions: ['vector'],
-  enums: [{ name: 'agent_type', values: ['ai', 'user', 'webhook', 'knowledge_base', 'department'] }],
+  // W4：枚举值派生自 shapes AGENT_TYPES（单源——不再手写三面）
+  enums: [{ name: 'agent_type', values: [...AGENT_TYPES] }],
   tables: [
     {
       name: 'agents',
@@ -196,7 +198,7 @@ export const AGENT_PLATFORM_SCHEMA: import('weifuwu').SchemaModule = {
         agent_id: z.uuid().meta({ notNull: true, references: 'agents', onDelete: 'CASCADE' }),
         content: z.string().meta({ notNull: true }),
         chunk_index: z.number().int().meta({ notNull: true }),
-        embedding: z.json().nullable(),
+        embedding: z.vector(1024).nullable(), // W4: S2 单源——vector 语义（Infer=number[]）——columnTypes vector(1024) 真库特化
         created_at: z.date().meta({ notNull: true, default: 'now' }),
       },
       columnTypes: {

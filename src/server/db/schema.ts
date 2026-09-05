@@ -78,6 +78,7 @@ export function zodTypeOf(t: ZodType): string {
     case 'boolean': return 'BOOLEAN'
     case 'datetime': return 'TIMESTAMPTZ'
     case 'json': case 'object': case 'array': return 'JSONB'
+    case 'vector': return 'JSONB' // 内存/传输面按 json 数组承载；真库列型 vector(dims) 经 columnTypes 特化（S2）
     case 'enum': return 'TEXT'
     case 'optional': case 'nullable': case 'default': case 'effects': case 'transform':
       return zodTypeOf(innerOf(t) ?? (t as unknown as ZodType))
@@ -86,7 +87,7 @@ export function zodTypeOf(t: ZodType): string {
   }
 }
 
-function enumValuesOf(t: ZodType): string[] | undefined {
+export function enumValuesOf(t: ZodType): string[] | undefined {
   if (t._typeName() === 'enum') return ((t as unknown as { values: readonly string[] }).values ?? []).map(String)
   const inner = innerOf(t)
   return inner ? enumValuesOf(inner) : undefined

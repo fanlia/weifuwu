@@ -17,6 +17,9 @@ const int = () => z.number().int()
 const bool = () => z.boolean()
 const jsonb = () => z.json()
 const ts = () => z.date() // ISO 字符串（Infer=string——DB 原生形态单源）
+
+/** 枚举值单源（W4——S1 定案）：shape 声明 + DDL enum + columnTypes 三面从这里派生——加枚举值只改这一处 */
+export const AGENT_TYPES = ['ai', 'user', 'webhook', 'knowledge_base', 'department'] as const
 /** 字面量 DB 默认（NOT NULL + DEFAULT——写入面可缺省·与 schema 对齐） */
 const dflt = <T extends ZodType>(t: T, v: unknown): T => t.meta({ default: v }) as T
 
@@ -24,7 +27,7 @@ const dflt = <T extends ZodType>(t: T, v: unknown): T => t.meta({ default: v }) 
 export const agents = {
   id: f.pk(uuid()),
   app_id: f.req(uuid()),
-  type: f.req(z.enum(['ai', 'user', 'webhook', 'knowledge_base', 'department'])),
+  type: f.req(z.enum(AGENT_TYPES)),
   name: f.req(text()),
   avatar_url: text().nullable(),
   description: text().nullable(),

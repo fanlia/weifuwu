@@ -96,7 +96,8 @@ export class MemorySql {
     if (!table || !this.tables.has(table)) return result
     const t = this.tables.get(table)!
     const types = t.columnTypes
-    const declaredJson = new Set(Object.entries(types).filter(([, ty]) => /^jsonb?$/i.test(ty)).map(([c]) => c))
+    // vector 列（columnTypes 'vector(1024)'）同 jsonb 面：传输/内存按数组成员——string 承载时解码（W4）
+    const declaredJson = new Set(Object.entries(types).filter(([, ty]) => /^(jsonb?|vector(?:\\(\d+\\))?)$/i.test(ty)).map(([c]) => c))
     const inspect = (v: unknown): boolean => {
       if (typeof v !== 'string') return false
       try { const p = JSON.parse(v); return typeof p === 'object' && p !== null } catch { return false }

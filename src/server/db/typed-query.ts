@@ -61,8 +61,15 @@ type ColRefs<Sch, Reg, Main> = keyof Sch[Main & keyof Sch] | {
   [A in keyof Reg]: A extends string ? (Reg[A] extends keyof Sch ? `${A & string}.${keyof Sch[Reg[A] & keyof Sch] & string}` : never) : never
 }[keyof Reg]
 
+/** 值面列型绑定（W4——W1 登记失效断言复活）：string 列（含 enum 字面量）按列型收紧
+ *  （eq:'robot' 红——enum 外拒绝）；jsonb/unknown 列保留 WhereField 宽面（深度等值兼容） */
+type WhereFieldOf<V> = V extends string ? {
+  col?: string; eq?: V; gt?: V; gte?: V; lt?: V; lte?: V; ne?: V;
+  in?: V[]; notIn?: V[]; like?: string; ilike?: string; isNull?: boolean; between?: [V, V]
+} : WhereField
+
 /** where 约束（对象键 ∈ 合法列引用——字面量多余键红；值面 WhereField 保留组合式） */
-export type TWhere<Sch, Reg, Main> = { [K in ColRefs<Sch, Reg, Main> as K & string]?: WhereField | WhereExpr[] }
+export type TWhere<Sch, Reg, Main> = { [K in ColRefs<Sch, Reg, Main> as K & string]?: WhereFieldOf<ColOut<Sch, Reg, Main, K & string>> | WhereExpr[] }
 
 /** aggregate AS 键并入行 */
 type WithAgg<Row extends object, As extends string, V> = Row & { [K in As]: V }
