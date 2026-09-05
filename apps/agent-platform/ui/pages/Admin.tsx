@@ -18,28 +18,38 @@ interface AdminApp {
 }
 
 export const Admin: Component = (_props, ctx) => {
-  let apps: AdminApp[] = []
-  let loading = true
-  let error = ''
+  // W0 迁移（Agents 范本——哨兵老世代收尾）：load()+ctx.render() 工厂期启动
+  // ——v2 段复用下数据不刷新；useAsyncData 每管道独立（并发合并/缓存保留/
+  // 竞态取消）——getter 渲染期读（快照 bug 教训）。
+  // 交互态（busyId/sbBusy/entName/entEmail/entErr）保持闭包——非数据面。
+  let error = ''        // 操作失败反馈（按钮动作——非数据加载）
+  let loadError = ''    // 数据加载失败（fetcher catch——区块降级文案）
   let busyId = ''
-  let overview: any = null
-  let opsInfo: any = null
-  // 沙盒监控：容器列表 / 进程 / 操作
-  let sbContainers: any[] | null = null
-  let capacity: { host: { id: string; memoryMb: number; cpus: number }; occupied: { mb: number; running: number; terminated: number }; weeklyEvictions: number; recentEvictions: Array<{ sandboxId: string; type: string; detail: string; at: string; name: string }> } | null = null
-  let sbProcs: { name: string; list: any[] } | null = null
   let sbBusy = ''
-  const loadContainers = () => {
-    void ctx.api.get<any>('/api/sandbox/containers').then((d) => {
-      sbContainers = d.containers ?? []
-      ctx.render()
-    }).catch(() => {})
-  }
+  let entName = ''
+  let entEmail = ''
+  let entErr = ''
+  let sbProcs: { name: string; list: any[] } | null = null
+
+  const [getApps, reloadApps] = ctx.ui.useAsyncData(async () => {
+    loadError = ''
+    try {
+      const d = await ctx.api.get<{ apps: AdminApp[] }>('/api/admin/apps')
+      return d.apps ?? []
+    } catch (e) { loadError = errMsg(e, '加载租户列表失败'); return null }
+  }, 'admin-apps')
+  const [getOverview] = ctx.ui.useAsyncData(async () => (await ctx.api.get<any>('/api/admin/overview')), 'admin-overview')
+  const [getOps] = ctx.ui.useAsyncData(async () => (await ctx.api.get<any>('/api/ops')), 'admin-ops')
+  const [getCapacity] = ctx.ui.useAsyncData(async () => (await ctx.api.get<any>('/api/admin/sandbox-capacity')), 'admin-capacity')
+  const [getEnts, reloadEnts] = ctx.ui.useAsyncData(async () => (await ctx.api.get<any>('/api/admin/enterprises')).enterprises ?? [], 'admin-ents')
+  const [getContainers, reloadContainers] = ctx.ui.useAsyncData(async () => (await ctx.api.get<any>('/api/sandbox/containers')).containers ?? [], 'admin-containers')
+
+  const loadContainers = () => reloadContainers()
   const containerAction = async (name: string, action: string) => {
     sbBusy = name + action; ctx.render()
     await ctx.api.post(`/api/sandbox/containers/${name}/${action}`).catch(() => {})
     sbBusy = ''
-    loadContainers()
+    reloadContainers()
   }
   const showProcesses = (name: string) => {
     void ctx.api.get<any>(`/api/sandbox/containers/${name}/processes`).then((d) => {
@@ -47,24 +57,6 @@ export const Admin: Component = (_props, ctx) => {
       ctx.render()
     }).catch(() => {})
   }
-  let enterprises: any[] = []
-  let entName = ''
-  let entEmail = ''
-  let entErr = ''
-  const load = () => {
-    loading = true; error = ''
-    ctx.render()
-    return ctx.api.get<{ apps: AdminApp[] }>('/api/admin/apps')
-      .then((d) => { apps = d.apps ?? []; loading = false; ctx.render() })
-      .catch((e) => { error = errMsg(e, '加载租户列表失败'); loading = false; ctx.render() })
-  }
-  void load()
-  // 平台使用概览（G11）
-  void ctx.api.get<any>('/api/admin/overview').then((d) => { overview = d; ctx.render() }).catch(() => {})
-  void ctx.api.get<any>('/api/ops').then((d) => { opsInfo = d; ctx.render() }).catch(() => {})
-  void ctx.api.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.render() }).catch(() => {})
-  // C1 容量视图（2026-08）：宿主容量 + 占用 + 驱逐审计
-  void ctx.api.get<any>('/api/admin/sandbox-capacity').then((d) => { capacity = d; ctx.render() }).catch(() => {})
 
   async function createEnterprise() {
     if (!entName.trim()) { entErr = '企业名必填'; ctx.render(); return }
@@ -72,8 +64,7 @@ export const Admin: Component = (_props, ctx) => {
     try {
       await ctx.api.post('/api/admin/enterprises', { name: entName.trim(), ownerEmail: entEmail.trim() || undefined })
       entName = ''; entEmail = ''
-      const d = await ctx.api.get<any>('/api/admin/enterprises')
-      enterprises = d.enterprises ?? []
+      reloadEnts()
     } catch (e: any) { entErr = e?.message ?? '创建失败' }
     ctx.render()
   }
@@ -83,7 +74,7 @@ export const Admin: Component = (_props, ctx) => {
     ctx.render()
     try {
       await ctx.api.post(`/api/admin/apps/${a.id}/plan`, { plan: 'pro', monthlyTokenLimit: 1000000 })
-      await load()
+      await reloadApps()
     } catch (e) { error = errMsg(e, '操作失败'); ctx.render() }
     finally { busyId = '' }
   }
@@ -93,7 +84,7 @@ export const Admin: Component = (_props, ctx) => {
     ctx.render()
     try {
       await ctx.api.post(`/api/admin/apps/${a.id}/status`, { status: a.status === 'disabled' ? 'active' : 'disabled' })
-      await load()
+      await reloadApps()
     } catch (e) {
       error = errMsg(e, '操作失败')
       ctx.render()
@@ -102,7 +93,16 @@ export const Admin: Component = (_props, ctx) => {
 
   const fmtTokens = (n: number) => n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n)
 
-  return () => (
+  return () => {
+    // getter 纪律：渲染期读最新（工厂期解构 = 快照 bug——Agents W1 实录）
+    const apps = getApps() ?? []
+    const loading = getApps() === null
+    const overview = getOverview()
+    const opsInfo = getOps()
+    const capacity = getCapacity()
+    const enterprises = getEnts() ?? []
+    const sbContainers = getContainers()
+    return (
     <div class="wf-container wf-stack wf-gap-lg wf-padding-lg wf-margin-x-auto" style="--wf-max: 960px">
       <PageHeader key="page-header" title="租户管理" sub="平台管理员：查看所有团队用量，停用/启用租户（ADMIN_EMAILS 白名单）" />
 
@@ -138,7 +138,7 @@ export const Admin: Component = (_props, ctx) => {
           </div>
           {capacity.recentEvictions.length > 0 && (
             <div class="wf-stack wf-gap-xs wf-margin-top-sm">
-              {capacity.recentEvictions.map((e, i) => (
+              {capacity.recentEvictions.map((e: any, i: number) => (
                 <div key={i} class="wf-font-xs wf-text-tertiary wf-row wf-gap-sm">
                   <span class="wf-text-warning">⏏</span>
                   <span>{e.name || e.sandboxId.slice(0, 8)}</span>
@@ -217,7 +217,7 @@ export const Admin: Component = (_props, ctx) => {
                 <Button size="sm" variant="ghost" onClick={() => {
                   const appId = window.prompt('挂入租户的 appId（管理后台列表可见）')
                   if (appId) void ctx.api.post(`/api/admin/enterprises/${e.id}/apps`, { appId }).then(() => {
-                    void ctx.api.get<any>('/api/admin/enterprises').then((d) => { enterprises = d.enterprises ?? []; ctx.render() })
+                    reloadEnts()
                   })
                 }}>挂租户</Button>
               </div>
@@ -266,5 +266,6 @@ export const Admin: Component = (_props, ctx) => {
         </Card>
       )}
     </div>
-  )
+    )
+  }
 }

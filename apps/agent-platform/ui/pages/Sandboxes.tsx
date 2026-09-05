@@ -43,9 +43,11 @@ function statusTone(s: string): 'success' | 'error' | 'default' {
 }
 
 export const Sandboxes: Component = (_props, ctx) => {
-  let sandboxes: SandboxItem[] = []
+  // W0 迁移（Agents 范本——哨兵老世代收尾 2→0）：load()+ctx.render() 工厂期
+  // 启动——v2 段复用下数据不刷新；useAsyncData 并发合并/缓存保留/竞态取消。
+  // debug 面板保持（点击驱动——非挂载面）· 交互态（busyId/error）保持闭包。
+  // quota 与 sandboxes 同响应——fetcher 内更新闭包（渲染读最新）。
   let quota: { used: number; limit: number; pressure: boolean } | null = null
-  let loading = true
   let busyId = ''
   let error = ''
   // 诊断（2026-12 可观测性：生命周期事件 + 运行中 exec + 进程）
@@ -54,14 +56,14 @@ export const Sandboxes: Component = (_props, ctx) => {
   let debugLoading = false
   const rerender = () => ctx.render()
 
-  const load = () => {
-    loading = true; error = ''
-    rerender()
-    return ctx.api.get<{ sandboxes: SandboxItem[]; quota?: { used: number; limit: number; pressure: boolean } }>('/api/sandboxes')
-      .then((d) => { sandboxes = d.sandboxes ?? []; quota = d.quota ?? null; loading = false; rerender() })
-      .catch((e: any) => { error = errMsg(e, '加载失败'); loading = false; rerender() })
-  }
-  void load()
+  const [getSandboxes, reloadSandboxes] = ctx.ui.useAsyncData(async () => {
+    error = ''
+    try {
+      const d = await ctx.api.get<{ sandboxes: SandboxItem[]; quota?: { used: number; limit: number; pressure: boolean } }>('/api/sandboxes')
+      quota = d.quota ?? null
+      return d.sandboxes ?? []
+    } catch (e: any) { error = errMsg(e, '加载失败'); return null }
+  }, 'sandboxes-page')
 
   const loadDebug = async (id: string) => {
     debugOf = id; debugData = null; debugLoading = true; rerender()
@@ -88,13 +90,17 @@ export const Sandboxes: Component = (_props, ctx) => {
       ctx.toast(errMsg(e, `操作失败：${action}`), 'error')
     }
     busyId = ''; rerender()
-    await load()
+    reloadSandboxes()
   }
 
-  return () => (
+  return () => {
+    // getter 纪律：渲染期读最新（快照 bug 教训）
+    const sandboxes = getSandboxes() ?? []
+    const loading = getSandboxes() === null
+    return (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="沙盒" sub="计算资源（Docker 容器）——部门 = 工作目录，沙盒 = 计算环境，Agent = 能力">
-        <Button variant="ghost" onClick={() => void load()}><Icon name="refresh" size={14} /> 刷新</Button>
+        <Button variant="ghost" onClick={reloadSandboxes}><Icon name="refresh" size={14} /> 刷新</Button>
       </PageHeader>
 
       <div class="wf-font-xs wf-text-tertiary">
@@ -119,7 +125,7 @@ export const Sandboxes: Component = (_props, ctx) => {
       )}
 
       {loading && <Loading />}
-      {!loading && error && <EmptyState icon="⚠️" text={error}><Button size="sm" onClick={() => void load()}>重试</Button></EmptyState>}
+      {!loading && error && <EmptyState icon="⚠️" text={error}><Button size="sm" onClick={reloadSandboxes}>重试</Button></EmptyState>}
       {!loading && !error && sandboxes.length === 0 && (
         <EmptyState icon="📦" text="还没有沙盒" hint="部门内 Agent 首次使用文件/命令工具时自动创建；或在部门详情页手动创建">
         </EmptyState>
@@ -194,5 +200,6 @@ export const Sandboxes: Component = (_props, ctx) => {
         </Card>
       ))}
     </div>
-  )
+    )
+  }
 }
