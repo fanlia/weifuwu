@@ -89,6 +89,10 @@ app.router(Router())
   回调/类函数属性差异**不触发**（比较器自有豁免权——如 CodeEditor 忽略 onChange
   闭包引用）。默认不挂 = 行为完全不变。典型：CodeEditor（value/lang/rows/readOnly
   比较——高频输入页面零 diff 扰动）
+  **页面级范式（web W3 试点——AgentGrid 先例）**：列表区独立成组件 +
+  `shouldRender` 比较**数据引用**（`agents` 数组未变 = 输入键击不重渲列表段——
+  高频输入页的「静态邻居」零 diff）；回调经闭包（onDm/onRemove 豁免——
+  CodeEditor 同款）；单消费者页内组件（不违反「>1 消费者入库」——判负登记）
 
 ### 5.2 三件套
 

@@ -76,45 +76,59 @@ export const Agents: Component = (_props, ctx) => {
         <span class="wf-font-xs wf-text-tertiary">{loading ? '加载中…' : `${agents.length} 个`}</span>
       </div>
       {agents.length > 0 && (
-        <div class="wf-grid">
-          {agents.map((a: Agent) => (
-            <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)} style={{ display: 'flex', flexDirection: 'column' }}>
-              <div class="wf-row wf-gap-sm">
-                <Ava name={a.name} type={a.type} />
-                <div class="wf-fill wf-font-base wf-semibold wf-truncate">{a.name}</div>
-                <TypeBadge type={a.type} />
-              </div>
-              <div class="wf-font-sm wf-text-secondary wf-margin-top-sm">{a.description || a.system_prompt || '暂无描述'}</div>
-              <div class="wf-row wf-gap-md wf-font-xs wf-text-tertiary wf-margin-top-sm">
-                {a.type === 'ai' && a.model && (
-                  <span>🧠 {a.model === 'deepseek-reasoner' ? 'Reasoner' : a.model === 'deepseek-v4-flash' ? 'V4 Flash' : a.model || '默认模型'}</span>
-                )}
-                {a.type === 'ai' && a.human_in_the_loop && (
-                  <span class="wf-text-warning">🛑 需审批</span>
-                )}
-                {(a.token_usage?.run_count ?? 0) > 0 && (
-                  <span>⚡ {((a.token_usage?.total_tokens ?? 0) / 1000).toFixed(1)}k tokens</span>
-                )}
-              </div>
-              <div class="wf-split" style={{ marginTop: 'auto', paddingTop: '12px' }}>
-                <StatusDot on={a.is_active !== false} label={a.is_active !== false ? '运行中' : '已停用'} />
-                <div class="wf-row wf-gap-sm">
-                  {a.type !== 'user' && (
-                    <>
-                      <Button size="sm" variant="ghost" title="发起单聊"
-                        onClick={(e: Event) => startDm(e, a.id)}><Icon name="message" size={14} /> 单聊</Button>
-                      <Button size="sm" variant="ghost"
-                        onClick={(e: Event) => { e.stopPropagation(); ctx.app?.navigate(`/agents/${a.id}`) }}>编辑</Button>
-                      <Button size="sm" variant="danger-ghost" onClick={(e: Event) => remove(e, a.id)}>删除</Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <AgentGrid agents={agents} onDm={startDm} onRemove={remove} onOpen={(id) => ctx.app?.navigate(`/agents/${id}`)} onEdit={(id) => ctx.app?.navigate(`/agents/${id}`)} />
       )}
     </ListScaffold>
     )
   }
+}
+
+// ── AgentGrid（web W3 memo 试点——CodeEditor 先例）─────────────────
+// 搜索每键 → 页面重渲染 → 列表段 props（agents 引用未变——shouldRender
+// false → 段级零 diff）——onClick 回调经闭包（豁免变化——CodeEditor 先例）
+const AgentGrid: Component<{ agents: Agent[]; onDm: (e: Event, id: string) => void; onRemove: (e: Event, id: string) => void; onOpen: (id: string) => void; onEdit: (id: string) => void }> = (init, _ctx) => {
+  const render = () => (
+    <div class="wf-grid">
+      {init.agents.map((a: Agent) => (
+        <Card key={a.id} clickable hover onClick={() => init.onOpen(a.id)} style={{ display: 'flex', flexDirection: 'column' }}>
+          <div class="wf-row wf-gap-sm">
+            <Ava name={a.name} type={a.type} />
+            <div class="wf-fill wf-font-base wf-semibold wf-truncate">{a.name}</div>
+            <TypeBadge type={a.type} />
+          </div>
+          <div class="wf-font-sm wf-text-secondary wf-margin-top-sm">{a.description || a.system_prompt || '暂无描述'}</div>
+          <div class="wf-row wf-gap-md wf-font-xs wf-text-tertiary wf-margin-top-sm">
+            {a.type === 'ai' && a.model && (
+              <span>🧠 {a.model === 'deepseek-reasoner' ? 'Reasoner' : a.model === 'deepseek-v4-flash' ? 'V4 Flash' : a.model || '默认模型'}</span>
+            )}
+            {a.type === 'ai' && a.human_in_the_loop && (
+              <span class="wf-text-warning">🛑 需审批</span>
+            )}
+            {(a.token_usage?.run_count ?? 0) > 0 && (
+              <span>⚡ {((a.token_usage?.total_tokens ?? 0) / 1000).toFixed(1)}k tokens</span>
+            )}
+          </div>
+          <div class="wf-split" style={{ marginTop: 'auto', paddingTop: '12px' }}>
+            <StatusDot on={a.is_active !== false} label={a.is_active !== false ? '运行中' : '已停用'} />
+            <div class="wf-row wf-gap-sm">
+              {a.type !== 'user' && (
+                <>
+                  <Button size="sm" variant="ghost" title="发起单聊"
+                    onClick={(e: Event) => init.onDm(e, a.id)}><Icon name="message" size={14} /> 单聊</Button>
+                  <Button size="sm" variant="ghost"
+                    onClick={(e: Event) => { e.stopPropagation(); init.onEdit(a.id) }}>编辑</Button>
+                  <Button size="sm" variant="danger-ghost" onClick={(e: Event) => init.onRemove(e, a.id)}>删除</Button>
+                </>
+              )}
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+  // **memo（CodeEditor 先例）**：agents 引用比较（搜索输入不改数据——
+  // 页面重渲染时列表段 props 同引用 → 段级零 diff）
+  render.shouldRender = (prev: any, next: any) =>
+    (prev as { agents: Agent[] }).agents !== (next as { agents: Agent[] }).agents
+  return render
 }
