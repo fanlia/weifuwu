@@ -28,6 +28,7 @@
 import type { ZodRawShape, ZodType } from '../../shared/zod.ts'
 import type { Shape } from './shape.ts'
 import { filterToWhere } from './filter.ts'
+import { listQuery, errorResponse } from './http.ts'
 
 export interface RestHooks {
   beforeList?: (req: Request, ctx: unknown) => Promise<void> | void
@@ -58,29 +59,6 @@ export interface RestShapeOutput {
   }, base: string) => void
 }
 
-function unwrap(schema: ZodType): ZodType {
-  let s = schema as ZodType
-  for (;;) {
-    const inner = (s as unknown as { inner?: ZodType }).inner as ZodType | undefined
-    if (inner && typeof (s as unknown as { _typeName?: string })._typeName === 'string' && ['optional', 'nullable', 'default', 'effects', 'transform'].includes((s as unknown as { _typeName: string })._typeName)) {
-      s = inner
-    } else break
-  }
-  return s
-}
-
-/** query 参数 → filter（eq 直排——flat 面；标量列只接受标量值——枚举白名单） */
-function queryToFilter(search: URLSearchParams, shapeDef: { dbFields: Record<string, { column?: string }> }, enumOf: (f: string) => string[] | undefined): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of search.entries()) {
-    if (k === 'sort' || k === 'limit' || k === 'offset') continue
-    const values = enumOf(k)
-    if (values && !values.includes(v)) throw new Error(`invalid enum value for ${k}: ${v}（允许：${values.join(' | ')}）`)
-    out[k] = { eq: v }
-  }
-  return out
-}
-
 export function restFromShape<S extends ZodRawShape>(shapeDef: Shape<S>, opts: RestShapeOptions = {}): RestShapeOutput {
   const name = opts.name ?? shapeDef.table
   const hidden = new Set(opts.hidden ?? [])
@@ -101,21 +79,10 @@ export function restFromShape<S extends ZodRawShape>(shapeDef: Shape<S>, opts: R
     return typeof o.ctxTable === 'function' ? o.ctxTable(name) : o.table(name)
   }
 
-  /** 错误映射（校验/枚举/未知列 → 400——业务守卫抛错也 400；不吞——路由器日志） */
-  function errorOf(e: unknown): Response {
-    const msg = e instanceof Error ? e.message : String(e)
-    return Response.json({ error: msg }, { status: 400 })
-  }
   const parseBody = async (req: Request): Promise<Record<string, unknown>> => {
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') throw new Error('invalid JSON body')
     return body as Record<string, unknown>
-  }
-
-  const enumOf = (f: string): string[] | undefined => {
-    const s = unwrap((shapeDef.fields as Record<string, ZodType>)[f] as ZodType)
-    const v = (s as unknown as { values?: string[] }).values
-    return Array.isArray(v) ? v.map(String) : undefined
   }
 
   return {
@@ -127,26 +94,15 @@ export function restFromShape<S extends ZodRawShape>(shapeDef: Shape<S>, opts: R
         await hooks?.beforeList?.(req, ctx)
         const url = new URL(req.url)
         const t = ctxTable(ctx) as { paginate: (po: { filter?: unknown; sort?: { field: string; dir: 'asc' | 'desc' }[]; limit: number; offset: number }) => Promise<{ rows: Record<string, unknown>[]; total: number }> }
-        // query → filter（枚举白名单校验外——未知非标量参数直接走 eq——shape 列校验兜底）
-        const filter = queryToFilter(url.searchParams, shapeDef, enumOf)
-        // sort 解析（`-created_at,name` → [{created_at,desc},{name,asc}]）
-        const sortRaw = url.searchParams.get('sort')
-        const sort: { field: string; dir: 'asc' | 'desc' }[] = []
-        if (sortRaw) for (const part of sortRaw.split(',')) {
-          const dir = part.startsWith('-') ? 'desc' : 'asc'
-          const field = dir === 'desc' ? part.slice(1) : part
-          if (!colSet.has(field)) return Response.json({ error: `invalid sort field: ${field}` }, { status: 400 })
-          sort.push({ field, dir })
-        }
-        const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '20', 10) || 20))
-        const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10) || 0)
+        // W1：rest 私有解析 → 共享 listQuery（eq 直排/sort 多字段/limit clamp——行为等价）
+        const { filter, sort, limit, offset } = listQuery(url, shapeDef as never, { maxLimit, defaultLimit: 20 })
         let rows = await t.paginate({ filter, sort, limit, offset })
         // 与 paginate 对齐：rows/total（CtxOrm paginate 自动 scope）
         const pageOut = rows
         let out = pageOut.rows.map(stripHidden)
         if (hooks?.afterList) out = await hooks.afterList(out, req, ctx)
         return Response.json({ [name]: out, total: pageOut.total })
-        } catch (e) { return errorOf(e) }
+        } catch (e) { return errorResponse(e) }
       })
 
       // GET one
@@ -157,7 +113,7 @@ export function restFromShape<S extends ZodRawShape>(shapeDef: Shape<S>, opts: R
         const rows = await t.select(...dbCols).where({ [pkField]: { eq: id } }).limit(1).run()
         if (!rows.length) return Response.json({ error: 'not found' }, { status: 404 })
         return Response.json(stripHidden(rows[0]))
-        } catch (e) { return errorOf(e) }
+        } catch (e) { return errorResponse(e) }
       })
 
       // POST insert
@@ -170,7 +126,7 @@ export function restFromShape<S extends ZodRawShape>(shapeDef: Shape<S>, opts: R
         // （API 边界校验错误 → 400 语义——catch 映射）
         const rows = await t.insert(data).returning(...dbCols).run()
         return Response.json(stripHidden(rows[0] ?? {}), { status: 201 })
-        } catch (e) { return errorOf(e) }
+        } catch (e) { return errorResponse(e) }
       })
 
       // PATCH update
@@ -184,7 +140,7 @@ export function restFromShape<S extends ZodRawShape>(shapeDef: Shape<S>, opts: R
         const rows = await t.update(data).where({ [pkField]: { eq: id } }).returning(...dbCols).run()
         if (!rows.length) return Response.json({ error: 'not found' }, { status: 404 })
         return Response.json(stripHidden(rows[0]))
-        } catch (e) { return errorOf(e) }
+        } catch (e) { return errorResponse(e) }
       })
 
       // DELETE
@@ -197,7 +153,7 @@ export function restFromShape<S extends ZodRawShape>(shapeDef: Shape<S>, opts: R
         if (!rows.length) return Response.json({ error: 'not found' }, { status: 404 })
         await t.delete().where({ [pkField]: { eq: id } }).run()
         return new Response(null, { status: 204 })
-        } catch (e) { return errorOf(e) }
+        } catch (e) { return errorResponse(e) }
       })
     },
   }
