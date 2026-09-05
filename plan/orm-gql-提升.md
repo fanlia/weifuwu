@@ -119,3 +119,58 @@ subscription（无场景）；connection 分页（简单 rows+total 对齐 pagin
 - [ ] 平台试点端到端绿（gql 查询+租户隔离断言 · rest 样板削减 diff）
 - [ ] 五域回归 + audit 七线 exit 0 + tsc 双 0
 - [ ] docs §5.4 完整（三面用法/分层纪律/边界判别/判负清单）
+
+## ✅ 执行实录（2027-xx——波次闭环记录）
+
+### W0（42608aca）— W1（6ed744b3）— W2（f022345c）— W3（00023089）
+- W0：`filterToWhere` 提取（gql 私有 whereFrom → 共享——行为等价——7/7 绿）·
+  fieldPolicy.hidden 首版 · docs §5.4 命名表
+- W1：I1 `{eq:null}`→`{isNull:true}`（O1 判空单源——filter 桥）· I2 sort 多字段
+  链真实化（SDL `[SortInput!]` 数组——memory 已支持多字段——测试期望曾写反）·
+  I3 orm.gql 自动派生 createOrm.tenant（显式 opts 优先——gql 面不可绕过租户）
+- W2：I4 enum/literal 列 Filter（GraphQL enum 值面）· I5 vector→`[Float!]`
+  （zodToGql 认识 ZodVector——旧版静默跳过已修）
+- W3：`xxxListPage`（rows+total——count 单查同 where/scope——listResolver 共享单源）
+
+### W4（4e269054）— restFromShape
+- 5 路由 + query 参数 schema 派生 + limit clamp + 枚举白名单 + 404/204 +
+  hidden + hooks（before*/after*）+ 租户 scope（ctxTable 自动隔离——跨租户 404）
+- **执行实录**：ctxTable 兼容（无 CtxOrm → table——无 scope 语义诚实）·
+  POST/PATCH 校验与映射单源（ctxTable 内部——rest 前置 parse 时序错已修——
+  注入发生在 parse 后）· 错误 catch → 400 统一 · migrateModule 列需带 meta
+  （memory observed 态无 pk 补位——t.pk 仅 declared 设置——测试修正）
+- 判负登记：嵌套路由/全算子/批量 upsert（rest 路由是表平面——复杂面手写）
+
+### W5（05983bab）— 平台试点（第二消费者——真实缺口实证）
+- **gql 试点**：/api/gql 挂 orm.gql(agents)（hidden: webhook_secret）
+  - 试点暴露 3 个真 bug（契约补测后修复）：① isOptional 缺 ZodNullable
+    （insert input nullable 列 required 化——agents 20+ 列）② insert 租户
+    注入在 parse 后（parse 拒绝缺省 app_id——rest 同型已修 gql 补）③ 租户列
+    SDL 声明 required（String!——注入无机会）→ 恒可选
+  - 盲区：enum 输出序列化/字面量输入（GraphQL 规范：enum 不带引号）——
+    契约层只测 filter（输入面）——先补测再信绿
+- **REST 试点**：agents（scope+hidden+CRUD）+ role_templates（全局无租户）
+  - 暴露 CtxOrm 缺口：无租户列的表（全局表）注入不存在的列——修复：
+    字段不存在 → null（不 scope）——契约补测（tenant-wire 5）
+  - **试点判据（诚实登记）**：平台现有路由全是业务聚合（departments/agents
+    list——成员计数/最近消息/token 统计）——分层纪律：业务 handler 手写
+    ——「纯 CRUD 表迁移」无替换对象（role_templates 表无路由消费：内存常量
+    面）——试点 = 验证生成面在真实平台可用；**推翻条件：平台出现纯 CRUD
+    新表 → rest 直接生成**
+- **运行时陷阱**：平台经 dist 引框架——**改 src 后必须 build.mjs**（本轮 3 次
+  build 教训——dist 只含 index bundle + d.ts——单入口）
+
+### W6（31b976b9）— docs + 回归门 · fix 077d95a3（/api/gql 接线 + 测试泄漏）
+- docs §5.4.1-5.4.5（用法/边界判别/三条铁律/判负清单/执行实录）
+- **npm test 永不结束根因**（修复）：① server.ts /api/gql 接线在启动路径用
+  pg.orm.table（平台注册惰性——route 时 tables(orm)——spawn server 启动即崩
+  → 43 ui 文件 × 30s ≈ 21 分钟超时队列 ≫ timeout 900）→ tables(pg.orm)
+  先行注册（幂等）② ui/shared.ts 失败路径 kill spawn 子进程 + 清 pid
+  （级联防泄漏）③ weifuwu-postgres-1 容器 Exited（docker compose up 恢复）
+- typecheck:tests 3 处类型误差（GqlShapeOutput 类型化反噬——直接使用 +
+  Handler 双态返回归一）
+
+### 回归门（全绿）
+框架 test（**契约 433** + 场景 123 + **server 840**）· showcase **328** ·
+audit:all 七线（135 页/227 点击零问题）· audit-orm 双范围 0 · shape 对齐
+24 表 · tsc 双 0 + typecheck:tests 0 · **平台 475**（461 过/14 skip docker）
