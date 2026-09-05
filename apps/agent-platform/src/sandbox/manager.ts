@@ -15,32 +15,16 @@
  */
 
 import { ops } from 'weifuwu'
-import type { Orm } from 'weifuwu'
+import type { Orm, RowOf } from 'weifuwu'
+import { SHAPES } from '../db/shapes.ts'
 import type { DockerSandbox, ExecResult, SandboxSpec } from './docker.ts'
 import { sandbox as defaultExecutor } from './docker.ts'
 import { sandboxEmit, subscribeSandboxEvents } from './events.ts'
 import { HOST_ID, hostCapacity } from './host.ts'
 import { emitRouteDecision } from './scheduler.ts'
 
-export interface SandboxRow {
-  id: string
-  app_id: string
-  department_id: string | null
-  name: string
-  status: 'requested' | 'running' | 'stopped' | 'terminated' | 'error'
-  mode: 'persistent' | 'ephemeral'
-  image: string
-  network: boolean
-  memory_mb: number
-  cpus: number
-  error: string | null
-  workspace: string | null
-  created_at: string
-  updated_at: string
-  last_used_at: string | null
-  expires_at: string | null
-  terminated_at: string | null
-}
+/** sandboxes 行类型——shape 单源派生（W2：行类型与 shape 同步——不再手动双写） */
+export type SandboxRow = RowOf<typeof SHAPES.sandboxes>
 
 export interface ManagerOptions {
   /** 空闲回收（stop）超时 ms——默认 10min */
@@ -157,33 +141,30 @@ export class SandboxManager {
     const where: import('weifuwu').WhereExpr = { app_id: { eq: appId }}
     if (status) where.status = { eq: status }
     if (filter?.department_id) where.department_id = { eq: filter.department_id }
-    const rows = await this.orm.query.from('sandboxes')
-      .select()
+    const rows = await this.orm.table('sandboxes', SHAPES.sandboxes).select()
       .where(where)
       .orderBy('created_at', 'desc')
       .run()
-    return rows as unknown as SandboxRow[]
+    return rows as SandboxRow[]
   }
 
   async get(id: string, appId: string): Promise<SandboxRow | null> {
     if (!this.orm) return null
-    const rows = await this.orm.query.from('sandboxes')
-      .select()
+    const rows = await this.orm.table('sandboxes', SHAPES.sandboxes).select()
       .where({ id: { eq: String(id) }, app_id: { eq: String(appId) }})
       .limit(1)
       .run()
-    return (rows?.[0] ?? null) as unknown as SandboxRow | null
+    return (rows?.[0] ?? null) as SandboxRow | null
   }
 
   /** 部门绑定的非终止记录（1 部门 = 1 环境） */
   async byDepartment(departmentId: string): Promise<SandboxRow | null> {
     if (!this.orm) return null
-    const rows = await this.orm.query.from('sandboxes')
-      .select()
+    const rows = await this.orm.table('sandboxes', SHAPES.sandboxes).select()
       .where({ department_id: { eq: departmentId }, status: { ne: 'terminated' } })
       .limit(1)
       .run()
-    return (rows?.[0] ?? null) as unknown as SandboxRow | null
+    return (rows?.[0] ?? null) as SandboxRow | null
   }
 
   // ── 业务入口：工具执行 ────────────────────────────
@@ -331,7 +312,7 @@ export class SandboxManager {
       sandboxEmit('host:register', undefined, { ...hostCapacity(), at: new Date().toISOString() })
       // 集群调度（阶段 3）：路由决策事件（容量视图——选宿主——决策可观测）
       emitRouteDecision(String(rows[0].id), input.departmentId ?? null, input.memoryMb ?? DEFAULT_MEMORY_MB)
-      return rows[0] as unknown as SandboxRow
+      return rows[0] as SandboxRow
     } catch (e: any) {
       // 并发创建冲突（23505）→ 重查返回已有记录（幂等）
       if (String(e?.code ?? '') === '23505' || /duplicate key/.test(String(e?.message ?? ''))) {
@@ -360,12 +341,11 @@ export class SandboxManager {
     let usedMb = Number((used as any)?.used ?? 0)
     if (usedMb + needMb <= budgetMb) return
     // 驱逐非 busy 最旧记录（LRU）直到预算满足
-    const rows = (await this.orm.query.from('sandboxes')
-      .select()
+    const rows = (await this.orm.table('sandboxes', SHAPES.sandboxes).select()
       .where({ status: { ne: 'terminated' } })
       .orderBy('last_used_at', 'asc')
       .orderBy('created_at', 'asc')
-      .run()) as unknown as SandboxRow[]
+      .run()) as SandboxRow[]
     for (const row of rows) {
       if (usedMb + needMb <= budgetMb) break
       if (this.exe.isBusy(row.id)) continue // busy 豁免——绝不杀执行中的任务
@@ -479,8 +459,7 @@ export class SandboxManager {
   /** agent 删除不级联沙盒（归属已移部门）；部门删除级联在路由层调 terminateByDepartment */
   async terminateByDepartment(departmentId: string): Promise<void> {
     if (!this.orm) return
-    const rows = await this.orm.query.from('sandboxes')
-      .select()
+    const rows = await this.orm.table('sandboxes', SHAPES.sandboxes).select()
       .where({ department_id: { eq: departmentId }, status: { ne: 'terminated' } })
       .run()
     for (const row of rows ?? []) {
@@ -515,7 +494,7 @@ export class SandboxManager {
       const rows = (await this.orm.query.from('sandboxes')
         .select()
         .where({ status: { in: ['requested', 'running', 'stopped', 'error'] } })
-        .run()) as unknown as SandboxRow[]
+        .run()) as SandboxRow[]
       // 2) docker 实际容器（一次查询——减少 CLI 往返）
       const containers = await this.exe.listContainers()
       const actual = new Map<string, { running: boolean; name: string }>()

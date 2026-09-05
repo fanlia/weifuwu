@@ -21,7 +21,7 @@ const ts = () => z.date() // ISO 字符串（Infer=string——DB 原生形态�
 const dflt = <T extends ZodType>(t: T, v: unknown): T => t.meta({ default: v }) as T
 
 // ── agents（单表继承四类 agent + 组织层级经理 + 工具/配额） ──
-export const agents: ZodRawShape = {
+export const agents = {
   id: f.pk(uuid()),
   app_id: f.req(uuid()),
   type: f.req(z.enum(['ai', 'user', 'webhook', 'knowledge_base', 'department'])),
@@ -61,9 +61,9 @@ export const agents: ZodRawShape = {
   webhook_platform: dflt(f.req(text()), 'generic'),
   risk_policy: dflt(f.req(text()), 'auto'),
   light_model: text().nullable(),
-}
+} satisfies ZodRawShape
 
-export const departments: ZodRawShape = {
+export const departments = {
   id: f.pk(uuid()),
   app_id: f.req(uuid()),
   name: f.req(text()),
@@ -72,16 +72,16 @@ export const departments: ZodRawShape = {
   artifact_review: dflt(f.req(bool()), false),
   created_at: f.now(ts()),
   updated_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const department_members: ZodRawShape = {
+export const department_members = {
   department_id: f.req(uuid()),
   agent_id: f.req(uuid()),
   role: dflt(f.req(text()), 'member'),
   joined_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const messages: ZodRawShape = {
+export const messages = {
   id: f.pk(uuid()),
   department_id: f.req(uuid()),
   sender_id: f.req(uuid()),
@@ -97,18 +97,18 @@ export const messages: ZodRawShape = {
   // server.ts 运行时增量列
   feedback: text().nullable(),
   quick_replies: jsonb().nullable(),
-}
+} satisfies ZodRawShape
 
-export const kb_documents: ZodRawShape = {
+export const kb_documents = {
   id: f.pk(uuid()),
   agent_id: f.req(uuid()),
   filename: f.req(text()),
   content: f.req(text()),
   chunk_count: dflt(f.req(int()), 0),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const agent_logs: ZodRawShape = {
+export const agent_logs = {
   id: f.pk(uuid()),
   agent_id: f.req(uuid()),
   app_id: f.req(uuid()),
@@ -121,9 +121,9 @@ export const agent_logs: ZodRawShape = {
   elapsed_ms: dflt(f.req(int()), 0),
   success: dflt(f.req(bool()), true),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const agent_runs: ZodRawShape = {
+export const agent_runs = {
   id: f.pk(uuid()),
   app_id: f.req(uuid()),
   department_id: uuid().nullable(),
@@ -136,9 +136,9 @@ export const agent_runs: ZodRawShape = {
   request_id: text().nullable(),
   created_at: f.now(ts()),
   updated_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const webhook_logs: ZodRawShape = {
+export const webhook_logs = {
   id: f.pk(uuid()),
   agent_id: f.req(uuid()),
   app_id: f.req(uuid()),
@@ -148,18 +148,18 @@ export const webhook_logs: ZodRawShape = {
   elapsed_ms: dflt(f.req(int()), 0),
   success: dflt(f.req(bool()), true),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const webhook_conversations: ZodRawShape = {
+export const webhook_conversations = {
   id: f.pk(uuid()),
   agent_id: f.req(uuid()),
   conversation_id: f.req(text()),
   role: f.req(text()),
   content: f.req(text()),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const kb_chunks: ZodRawShape = {
+export const kb_chunks = {
   id: f.pk(uuid()),
   document_id: f.req(uuid()),
   agent_id: f.req(uuid()),
@@ -167,18 +167,18 @@ export const kb_chunks: ZodRawShape = {
   chunk_index: f.req(int()),
   embedding: jsonb().nullable(), // vector(1024)——内存/传输面按 json 数组
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const agent_skills: ZodRawShape = {
+export const agent_skills = {
   id: f.pk(uuid()),
   agent_id: f.req(uuid()),
   skill_name: f.req(text()),
   skill_dir: f.req(text()),
   enabled: dflt(f.req(bool()), true),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const role_templates: ZodRawShape = {
+export const role_templates = {
   id: f.pk(uuid()),
   name: f.req(text()),
   slug: f.req(text()).meta({ unique: true }),
@@ -196,16 +196,16 @@ export const role_templates: ZodRawShape = {
   sort_order: int().nullable(),
   is_active: dflt(f.req(bool()), true),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const events: ZodRawShape = {
+export const events = {
   id: f.pk(uuid()),
   app_id: f.req(uuid()),
   event: f.req(text()),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const audit_logs: ZodRawShape = {
+export const audit_logs = {
   id: f.pk(uuid()),
   app_id: f.req(uuid()),
   user_id: uuid().nullable(),
@@ -214,9 +214,9 @@ export const audit_logs: ZodRawShape = {
   target_id: uuid().nullable(),
   detail: jsonb().nullable(),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const agent_versions: ZodRawShape = {
+export const agent_versions = {
   id: f.pk(uuid()),
   agent_id: f.req(uuid()),
   app_id: f.req(uuid()),
@@ -224,16 +224,16 @@ export const agent_versions: ZodRawShape = {
   snapshot: f.req(jsonb()),
   note: text().nullable(),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const group_memories: ZodRawShape = {
+export const group_memories = {
   department_id: f.req(uuid()).meta({ pk: true }), // 无 DEFAULT——insert 必传
   summary: text().nullable(),
   msg_count: dflt(f.req(int()), 0),
   updated_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const answer_cache: ZodRawShape = {
+export const answer_cache = {
   id: f.pk(uuid()),
   app_id: f.req(uuid()),
   question: f.req(text()),
@@ -241,17 +241,17 @@ export const answer_cache: ZodRawShape = {
   hits: dflt(f.req(int()), 0),
   created_at: f.now(ts()),
   updated_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const skill_ratings: ZodRawShape = {
+export const skill_ratings = {
   id: f.pk(uuid()),
   skill_dir: f.req(text()),
   app_id: f.req(uuid()),
   liked: f.req(bool()),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const agent_run_states: ZodRawShape = {
+export const agent_run_states = {
   message_id: f.req(uuid()).meta({ pk: true }),
   agent_id: f.req(uuid()),
   department_id: f.req(uuid()),
@@ -259,9 +259,9 @@ export const agent_run_states: ZodRawShape = {
   steps: dflt(f.req(jsonb()), []),
   status: dflt(f.req(text()), 'running'),
   updated_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const sandboxes: ZodRawShape = {
+export const sandboxes = {
   id: f.pk(uuid()),
   app_id: f.req(uuid()),
   department_id: uuid().nullable(),
@@ -278,18 +278,19 @@ export const sandboxes: ZodRawShape = {
   last_used_at: ts().nullable(),
   expires_at: ts().nullable(),
   terminated_at: ts().nullable(),
-}
+  updated_at: f.now(ts()), // W2: manager 11 处读写（reconcile/停止超时时间基）——三单源漏列——补
+} satisfies ZodRawShape
 
-export const sandbox_events: ZodRawShape = {
+export const sandbox_events = {
   id: f.pk(z.number().int()), // BIGSERIAL——DB 侧生成（DEFAULT 无——pk 默认 random 不适用）
   sandbox_id: f.req(uuid()),
   app_id: uuid().nullable(),
   type: f.req(text()),
   detail: text().nullable(),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const survey_campaigns: ZodRawShape = {
+export const survey_campaigns = {
   id: f.pk(uuid()),
   app_id: f.req(uuid()),
   total: f.req(int()),
@@ -301,9 +302,9 @@ export const survey_campaigns: ZodRawShape = {
   failed: dflt(f.req(int()), 0),
   created_at: f.now(ts()),
   updated_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const survey_campaign_runs: ZodRawShape = {
+export const survey_campaign_runs = {
   id: f.pk(uuid()),
   campaign_id: f.req(uuid()),
   agent_id: f.req(uuid()),
@@ -314,9 +315,9 @@ export const survey_campaign_runs: ZodRawShape = {
   started_at: ts().nullable(),
   finished_at: ts().nullable(),
   error: text().nullable(),
-}
+} satisfies ZodRawShape
 
-export const survey_submissions: ZodRawShape = {
+export const survey_submissions = {
   id: f.req(text()).meta({ pk: true }),
   source: f.req(text()),
   age: text().nullable(),
@@ -326,31 +327,31 @@ export const survey_submissions: ZodRawShape = {
   feedback: text().nullable(),
   submitted_at: f.now(ts()),
   campaign_id: text().nullable(), // server.ts ADD COLUMN
-}
+} satisfies ZodRawShape
 
-export const survey_answers: ZodRawShape = {
+export const survey_answers = {
   id: f.req(int()).meta({ pk: true }), // BIGSERIAL——DB 侧生成
   source: f.req(text()),
   question: text().nullable(),
   answer: text().nullable(),
   created_at: f.now(ts()),
   campaign_id: text().nullable(),
-}
+} satisfies ZodRawShape
 
-export const agent_memories: ZodRawShape = {
+export const agent_memories = {
   agent_id: f.req(uuid()).meta({ pk: true }),
   content: f.req(text()),
   updated_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const enterprises: ZodRawShape = {
+export const enterprises = {
   id: f.pk(uuid()),
   name: f.req(text()),
   owner_user_id: uuid().nullable(),
   created_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const video_tasks: ZodRawShape = {
+export const video_tasks = {
   id: f.pk(uuid()),
   app_id: f.req(uuid()),
   department_id: uuid().nullable(),
@@ -364,15 +365,15 @@ export const video_tasks: ZodRawShape = {
   params: jsonb().nullable(),
   created_at: f.now(ts()),
   updated_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
-export const app_ai_configs: ZodRawShape = {
+export const app_ai_configs = {
   app_id: f.req(uuid()).meta({ pk: true }),
   base_url: text().nullable(),
   api_key: text().nullable(),
   model: text().nullable(),
   updated_at: f.now(ts()),
-}
+} satisfies ZodRawShape
 
 /** 表名 → shape（27 表全集——注册面单源：23 schema.sql + 4 server.ts 运行时表） */
 export const SHAPES = {

@@ -16,7 +16,7 @@ export interface ByokConfig {
 /** 读租户 BYOK 配置（未配置返回 null） */
 export async function getByokConfig(orm: any, appId: string): Promise<ByokConfig | null> {
   const rows = await orm.query.from('app_ai_configs').select('base_url', 'api_key', 'model').where({ app_id: appId }).limit(1).run()
-  const row = rows[0] as unknown as ByokConfig | undefined
+  const row = rows[0] as ByokConfig | undefined
   if (!row || (!row.base_url && !row.api_key)) return null
   return row
 }

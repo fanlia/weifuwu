@@ -142,10 +142,10 @@ export async function createCampaign(ctx: AppCtx, body: CreateCampaignBody): Pro
       .insert({ campaign_id: String((campaign as any).id), agent_id: String(a.id), agent_name: String(a.name), dept_id: String(a.department_id), status: 'queued' })
       .returning('*')
       .run()
-    rows.push(run as unknown as RunRow)
+    rows.push(run as RunRow)
   }
 
-  const row = campaign as unknown as CampaignRow
+  const row = campaign as CampaignRow
   // 启动调度循环（请求闭包——campaign 完成/取消即停）
   startCampaignLoop(ctx, row.id)
   return { campaign: row, runs: rows }
@@ -159,8 +159,8 @@ export async function getCampaign(ctx: AppCtx, id: string): Promise<{ campaign: 
     .select()
     .where({ campaign_id: { eq: id }})
     .orderBy('agent_name', 'asc')
-    .run()) as unknown as RunRow[]
-  return { campaign: campaign as unknown as CampaignRow, runs: runs ?? [] }
+    .run()) as RunRow[]
+  return { campaign: campaign as CampaignRow, runs: runs ?? [] }
 }
 
 /** 失败重跑：failed（重试耗尽）→ queued（attempts 清零——重新开始） */
@@ -279,7 +279,7 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
     console.error(`[campaign ${campaignId}] phase① runs 查询失败:`, e?.message ?? e)
     throw e
   }
-  const runs = runsRaw as unknown as RunRow[]
+  const runs = runsRaw as RunRow[]
   const { resolveDepartmentWorkspace } = await import('../middleware/workspace.ts')
   const { access } = await import('node:fs/promises')
 
@@ -363,7 +363,7 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
   } catch { /* 豁免刷新失败不阻断 tick */ }
 
   // ── ③ 水位补派 ──
-  const freshRuns = ((await T.survey_campaign_runs.select().where({ campaign_id: { eq: campaignId }}).run()) ?? []) as unknown as RunRow[]
+  const freshRuns = ((await T.survey_campaign_runs.select().where({ campaign_id: { eq: campaignId }}).run()) ?? []) as RunRow[]
   const toDispatch = pickToDispatch(freshRuns, Number(campaign.concurrency))
   if (toDispatch.length > 0) {
     let sender: any = null

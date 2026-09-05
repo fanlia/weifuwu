@@ -150,7 +150,7 @@ async function buildToolContext(
   // 去重后加入（文件工具仍由 allowFileTools 控制——见下方 wsTools）
   try {
     const { BUILTIN_TOOL_DEFS } = await import('../tools/builtin.ts')
-    pushUnique(BUILTIN_TOOL_DEFS as unknown as ToolDefinition[])
+    pushUnique(BUILTIN_TOOL_DEFS as ToolDefinition[])
   } catch { /* 尽力 */ }
   pushUnique(config.tools as ToolDefinition[])
 
@@ -451,7 +451,7 @@ async function loadAgentSkillsPreview(orm: any, agentId: string, ctx: AppCtx): P
     const rows = (await orm.query.from('agent_skills')
       .select('skill_dir', 'skill_name')
       .where({ agent_id: agentId, enabled: { eq: true } })
-      .run()) as unknown as Array<Record<string, any>>
+      .run()) as Array<Record<string, any>>
     const out: SkillContext[] = []
     for (const r of rows) {
       try {

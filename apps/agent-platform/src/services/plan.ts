@@ -38,7 +38,7 @@ export async function getAppPlan(
   appId: string,
 ): Promise<AppPlanRow> {
   const rows = await orm.query.from('_weifuwu_apps').select('plan', 'trial_ends_at', 'monthly_token_limit').where({ id: { eq: appId } }).limit(1).run()
-  const row = rows[0] as unknown as AppPlanRow | undefined
+  const row = rows[0] as AppPlanRow | undefined
   if (!row) return { plan: 'free', trial_ends_at: null, monthly_token_limit: PLANS.free.monthlyTokenLimit }
   return {
     plan: row.plan === 'pro' ? 'pro' : 'free',

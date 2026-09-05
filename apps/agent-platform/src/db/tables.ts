@@ -380,6 +380,7 @@ export const AGENT_PLATFORM_SCHEMA: import('weifuwu').SchemaModule = {
         last_used_at: z.date().nullable(),
         expires_at: z.date().nullable(),
         terminated_at: z.date().nullable(),
+        updated_at: z.date().meta({ notNull: true, default: 'now' }),
       },
       indexes: [
         { cols: ['department_id'], name: 'idx_sandboxes_dept' },

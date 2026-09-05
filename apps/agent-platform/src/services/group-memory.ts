@@ -56,7 +56,7 @@ export async function updateGroupMemory(
       .where({ 'm.department_id': departmentId, 'm.ai_approved': { ne: false } })
       .orderBy('m.created_at', 'desc')
       .limit(30)
-      .run()) as unknown as Array<{ sender_name: string; content: string }>
+      .run()) as Array<{ sender_name: string; content: string }>
     if (recent.length === 0) return
 
     const transcript = recent.reverse()

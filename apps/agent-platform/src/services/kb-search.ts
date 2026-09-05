@@ -85,7 +85,7 @@ export async function searchKnowledgeBase(
         .where({ app_id: String(ctx.appId), type: 'knowledge_base', is_active: true })
         .limit(5)
         .run()
-      kbs = rows as unknown as Array<{ id: string; name: string }>
+      kbs = rows as Array<{ id: string; name: string }>
     } catch { /* 查询失败——无 KB */ }
   }
   if (kbs.length === 0) {

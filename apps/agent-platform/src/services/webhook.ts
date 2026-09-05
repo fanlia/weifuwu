@@ -213,7 +213,7 @@ export async function handleWebhookMessage(
       'webhook_secret', 'webhook_retry_count', 'webhook_url', 'app_id')
     .where({ id: { eq: agentId }, type: { eq: 'webhook' }, is_active: { eq: true }, ...(appId ? { app_id: { eq: String(appId) } } : {}) })
     .limit(1)
-    .run())[0] as unknown as Record<string, any>
+    .run())[0] as Record<string, any>
 
   if (!agent) {
     throw new Error('Webhook Bot not found or inactive')

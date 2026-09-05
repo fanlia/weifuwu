@@ -105,7 +105,7 @@ async function loadKbMembers(ctx: AppCtx, departmentId: string): Promise<Array<R
     .select('a.id', 'a.name')
     .where(and({ 'dm.department_id': { eq: departmentId }}, { 'a.type': { eq: 'knowledge_base' } }, { 'a.is_active': { eq: true } }))
     .run()
-  return rows as unknown as Array<Record<string, any>>
+  return rows as Array<Record<string, any>>
 }
 
 /** @ 命中知识库机器人 → 检索 top3 拼接回复（纯确定性，不调 LLM）；无命中/相似度过低 → null */
@@ -124,7 +124,7 @@ async function kbReplyFor(ctx: AppCtx, kb: Record<string, any>, query: string, d
       .vectorScore('kc.embedding', embedding, 'similarity')
       .where({ 'kc.agent_id': { eq: String(kb.id) } })
       .limit(3)
-      .run()) as unknown as Array<Record<string, any>>
+      .run()) as Array<Record<string, any>>
     const hits = chunks.filter((c) => Number(c.similarity) > 0.1)
     if (hits.length === 0) return null
     // R3：KB 检索计量（agent_logs 记录调用——配额/成本/ROI 口径一致）
@@ -171,7 +171,7 @@ export async function handleNewMessage(
     .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
     .select('a.id', 'a.name', 'a.system_prompt', 'a.model', 'a.tools', 'a.human_in_the_loop', 'a.max_tokens')
     .where(and({ 'dm.department_id': { eq: departmentId }}, { 'a.type': { in: ['ai', 'department'] } }, { 'a.is_active': { eq: true } }))
-    .run()) as unknown as Array<Record<string, any>>
+    .run()) as Array<Record<string, any>>
 
   // @ 定向发言：消息中 @Agent名 只触发目标 AI（无 @ 时全部回复）
   const mentioned: Record<string, string> = {}
@@ -252,7 +252,7 @@ export async function handleNewMessage(
     .where(and({ 'm.department_id': { eq: departmentId }}, { 'm.ai_approved': { ne: false } }))
     .orderBy('m.created_at', 'desc')
     .limit(20)
-    .run()) as unknown as Array<Record<string, any>>
+    .run()) as Array<Record<string, any>>
 
   // 构建 ChatMessage[] — 包含历史上下文（P1-1 署名 / P1-2 引用）
   const chatMessages: import('../ai/types.ts').ChatMessage[] = []
@@ -276,7 +276,7 @@ export async function handleNewMessage(
     .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
     .select('a.id', 'a.type', 'a.name', 'dm.role', 'a.role_label', 'a.expertise')
     .where({ 'dm.department_id': { eq: departmentId }})
-    .run()) as unknown as RosterMember[]
+    .run()) as unknown as RosterMember[] // W2: 跨表 join 手动接口（W3 typedQuery 面）
 
   // 为每个 AI Agent 生成回复（@ 定向时只回复被 @ 的目标）
   for (const agent of targets) {
@@ -294,7 +294,7 @@ export async function handleNewMessage(
         const agentSkills = (await T.agent_skills
           .select('skill_dir', 'skill_name')
           .where(and(eq(T.agent_skills.c.agent_id, agent.id), eq(T.agent_skills.c.enabled, true)))
-          .run()) as unknown as Array<Record<string, any>>
+          .run()) as Array<Record<string, any>>
         for (const as of agentSkills) {
           try {
             const skill = await loadSkill(as.skill_dir, () => ctx)
@@ -747,7 +747,7 @@ async function runAllAgents(
     .select('a.id', 'a.name', 'a.system_prompt', 'a.model', 'a.tools', 'a.human_in_the_loop', 'a.max_tokens',
       'a.workspace_path', 'a.allow_file_tools', 'a.allow_command_exec', 'a.allow_network')
     .where(and({ 'dm.department_id': { eq: departmentId }}, { 'a.type': { in: ['ai', 'department'] } }, { 'a.is_active': { eq: true } }))
-    .run()) as unknown as Array<Record<string, any>>
+    .run()) as Array<Record<string, any>>
   if (aiAgents.length === 0) return
 
   // @ 定向发言：消息中 @Agent名 只触发目标 AI（无 @ 或未命中时全部回复）
@@ -800,7 +800,7 @@ async function runAllAgents(
     .where(and({ 'm.department_id': { eq: departmentId }}, { 'm.ai_approved': { ne: false } }))
     .orderBy('m.created_at', 'desc')
     .limit(20)
-    .run()) as unknown as Array<Record<string, any>>
+    .run()) as Array<Record<string, any>>
 
   const chatMessages: import('../ai/types.ts').ChatMessage[] = []
   for (const msg of recentMessages.reverse()) {
@@ -822,7 +822,7 @@ async function runAllAgents(
     .join('agents a', { 'a.id': { col: 'dm.agent_id' } })
     .select('a.id', 'a.type', 'a.name', 'dm.role', 'a.role_label', 'a.expertise')
     .where({ 'dm.department_id': { eq: departmentId }})
-    .run()) as unknown as RosterMember[]
+    .run()) as unknown as RosterMember[] // W2: 跨表 join 手动接口（W3 typedQuery 面）
   const rosterText = buildRosterText(rosterMembers, '')
 
   // P4 群共识摘要（AI 记得群里决定过什么——记忆层闭环）
@@ -999,7 +999,7 @@ export async function handleNewMessageStream(
         .where({ app_id: { eq: String(ctx.appId) } })
         .orderBy('updated_at', 'desc')
         .limit(200)
-        .run()) as unknown as Array<{ question: string; answer: string; hits: number }>
+        .run()) as Array<{ question: string; answer: string; hits: number }>
       const cached = findCachedAnswer(messageContent, cacheRows)
       // 产物型缓存不清除（历史已写入）——命中即弃（用户期望重新生成——工具不跑错）
       const hit = cached && !isArtifactAnswer(cached.answer) ? cached : null
@@ -1087,7 +1087,7 @@ async function loadAgentSkills(ctx: AppCtx, agentId: string): Promise<import('./
     const agentSkills = (await T.agent_skills
       .select('skill_dir', 'skill_name')
       .where(and(eq(T.agent_skills.c.agent_id, agentId), eq(T.agent_skills.c.enabled, true)))
-      .run()) as unknown as Array<Record<string, any>>
+      .run()) as Array<Record<string, any>>
     for (const as of agentSkills) {
       try {
         const skill = await loadSkill(as.skill_dir, () => ctx)

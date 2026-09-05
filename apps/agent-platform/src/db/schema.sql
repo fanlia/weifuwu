@@ -366,8 +366,11 @@ CREATE TABLE IF NOT EXISTS sandboxes (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_used_at TIMESTAMPTZ,                    -- heartbeat（DB 持久化——重启可恢复）
   expires_at  TIMESTAMPTZ,                     -- 寿命上限（超龄重建）
-  terminated_at TIMESTAMPTZ
+  terminated_at TIMESTAMPTZ,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()  -- 最近状态变更（manager reconcile/两级回收时间基）
 );
+-- 存量库补列（CREATE IF NOT EXISTS 不改既有表）
+ALTER TABLE sandboxes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS idx_sandboxes_dept ON sandboxes(department_id);
 -- 沙盒事件日志（2026-12 可观测性：生命周期 + exec 追踪——debug 问卷并发等场景）
 CREATE TABLE IF NOT EXISTS sandbox_events (

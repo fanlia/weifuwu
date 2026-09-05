@@ -267,7 +267,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .run()
 
     let reindexed = 0
-    for (const doc of docs as unknown as Array<Record<string, any>>) {
+    for (const doc of docs as Array<Record<string, any>>) {
       const chunks = chunkText(String(doc.content), (agent as any).chunk_size ?? 500, (agent as any).chunk_overlap ?? 50)
       let embeddings: number[][]
       try {

@@ -17,6 +17,8 @@
  *   - 无部门上下文 → 拒绝（视频 URL 24h 过期——不落盘 = 白生成）
  */
 import { randomUUID } from 'node:crypto'
+import type { RowOf } from 'weifuwu'
+import { SHAPES } from '../db/shapes.ts'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { ops } from 'weifuwu'
 import type { QueueClient, QueueWorker } from 'weifuwu'
@@ -49,19 +51,8 @@ export interface VideoPollJob {
   agentId: string
 }
 
-export interface VideoTaskRow {
-  id: string
-  app_id: string
-  department_id: string | null
-  task_id: string
-  prompt: string
-  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'unknown'
-  filename: string
-  path: string | null
-  error: string | null
-  created_at: string
-  updated_at: string
-}
+/** video_tasks 行类型——shape 单源派生（W2：手动接口与 shape 同步） */
+export type VideoTaskRow = RowOf<typeof SHAPES.video_tasks>
 
 // provider 面（2027-10 AI-REBUILD）：提交/查询走框架 ctx.ai
 // （createVideoTask/videoStatus——multimodal.ts——单源 provider 插槽）；
@@ -231,8 +222,8 @@ export async function requeuePendingVideoTasks(orm: any, q: QueueClient): Promis
 
 export async function getVideoTask(ctx: AppCtx, taskId: string): Promise<VideoTaskRow | null> {
   await ensureVideoTasksTable(ctx.orm as any)
-  const [row] = await ctx.orm.query.from('video_tasks').select().where({ task_id: { eq: taskId }, app_id: { eq: String(ctx.appId) } }).limit(1).run()
-  return (row as unknown as VideoTaskRow | undefined) ?? null
+  const [row] = await ctx.orm.table('video_tasks', SHAPES.video_tasks).select().where({ task_id: { eq: taskId }, app_id: { eq: String(ctx.appId) } }).limit(1).run()
+  return (row as unknown as VideoTaskRow | undefined) ?? null // W2: ensureVideoTasksTable 动态 schema（列面存在性由调用方保证）——登记 W3 typedQuery 面
 }
 
 export function describeVideoTask(row: VideoTaskRow): string {
@@ -244,5 +235,7 @@ export function describeVideoTask(row: VideoTaskRow): string {
     case 'failed': return `❌ 视频生成失败（task_id=${id}）：${row.error ?? '未知原因'}——可重新提交 generate_video`
     case 'canceled': return `视频任务已取消（task_id=${id}）——如需生成请重新提交`
     case 'unknown': return `视频任务不存在或已过期（task_id=${id}——查询有效期 24 小时）——如需生成请重新提交`
+    // W2: status 类型面 = string（z.enum 坍缩登记 W3）——未知值诚实兜底
+    default: return `视频任务状态未知（task_id=${id}，status=${row.status}）`
   }
 }
