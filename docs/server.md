@@ -150,8 +150,14 @@ index.ts       模块 re-export（OpenAi/MemoryAi/AiClientModule——选择器�
   自研 RESP2——`ctx.redis.get/set/pub`（命令面本身封闭——无 parser——保留）
 - **Query Language（协议层 = AST）**：`src/server/db/`——`query.ts`（Query 类型 + compileQuery
   单向 SQL 编译——封闭输出）/ `query-builder.ts`（buildQuery——构建无执行面）/
-  `orm.ts`（shape+operator+adapter 组合体）/ `memory-sql.ts`（MemorySql——AST 直执行
-  双后端同构）——`createMemoryOrm()` 零数据库跑测试
+  `orm.ts`（shape+operator+adapter 组合体——table/gql/rest/tables() 注册表枚举）/
+  `memory-sql.ts`（MemorySql——AST 直执行 双后端同构）——`createMemoryOrm()` 零数据库跑测试
+- **shape + 协议面（W0-W4 体验提升）**：`shape.ts`（shape 实体——变体
+  insertSchema/updateSchema（auto 列省略 · omit 系统列）· `BodyOf`/`PatchOf`
+  类型面 · `f` 元数据快捷（meta 类型保留））/ `body.ts`（`bodyOf`——shape →
+  body 校验）/ `http.ts`（`listQuery` + `errorResponse`——URL 参数与 catch 样板
+  收口）/ `consistency.ts`（`checkConsistency` 诊断 diff——真库/内存共用）/
+  `gql-from-shape.ts` + `rest-from-shape.ts`（协议生成面——§5.4）
 - schema 迁移：`src/server/db/schema.ts`（SchemaModule → compileSchemaDdl 声明式 DDL）
   + `migrateModule` 执行记录（幂等——已迁移名跳过）
 
@@ -208,6 +214,12 @@ export const agents: ZodRawShape = { ... }
   `vector(dims)` 经 SchemaModule columnTypes 特化（shape 语义单源）
 - **守卫面**：`tsconfig.test.json` + `npm run typecheck:tests`（测试域类型错
   编译期拦截——tsd 断言真生效——负向验证：删 @ts-expect-error → 红）
+- **meta 类型保留（W0 体验提升实证）**：`f.pk`/`f.now`/`f.dflt` 等元数据装饰
+  必须保留字面量类型（`withMeta` 交叉——meta 不坍缩）——`BodyOf<S>` 的
+  auto 列省略（default:'random'/'now'）与 default 列可缺省判定从 meta
+  字面量推导——**禁止** `t.meta({ default: v }) as T`（`as T` 擦除 meta 类型
+  ——BodyOf 判定失效——平台 44 处 dflt 已迁移框架 `f.dflt`）；字面量默认值
+  任意值域（jsonb 默认 `[]` 等——f.dflt 泛型不限）
 
 ## 6. 实时与渲染
 
@@ -456,6 +468,36 @@ pg.orm.rest(pg.orm.table('agents'), {
 // PATCH /api/rest-agents/:id       → 200/404
 // DELETE /api/rest-agents/:id      → 204/404
 ```
+
+**手写 route 三件套**（W0-W4 体验提升——样板层收口后手写面长这样；与
+gql/rest 生成面同源 shape 变体——校验语义一致）：
+
+```ts
+app.post('/api/agents', async (req: Request, ctx: AppCtx): Promise<Response> => {
+  const T = tables(orm)
+  try {
+    // body：30 行手写类型 + 必填/枚举校验 → 1 行（shape 单源——app_id 系统列 omit）
+    const body = await bodyOf(req, T.agents, { variant: 'insert', omit: ['app_id'] })
+    const [agent] = await T.agents.insert({ ...业务组装 }).returning('id', 'name').run()
+    return Response.json({ agent }, { status: 201 })
+  } catch (e) { return errorResponse(e) }   // DbError → 400/409（23505 唯一冲突）
+})
+
+app.get('/api/agents', async (req: Request, ctx: AppCtx): Promise<Response> => {
+  const { orm } = ctx
+  try {
+    const { filter, sort, limit, offset } = listQuery(new URL(req.url), tables(orm).agents)
+    const page = await orm.ctxTable('agents').paginate({ filter, sort, limit, offset })
+    return Response.json({ agents: page.rows, total: page.total })
+  } catch (e) { return errorResponse(e) }
+})
+```
+
+- `bodyOf`：enum/必填/nullable/auto 列（f.pk/f.now）省略——校验失败 400 可读
+  （字段路径+期望）· `variant: 'patch'` = 全可选部分更新
+- `listQuery`：eq 直排 · sort `-field` 多字段 · limit clamp（默认 20/max 100 可配）·
+  枚举白名单（非法值显式 400——不静默忽略）
+- `errorResponse`：catch 一行收口（显式 status 优先——业务守卫 403）
 
 ### 5.4.2 边界判别（写业务前先问）
 

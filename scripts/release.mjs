@@ -66,8 +66,11 @@ async function main() {
 
   // Step 3.75: CHANGELOG 自动生成（版本节奏纪律——01 生态计划 P2：每版强制）
   // 从上一 tag 到 HEAD 的 conventional commits 分组提取——禁止手工维护
+  // **dry-run 不落盘**（2027-09 修复：changelog 写入缺 dry 守卫——dry-run 曾
+  // 重复写入 [version] 段（published changelog 出现两份）——与 package.json
+  // 版本同口径——dry 语义 = 只验证流程不产生变更）
   const changelogPath = join(root, 'CHANGELOG.md')
-  try {
+  if (!dryRun) try {
     const prevTag = execSync('git describe --tags --abbrev=0 HEAD~1', { cwd: root }).toString().trim()
     const log = execSync(`git log --oneline ${prevTag}..HEAD --grep="release:" --invert-grep`, { cwd: root }).toString().trim()
     const groups = { feat: [], fix: [], docs: [], test: [], chore: [], other: [] }
@@ -76,7 +79,7 @@ async function main() {
       if (m) groups[m[1]].push(m[2].trim())
       else if (line) groups.other.push(line.replace(/^\w+\s/, '').trim())
     }
-    const title = { feat: '### Added', fix: '### Fixed', docs: '### Docs', test: '### Tests', chore: '### Chore' }
+    const title = { feat: '### Added', fix: '### Fixed', docs: '### Docs', test: '### Tests', chore: '### Chore', other: '### Other' }
     const entry = [`## [${version}] - ${new Date().toISOString().slice(0, 10)}`, '']
     for (const [k, label] of Object.entries(title)) {
       if (groups[k].length) entry.push(label, '', ...groups[k].map((x) => `- ${x}`), '')

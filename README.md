@@ -93,6 +93,7 @@ router.get('*', async (req, ctx) => {
 | --- | --- | --- |
 | `weifuwu` | Router / serve / cors / serveStatic | Trie 路由 + 中间件链 + HTTP 服务器 + 静态服务 |
 | `weifuwu` | postgres / redis / Memory | 自研 PG v3 + RESP2 协议（`ctx.orm` / `ctx.redis`——数据面 = 声明式 ORM AST，业务零 SQL 文本）；Memory 零数据库测试 |
+| `weifuwu` | shape / bodyOf / listQuery / errorResponse | 数据样板收口：shape 声明 → `bodyOf`（body 校验·类型精确）/ `listQuery`（URL 参数）/ `errorResponse`（catch 映射）——手写 route 三件套（docs/server.md §5.3/§5.4.1） |
 | `weifuwu` | ui | SSR 渲染 + esbuild JS/CSS 动态编译（`ctx.ui`） |
 | `weifuwu/vdom` | UIRouter / uiServe / uiSsr | 前端路由唯一入口 + 浏览器 boot + SSR（结构吸收） |
 | `weifuwu/vdom` | 命令流引擎 + hooks 全家 | 渲染周期/事件代理/三状态机 + useAsyncData/usePopup/useControlled/… |
@@ -111,6 +112,7 @@ router.get('*', async (req, ctx) => {
 | 弹窗（toast/confirm/自定义） | `toast()` / `confirm()` / `ui.openPopup(opts)`→PopupHandle |
 | AI 对话（流式/工具/审批） | `ctx.ai.chat()` + `useChat` + `AiChat` 组件（`wf:` 协议） |
 | 认证（登录/角色/租户） | `userSystem()` + `ctx.auth` + `AuthPage` 组件 |
+| 数据层（shape→表/查询/写） | `bodyOf(req, T.agents, ...)` 校验 · `listQuery(url, T.x)` 分页参数 · `orm.gql/rest` 协议生成 · `pg.checkConsistency()` 启动诊断 |
 | 限流 / 邮件 / 消息 / 队列 / 定时 | `rateLimit()` / `email()` / `messager()` / `queue()` / `scheduler()` |
 
 ## 测试命令
