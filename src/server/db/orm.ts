@@ -22,6 +22,7 @@ import type { QueryResult } from './contracts.ts'
 import type { ZodRawShape } from '../../shared/zod.ts'
 import { shape } from './shape.ts'
 import { gqlFromShape, type GqlShapeOptions } from './gql-from-shape.ts'
+import { restFromShape } from './rest-from-shape.ts'
 import type { SelectBuilder, InsertBuilder, UpdateBuilder, DeleteBuilder, QueryBuilder, WhereExpr } from './query.ts'
 import type { Infer } from '../../shared/zod.ts'
 import { ValidationError } from './errors.ts'
@@ -96,6 +97,8 @@ export interface Orm {
   query: QueryBuilder
   /** GraphQL 生成（shape → SDL + resolvers——内置链路输入） */
   gql<S extends ZodRawShape>(table: OrmTable<S>, opts?: GqlShapeOptions): unknown
+  /** RESTful 面（W4——restFromShape 入口对称：`rest = orm.rest(table); rest.mount(app, base)`） */
+  rest<S extends ZodRawShape>(table: OrmTable<S>, opts?: import('./rest-from-shape.ts').RestShapeOptions): import('./rest-from-shape.ts').RestShapeOutput
   /** 事务（fn 内同连接执行——commit 可见/rollback 撤销；memory 单线程 no-op 等价） */
   transaction<T>(fn: (tx: Orm) => Promise<T>): Promise<T>
   /** AST 执行面（协议层 = AST——Query 纯数据可序列化；测试播种/嵌入执行入口） */
@@ -282,6 +285,10 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
         sql: () => ormBase,
       }
       return gqlFromShape((t as { __shape: Parameters<typeof gqlFromShape>[0] }).__shape, bound)
+    },
+    rest: (t, opts) => {
+      if (!(t as { __shape?: unknown }).__shape) throw new Error('orm.rest: 表未注册（orm.table 先行）')
+      return restFromShape((t as { __shape: Parameters<typeof restFromShape>[0] }).__shape, opts)
     },
     withCtx: scoped,
     execute: (q: Query) => adapter.executeQuery(q),
