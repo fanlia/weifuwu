@@ -73,8 +73,8 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     try {
       const { requireWriter } = await import('../services/permissions.ts')
       await requireWriter(ctx)
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '无权操作' }, { status: Number((e as { status: unknown })?.status) ?? 403 })
     }
     const { orm, appId } = ctx
     // W4 试点：手写 body 类型 30 行 + 必填/枚举校验 → bodyOf（shape 单源——
@@ -359,7 +359,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
         try {
           await streamAgentPreview(ctx, agent as any, content, write)
         } catch (err) {
-          write(`event: wf:error\ndata: ${JSON.stringify({ message: err instanceof Error ? err.message : String(err) })}\n\n`)
+          write(`event: wf:error\ndata: ${JSON.stringify({ message: err instanceof Error ? (err as Error).message : String(err) })}\n\n`)
         }
         controller.close()
       },

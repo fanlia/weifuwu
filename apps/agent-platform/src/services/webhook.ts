@@ -275,7 +275,7 @@ export async function handleWebhookMessage(
     }
   } catch (err) {
     const elapsed = Date.now() - startTime
-    const errMsg = err instanceof Error ? err.message : String(err)
+    const errMsg = err instanceof Error ? (err as Error).message : String(err)
     await logWebhookCall(ctx, agentId, agent.app_id, JSON.stringify(body), errMsg, 500, elapsed, false)
     await pruneLogs(ctx, agentId) // D3
     throw err
@@ -301,7 +301,7 @@ async function loadConversationHistory(ctx: AppCtx, agentId: string, conversatio
     const maxPairs = Math.floor(list.length / 2)
     const pairs = Math.min(maxPairs, limit)
     const trimmed = list.slice(list.length - pairs * 2)
-    return trimmed.map((r: any) => ({ role: r.role as 'user' | 'assistant', content: String(r.content ?? '') }))
+    return trimmed.map((r) => ({ role: r.role as 'user' | 'assistant', content: String(r.content ?? '') }))
   } catch {
     return []
   }
@@ -335,7 +335,7 @@ async function pruneLogs(ctx: AppCtx, agentId: string): Promise<void> {
       .orderBy('created_at', 'desc')
       .limit(500)
       .run()
-    const keepIds = keep.map((r: any) => String(r.id))
+    const keepIds = keep.map((r: { id: string }) => String(r.id))
     await orm.query.delete('webhook_logs')
       .where({ agent_id: agentId, ...(keepIds.length ? { id: { notIn: keepIds } } : {}) })
       .run()

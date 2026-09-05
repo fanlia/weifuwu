@@ -83,8 +83,8 @@ export async function approveArtifact(sql: Sql, departmentId: string, relPath: s
     await mkdir(dirname(dst), { recursive: true })
     await rename(src, dst)
     return { ok: true }
-  } catch (e: any) {
-    return { ok: false, error: `发布失败: ${e?.message ?? '未知错误'}` }
+  } catch (e) {
+    return { ok: false, error: `发布失败: ${(e as Error)?.message ?? '未知错误'}` }
   }
 }
 
@@ -102,8 +102,8 @@ export async function rejectArtifact(sql: Sql, departmentId: string, relPath: st
     try { await access(src) } catch { return { ok: true, error: '待审文件不存在（可能已处理）' } }
     await rm(src, { recursive: true, force: true })
     return { ok: true }
-  } catch (e: any) {
-    return { ok: false, error: `删除失败: ${e?.message ?? '未知错误'}` }
+  } catch (e) {
+    return { ok: false, error: `删除失败: ${(e as Error)?.message ?? '未知错误'}` }
   }
 }
 

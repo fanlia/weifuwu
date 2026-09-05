@@ -119,8 +119,8 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
       })
       await audit(ctx, 'sandbox_create', String(row.id), { name: row.name, departmentId: row.department_id ?? undefined })
       return Response.json({ sandbox: row }, { status: 201 })
-    } catch (e: any) {
-      const msg = e?.message ?? '创建失败'
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '创建失败'
       const quota = msg.includes('配额')
       return Response.json({ error: msg }, { status: quota ? 409 : 400 })
     }
@@ -141,8 +141,8 @@ export function registerSandboxRoutes(app: Router<AppCtx>): void {
       const departmentId = new URL(req.url).searchParams.get('departmentId') ?? undefined
       const filtered = departmentId ? events.filter((e) => e.payload?.departmentId === departmentId) : events
       return Response.json({ events: filtered, departmentId: departmentId ?? null })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '事件流查询失败' }, { status: 500 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '事件流查询失败' }, { status: 500 })
     }
   })
 

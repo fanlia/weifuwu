@@ -190,8 +190,8 @@ async function buildToolContext(
           resolvedWs = pending
         }
       }
-    } catch (err: any) {
-      console.warn(`[agent-runner] 部门工作空间查询失败: ${err?.message ?? ''}`)
+    } catch (err) {
+      console.warn(`[agent-runner] 部门工作空间查询失败: ${(err as Error)?.message ?? ''}`)
     }
     if (resolvedWs) {
       const wsTools = getWorkspaceToolDefs(config.allowCommandExec ?? false)
@@ -206,8 +206,8 @@ async function buildToolContext(
           tools: wsTools,
           handlers: wsHandlers,
         })
-      } catch (err: any) {
-        console.warn(`[agent-runner] 工作空间初始化失败: ${err.message}`)
+      } catch (err) {
+        console.warn(`[agent-runner] 工作空间初始化失败: ${(err as Error).message}`)
       }
     }
   }

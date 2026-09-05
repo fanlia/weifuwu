@@ -380,7 +380,7 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
     const agents = ids.length > 0
       ? await orm.query.from('agents').select('id', 'name', 'type').where({ id: { in: ids } }).run()
       : []
-    const agentMap = new Map((Array.isArray(agents) ? agents : []).map((a: any) => [String(a.id), String(a.name ?? a.id)]))
+    const agentMap = new Map((Array.isArray(agents) ? agents : []).map((a) => [String(a.id), String(a.name ?? a.id)]))
     // 逐个取资源统计（docker stats 逐容器——上限 20 个，串行快）
     const withStats = []
     for (const c of containers) {
@@ -443,8 +443,8 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
         if (!body.query || typeof body.query !== 'object') throw new HttpError('query 必填（Query AST）', 400)
         const rows = await pg.orm.execute(body.query as never)
         return Response.json({ ok: true, rows })
-      } catch (e: any) {
-        return Response.json({ error: String(e?.message ?? e) }, { status: 500 })
+      } catch (e) {
+        return Response.json({ error: String((e as Error)?.message ?? e) }, { status: 500 })
       }
     })
     app.post('/api/test/wf', async (req: Request) => {
@@ -453,8 +453,8 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
         if (!body.room || !Array.isArray(body.events)) throw new HttpError('room/events 必填', 400)
         for (const evt of body.events) messagerSystem.client.broadcast(body.room, evt)
         return Response.json({ ok: true, pushed: body.events.length })
-      } catch (e: any) {
-        return Response.json({ error: String(e?.message ?? e) }, { status: 500 })
+      } catch (e) {
+        return Response.json({ error: String((e as Error)?.message ?? e) }, { status: 500 })
       }
     })
   }
@@ -548,7 +548,7 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
           surveyAnswers.push(record)
           if (surveyAnswers.length > surveyLimit) surveyAnswers.splice(0, surveyAnswers.length - surveyLimit)
           void pg.orm.query.insert('survey_answers').values({ source: String(record.source), question: String(record.question), answer: String(record.answer), campaign_id: String(record.campaign) || null }).run().catch((e: any) => {
-            console.error('[survey] 逐题落库失败:', e?.message ?? e)
+            console.error('[survey] 逐题落库失败:', (e as Error)?.message ?? e)
           })
           surveyBroadcast({ type: 'survey:answer', ...record })
         } else if (msg.type === 'survey:submit' && msg.data) {
@@ -580,8 +580,8 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
           // 完成信号依赖该行（campaign 扫描 survey_submissions）——失败必须可见）
           try {
             await pg.orm.query.insert('survey_submissions').values({ id: String(record.id), source: String(record.source), age: String(record.age), industry: String(record.industry), rating: Number(record.rating), focus: (() => { try { return JSON.parse(String(record.focus)) } catch { return String(record.focus) } })(), feedback: String(record.feedback), submitted_at: String(record.submitted_at), campaign_id: String(record.campaign) || null }).run()
-          } catch (e: any) {
-            console.error('[survey] 提交落库失败（完成信号丢失风险——source=%s id=%s）:', String(record.source), String(record.id), e?.message ?? e)
+          } catch (e) {
+            console.error('[survey] 提交落库失败（完成信号丢失风险——source=%s id=%s）:', String(record.source), String(record.id), (e as Error)?.message ?? e)
           }
           surveyBroadcast({ type: 'survey:submitted', count: surveyTotal, latest: record, aggregate: surveyAggregate() })
           // 提交后保持在线（浏览器未关——ws 连接保持——统计页在线显示已提交状态——
@@ -628,7 +628,7 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
         req.headers.get('x-timestamp') ?? undefined, req.headers.get('x-nonce') ?? undefined)
       return Response.json(result)
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+      const message = err instanceof Error ? (err as Error).message : String(err)
       // H3：签名类错误明确区分——Missing 401，Invalid/Replay 403，其它 400
       const status = message.includes('Missing') ? 401
         : message.includes('Invalid') || message.includes('Replay') ? 403
@@ -646,8 +646,8 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
     let msg: any
     try {
       msg = parseImInbound(ctx.params.platform, body as Record<string, any>)
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '解析失败' }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '解析失败' }, { status: 400 })
     }
 
     // 查绑定了部门的 IM 机器人（webhook agent + im_bind_dept 非空）
@@ -691,7 +691,7 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
           if (evt.content) reply = evt.content
         } catch { /* 解析失败忽略 */ }
       }
-    }).catch((e: any) => console.error('[im] 入站处理失败:', e?.message ?? e))
+    }).catch((e: any) => console.error('[im] 入站处理失败:', (e as Error)?.message ?? e))
 
     // 平台格式回显（回调响应即回复——钉钉/飞书/企微被动回复）
     const { formatOutboundBody } = await import('../services/webhook-platform.ts')
@@ -722,7 +722,7 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
         surveyAnswers.push({ source: String(r.source), question: String(r.question), answer: String(r.answer), at: String(r.created_at), campaign: String(r.campaign_id ?? '') })
       }
       console.log(`[survey] 已恢复提交 ${surveyTotal} / 答案 ${arows.length}`)
-    } catch (e: any) { console.warn('[survey] 恢复失败:', e?.message) }
+    } catch (e) { console.warn('[survey] 恢复失败:', (e as Error)?.message) }
   })()
   let surveyHub: import('weifuwu').Hub | null = null              // WS 房间（app.ws open 时捕获）
   const surveyOnline = new Map<any, { source: string; at: string; submitted?: boolean }>()  // 在线填写者（ws → source + 提交状态——浏览器未关保持在线）
@@ -848,7 +848,7 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
       // 派单 = 对每个角色部门发消息（@角色 触发）——并发执行，互不排队
       const ROLES = ['财务小王', '市场小李', '产品老张', '客服小陈', '研发大刘', '人事小周', '销售阿强', '运营小赵', '行政陈姐', '实习生阿泽']
       const deptRows = await pg.orm.query.from('departments').select('id', 'name').where({ name: { in: ROLES }, is_dm: { eq: false } }).run()
-      const deptMap = new Map((deptRows ?? []).map((d: any) => [String(d.name), String(d.id)]))
+      const deptMap = new Map((deptRows ?? []).map((d) => [String(d.name), String(d.id)]))
       const missing = ROLES.filter((r) => !deptMap.has(r))
       if (missing.length > 0) {
         return Response.json({ error: `缺少角色部门：${missing.join('、')}（先跑 seed-survey-agents.mjs）` }, { status: 404 })
@@ -868,8 +868,8 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
           await Promise.allSettled(batch.map(async (name) => {
             const content = `@${name} 【新任务】请重新打开问卷 ${BASE}/demo-survey?s=${encodeURIComponent(name)} 并完整填写提交（这是新一轮填写任务——即使工作目录已有旧的 survey-result.json 也要重新填写并覆盖更新它）。完成后把本轮作答结果写入工作目录 survey-result.json（覆盖旧文件），并执行 agent-browser close 关闭浏览器。`
             const dispatch = () => handleNewMessageStream(ctx, String(deptMap.get(name)), senderId, content, '')
-            try { await dispatch(); dispatched++ } catch (err: any) {
-              console.error(`[launch] 派单失败 ${name}:`, err?.message ?? err)
+            try { await dispatch(); dispatched++ } catch (err) {
+              console.error(`[launch] 派单失败 ${name}:`, (err as Error)?.message ?? err)
               await new Promise((r) => setTimeout(r, 3000))
               try { await dispatch(); dispatched++ } catch (err2: any) {
                 console.error(`[launch] 重试失败 ${name}:`, err2?.message ?? err2)
@@ -883,8 +883,8 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
         console.log(`[launch] 派单完成：${dispatched}/${ROLES.length} 个角色（并发独立沙盒）`)
       })()
       return Response.json({ success: true, sent: ROLES.length, scheduling: true, roles: ROLES })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? 'launch 失败' }, { status: 500 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? 'launch 失败' }, { status: 500 })
     }
   })
 
@@ -906,8 +906,8 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
       const subMap = new Map(subCounts.map((x) => [String(x.campaign_id), Number((x as any).submitted ?? 0)]))
       const rows = campRows.map((c) => ({ ...c, id: String(c.id), submitted: subMap.get(String(c.id)) ?? 0 }))
       return Response.json({ list: rows })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '查询失败' }, { status: 500 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '查询失败' }, { status: 500 })
     }
   })
 

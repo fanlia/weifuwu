@@ -137,8 +137,8 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     try {
       const { requireWriter } = await import('../services/permissions.ts')
       await requireWriter(ctx)
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '无权操作' }, { status: Number((e as { status: unknown })?.status) ?? 403 })
     }
     try {
       const { appRoleOf } = await import('../services/permissions.ts')
@@ -148,8 +148,8 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       if (role !== 'owner') {
         throw new HttpError('只有租户所有者可以创建部门', 403)
       }
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '权限校验失败' }, { status: e?.status ?? 403 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '权限校验失败' }, { status: Number((e as { status: unknown })?.status) ?? 403 })
     }
     const { orm, appId } = ctx
     const body = await req.json() as {
@@ -348,7 +348,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       env,
       files,
       subDepartments,
-      recentMessages: (recent ?? []).map((r: any) => ({
+      recentMessages: (recent ?? []).map((r) => ({
         content: String(r.content ?? '').slice(0, 120),
         senderName: String(r.sender_name ?? ''),
         senderType: String(r.sender_type ?? ''),
@@ -432,8 +432,8 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       if (role !== 'owner') {
         throw new HttpError('只有租户所有者可以删除部门', 403)
       }
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '权限校验失败' }, { status: e?.status ?? 403 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '权限校验失败' }, { status: Number((e as { status: unknown })?.status) ?? 403 })
     }
     const T = tables(orm)
     // 三层模型：部门 = 工作目录 + 计算资源归属——删除前先终止关联 sandbox（rm 容器）

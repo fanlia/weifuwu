@@ -196,8 +196,8 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
       await ctx.api.put<{ ok: boolean }>(`/api/workflows/${id}`, { cron: $.cronDraft.trim() || null })
       ctx.toast('定时已保存', 'success')
       await load()
-    } catch (e: any) {
-      ctx.toast(e?.message ?? '保存失败', 'error')
+    } catch (e) {
+      ctx.toast((e as Error)?.message ?? '保存失败', 'error')
     }
   }
 
@@ -211,7 +211,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
       await ctx.api.put<any>(`/api/workflows/${id}`, { patch: { op: 'insert', anchor: adding.anchor, chain: adding.chain, step: { type: t, config: {} } } })
       ctx.toast('步骤已添加（打开编辑填参数）', 'success')
       await load()
-    } catch (e: any) { ctx.toast(e?.message ?? '添加失败', 'error') }
+    } catch (e) { ctx.toast((e as Error)?.message ?? '添加失败', 'error') }
   }
 
   async function saveWfjs(): Promise<void> {
@@ -220,8 +220,8 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
       ctx.toast('wfjs 已保存（编译通过）', 'success')
       $.wfjsEditing = false
       await load()
-    } catch (e: any) {
-      ctx.toast(e?.message ?? '保存失败', 'error')
+    } catch (e) {
+      ctx.toast((e as Error)?.message ?? '保存失败', 'error')
     }
   }
 
@@ -230,7 +230,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
       await ctx.api.post<{ ok: boolean }>(`/api/workflows/${id}/versions/${versionId}/rollback`)
       ctx.toast('已回滚（新版本已记录）', 'success')
       await load()
-    } catch (e: any) { ctx.toast(e?.message ?? '回滚失败', 'error') }
+    } catch (e) { ctx.toast((e as Error)?.message ?? '回滚失败', 'error') }
   }
 
   async function viewRun(runId: string): Promise<void> {
@@ -304,7 +304,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
                                 ctx.toast('参数已保存', 'success')
                                 $.editing = null
                                 await load()
-                              } catch (e: any) { ctx.toast(e?.message ?? '保存失败', 'error') }
+                              } catch (e) { ctx.toast((e as Error)?.message ?? '保存失败', 'error') }
                             })()
                             return
                           }
@@ -324,7 +324,7 @@ export const WorkflowDetail: Component<{ id?: string }> = (props, ctx) => {
                               await ctx.api.put<any>(`/api/workflows/${id}`, { patch: { op: 'remove', path } })
                               ctx.toast('步骤已删除', 'success')
                               await load()
-                            } catch (e: any) { ctx.toast(e?.message ?? '删除失败', 'error') }
+                            } catch (e) { ctx.toast((e as Error)?.message ?? '删除失败', 'error') }
                           })()
                         },
                         (anchor, chain) => { $.adding = { anchor, chain }; $.addingType = ''; rerender() })}

@@ -124,8 +124,8 @@ export const Workflows: Component = (_props, ctx) => {
       const st = d.run?.status
       ctx.toast(st === 'success' ? '执行成功' : `执行：${st}${d.run?.error ? `——${d.run.error}` : ''}`, st === 'success' ? 'success' : 'error')
       await load()
-    } catch (e: any) {
-      ctx.toast(e?.message ?? '执行失败', 'error')
+    } catch (e) {
+      ctx.toast((e as Error)?.message ?? '执行失败', 'error')
     }
   }
 

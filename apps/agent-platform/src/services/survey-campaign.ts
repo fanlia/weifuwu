@@ -125,7 +125,7 @@ export async function createCampaign(ctx: AppCtx, body: CreateCampaignBody): Pro
     .where({ app_id: { eq: String(appId) }, type: { eq: 'ai' }, is_active: { eq: true }, name: { like: prefix + '%' }, department_id: { ne: null } })
     .orderBy('name', 'asc')
     .run()
-  const pool = (agents ?? []).filter((a: any) => !(body.excludeNames ?? []).includes(String(a.name)))
+  const pool = (agents ?? []).filter((a) => !(body.excludeNames ?? []).includes(String(a.name)))
   if (pool.length === 0) {
     throw new Error(`未找到问卷角色（rolePrefix=${prefix}）——先跑 seed-survey-agents.mjs`)
   }
@@ -238,9 +238,9 @@ export function startCampaignLoop(ctx: AppCtx, campaignId: string): void {
           console.log(`[campaign ${campaignId}] tick 循环停止（return true）`)  // 诊断：谁停的循环
           clearInterval(timer); runningLoops.delete(campaignId)
         }
-      } catch (e: any) {
-        console.error(`[campaign ${campaignId}] tick 失败:`, e?.message ?? e)
-        console.error(`[campaign ${campaignId}] tick stack:`, String(e?.stack ?? '').slice(0, 600))
+      } catch (e) {
+        console.error(`[campaign ${campaignId}] tick 失败:`, (e as Error)?.message ?? e)
+        console.error(`[campaign ${campaignId}] tick stack:`, String((e as { stack: unknown })?.stack ?? '').slice(0, 600))
       }
     }, TICK_MS)
     timer.unref?.()
@@ -267,8 +267,8 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
   let campaign: any = null
   try {
     ;[campaign] = await T.survey_campaigns.select().where({ id: { eq: campaignId }}).limit(1).run()
-  } catch (e: any) {
-    console.error(`[campaign ${campaignId}] phase① campaign 查询失败（campaignId=${JSON.stringify(campaignId)} type=${typeof campaignId}）:`, e?.message ?? e)
+  } catch (e) {
+    console.error(`[campaign ${campaignId}] phase① campaign 查询失败（campaignId=${JSON.stringify(campaignId)} type=${typeof campaignId}）:`, (e as Error)?.message ?? e)
     throw e
   }
   if (!campaign || campaign.status !== 'running') {
@@ -279,8 +279,8 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
   let runsRaw: any[] = []
   try {
     runsRaw = (await T.survey_campaign_runs.select().where({ campaign_id: { eq: campaignId }}).run()) ?? []
-  } catch (e: any) {
-    console.error(`[campaign ${campaignId}] phase① runs 查询失败:`, e?.message ?? e)
+  } catch (e) {
+    console.error(`[campaign ${campaignId}] phase① runs 查询失败:`, (e as Error)?.message ?? e)
     throw e
   }
   const runs = runsRaw as RunRow[]
@@ -304,8 +304,8 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
         .where({ campaign_id: { eq: campaignId }, source: { eq: r.agent_name }})
         .limit(1)
         .run())[0]
-    } catch (e: any) {
-      console.error(`[campaign ${campaignId}] 完成扫描 SQL 失败（agent=${r.agent_name}）:`, e?.message ?? e)
+    } catch (e) {
+      console.error(`[campaign ${campaignId}] 完成扫描 SQL 失败（agent=${r.agent_name}）:`, (e as Error)?.message ?? e)
       throw e
     }
     if (sub) {
@@ -329,7 +329,7 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
         .where({ id: { eq: String(r.id) } })
         .run()
     }
-    catch (e: any) { console.error(`[campaign ${campaignId}] phase② requeue 失败（run=${r.id}）:`, e?.message ?? e); throw e }
+    catch (e) { console.error(`[campaign ${campaignId}] phase② requeue 失败（run=${r.id}）:`, (e as Error)?.message ?? e); throw e }
     releaseDeptSandbox(orm, r.dept_id, 30_000)
   }
   for (const r of failed) {
@@ -343,7 +343,7 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
         .where({ id: { eq: String(r.id) } })
         .run()
     }
-    catch (e: any) { console.error(`[campaign ${campaignId}] phase② failed 标记失败（run=${r.id}）:`, e?.message ?? e); throw e }
+    catch (e) { console.error(`[campaign ${campaignId}] phase② failed 标记失败（run=${r.id}）:`, (e as Error)?.message ?? e); throw e }
     failedCount++
     releaseDeptSandbox(orm, r.dept_id, 30_000)
   }
@@ -361,7 +361,7 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
     if (deptRows.length > 0) {
       await orm.query.update('sandboxes')
         .set({ last_used_at: ops.now() })
-        .where({ status: { eq: 'running' }, department_id: { in: deptRows.map((d: any) => String(d.dept_id)) } })
+        .where({ status: { eq: 'running' }, department_id: { in: deptRows.map((d) => String(d.dept_id)) } })
         .run()
     }
   } catch { /* 豁免刷新失败不阻断 tick */ }
@@ -377,8 +377,8 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
         .orderBy('created_at', 'asc')
         .limit(1)
         .run()
-    } catch (e: any) {
-      console.error(`[campaign ${campaignId}] 派单 sender 查询失败:`, e?.message ?? e)
+    } catch (e) {
+      console.error(`[campaign ${campaignId}] 派单 sender 查询失败:`, (e as Error)?.message ?? e)
       throw e
     }
     const senderId = sender ? String(sender.id) : 'system'
@@ -410,17 +410,17 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
         try {
           const { handleNewMessageStream } = await import('./chat.ts')
           await handleNewMessageStream(ctx, r.dept_id, senderId, content, `campaign-${campaignId}-${r.agent_id}`)
-        } catch (e: any) {
-          console.error(`[campaign ${campaignId}] 派单失败 ${r.agent_name}:`, e?.message ?? e)
+        } catch (e) {
+          console.error(`[campaign ${campaignId}] 派单失败 ${r.agent_name}:`, (e as Error)?.message ?? e)
           await T.survey_campaign_runs
-            .update({ status: 'failed', finished_at: ops.now(), error: String(e?.message ?? '派单失败').slice(0, 300) })
+            .update({ status: 'failed', finished_at: ops.now(), error: String((e as Error)?.message ?? '派单失败').slice(0, 300) })
             .where({ id: { eq: String(r.id) } })
             .run()
             .catch(() => {})
         }
       })()
       try { await T.survey_campaign_runs.update({ status: 'running', started_at: ops.now() }).where({ id: { eq: String(r.id) } }).run() }
-      catch (e: any) { console.error(`[campaign ${campaignId}] phase③ 标 running 失败（run=${r.id}）:`, e?.message ?? e); throw e }
+      catch (e) { console.error(`[campaign ${campaignId}] phase③ 标 running 失败（run=${r.id}）:`, (e as Error)?.message ?? e); throw e }
     }
   }
 
@@ -432,12 +432,12 @@ async function tickOnceInner(ctx: AppCtx, campaignId: string): Promise<boolean> 
       .where({ id: { eq: campaignId }})
       .run()
   }
-  catch (e: any) { console.error(`[campaign ${campaignId}] phase④ 记账失败（completed=${completed} failed=${failedCount}）:`, e?.message ?? e); throw e }
+  catch (e) { console.error(`[campaign ${campaignId}] phase④ 记账失败（completed=${completed} failed=${failedCount}）:`, (e as Error)?.message ?? e); throw e }
   if (isCampaignFinished({ total: Number(campaign.total), completed, failed: failedCount }, freshRuns.filter((r) => r.status === 'running').length)) {
     try {
       await T.survey_campaigns.update({ status: 'done', updated_at: ops.now() }).where({ id: { eq: campaignId }}).run()
     }
-    catch (e: any) { console.error(`[campaign ${campaignId}] phase④ done 标记失败:`, e?.message ?? e); throw e }
+    catch (e) { console.error(`[campaign ${campaignId}] phase④ done 标记失败:`, (e as Error)?.message ?? e); throw e }
     console.log(`[campaign ${campaignId}] 完成：${completed} 成功 / ${failedCount} 失败（共 ${campaign.total}）`)
     // 批收尾：全部角色部门沙盒 stop（busy 豁免——不打断任何执行）
     void (async () => {

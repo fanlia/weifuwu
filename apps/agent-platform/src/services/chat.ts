@@ -706,7 +706,7 @@ function isTaskMessage(content: string): boolean {
     // B.1 跨层错误透明化：任何未覆盖异常（作用域/传参/运行时）→ wf:error 必达——
     // 否则前端永久卡"生成中"（真实事故：messageContent 未定义 ReferenceError
     // 逃逸 → wf:done/wf:error 都没发 → 前端 60s 兜底才恢复）
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = err instanceof Error ? (err as Error).message : String(err)
     console.error(`[chat] runAgentStreamForAgent ${agent.id} error:`, msg)
     try {
       if (msgId) emitWf({ type: 'wf:error', messageId: msgId, code: 'internal_error', message: msg.slice(0, 200) })
@@ -863,8 +863,8 @@ async function runAllAgents(
             await fs.mkdir(targetDir, { recursive: true })
             await fs.writeFile(pathMod.join(targetDir, att.name), buf)
             copied.push({ name: att.name, size: att.size ?? buf.length, path: `uploads/${attachmentMsgId}/${att.name}` })
-          } catch (e: any) {
-            console.warn(`[chat] 附件拷贝失败 ${att.name}: ${e?.message ?? ''}`)
+          } catch (e) {
+            console.warn(`[chat] 附件拷贝失败 ${att.name}: ${(e as Error)?.message ?? ''}`)
           }
         }
         attachmentLayer = buildAttachmentLayer(copied)

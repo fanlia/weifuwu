@@ -90,7 +90,7 @@ export const DepartmentDetail: Component = (_props, ctx) => {
       const r = await ctx.api.post<{ ok?: boolean; success?: boolean }>(`/api/sandboxes/${$.sandbox.id}/${action}`)
       if (r.ok || r.success) ctx.toast('操作成功', 'success')
       else ctx.toast((r as any).error ?? '操作失败', 'error')
-    } catch (e: any) { ctx.toast(e?.message ?? '操作失败', 'error') }
+    } catch (e) { ctx.toast((e as Error)?.message ?? '操作失败', 'error') }
     $.sbBusy = ''; loadSandbox(); rerender()
   }
 
@@ -307,7 +307,7 @@ export const DepartmentDetail: Component = (_props, ctx) => {
           <div class="wf-font-sm wf-text-tertiary">暂无 AI 成员——添加后此处显示执行状态</div>
         ) : (
           <div class="wf-stack wf-gap-none">
-            {$.executions.map((t: any) => (
+            {$.executions.map((t) => (
               <div key={t.agentId} class="wf-row wf-gap-sm wf-padding-y-sm wf-border-bottom wf-items-center">
                 <span class={`wf-font-base ${t.status === 'working' ? 'wf-text-primary' : t.status === 'failed' ? 'wf-text-error' : t.status === 'done' ? 'wf-text-success' : 'wf-text-tertiary'}`}>
                   {t.status === 'working' ? '▶' : t.status === 'done' ? '✅' : t.status === 'failed' ? '⚠️' : t.status === 'stalled' ? '⏸' : '○'}

@@ -42,7 +42,7 @@ export function registerPublicRoutes(app: Router<AppCtx>, deps: PlatformDeps): v
     // C6 搜索：name/description 匹配（大小写不敏感）
     const q = new URL(req.url).searchParams.get('q')?.trim().toLowerCase() ?? ''
     if (q) {
-      skills = skills.filter((sk: any) =>
+      skills = skills.filter((sk) =>
         String(sk?.meta?.name ?? '').toLowerCase().includes(q) ||
         String(sk?.meta?.description ?? '').toLowerCase().includes(q) ||
         String(sk?.dir ?? '').toLowerCase().includes(q),
@@ -53,11 +53,11 @@ export function registerPublicRoutes(app: Router<AppCtx>, deps: PlatformDeps): v
     try {
       const rl = await pg.orm.query.from('skill_ratings').select('skill_dir').count('*', 'likes', { liked: { eq: true } }).groupBy('skill_dir').run()
       const rd = await pg.orm.query.from('skill_ratings').select('skill_dir').count('*', 'dislikes', { liked: { eq: false } }).groupBy('skill_dir').run()
-      const ratings = [...new Map([...rl, ...rd].map((r: any) => [String(r.skill_dir), r])).values()]
+      const ratings = [...new Map([...rl, ...rd].map((r) => [String(r.skill_dir), r])).values()]
       // key 用路径 basename（绝对/相对路径环境无关——如 process-csv）
       const base = (p: string) => String(p ?? '').split(/[\\/]/).filter(Boolean).pop() ?? ''
       const map = new Map<string, { likes: number; dislikes: number }>(
-        (Array.isArray(ratings) ? ratings : [ratings]).map((r: any) => [
+        (Array.isArray(ratings) ? ratings : [ratings]).map((r) => [
           base(String(r.skill_dir ?? '')), { likes: Number(r.likes ?? 0), dislikes: Number(r.dislikes ?? 0) },
         ]),
       )
@@ -90,7 +90,7 @@ export function registerPublicRoutes(app: Router<AppCtx>, deps: PlatformDeps): v
     const templates = getRoleTemplates()
     // 持久化使用计数（DB 统计——内存计数服务重启即清零）
     const rows = await pg.orm.query.from('agents').select('template_slug').count('*', 'cnt').where({ template_slug: { isNull: false } }).groupBy('template_slug').run()
-    const usage = new Map<string, number>(rows.map((r: any) => [r.template_slug, r.cnt]))
+    const usage = new Map<string, number>(rows.map((r) => [String(r.template_slug), Number(r.cnt)]))
     for (const t of templates) t.usage_count = usage.get(t.slug) ?? 0
     return Response.json({ templates })
   })

@@ -73,7 +73,7 @@ export const AgentDetail: Component = (_props, ctx) => {
       ctx.api.get<{ agents: Agent[] }>('/api/agents?type=knowledge_base').catch(() => ({ agents: [] })),
       ctx.api.get<{ departments: Department[] }>('/api/departments').catch(() => ({ departments: [] })),
     ]).then(([agentRes, skillRes, availRes, kbRes, deptRes]) => {
-      $.deptOptions = (deptRes.departments ?? []).filter((d: any) => !d.is_dm).map((d: any) => ({ id: d.id, name: d.name }))
+      $.deptOptions = (deptRes.departments ?? []).filter((d) => !d.is_dm).map((d) => ({ id: d.id, name: d.name }))
       const a = (agentRes.agent ?? agentRes) as Agent
       if (!a?.id) { $.notFound = true; $.loading = false; rerender(); return }
       $.agent = a; $.name = a.name ?? ''; $.description = a.description ?? ''

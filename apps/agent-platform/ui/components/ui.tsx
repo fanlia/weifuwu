@@ -15,10 +15,10 @@ export type { PageHeaderProps, EmptyStateProps, LoadingProps } from 'weifuwu/com
 export function errMsg(e: unknown, fallback: string): string {
   if (e instanceof Error) {
     try {
-      const j = JSON.parse(e.message)
+      const j = JSON.parse((e as Error).message)
       if (j && j.error) return String(j.error)
     } catch { /* 非 JSON 错误消息 */ }
-    return e.message
+    return (e as Error).message
   }
   return fallback
 }

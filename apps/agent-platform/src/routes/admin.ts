@@ -27,7 +27,7 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
       .sum('tokens_total', 'used')
       .where({ app_id: { eq: ctx.appId }, created_at: { gte: ops.monthStart() } })
       .run()
-    return Response.json(planStatusOf(row, Number((usedRow as any)?.used ?? 0)))
+    return Response.json(planStatusOf(row, Number((usedRow as Record<string, unknown>)?.used ?? 0)))
   })
 
   // 管理员校验（403 非系统管理员）——系统域判定（token payload——零查库）
@@ -64,18 +64,18 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
     const [usage] = await orm.query.from('agent_logs')
       .sum('tokens_prompt', 'prompt', { created_at: { gte: ops.monthStart() } })
       .sum('tokens_completion', 'completion', { created_at: { gte: ops.monthStart() } }).run()
-    const costYuan = Number(((Number((usage as any)?.prompt ?? 0) * PRICE_IN + Number((usage as any)?.completion ?? 0) * PRICE_OUT)).toFixed(2))
+    const costYuan = Number(((Number((usage as Record<string, unknown>)?.prompt ?? 0) * PRICE_IN + Number((usage as Record<string, unknown>)?.completion ?? 0) * PRICE_OUT)).toFixed(2))
     const [activeApps] = await orm.query.from('agent_logs l')
       .count('DISTINCT l.app_id', 'cnt', { 'l.created_at': { gte: ops.nowAgo(7, 'day') } }).run()
     return Response.json({
-      totalApps: Number((total as any)?.apps ?? 0),
-      activeApps: Number((active as any)?.cnt ?? 0),
-      proApps: Number((pros as any)?.cnt ?? 0),
-      msgsMonth: Number((msgs as any)?.total ?? 0),
-      aiRepliesMonth: Number((msgs as any)?.ai_replies ?? 0),
-      tokensMonth: Number((tokens as any)?.total ?? 0),
+      totalApps: Number((total as Record<string, unknown>)?.apps ?? 0),
+      activeApps: Number((active as Record<string, unknown>)?.cnt ?? 0),
+      proApps: Number((pros as Record<string, unknown>)?.cnt ?? 0),
+      msgsMonth: Number((msgs as Record<string, unknown>)?.total ?? 0),
+      aiRepliesMonth: Number((msgs as Record<string, unknown>)?.ai_replies ?? 0),
+      tokensMonth: Number((tokens as Record<string, unknown>)?.total ?? 0),
       costYuanMonth: costYuan,
-      activeApps7d: Number((activeApps as any)?.cnt ?? 0),
+      activeApps7d: Number((activeApps as Record<string, unknown>)?.cnt ?? 0),
     })
   })
 
@@ -247,7 +247,7 @@ export function registerAdminRoutes(app: Router<AppCtx>): void {
       .run()
     return Response.json({
       host: { ...hostCapacity(), id: HOST_ID },
-      occupied: { mb: Number((occupied as any)?.mb ?? 0), running: Number((occupied as any)?.running ?? 0), terminated: Number((occupied as any)?.terminated ?? 0) },
+      occupied: { mb: Number((occupied as Record<string, unknown>)?.mb ?? 0), running: Number((occupied as Record<string, unknown>)?.running ?? 0), terminated: Number((occupied as Record<string, unknown>)?.terminated ?? 0) },
       weeklyEvictions: Number(weekly?.evicted ?? 0),
       recentEvictions: recentEvictions.map((e: any) => ({
         sandboxId: String(e.sandbox_id), type: String(e.type), detail: String(e.detail ?? ''),

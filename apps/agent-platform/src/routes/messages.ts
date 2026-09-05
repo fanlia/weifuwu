@@ -43,13 +43,13 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .select('m.id', 'm.department_id')
       .where(and({ 'a.app_id': { eq: appId } }, { 'm.ai_draft': { ne: null } }, { 'm.ai_approved': { isNull: true } }, { 'm.id': { in: ids } }))
       .run()
-    const byId = new Map(rows.map((r: any) => [String(r.id), r]))
+    const byId = new Map(rows.map((r) => [String(r.id), r]))
     // 当前用户的部门 admin 集合（一次查——跨部门批量逐条判定）
     const adminDepts = new Set((await orm.query.from('department_members dm')
       .join('agents ua', { 'ua.id': { col: 'dm.agent_id' } })
       .select('dm.department_id')
       .where(and({ 'ua.user_id': { eq: auth.userId } }, { 'ua.app_id': { eq: appId } }, { 'dm.role': { eq: 'admin' } }))
-      .run()).map((r: any) => String(r.department_id)))
+      .run()).map((r) => String(r.department_id)))
     // [owner/tenant-admin 租户级放行——单条语义同源（departments.ts L447 三方放行）]
     const [tenantRole] = await orm.query.from('_weifuwu_app_members')
       .select('role')
@@ -124,8 +124,8 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     try {
       const { requireWriter } = await import('../services/permissions.ts')
       await requireWriter(ctx)
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '无权操作' }, { status: Number((e as { status: unknown })?.status) ?? 403 })
     }
     const { orm, appId, auth, params } = ctx
     // W2：手写体 → bodyOf insert（系统列 omit——department_id/sender_id/ai_*
@@ -186,10 +186,10 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
           const v = validateUploadFile(f)
           await fs.writeFile(pathMod.join(attachDir, v.safeName), v.buffer)
           attachmentMeta.push({ name: v.safeName, path: `uploads/${String(message.id)}/${v.safeName}`, size: v.size, ext: v.ext })
-        } catch (e: any) {
+        } catch (e) {
           // 单个附件失败：清理已写文件 + 拒绝整条消息（防半截附件）
           await fs.rm(attachDir, { recursive: true, force: true }).catch(() => {})
-          return Response.json({ error: `附件「${f?.name ?? ''}」无效：${e?.message ?? '未知错误'}` }, { status: 400 })
+          return Response.json({ error: `附件「${f?.name ?? ''}」无效：${(e as Error)?.message ?? '未知错误'}` }, { status: 400 })
         }
       }
       await T.messages.update({ attachments: attachmentMeta }).where(eq(T.messages.c.id, message.id)).run()
@@ -540,11 +540,11 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .where(eq(T.agent_run_states.c.message_id, params.id))
       .run()
     const steps = Array.isArray(state?.steps) ? state.steps : []
-    const doneSteps = steps.filter((st: any) => st?.result !== undefined).length
+    const doneSteps = steps.filter((st) => st?.result !== undefined).length
 
     // 续跑提示（注入 AI 上下文——从中断处继续，不重做已完成步骤）
     const resumeHint = steps.length > 0
-      ? `\n\n【断点续跑】这条消息上次执行中断（已完成 ${doneSteps}/${steps.length} 步工具调用）。已执行步骤：${steps.map((st: any) => `${st.tool}(${String(st.args ?? '').slice(0, 60)})`).join(' → ')}。请从中断处继续完成用户请求，不要重复执行已完成步骤。`
+      ? `\n\n【断点续跑】这条消息上次执行中断（已完成 ${doneSteps}/${steps.length} 步工具调用）。已执行步骤：${steps.map((st) => `${st.tool}(${String(st.args ?? '').slice(0, 60)})`).join(' → ')}。请从中断处继续完成用户请求，不要重复执行已完成步骤。`
       : ''
 
     // 复用消息流：重发原内容 + 续跑提示（handleNewMessageStream 重新触发 AI）

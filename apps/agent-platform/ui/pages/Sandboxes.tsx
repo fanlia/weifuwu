@@ -62,7 +62,7 @@ export const Sandboxes: Component = (_props, ctx) => {
       const d = await ctx.api.get<{ sandboxes: SandboxItem[]; quota?: { used: number; limit: number; pressure: boolean } }>('/api/sandboxes')
       quota = d.quota ?? null
       return d.sandboxes ?? []
-    } catch (e: any) { error = errMsg(e, '加载失败'); return null }
+    } catch (e) { error = errMsg(e, '加载失败'); return null }
   }, 'sandboxes-page')
 
   const loadDebug = async (id: string) => {
@@ -86,7 +86,7 @@ export const Sandboxes: Component = (_props, ctx) => {
       } else {
         ctx.toast((r as any).error ?? `操作失败：${action}`, 'error')
       }
-    } catch (e: any) {
+    } catch (e) {
       ctx.toast(errMsg(e, `操作失败：${action}`), 'error')
     }
     busyId = ''; rerender()

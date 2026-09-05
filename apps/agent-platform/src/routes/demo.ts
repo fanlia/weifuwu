@@ -15,8 +15,8 @@ export function registerDemoRoutes(app: Router<any>): void {
       const { requireWriter, appRoleOf } = await import('../services/permissions.ts')
       await requireWriter(ctx)
       if (await appRoleOf(ctx) !== 'owner') throw new Error('只有租户所有者可以创建演示空间')
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '无权操作' }, { status: Number((e as { status: unknown })?.status) ?? 403 })
     }
     const { orm, appId } = ctx
 

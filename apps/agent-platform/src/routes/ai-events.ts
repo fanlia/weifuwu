@@ -31,8 +31,8 @@ export function registerAiEventRoutes(app: Router<AppCtx>): void {
       // 时间序（三端统一 timeline）
       events.sort((a, b) => a.ts - b.ts)
       return Response.json({ events: events.slice(-Math.min(n, 500)), requestId: requestId ?? null })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '统一事件查询失败' }, { status: 500 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '统一事件查询失败' }, { status: 500 })
     }
   })
 
@@ -45,8 +45,8 @@ export function registerAiEventRoutes(app: Router<AppCtx>): void {
       const action = url.searchParams.get('action') ?? undefined
       const messageId = url.searchParams.get('messageId') ?? undefined
       return Response.json({ events: aiEvents(Math.min(n, 500), { agentId, action, messageId }) })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? 'AI 事件流查询失败' }, { status: 500 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? 'AI 事件流查询失败' }, { status: 500 })
     }
   })
 }

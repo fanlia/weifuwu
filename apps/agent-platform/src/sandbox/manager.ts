@@ -113,7 +113,7 @@ export class SandboxManager {
         .orderBy('created_at', 'desc')
         .limit(limit)
         .run()
-      return (rows ?? []).map((r: any) => ({ type: String(r.type), detail: r.detail ? String(r.detail) : null, created_at: r.created_at }))
+      return (rows ?? []).map((r) => ({ type: String(r.type), detail: r.detail ? String(r.detail) : null, created_at: String(r.created_at) }))
     } catch {
       return []
     }
@@ -198,8 +198,8 @@ export class SandboxManager {
           workspace: ws,
           network: opts?.network,
         })
-      } catch (e: any) {
-        return { ok: false, error: `沙盒创建失败: ${e?.message ?? '未知错误'}` }
+      } catch (e) {
+        return { ok: false, error: `沙盒创建失败: ${(e as Error)?.message ?? '未知错误'}` }
       }
     }
     if (row.status === 'terminated' || !row.workspace) {
@@ -313,9 +313,9 @@ export class SandboxManager {
       // 集群调度（阶段 3）：路由决策事件（容量视图——选宿主——决策可观测）
       emitRouteDecision(String(rows[0].id), input.departmentId ?? null, input.memoryMb ?? DEFAULT_MEMORY_MB)
       return rows[0] as SandboxRow
-    } catch (e: any) {
+    } catch (e) {
       // 并发创建冲突（23505）→ 重查返回已有记录（幂等）
-      if (String(e?.code ?? '') === '23505' || /duplicate key/.test(String(e?.message ?? ''))) {
+      if (String((e as { code: unknown })?.code ?? '') === '23505' || /duplicate key/.test(String((e as Error)?.message ?? ''))) {
         const existing = await this.byDepartment(String(input.departmentId ?? ''))
         if (existing) return existing
       }

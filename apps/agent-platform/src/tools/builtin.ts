@@ -437,8 +437,8 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
           id: rec.id, name: rec.name, status: rec.status,
           wfjs: wfClient.defToWfjs(rec.def_json),
         })
-      } catch (e: any) {
-        return `Error: 工作流创建失败——${String(e?.message ?? e).slice(0, 400)}（wfjs 语法错误可修正后重试）`
+      } catch (e) {
+        return `Error: 工作流创建失败——${String((e as Error)?.message ?? e).slice(0, 400)}（wfjs 语法错误可修正后重试）`
       }
     },
     list_workflows: async (_args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
@@ -454,8 +454,8 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
           id: r.id, name: r.name, status: r.status,
           updatedAt: r.updated_at,
         })))
-      } catch (e: any) {
-        return `Error: ${String(e?.message ?? e).slice(0, 300)}`
+      } catch (e) {
+        return `Error: ${String((e as Error)?.message ?? e).slice(0, 300)}`
       }
     },
     run_workflow: async (args: Record<string, unknown>, toolCtx?: Record<string, unknown>) => {
@@ -478,8 +478,8 @@ export function registerBuiltinTools(getCtx: () => AppCtx): void {
           status: run.status, error: run.error,
           result: typeof run.result_json === 'object' ? run.result_json : run.result_json,
         }).slice(0, 3000)
-      } catch (e: any) {
-        return `Error: 执行失败——${String(e?.message ?? e).slice(0, 400)}`
+      } catch (e) {
+        return `Error: 执行失败——${String((e as Error)?.message ?? e).slice(0, 400)}`
       }
     },
   })
@@ -521,7 +521,7 @@ async function delegateToAgent(ctx: AppCtx, target: string, message: string, too
     .select()
     .where({ app_id: { eq: String(ctx.appId) }, type: { in: ['ai', 'department'] }, is_active: { eq: true } })
     .run()
-  const targetAgent = targetAgents.find((a: any) => String(a.name) === String(target) || String(a.id) === String(target)) as any
+  const targetAgent = targetAgents.find((a) => String(a.name) === String(target) || String(a.id) === String(target)) as any
   if (!targetAgent) return `Error: 找不到可调用的 AI Agent「${target}」（需同租户且已激活）`
   const ta = targetAgent as any
   if (String(ta.id) === String(toolCtx?.agentId ?? '')) return 'Error: 不能调用自己（循环）'

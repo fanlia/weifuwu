@@ -149,8 +149,8 @@ export async function handleVideoPoll(job: VideoPollJob, ctx: AppCtx, q: QueueCl
     // W5 通知闭环：以发起 agent 身份发部门消息（失败不阻断——行已收口）
     try {
       await notifyVideoSucceeded(ctx, job)
-    } catch (e: any) {
-      console.error(`[video-gen] 完成通知失败（task ${job.taskId}）:`, e?.message ?? e)
+    } catch (e) {
+      console.error(`[video-gen] 完成通知失败（task ${job.taskId}）:`, (e as Error)?.message ?? e)
     }
     return
   }

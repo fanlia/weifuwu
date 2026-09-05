@@ -129,8 +129,8 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       .count('*', 'dislikes', { 'm.feedback': { eq: 'dislike' }})
       .where({ 'a.app_id': { eq: appId }, 'm.feedback': { isNull: false } })
       .run()
-    const toolSuccessRate = Number((quality as any)?.runs ?? 0) > 0
-      ? Math.round(Number((quality as any)?.ok_runs ?? 0) / Number((quality as any)?.runs ?? 0) * 100)
+    const toolSuccessRate = Number((quality as Record<string, unknown>)?.runs ?? 0) > 0
+      ? Math.round(Number((quality as Record<string, unknown>)?.ok_runs ?? 0) / Number((quality as Record<string, unknown>)?.runs ?? 0) * 100)
       : null
 
     const [aiMsgRow] = await orm.query.from('messages m')
@@ -138,7 +138,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       .count('*', 'cnt')
       .where({ 'a.app_id': { eq: appId }, 'a.type': { eq: 'ai' }, 'm.ai_approved': { isNull: false }, 'm.created_at': { gte: ops.monthStart() } })
       .run()
-    const aiRepliesMonth = Number((aiMsgRow as any)?.cnt ?? 0)
+    const aiRepliesMonth = Number((aiMsgRow as Record<string, unknown>)?.cnt ?? 0)
     const savedYuan = Math.max(0, aiRepliesMonth * COST_PER_AI_REPLY - estCostYuan).toFixed(2)
 
     return {
@@ -151,7 +151,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
       trend,
       active_agents: activeAgents,
       roi: { aiRepliesMonth, costPerReply: COST_PER_AI_REPLY, estCostYuan, savedYuan: Number(savedYuan) },
-      quality: { toolSuccessRate, likes: Number((feedback as any)?.likes ?? 0), dislikes: Number((feedback as any)?.dislikes ?? 0) },
+      quality: { toolSuccessRate, likes: Number((feedback as Record<string, unknown>)?.likes ?? 0), dislikes: Number((feedback as Record<string, unknown>)?.dislikes ?? 0) },
     }
   }
 
@@ -173,7 +173,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     const tokens = s.tokens ?? { total_tokens: 0 }
     const costTrend = (s.costTrend ?? []) as Array<{ day: string; costYuan: number }>
     const active = (s.active_agents ?? []) as Array<{ name: string; type: string; message_count: number }>
-    const quota = Number((used as any)?.used ?? 0)
+    const quota = Number((used as Record<string, unknown>)?.used ?? 0)
     const trendLine = costTrend.map((d) => `${d.day}:¥${d.costYuan}`).join(' → ')
 
     const html = `<!DOCTYPE html>
@@ -295,7 +295,7 @@ export function registerStatsRoutes(app: Router<AppCtx>): void {
     // P3-2 告警：配额压力（active sandbox / quota ≥ 80%）
     try {
       const [q] = await ctx.orm.query.from('_weifuwu_apps').select('sandbox_quota').where({ id: { eq: appId } }).limit(1).run()
-      const limit = Number((q as any)?.sandbox_quota ?? 5)
+      const limit = Number((q as Record<string, unknown>)?.sandbox_quota ?? 5)
       const [c] = await ctx.orm.query.from('sandboxes').count('*', 'n').where({ app_id: { eq: appId }, status: { ne: 'terminated' } }).run()
       quotaPressure = limit > 0 && Number(c?.n ?? 0) / limit >= 0.8
       if (quotaPressure) {

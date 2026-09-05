@@ -51,8 +51,8 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
     let abs: string
     try {
       abs = resolveWorkspacePath(ws, rel)
-    } catch (e: any) {
-      return Response.json({ error: e.message }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error).message }, { status: 400 })
     }
     try {
       const st = await stat(abs)
@@ -75,8 +75,8 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
       }
       items.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'dir' ? -1 : 1))
       return Response.json({ entries: items, path: rel || '/' })
-    } catch (e: any) {
-      return Response.json({ error: `读取目录失败: ${e.message}` }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: `读取目录失败: ${(e as Error).message}` }, { status: 400 })
     }
   })
 
@@ -89,8 +89,8 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
     try {
       const { requireWriter } = await import('../services/permissions.ts')
       await requireWriter(ctx)
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '无权操作' }, { status: Number((e as { status: unknown })?.status) ?? 403 })
     }
     const body = await req.json().catch(() => ({}))
     const rel = String(body.path ?? '')
@@ -100,7 +100,7 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
       const secret = process.env.JWT_SECRET ?? 'default-secret'
       const ticket = signToken({ type: 'download', appId: ctx.appId, deptId: String(ctx.params?.id ?? ''), path: rel, sub: ctx.auth?.userId }, secret, 30)
       return Response.json({ ticket, expiresIn: 30 })
-    } catch (e: any) {
+    } catch (e) {
       throw new HttpError('ticket 签发失败', 500)
     }
   })
@@ -136,8 +136,8 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
     let abs: string
     try {
       abs = resolveWorkspacePath(ws, rel)
-    } catch (e: any) {
-      return Response.json({ error: e.message }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error).message }, { status: 400 })
     }
     try {
       const st = await stat(abs)
@@ -167,8 +167,8 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
         content = str
       }
       return Response.json({ content, binary: isBinary, truncated, size: st.size })
-    } catch (e: any) {
-      return Response.json({ error: `读取失败: ${e.message}` }, { status: 404 })
+    } catch (e) {
+      return Response.json({ error: `读取失败: ${(e as Error).message}` }, { status: 404 })
     }
   })
 
@@ -190,8 +190,8 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
     let abs: string
     try {
       abs = resolveWorkspacePath(ws, rel)
-    } catch (e: any) {
-      return Response.json({ error: e.message }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error).message }, { status: 400 })
     }
     try {
       // F4 目录名防抖：写 path 指向已存在目录 → 拒绝
@@ -202,8 +202,8 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
       await mkdir(dirname(abs), { recursive: true })
       await writeFile(abs, content, 'utf-8')
       return Response.json({ success: true, size: content.length })
-    } catch (e: any) {
-      return Response.json({ error: `写入失败: ${e.message}` }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: `写入失败: ${(e as Error).message}` }, { status: 400 })
     }
   })
 
@@ -218,14 +218,14 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
     let file
     try {
       file = validateUploadFile(body as { name: string; data: string; size?: number })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '附件无效' }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '附件无效' }, { status: 400 })
     }
     let abs: string
     try {
       abs = resolveWorkspacePath(ws, rel ? `${rel.replace(/\/$/, '')}/${file.safeName}` : file.safeName)
-    } catch (e: any) {
-      return Response.json({ error: e.message }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error).message }, { status: 400 })
     }
     const fs = await import('node:fs/promises')
     const pathMod = await import('node:path')
@@ -233,8 +233,8 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
       await fs.mkdir(pathMod.dirname(abs), { recursive: true })
       await fs.writeFile(abs, file.buffer)
       return Response.json({ success: true, name: file.safeName, size: file.size })
-    } catch (e: any) {
-      return Response.json({ error: `写入失败: ${e.message}` }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: `写入失败: ${(e as Error).message}` }, { status: 400 })
     }
   })
 }

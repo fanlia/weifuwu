@@ -52,12 +52,12 @@ export const Admin: Component = (_props, ctx) => {
     try { return await ctx.api.get<any>('/api/admin/sandbox-capacity') }
     catch { return null }
   }, 'admin-capacity')
-  const [getEnts, reloadEnts] = ctx.ui.useAsyncData(async () => {
-    try { return (await ctx.api.get<any>('/api/admin/enterprises')).enterprises ?? [] }
+  const [getEnts, reloadEnts] = ctx.ui.useAsyncData<Array<{ id: string; name: string; created_at?: string; app_count?: number; tokens_month?: number }>>(async () => {
+    try { return (await ctx.api.get<{ enterprises: Array<{ id: string; name: string; created_at?: string; app_count?: number; tokens_month?: number }> }>('/api/admin/enterprises')).enterprises ?? [] }
     catch { return [] }
   }, 'admin-ents')
-  const [getContainers, reloadContainers] = ctx.ui.useAsyncData(async () => {
-    try { return (await ctx.api.get<any>('/api/sandbox/containers')).containers ?? [] }
+  const [getContainers, reloadContainers] = ctx.ui.useAsyncData<Array<{ name: string; agentName?: string; status?: string; cpu?: string; mem?: string; pids?: string | number }>>(async () => {
+    try { return (await ctx.api.get<{ containers: Array<{ name: string; agentName?: string; status?: string; cpu?: string; mem?: string; pids?: string | number }> }>('/api/sandbox/containers')).containers ?? [] }
     catch { return [] }
   }, 'admin-containers')
 
@@ -82,7 +82,7 @@ export const Admin: Component = (_props, ctx) => {
       await ctx.api.post('/api/admin/enterprises', { name: entName.trim(), ownerEmail: entEmail.trim() || undefined })
       entName = ''; entEmail = ''
       reloadEnts()
-    } catch (e: any) { entErr = e?.message ?? '创建失败' }
+    } catch (e) { entErr = (e as Error)?.message ?? '创建失败' }
     ctx.render()
   }
 
@@ -180,7 +180,7 @@ export const Admin: Component = (_props, ctx) => {
           <div class="wf-font-sm wf-text-tertiary">暂无容器（沙盒空闲）</div>
         ) : (
           <div class="wf-stack wf-gap-xs">
-            {sbContainers.map((c: any) => (
+            {sbContainers.map((c) => (
               <div key={c.name} class="wf-border wf-radius wf-padding-sm">
                 <div class="wf-row wf-gap-sm wf-items-center">
                   <span class="wf-font-sm wf-semibold">{c.agentName}</span>
@@ -225,7 +225,7 @@ export const Admin: Component = (_props, ctx) => {
           <div class="wf-font-sm wf-text-tertiary">暂无企业——大客户场景：建企业后把租户挂入（统一结算视图）</div>
         ) : (
           <div class="wf-stack wf-gap-sm">
-            {enterprises.map((e: any) => (
+            {enterprises.map((e) => (
               <div key={e.id} class="wf-split wf-padding-y-xs wf-border-bottom">
                 <div class="wf-stack wf-gap-none">
                   <span class="wf-font-sm wf-semibold">{e.name}</span>

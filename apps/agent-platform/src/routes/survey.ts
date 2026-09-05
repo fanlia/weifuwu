@@ -21,8 +21,8 @@ export function registerSurveyRoutes(app: any): void {
         concurrency: Number(body.concurrency ?? 0),
       })
       return Response.json({ success: true, ...out }, { status: 201 })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '创建失败' }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '创建失败' }, { status: 400 })
     }
   })
 
@@ -36,8 +36,8 @@ export function registerSurveyRoutes(app: any): void {
         .limit(50)
         .run()
       return Response.json({ campaigns: rows ?? [] })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '查询失败' }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '查询失败' }, { status: 400 })
     }
   })
 
@@ -47,8 +47,8 @@ export function registerSurveyRoutes(app: any): void {
       const { createCampaign } = await import('../services/survey-campaign.ts')
       const out = await createCampaign(ctx, body)
       return Response.json({ success: true, campaign: out.campaign, runs: out.runs.map((r) => ({ agentName: r.agent_name })) })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '创建失败' }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '创建失败' }, { status: 400 })
     }
   })
 
@@ -69,8 +69,8 @@ export function registerSurveyRoutes(app: any): void {
         },
         failures: runs.filter((r) => r.status === 'failed').map((r) => ({ agentName: r.agent_name, error: r.error, attempts: r.attempts })),
       })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '查询失败' }, { status: 500 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '查询失败' }, { status: 500 })
     }
   })
 
@@ -79,8 +79,8 @@ export function registerSurveyRoutes(app: any): void {
       const { retryCampaign } = await import('../services/survey-campaign.ts')
       await retryCampaign(ctx, String(ctx.params.id))
       return Response.json({ success: true })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '重跑失败' }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '重跑失败' }, { status: 400 })
     }
   })
 
@@ -89,8 +89,8 @@ export function registerSurveyRoutes(app: any): void {
       const { cancelCampaign } = await import('../services/survey-campaign.ts')
       await cancelCampaign(ctx, String(ctx.params.id))
       return Response.json({ success: true })
-    } catch (e: any) {
-      return Response.json({ error: e?.message ?? '取消失败' }, { status: 400 })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '取消失败' }, { status: 400 })
     }
   })
 }

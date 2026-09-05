@@ -150,7 +150,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
         const content = await file.text()
         uploaded.push({ filename: file.name, content })
       } catch (err) {
-        errors.push({ filename: file.name, error: `读取失败: ${err instanceof Error ? err.message : String(err)}` })
+        errors.push({ filename: file.name, error: `读取失败: ${err instanceof Error ? (err as Error).message : String(err)}` })
       }
     }
 
@@ -165,7 +165,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
         const result = await processDocument(ctx, params.id, agent as any, doc.filename, doc.content)
         results.push(result)
       } catch (err) {
-        errors.push({ filename: doc.filename, error: `处理失败: ${err instanceof Error ? err.message : String(err)}` })
+        errors.push({ filename: doc.filename, error: `处理失败: ${err instanceof Error ? (err as Error).message : String(err)}` })
       }
     }
 
@@ -212,7 +212,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
         const result = await processDocument(ctx, params.id, agent as any, doc.filename, doc.content)
         results.push(result)
       } catch (err) {
-        errors.push({ filename: doc.filename, error: `处理失败: ${err instanceof Error ? err.message : String(err)}` })
+        errors.push({ filename: doc.filename, error: `处理失败: ${err instanceof Error ? (err as Error).message : String(err)}` })
       }
     }
 
@@ -282,10 +282,10 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
           const norm = Math.sqrt(e.reduce((s: number, x: number) => s + x * x, 0))
           if (norm > 5) throw new Error('embedding 向量未归一化（疑似随机回退）——拒绝写入')
         }
-      } catch (err: any) {
+      } catch (err) {
         // B5（2026-08）：embed 失败不再回退随机向量（此前：失败→随机向量→
         // 检索全部失真——norm≈18.5 实证）——明确报错——管理员可见/可重试
-        throw new Error(`知识库重新索引失败（Embedding 服务异常）——未写入任何数据: ${err?.message ?? 'unknown'}`)
+        throw new Error(`知识库重新索引失败（Embedding 服务异常）——未写入任何数据: ${(err as Error)?.message ?? 'unknown'}`)
       }
       // 删旧 chunk → 存新（向量字面量——直插；embedding 语义不进 builder——保持逐文直写）
       await T.kb_chunks.delete().where(eq(T.kb_chunks.c.document_id, doc.id)).run()
@@ -368,8 +368,8 @@ async function processDocument(
       const norm = Math.sqrt(e.reduce((s: number, x: number) => s + x * x, 0))
       if (norm > 5) throw new Error('embedding 向量未归一化（疑似随机回退）——拒绝写入')
     }
-  } catch (err: any) {
-    throw new Error(`文档向量化失败（Embedding 服务异常）——未上传: ${err?.message ?? 'unknown'}`)
+  } catch (err) {
+    throw new Error(`文档向量化失败（Embedding 服务异常）——未上传: ${(err as Error)?.message ?? 'unknown'}`)
   }
 
   const T = tables(ctx.orm)
