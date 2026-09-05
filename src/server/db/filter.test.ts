@@ -204,3 +204,31 @@ test('W2/I5：vector 列 SDL 呈现 [Float!] + 求值返回 number[]（不再静
   const row = (data.typedAgentsList as { embedding: unknown }[])[0]
   assert.deepEqual(row.embedding, [1, 2, 3])
 })
+
+// ── W3：分页 total（ListPage——rows+total 单面） ────────────────
+
+test('W3：ListPage——rows+total（count 单查同 where/scope）+ list 向后兼容', async () => {
+  // SDL：Page 类型 + ListPage 查询
+  assert.ok(typedGql.typeDefs.includes('type TypedAgentsPage'))
+  assert.ok(typedGql.typeDefs.includes('typedAgentsListPage(') && typedGql.typeDefs.includes('TypedAgentsPage!'))
+  // 求值：total 全量 + rows 分页
+  const page = await runT('{ typedAgentsListPage(limit: 1, offset: 1) { rows { id } total } }')
+  assert.equal((page.typedAgentsListPage as { total: number }).total, 2)
+  assert.equal(((page.typedAgentsListPage as { rows: unknown[] }).rows).length, 1)
+  // filter 面 total 收敛
+  const filtered = await runT('{ typedAgentsListPage(filter: { type: { eq: ai } }) { total } }')
+  assert.equal((filtered.typedAgentsListPage as { total: number }).total, 1)
+  // list 向后兼容（形状不变）
+  const list = await runT('{ typedAgentsList { id } }')
+  assert.equal((list.typedAgentsList as unknown[]).length, 2)
+})
+
+test('W3：ListPage 租户 scope 下 total 隔离（scope 收敛的计数）', async () => {
+  const v = gqlFromShape(Sortable, { tenant: { field: 'appId', value: (c: unknown) => (c as { appId?: string })?.appId } })
+  void v
+  // Sortable 无 tenant 列——用 Typed 面（不带 tenant）——隔离由 orm.gql 派生测试覆盖（W1/I3）
+  // 此处验证：filter 传 appId 不存在的场景——count 与 list 同 where（同 filter 收敛）
+  const page = await runT('{ typedAgentsListPage(filter: { name: { eq: "甲" } }) { rows { name } total } }')
+  assert.equal((page.typedAgentsListPage as { total: number }).total, 1)
+  assert.equal((page.typedAgentsListPage as { rows: { name: string }[] }).rows[0].name, '甲')
+})

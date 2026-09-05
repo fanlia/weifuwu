@@ -177,7 +177,8 @@ export function gqlFromShape<S extends ZodRawShape>(
     `input ${name}SortInput { field: ${name}SortField! dir: SortDir }`,
     `input ${name}InsertInput {\n${insertDefs.join('\n')}\n}`,
     `input ${name}PatchInput {\n${patchDefs.join('\n')}\n}`,
-    `type Query {\n  ${lc(name)}List(filter: ${name}Filter, sort: [${name}SortInput!], limit: Int, offset: Int): [${name}!]!\n  ${lc(name)}One(filter: ${name}Filter): ${name}\n}`,
+    `type ${name}Page {\n  rows: [${name}!]!\n  total: Int!\n}`,
+    `type Query {\n  ${lc(name)}List(filter: ${name}Filter, sort: [${name}SortInput!], limit: Int, offset: Int): [${name}!]!\n  ${lc(name)}ListPage(filter: ${name}Filter, sort: [${name}SortInput!], limit: Int, offset: Int): ${name}Page!\n  ${lc(name)}One(filter: ${name}Filter): ${name}\n}`,
     `type Mutation {\n  ${lc(name)}Insert(data: ${name}InsertInput!): ${name}!\n  ${lc(name)}Update(id: ID!, patch: ${name}PatchInput!): ${name}\n  ${lc(name)}Delete(id: ID!): ${name}\n}`,
   ].join('\n\n')
 
@@ -229,19 +230,32 @@ function buildResolvers<S extends ZodRawShape>(
     return out
   }
 
+  /** list 共享执行（List/ListPage 单源——filter/sort/limit/offset 逻辑一处） */
+  async function listResolver(args: Record<string, unknown>, ctx: unknown): Promise<Record<string, unknown>[]> {
+    const q = db(ctx).from(table).select(...dbCols)
+    const where = whereFrom(args.filter as Record<string, unknown> | null, ctx)
+    if (Object.keys(where).length) q.where(where)
+    const sort = args.sort as { field: string; dir: string }[] | undefined
+    if (sort?.length) for (const s of sort) q.orderBy(shapeDef.dbFields[s.field]?.column ?? s.field, s.dir === 'desc' ? 'desc' : 'asc')
+    if (args.limit !== undefined && args.limit !== null) q.limit(Math.min(Number(args.limit), opts.maxLimit ?? 100))
+    if (args.offset !== undefined && args.offset !== null) q.offset(Number(args.offset))
+    const rows = await q.run()
+    return (rows as Record<string, unknown>[]).map((r) => rowOf(r))
+  }
+
   return {
     Query: {
       [`${lc(name)}List`]: async (_: unknown, args: Record<string, unknown>, ctx: unknown) => {
-        const q = db(ctx).from(table).select(...dbCols)
+        return await listResolver(args, ctx)
+      },
+      /** W3：分页 total——rows+total 单面（count 单查同 where/scope——与 paginate 对齐；
+       *  list 保持向后兼容——page 面用于需要总数的分页 UI） */
+      [`${lc(name)}ListPage`]: async (_: unknown, args: Record<string, unknown>, ctx: unknown) => {
+        const rows = await listResolver(args, ctx)
         const where = whereFrom(args.filter as Record<string, unknown> | null, ctx)
-        if (Object.keys(where).length) q.where(where)
-        // I2（W1）：多字段排序链——SDL `[SortInput!]` 数组真实化（旧实现只取 sort[0]——声明-实现不一致）
-        const sort = args.sort as { field: string; dir: string }[] | undefined
-        if (sort?.length) for (const s of sort) q.orderBy(shapeDef.dbFields[s.field]?.column ?? s.field, s.dir === 'desc' ? 'desc' : 'asc')
-        if (args.limit !== undefined && args.limit !== null) q.limit(Math.min(Number(args.limit), opts.maxLimit ?? 100))
-        if (args.offset !== undefined && args.offset !== null) q.offset(Number(args.offset))
-        const rows = await q.run()
-        return (rows as Record<string, unknown>[]).map((r) => rowOf(r))
+        const cnt = await db(ctx).from(table).count('*', '__total').where(where).run()
+        const total = Number((cnt[0] as Record<string, unknown> | undefined)?.__total ?? rows.length)
+        return { rows, total: Number.isFinite(total) ? total : rows.length }
       },
       [`${lc(name)}One`]: async (_: unknown, args: Record<string, unknown>, ctx: unknown) => {
         const rows = await db(ctx).from(table).select(...dbCols)
