@@ -128,3 +128,56 @@ test('gql：one 多条件 and 组合', async () => {
   const r = await run(`query { departmentsList(filter: { and: [{ name: { contains: "技术" } }, { isDm: { eq: false } }] }) { name } }`)
   assert.ok(r.departmentsList.length >= 1)
 })
+
+// ── 盲区补测（W5 平台试点暴露——enum 面 + nullable insert input） ──
+// agents 面（DDL 对齐：type enum + model/avatar_url nullable——W5 试点同构）
+const Agents = shape({
+  table: 'agents',
+  fields: {
+    id: f.pk(z.uuid()),
+    app_id: f.req(z.uuid()),
+    name: f.req(z.string()),
+    type: f.req(z.enum(['ai', 'user', 'webhook', 'knowledge_base', 'department'])),
+    model: z.string().nullable(),
+  },
+})
+const agentsGql = gqlFromShape(Agents, { tenant: { field: 'app_id', value: (c: any) => c.appId } })
+const agentsSchema = makeExecutableSchema({ typeDefs: agentsGql.typeDefs, resolvers: agentsGql.resolvers })
+async function runAgents(source: string) {
+  const r = await graphql({ schema: agentsSchema, source, contextValue: ctx })
+  if (r.errors) throw new Error(`[gql] ${r.errors.map((e) => e.message).join('; ')}`)
+  return r.data as Record<string, any>
+}
+
+test('gql：enum 列——字面量输入（不带引号）+ 输出序列化 + 过滤面', async () => {
+  const ins = await runAgents(`mutation { agentsInsert(data: { app_id: "a1000000-0000-4000-8000-000000000001", name: "enum甲", type: ai }) { id type } }`)
+  assert.equal((ins.agentsInsert as { type: string }).type, 'ai', '输出序列化')
+  const list = await runAgents(`query { agentsList(filter: { type: { eq: ai } }) { name type } }`)
+  assert.ok((list.agentsList as { type: string }[]).some((a) => a.name === 'enum甲'), 'enum 过滤面')
+  // 字符串输入 ≠ enum 字面量（GraphQL 规范）——执行错误
+  const r = await graphql({ schema: agentsSchema, source: `mutation { agentsInsert(data: { app_id: "a1000000-0000-4000-8000-000000000001", name: "bad", type: "ai" }) { id } }`, contextValue: ctx })
+  assert.ok(r.errors?.length, 'StringValue 不能表示 enum——规范错误')
+})
+
+test('gql：nullable 列 insert input 可缺省（DB NULL——对齐 insertSchema）', async () => {
+  const ins = await runAgents(`mutation { agentsInsert(data: { app_id: "a1000000-0000-4000-8000-000000000001", name: "null甲", type: ai }) { name model } }`)
+  assert.equal((ins.agentsInsert as { model: string | null }).model, null, '缺省 → NULL')
+})
+
+test('gql：租户列 insert 可缺省（服务端自动注入——SDL 不强制）', async () => {
+  // app_id 不传（tenant 注入面）——insert 成功 + 归属当前租户
+  const ins = await runAgents(`mutation { agentsInsert(data: { name: "注入甲", type: ai }) { name app_id } }`)
+  assert.equal((ins.agentsInsert as { app_id: string }).app_id, 'a1000000-0000-4000-8000-000000000001', '服务端注入')
+  const sdl = agentsGql.typeDefs
+  const inputBlock = sdl.split('\n')
+  const start = inputBlock.findIndex((l) => l.includes('input AgentsInsertInput')) + 1
+  const block = inputBlock.slice(start, start + 40).join('\n')
+  const appLine = block.split('\n').find((l) => l.trim().startsWith('app_id:'))
+  assert.ok(appLine && !appLine.includes('!'), `租户列非 required——实际: ${appLine}`)
+})
+
+test('gql：type 面 nullable 列可空（model 输出 String 非 String!）', () => {
+  const sdl = agentsGql.typeDefs
+  const line = sdl.split('\n').find((l) => l.includes('model:'))
+  assert.ok(line && /model: String(\n|$)/.test(line.trim()), 'nullable 列无 !')
+})

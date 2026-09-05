@@ -62,7 +62,9 @@ function unwrap(schema: ZodType): ZodType {
 }
 
 function isOptional(schema: ZodType): boolean {
-  return schema instanceof ZodOptional || schema instanceof ZodDefault
+  // 对齐 shape.insertSchema 规则：optional/default/nullable 皆可缺省
+  // （nullable = 键缺 → DB NULL——API 边界语义：客户端可不传）
+  return schema instanceof ZodOptional || schema instanceof ZodDefault || schema instanceof ZodNullable
 }
 
 function pascal(s: string): string {
@@ -153,8 +155,9 @@ export function gqlFromShape<S extends ZodRawShape>(
     if (isAuto(shapeDef, fname) || isHidden(fname)) continue
     const g = zodToGql(fschema, `${name}${pascal(fname)}Enum`, enumNames, enumDefs)
     if (!g) continue
-    // insert 可选性同 insertSchema 规则：zod optional 或 DB 默认值列（可缺省）
-    const insertOpt = isOptional(fschema) || shapeDef.dbFields[fname]?.default !== undefined
+    // insert 可选性同 insertSchema 规则：zod optional 或 DB 默认值列（可缺省）；
+    // 租户列恒可选（服务端自动注入——SDL 声明 required 会拒绝缺省——注入无机会）
+    const insertOpt = fname === opts.tenant?.field || isOptional(fschema) || shapeDef.dbFields[fname]?.default !== undefined
     insertDefs.push(`  ${fname}: ${g}${insertOpt ? '' : '!'}`)
     patchDefs.push(`  ${fname}: ${g}`)
   }
@@ -265,11 +268,13 @@ function buildResolvers<S extends ZodRawShape>(
     },
     Mutation: {
       [`${lc(name)}Insert`]: async (_: unknown, args: Record<string, unknown>, ctx: unknown) => {
-        const data = (shapeDef as unknown as { insertSchema: () => { parse: (v: unknown) => Record<string, unknown> } }).insertSchema().parse(args.data)
+        // 租户注入先于校验（与 rest 教训同构：parse 会拒绝缺省 app_id——时序错修）
+        const raw = { ...(args.data as Record<string, unknown>) }
         if (opts.tenant) {
           const v = opts.tenant.value(ctx)
-          if (v !== undefined && data[opts.tenant.field] === undefined) data[opts.tenant.field] = v
+          if (v !== undefined && raw[opts.tenant.field] === undefined) raw[opts.tenant.field] = v
         }
+        const data = (shapeDef as unknown as { insertSchema: () => { parse: (v: unknown) => Record<string, unknown> } }).insertSchema().parse(raw)
         const out = (shapeDef as unknown as { toDb: (r: Record<string, unknown>) => Record<string, unknown> }).toDb(data)
         const rows = await db(ctx).insert(table).values(out).returning(...dbCols).run()
         return rows[0] ? rowOf(rows[0]) : null

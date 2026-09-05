@@ -89,3 +89,17 @@ test('W1：withCtx 显式面——orm.withCtx(ctx) 独立于中间件（scope �
   const noScope = await other.ctxTable('w1_t2').select('id').run()
   assert.equal(noScope.length, 0)
 })
+
+test('W1：无租户列表（全局表）在 tenant 中间件下可用——不 scope', async () => {
+  const pg = postgres({ memory: true, tenant: { field: 'app_id', value: (c: unknown) => (c as { appId?: string })?.appId } })
+  await pg.migrateModule('w1_global', { tables: [{ name: 'w1_global_t', columns: { id: z.string(), name: z.string() } }] })
+  const orm = pg.orm
+  orm.table('w1_global_t', { id: z.string(), name: z.string() })
+  const scoped = orm.withCtx({ appId: 'app-x' })
+  // 插入不注入（无 app_id 列）——读全量（无 where app_id——列不存在即不 scope）
+  await scoped.ctxTable('w1_global_t').insert([{ id: 'g1', name: '全局' }]).run()
+  const rows = await scoped.ctxTable('w1_global_t').select('id', 'name').run()
+  assert.equal(rows.length, 1, '全局表可读（不注入不存在的列）')
+  assert.equal(rows[0].name, '全局')
+  await pg.close()
+})

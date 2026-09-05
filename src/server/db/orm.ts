@@ -226,7 +226,9 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
     const ctxTable = <S2 extends ZodRawShape>(name2: string, shapeDef2?: S2): OrmTable<S2> => {
       const base = table(name2, shapeDef2 as never)
       const sh2 = (base as unknown as { __shape: { dbFields: Record<string, { column?: string }> } }).__shape
-      const col = tenant ? sh2.dbFields[tenant.field]?.column ?? tenant.field : null
+      // 无租户列的表（全局表——role_templates/workflows）不 scope：字段不存在 → null
+      // （原先 ?? tenant.field 兜底会把不存在的列注入 where——全局表在 tenant 中间件下不可用）
+      const col = tenant ? (sh2.dbFields[tenant.field] ? sh2.dbFields[tenant.field].column ?? tenant.field : null) : null
       const scopeCond = (): Record<string, unknown> | null => {
         const v = ctxV()
         return v !== undefined && col ? { [col]: { eq: v } } : null
