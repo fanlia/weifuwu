@@ -200,8 +200,12 @@ export const agents: ZodRawShape = { ... }
 
 - **行类型单源**：业务行接口（如 SandboxRow/VideoTaskRow）应从
   `RowOf<typeof SHAPES.xxx>` 派生——**禁止手动双写**（shape 改列 → 行类型联动）
-- **已知边界**：`z.enum(['ai','user'])` 无 `as const` 时推断 `ZodEnum<[string,string]>`
-  （Infer=string）——枚举收窄需要 as const 或等待 enum 推断增强（登记中）
+- **枚举单源**（W4）：`z.enum(['ai','user'])` 字面量 tuple 推断（U 技巧——
+  `Infer` = 'ai'|'user'——`eq(type,'robot')` 编译期红）；平台枚举值常量
+  （如 `AGENT_TYPES`）从 shape 声明派生 DDL enum（加枚举值只改一处）
+- **vector 列**：`z.vector(1024)`（Infer=`number[]`——embedding 不再
+  ZodJson unknown）· 维度校验 · 内存/传输面按 json 数组承载；真库列型
+  `vector(dims)` 经 SchemaModule columnTypes 特化（shape 语义单源）
 - **守卫面**：`tsconfig.test.json` + `npm run typecheck:tests`（测试域类型错
   编译期拦截——tsd 断言真生效——负向验证：删 @ts-expect-error → 红）
 
@@ -289,3 +293,56 @@ const r = await wf.execute(def)    // → RunResult；execute(def, { mode: 'dry'
 > **运行**：`npm run test:server`（163 契约）· 直跑
 > `node --env-file=.env --test src/server/core/*.test.ts src/shared/router/*.test.ts`
 > —— db 真库依赖 docker（无 docker 跑 `src/server/core/*.test.ts` 子集）。
+
+### 5.3 确定性契约（ORM 三组件——状态机管理原则）
+
+> **orm = shape + operator + adapter**——三组件内部状态确定，采用状态机管理
+> （透明·可控·健壮）。**一致性铁律**：同一声明/同一算子在任何 adapter 行为
+> 等价——不一致即 bug（修复而非登记）；声明了但无行为 = 不透明 = 定案
+> （实现或移除——softDelete 判负先例：零行为 → 移除）。
+
+**shape（单态冻结）**：构造即终态（不可变）；平台唯一合法形态 `satisfies
+ZodRawShape`（§5.2）；行类型单源 `RowOf<SHAPES.xxx>`。
+
+**operator（无状态纯函数）**：定义即值；值形态唯一（`{ eq: v }` / `{ in: [...] }`
+/ `{ isNull: true }`——禁裸标量/数组/null）；**`{ eq: null }` = IS NULL**（双端
+判空一致——真库不再编译 `= NULL` 恒假）。
+
+**adapter（真状态机）**：
+- MemoryTable 状态：`absent → (applySchema/DDL) declared` · `absent → (insert
+  直建) observed`；observed 上 DDL 拒绝（对齐操作才允许）——`inspectTable()`
+  状态可见面（契约断言）
+- 行为矩阵：select 列校验 = 声明列集 vs 行键事实 · jsonb 解码 = columnTypes
+  判定 vs 行键值启发 · ddl = alter vs 拒绝
+
+**租户 scope（W1）**：
+```ts
+const pg = postgres({
+  tenant: { field: 'app_id', value: (ctx) => (ctx as AppCtx).appId },
+})
+// 中间件自动：ctx.orm = orm.withCtx(ctx)——ctxTable 面自动 scope：
+// select/update/delete 预置 tenant 条件 · insert 自动注入字段
+const agents = await ctx.orm.ctxTable('agents').paginate({ limit, offset })
+```
+- scope 仅在 `ctxTable`（`table` 是无 scope 基础面——显式）
+- **惰性求值**：tenant.value 每操作时读 ctx 当前值（pg 中间件先于 auth
+  注册——appId 后注入——scope 仍生效）
+
+**事务（W2）**：
+```ts
+await ctx.orm.transaction(async (tx) => {
+  const T = tables(tx)          // tx 内表操作同连接/同链
+  await T.a.insert(...).run()   // 任一失败整链回滚
+  await T.b.insert(...).run()
+})
+```
+- 真库：同连接真事务 · memory：单线程无并发交错（no-op 等价——诚实标注）
+- 多写场景（survey 提交/演示空间 7 写）试点收口——先包原子链再加写
+
+**分页（W5）**：`orm.ctxTable('x').paginate({ filter, sort, limit, offset })` →
+`{ rows, total }`——count+list 单调用（同一 scope 面——不手写双查）
+
+**透明面（诚实裁剪）**：
+- FK 约束：memory 无校验面（真库 23503 → 400）——跨表引用依赖先插主行
+- vectorScore 精度：内存余弦 vs 真库 ivfflat 近似——结果排序可能差异
+- tx/ctx 派生面：`table(name)` 免 shapeDef（registry 共享——同名表幂等）
