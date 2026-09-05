@@ -36,7 +36,32 @@ platform shapes.ts: const agents: ZodRawShape = {...}
 
 | 波次 | 内容 | 验收 |
 | --- | --- | --- |
-| W1 | **类型契约真守卫**：新建 `tsconfig.test.json`（include src + src/server/**/*.test.ts——与构建 tsconfig 隔离）· `npm run typecheck:tests`（CI 可挂）· 现有 orm.test.ts tsd 断言复活跑一遍（可能暴露真实类型错——按报错修） | typecheck:tests 0 错 + CI 挂点 · 现有断言全部真实生效（改错一个值 → 红）|
+| ✅ W1 | **类型契约真守卫**（b85438ee）：新建 `tsconfig.test.json`（include src + src/server/**/*.test.ts——与构建 tsconfig 隔离）· `npm run typecheck:tests`（CI 可挂）· 现有 orm.test.ts tsd 断言复活跑一遍（可能暴露真实类型错——按报错修） | typecheck:tests 0 错 + CI 挂点 · 现有断言全部真实生效（改错一个值 → 红）|
+
+#### W1 实录（2027-xx）
+
+- 首跑测试域 **220 错** → 清零：29 测试文件修复（mock ctx 逃逸 any / ShapeDef
+  `as never` 链拆除（8+6 处）· `mem.tag` 消亡引用删除（W3c 死代码）·
+  `applySchema` 多余 name 字段删（SchemaModule 无 name）· email send 参数面
+  (`string|string[]`) · 中间件 next 回调签名（`undefined as never`——保留
+  原 2 参运行时语义）· `String` 遮蔽（ai-agent city）· `hooked` 闭包 never）
+- **守卫面实证的真修复**：`redis/ast.ts` `stringifyCommand` 返回签名
+  `string`→`Uint8Array`——RESP 字节编码语义（旧签名错 3+ 年——构建面
+  exclude 掩盖；测试域被 import 链检查才暴露）
+- **tsd 断言生效验证**（负向）：orm.test.ts `eq(Agent.c.appId, 123)`
+  删 @ts-expect-error → 红（1 错）· 恢复 → 绿
+- **断言失效实证（登记 W2/W3 修复面）**：`z.enum(['ai','user'])` 无 as const →
+  推断 `ZodEnum<[string, string]>` → Infer=string——`eq(type, 'robot')` 无编译
+  错——原 '@ts-expect-error' 断言为死代码——W 修复面：enum 签名推断增强
+  （`readonly string[]` + 元组保序）或 as const 纪律
+- **aggregate 键缺口（登记 W3）**：`count('*', 'all')` 等聚合键不在
+  `RowOf<S>` 行类型——测试断言面 12 处 `(r as any)`——W3 typedQuery 的
+  行类型 = select 列 Infer + aggregate/vectorScore AS 键并入
+- **CI 挂点判负**：仓库无 CI 基础设施（无 .github/workflows）——不引人
+  GitHub Actions（超出现状）——`typecheck:tests` 已入 package.json——
+  未来 CI 一行可挂；推翻条件：CI 基建出现时纳入
+- 回归门（W1 波次）：server **796/796** · 契约 **433/433** · 构建 tsc **0** ·
+  typecheck:tests **0**
 | W2 | **单表类型复活（根因修复）**：platform SHAPES `: ZodRawShape` 注解 → `satisfies ZodRawShape`（23 表全模式——字段字面量类型保留）· `tables()` 行类型恢复（string/enum/date→string 精确——jsonb 列 unknown 诚实）· 平台 35+24 断言主体移除（tsc 报错面 = 精准清单——编译器指出所有"列不存在/值类型不符"隐患） | 平台 tsc 0 · as unknown as 归零或 5 内（判负：真需要处登记）· typecheck:tests 绿 |
 | W3 | **跨表 typedQuery**：`createTypedQuery<TSchema>(orm, schema)`（纯类型面——运行时 = orm.query 零成本）· 表/alias 解析（`from('kb_chunks kc')` + join 链 alias 累积）· 列解析（裸列→主表·`alias.col`→alias 表·`col AS alias`→键别名）· 行类型 = select 列 Infer 映射 + aggregate/vectorScore as 键并入 · 未知列/未知 alias 编译期红 · 契约：tsd 断言 6+（列拼错/别名错/AS 别名/join 后裸列歧义?——W3 探针定） | tsd 断言绿 · query-language/orm 运行时契约全绿 · 平台试点（chat 知识检索/messages 会话）类型化——as unknown 删除 |
 | W4 | **回归 + 文档 + 收尾**：docs/server.md §5 补 typedQuery 用法 + SHAPES satisfies 纪律（平台 shapes 指南）· audit 补类型断言守卫?（判负登记见下）· 全量回归门 | 五域 + audit 七线 + 平台 451+155 全绿 · tsc 双 0 · 计划收尾 |
