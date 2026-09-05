@@ -155,6 +155,56 @@ index.ts       模块 re-export（OpenAi/MemoryAi/AiClientModule——选择器�
 - schema 迁移：`src/server/db/schema.ts`（SchemaModule → compileSchemaDdl 声明式 DDL）
   + `migrateModule` 执行记录（幂等——已迁移名跳过）
 
+### 5.1 typedQuery——跨表查询类型化（2027-11 W3）
+
+> **问题**：`orm.query.from(...)` 裸查询行类型恒为 `Row`（索引签名 unknown）——
+> join/聚合查询的消费端被迫 `as unknown as X` 断言。**typedQuery 是纯类型面**
+> （运行时 = SelectBuilder 链转发——零解析零成本）。
+
+```ts
+import { createTypedQuery } from 'weifuwu'
+import { SHAPES } from '../db/shapes.ts'  // 平台：表名 → shape 注册表
+
+const Q = createTypedQuery(orm, { kb_chunks: SHAPES.kb_chunks, kb_documents: SHAPES.kb_documents })
+
+const rows = await Q.from('kb_chunks kc')                      // from spec: 表名 + 可选 alias
+  .join('kb_documents kd', { 'kd.id': { col: 'kc.document_id' } })  // join alias 累积
+  .select('kc.id', 'kc.content', 'kd.filename')                // 列引用：alias.col / 裸列=主表
+  .vectorScore('kc.embedding', vec, 'similarity')              // pgvector 投影（AS 键并入行）
+  .where({ 'kc.agent_id': { eq: String(agentId) } })           // where 列白名单校验
+  .limit(5)
+  .run()
+// rows[0].id: string · rows[0].filename: string | null · rows[0].similarity: number
+// rows[0].nope → 编译期红（未知列）；where({ 'zz.id': ... }) → 红（未注册 alias）
+```
+
+- 行类型规则：select 列键 = 去 alias 前缀（`kc.id` → `id`）；aggregate/vectorScore
+  的 AS 键并入（number）；同名列后覆盖（判负面：需要别名键时用单表查询/聚合 as）
+- 编译期红线：未知列 · 未知 alias · where 非法列 —— tsd 测试见
+  `src/server/db/typed-query.test.ts`（typecheck:tests 守卫面）
+- 判负（诚实裁剪）：`col AS alias` 键别名不做（聚合 as 参数已覆盖）；where 值
+  ×列类型绑定不做（z.enum 字面量坍缩——见 §5.2）
+
+### 5.2 shape 声明纪律（satisfies——字段字面量保留）
+
+> **平台 shapes 唯一合法形态**：`export const agents = { ... } satisfies ZodRawShape`
+> （**禁止** `: ZodRawShape` 注解——注解会让字段值坍缩为 ZodType<unknown> →
+> `Infer` 全 unknown → tables() 行类型失效 → 消费端被迫 as unknown as）。
+
+```ts
+// ✓ satisfies（字段字面量保留——row.name: string · row.model: string | null）
+export const agents = { id: f.pk(z.uuid()), name: f.req(z.string()) } satisfies ZodRawShape
+// ✗ 注解（行类型坍缩——审计/tsc 面会持续捕杀）
+export const agents: ZodRawShape = { ... }
+```
+
+- **行类型单源**：业务行接口（如 SandboxRow/VideoTaskRow）应从
+  `RowOf<typeof SHAPES.xxx>` 派生——**禁止手动双写**（shape 改列 → 行类型联动）
+- **已知边界**：`z.enum(['ai','user'])` 无 `as const` 时推断 `ZodEnum<[string,string]>`
+  （Infer=string）——枚举收窄需要 as const 或等待 enum 推断增强（登记中）
+- **守卫面**：`tsconfig.test.json` + `npm run typecheck:tests`（测试域类型错
+  编译期拦截——tsd 断言真生效——负向验证：删 @ts-expect-error → 红）
+
 ## 6. 实时与渲染
 
 - **scheduler**：`src/server/middleware/scheduler.ts`——`ctx.schedule.cron/once` +
