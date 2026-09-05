@@ -118,26 +118,70 @@ WEIFUWU_USER_SCHEMA · WEIFUWU_MESSAGER_SCHEMA · WEIFUWU_WORKFLOW_SCHEMA · MIG
 
 ---
 
-## 1. 快速上手
+## 1. 快速上手（4 段动线——每段逐字可跑）
+
+> 命名纪律：**入口是 `serve(app, opts)`**——`createServer`/`ctx.json` 是已消亡
+> 的旧 API 残留（2026 初 Router 直调时代）；handler 一律返回 Web 标准
+> `Response`（`Response.json(...)`）——零自定义响应面。
+> 入口：`src/server/index.ts` · 路由内核：`src/server/core/`（与前端 UIRouter
+> 共享 `src/shared/router/` trie/pipeline 五层单源）。
+
+### 1.1 段①：serve + Router（3 行——服务器跑起来）
 
 ```ts
 import { serve, Router } from 'weifuwu'
-
-const app = new Router()
-app.get('/api/hello', () => Response.json({ ok: true }))   // handler 返回 Web 标准 Response
-
+const app = new Router().get('/api/hello', () => Response.json({ ok: true }))
 serve(app, { port: 3000 })
-// 中间件链：app.use(...)（按注册序）· 错误面：app.onError(...)
-// 更多（cors/compress/rateLimit/email/userSystem/ai/graphql/postgres/...）见 §2
 ```
 
-> 命名纪律（v0.91 文档修正）：**入口是 `serve(app, opts)`**——`createServer`/
-> `ctx.json` 是已消亡的旧 API 残留（2026 初 Router 直调时代——handler 曾收
-> ctx 响应辅助）；现在 handler 一律返回 Web 标准 `Response`
-> （`Response.json(...)` / `new Response(body, { status })`）——零自定义响应面。
+- 中间件：`app.use(...)`（按注册序）· 错误面：`app.onError((e) => errorResponse(e))`
+- 更多（cors/compress/rateLimit/email/userSystem/ai/graphql/postgres/...）见 §2
 
-入口：`src/server/index.ts` · 路由内核：`src/server/core/`（Router/serve/WS hub——
-与前端 UIRouter 共享 `src/shared/router/` trie/pipeline 五层单源）。
+### 1.2 段②：shape + bodyOf + CRUD（10 行——数据面跑起来）
+
+```ts
+import { postgres, Router, z, f, bodyOf } from 'weifuwu'
+
+const pg = postgres({ memory: true })                       // 真库：postgres({ url })
+const NOTES = { id: f.pk(z.uuid()), title: f.req(z.string()), body: z.string().nullable() }
+await pg.migrateModule('demo', { tables: [{ name: 'notes', columns: NOTES }] })
+pg.orm.table('notes', NOTES)                                // 注册表预注册（route 内同实例）
+
+app.post('/api/notes', async (req, ctx) => {
+  const body = await bodyOf(req, ctx.orm.table('notes'), { variant: 'insert' })
+  const [row] = await ctx.orm.table('notes').insert(body).returning('*').run()
+  return Response.json(row, { status: 201 })
+})
+```
+
+- `bodyOf` = shape 输入面（校验/日期/auto 列省略——错误 400 `{ error, code:'validation' }`）
+- 字段声明纪律（`f.req/f.pk` 必填 · `.nullable()` 可空 · `f.now`/`dflt` 默认）见 §5.2
+
+### 1.3 段③：前端页面组件（useAsyncData 8 行——页面跑起来）
+
+```tsx
+import { h } from 'weifuwu/vdom'
+const NotesPage: Component = (_p, ctx) => {
+  const [get] = ctx.ui.useAsyncData(fetchNotes, 'notes-page')   // 唯一异步边界
+  return () => h('ul', {}, (get() ?? []).map((n) => h('li', {}, n.title)))
+}
+```
+
+- `useAsyncData`：并发合并/竞态取消/缓存保留/卸载自动退订——loading 态
+  `get() ?? []`——**SSR 首帧 = 加载态**（同步渲染——数据后到 hydrate 填充）
+- `ctx.ui` 是 hooks 注入面（14 个——usePopup/useControlled/useExternal...）——
+  组件契约（工厂同步/渲染纯）见 docs/client.md §5
+
+### 1.4 段④：契约测试 5 行（锁行为）
+
+```ts
+import { test } from 'node:test'
+const res = await app.handler()(req, { params: {}, query: {} } as never)
+assert.equal(res.status, 201)          // memory orm + handler 直调——零浏览器
+```
+
+- 契约层口径：引擎决策层输出纯数据（命令流/状态码）——node:test 直跑零浏览器
+- 三层测试动线（契约→场景→showcase）见 docs/client.md §3 与 AGENTS.md §2
 
 ## 2. 中间件清单
 
