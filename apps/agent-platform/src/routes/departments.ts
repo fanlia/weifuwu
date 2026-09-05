@@ -8,7 +8,7 @@
 
 import type { Router } from 'weifuwu'
 import { HttpError } from 'weifuwu'
-import { ops, eq, ne, and, or, inArray, like, ilike } from 'weifuwu'
+import { ops, eq, ne, and, or, inArray, like, ilike, bodyOf } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { tables, weifuwuAppMembers } from '../db/orm.ts'
 
@@ -384,9 +384,9 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
 
   app.put('/api/departments/:id', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { orm, appId, params } = ctx
-    const body = await req.json() as { name?: string; artifact_review?: boolean }
-
+    // W2：手写体 → bodyOf patch 变体（全可选——部分更新面——类型从 shape 派生）
     const T = tables(orm)
+    const body = await bodyOf(req, T.departments, { variant: 'patch', omit: [] })
     // 产物审批模式切换（2026-12）：关闭时把 .pending 待审产物全部移入共享目录（不丢文件）
     if (body.artifact_review !== undefined) {
       try {

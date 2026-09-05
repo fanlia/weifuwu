@@ -39,6 +39,10 @@ route 内 try/catch 绕过链。
 - **services 契约层全测**：不做——32 services 多数是 orm 直调+编排（价值在
   route 行为——playwright UI 面已覆盖）；推翻：出现「service 为纯函数可
   单测而 route 不可」的实例集
+- **bodyOf 全量迁移**：判负（W2 探针实证——33 处中适配集 2-3 处——语义操作体
+  非 shape 面）；推翻：语义操作体出现「同 shape 多字段校验样板」>3 处
+- **listQuery 全量迁移**：判负（W2——剩余 URL 参数多为操作参数非列表面）；
+  推翻：新路由列表查询参数 >5 处手写
 - **148 处全量迁移**：不做——按热力 top 5 + 新 route 纪律（同 orm 计划
   判据——试点验证后按需）；推翻：响应面审计哨兵反弹
 - **String() 全清**：不做（上轮判负保留——类型已对）——仅 W3 按语义清
@@ -51,7 +55,18 @@ route 内 try/catch 绕过链。
 
 ## 执行实录（边做边记）
 
-（待 W0 起填）
+- W0（1fad602e）：错误面单源——errorResponse 总面（code 面）· 平台双 onError
+  接线 · agents list 删 try/catch（链兜底试点）
+- W1（d2c69ba4）：响应面收口——六面 104 处手写 error json → throw HttpError
+  （链单源——形状等价 · status 权威）· 契约 2（throw/return 等价 + 家族矩阵）
+- W2（本提交）：手写面按需迁移——bodyOf 试点 2 处（departments patch 变体 +
+  messages insert omit 系统列）· **判负登记：bodyOf 全量迁移**（33 处中适配集
+  极小——多数是语义操作体（密码/房间/技能配置/审批面——非 shape 输入面）；
+  bodyOf 是表输入面不是通用 JSON 面——通用解析 = parseBody）· **listQuery
+  判负登记**（剩余 29 处 URL 参数多为操作参数（sandboxId/action/room）——
+  非列表查询面；listQuery 适配集 = orm 直查 list（agents 已收）——manager
+  封装面（sandboxes）与业务参数面不适配）——推翻条件：语义操作体出现「同
+  shape 多字段校验样板」>3 处
 
 ## 验收标准
 

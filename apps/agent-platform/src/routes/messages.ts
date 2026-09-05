@@ -6,7 +6,7 @@ import type { Router, Context } from 'weifuwu'
 import { HttpError } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { handleNewMessage, handleNewMessageStream, handleNewMessageStreamSSE } from '../services/chat.ts'
-import { ops, and, eq, inArray } from 'weifuwu'
+import { ops, and, eq, inArray, bodyOf } from 'weifuwu'
 import { tables } from '../db/orm.ts'
 
 export function registerMessageRoutes(app: Router<AppCtx>): void {
@@ -127,14 +127,13 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
     }
     const { orm, appId, auth, params } = ctx
-    const body = await req.json() as {
-      content: string
-      msg_type?: string
-      reply_to?: string
-      attachments?: Array<{ name: string; data: string; size?: number }>
-    }
+    // W2：手写体 → bodyOf insert（系统列 omit——department_id/sender_id/ai_*
+    // 服务端注入——body 只管发送面）
+    const T2 = tables(orm)
+    const body = await bodyOf(req, T2.messages, { variant: 'insert', omit: ['department_id', 'sender_id', 'ai_draft', 'ai_approved', 'ai_step', 'created_at', 'updated_at'] })
 
-    if (!body.content && (!body.attachments || body.attachments.length === 0)) {
+    const attachments = (body.attachments ?? null) as Array<{ name: string; data: string; size?: number }> | null
+    if (!body.content && (!attachments || attachments.length === 0)) {
       throw new HttpError('content 为必填', 400)
     }
 
@@ -170,7 +169,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
 
     // P1-3 附件：校验（白名单/大小/消毒）→ 落盘附件区 data/uploads/{app_id}/{dept}/{msg_id}/
     let attachmentMeta: Array<{ name: string; path: string; size: number; ext: string }> | null = null
-    if (body.attachments && body.attachments.length > 0) {
+    if (attachments && attachments.length > 0) {
       const { validateUploadFile } = await import('../services/upload.ts')
       const fs = await import('node:fs/promises')
       const pathMod = await import('node:path')
@@ -181,7 +180,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       const attachDir = pathMod.join(process.cwd(), 'data', 'uploads', String(appId), String(params.id), String(message.id))
       await fs.mkdir(attachDir, { recursive: true })
       attachmentMeta = []
-      for (const f of body.attachments) {
+      for (const f of attachments) {
         try {
           const v = validateUploadFile(f)
           await fs.writeFile(pathMod.join(attachDir, v.safeName), v.buffer)
@@ -224,7 +223,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const deepseekKey = process.env.DEEPSEEK_API_KEY
     if (deepseekKey && deepseekKey !== 'sk-your-deepseek-api-key' && !deepseekKey.startsWith('sk-your-')) {
       // 流式：先创建占位消息再触发
-      handleNewMessageStream(ctx, params.id, String(sender.id), body.content, message.id, requestId).catch((err) =>
+      handleNewMessageStream(ctx, params.id, String(sender.id), content, message.id, requestId).catch((err) =>
         console.error('[messages] handleNewMessageStream error:', err),
       )
     }
