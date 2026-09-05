@@ -16,6 +16,15 @@
   是现有双源违规）
 - **审计机制化**：确定性审计进契约（fuzz 盲区实证——`eq:null` 双端分裂
   1310 对 fuzz 未覆盖——生成器不产 null 等值）——盲区补测试
+- **状态机管理（2027-xx 用户定调——架构要求）**：orm = shape + operator +
+  adapter 三组件——**内部状态确定性 + 状态机管理**
+  - **shape**：单态冻结（构造即终态——声明确定性；不可变）
+  - **operator**：无状态纯函数（定义即值——同一输入恒同输出）
+  - **adapter**：真状态机（MemoryTable：absent/declared/observed/populated +
+    显式转换守卫 + 行为矩阵 + 状态可见面 inspectTable）——真库 pool 为
+    边界外外部状态（诚实声明）
+  - **状态机三质**：透明（状态可查询）· 可控（转换点唯一·非法转换显式拒绝）
+    · 健壮（行为矩阵替代隐式 if——无隐藏分叉）
 
 ## 探针实录（现实场景面——锚点）
 
@@ -90,7 +99,7 @@
 | --- | --- | --- |
 | W1 | **租户 scope 接线**（安全第一）：框架 postgres()/memory 中间件 options 支持 `tenant: { field, valueCtx }`——请求级 `ctx.orm = orm.withCtx(ctx)`；契约测试（scope 自动注入 select/insert/update/delete——显式 where 覆盖? 语义探针定——**默认并集**：显式传 app_id 时保留显式（不双写冲突））；平台 server.ts 接线（field: 'app_id' · valueCtx: ctx.appId）+ 45 处手写 where 试点删（先 5-8 处核心：messages/chat/agents）| 契约绿 · 平台试点 + 越权漏写防护语义 · 全量回归 |
 | W2 | **事务面平台收口**：试点 2-3 个真多写场景（survey 提交（3 写）/agent 创建/sandbox 重建链）——`tx.table(name)` 派生复用（registry——免 shapeDef）；契约补强（memory no-op 面标注 + 真库面已有）| 平台试点原子化 · 契约绿 |
-| W3 | **确定性收口**（原则违规先修——最高优先级）：O1 `{ eq: null }` 语义统一（真库编译改 IS NULL——双端判空一致 + 契约/fuzz 生成器补 null 等值案例——盲区闭合）· A1 memory jsonb 解码补观测行键面（8 处 typeof string 容错删除）· S3 softDelete 判负移除（f.soft+meta——零行为不透明）· fuzz 生成器补确定性案例（eq null/jsonb 解码路径）| 契约绿（含新增 null 案例）· fuzz 对账含盲区 · 平台容错代码删除 |
+| ✅ W3 机制 | **确定性收口——状态机化**（原则落地架构层）：**shape=单态冻结**（构造即终态——不可变·已有）· **operator=无状态纯函数**（定义即值——纯函数契约验证）· **adapter=真状态机**：MemoryTable 显式 `state: 'declared'|'observed'` 字段 + 转换守卫（唯一转换点：applySchema/executeDdl/execInsert——absent→declared（声明）· absent→observed（insert 直建）· declared→declared（alter 补列）· **observed→declared 禁止**——显式对齐操作才允许）；**行为矩阵**（状态×操作：select 列校验=声明列集 vs 行键事实·jsonb 解码=columnTypes vs 行键值启发·ddl=alter vs 拒绝）；**状态可见面** `inspectTable()`（契约断言状态/列集/约束——透明可控）；O1 `{ eq: null }` 语义统一（真库编译 IS NULL——双端判空一致 + fuzz 生成器补 null 案例——盲区闭合）· S3 softDelete 判负移除（f.soft+meta 零行为不透明）| 状态机契约绿（三态×操作矩阵——fuzz 生成器补状态路径）· O1 双端一致 · 平台容错代码删除 · inspectTable 断言 |
 | W4 | **enum 单源 + vector 声明面**：z.enum 自动产 EnumDecl+columnTypes（加枚举值改一处——S1 修复）· `f.vector(1024)`（Infer=number[]——embedding 类型化 + DDL 单源——S2 修复）；enum 签名推断增强（O 面——eq(type,'robot') tsd 红——W2/W3 登记修复面）| typecheck:tests 绿 · 平台 tsc 0 · DDL 单源审计 |
 | W5 | **分页收口 + 文档 + 回归**：audit/routes 列表试点 paginate（count 双查）；docs/server.md §5.3 确定性契约（透明面清单：事务 no-op/FK 无 memory 面/vectorScore 精度）+ tenant/transaction/paginate 用法；全量回归门 | 五域+七线+平台 451+155 · tsc 双 0 |
 | W4 | **分页收口 + 文档 + 回归**：audit/routes 列表试点 paginate（count 双查）；docs/server.md §5.3 tenant/transaction/paginate 用法；全量回归门 | 五域+七线+平台 451+155 · tsc 双 0 |
