@@ -18,13 +18,20 @@
 ## 1. 快速上手
 
 ```ts
-import { createServer, Router } from 'weifuwu'
+import { serve, Router } from 'weifuwu'
 
-const server = createServer()
-server.route(Router()
-  .get('/api/hello', (req, ctx) => ctx.json({ ok: true })))
-server.listen(3000)
+const app = new Router()
+app.get('/api/hello', () => Response.json({ ok: true }))   // handler 返回 Web 标准 Response
+
+serve(app, { port: 3000 })
+// 中间件链：app.use(...)（按注册序）· 错误面：app.onError(...)
+// 更多（cors/compress/rateLimit/email/userSystem/ai/graphql/postgres/...）见 §2
 ```
+
+> 命名纪律（v0.91 文档修正）：**入口是 `serve(app, opts)`**——`createServer`/
+> `ctx.json` 是已消亡的旧 API 残留（2026 初 Router 直调时代——handler 曾收
+> ctx 响应辅助）；现在 handler 一律返回 Web 标准 `Response`
+> （`Response.json(...)` / `new Response(body, { status })`）——零自定义响应面。
 
 入口：`src/server/index.ts` · 路由内核：`src/server/core/`（Router/serve/WS hub——
 与前端 UIRouter 共享 `src/shared/router/` trie/pipeline 五层单源）。
