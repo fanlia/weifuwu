@@ -1,5 +1,5 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot, errMsg } from '../components/ui'
+import { PageHeader, Ava, TypeBadge, EmptyState, Loading, StatusDot, errMsg, ListScaffold } from '../components/ui'
 import { Button, Card, Icon, Skeleton } from 'weifuwu/components'
 import { canWrite, writeDenyReason } from '../lib/roles'
 import type { Agent, AgentListResponse } from '../lib/types'
@@ -63,36 +63,18 @@ export const Agents: Component = (_props, ctx) => {
     const loading = getAgents() === null
     const agents = getAgents() ?? []
     return (
-    <div class="wf-stack wf-gap-lg">
-      <PageHeader title="Agent" sub="创建和管理 AI 机器人、Webhook 与知识库">
-        {/* ROLES-OPTIMIZATION 波次 2：viewer 禁用创建（member writer 合法不改） */}
+    <ListScaffold title="Agent" sub="创建和管理 AI 机器人、Webhook 与知识库" loading={loading}
+      actions={
         <Button variant="primary" disabled={!canWrite()} title={canWrite() ? undefined : writeDenyReason()}
           onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</Button>
-      </PageHeader>
-      <div class="wf-row wf-gap-sm wf-items-center">
+      }
+      empty={{ icon: '🤖', text: '还没有 Agent', hint: '创建你的第一个 AI 机器人、Webhook 或知识库' }}>
+      <div class="wf-row wf-gap-sm wf-items-center wf-margin-bottom-md">
         <div class="wf-fill" style="max-width: 320px">
           <input class="wf-input wf-padding-x-sm wf-padding-y-xs" placeholder="搜索 Agent（名称——1000 实体可管）" value={$.q} onInput={onQInput} />
         </div>
         <span class="wf-font-xs wf-text-tertiary">{loading ? '加载中…' : `${agents.length} 个`}</span>
       </div>
-
-      {loading && (
-        <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 280px), 1fr))">
-          {[1, 2, 3, 4].map(i => (
-            <Card key={i}><Skeleton variant="text" width="60%" /><Skeleton variant="text" width="90%" className="wf-margin-top-sm" /><Skeleton variant="text" width="45%" className="wf-margin-top-sm" /></Card>
-          ))}
-        </div>
-      )}
-
-      {!loading && agents.length === 0 && (
-        <EmptyState icon="🤖" text="还没有 Agent" hint="创建你的第一个 AI 机器人、Webhook 或知识库">
-          <div class="wf-row wf-gap-sm">
-            <Button variant="primary" onClick={() => ctx.app?.navigate('/templates')}><Icon name="layers" size={14} /> 从模板开始</Button>
-            <Button variant="ghost" onClick={() => ctx.app?.navigate('/agents/new')}>＋ 自定义创建</Button>
-          </div>
-        </EmptyState>
-      )}
-
       {agents.length > 0 && (
         <div class="wf-grid">
           {agents.map((a: Agent) => (
@@ -132,7 +114,7 @@ export const Agents: Component = (_props, ctx) => {
           ))}
         </div>
       )}
-    </div>
+    </ListScaffold>
     )
   }
 }

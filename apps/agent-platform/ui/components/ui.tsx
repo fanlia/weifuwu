@@ -7,6 +7,8 @@ import { Avatar, Badge, EmptyState, Loading, PageHeader } from 'weifuwu/componen
 import { AGENT_TYPES } from '../lib/types'
 
 export { PageHeader, EmptyState, Loading }
+export { ListScaffold } from './ListScaffold.tsx'
+export type { ListScaffoldProps } from './ListScaffold.tsx'
 export type { PageHeaderProps, EmptyStateProps, LoadingProps } from 'weifuwu/components'
 
 /** 从请求错误提取可读消息（ApiError.message 是响应体文本，可能含 {"error": ...} JSON） */

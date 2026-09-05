@@ -1,5 +1,5 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
+import { PageHeader, Ava, EmptyState, Loading, ListScaffold } from '../components/ui'
 import { Badge, Button, Card, Icon } from 'weifuwu/components'
 import { isTenantOwner, clientRole, writeDenyReason } from '../lib/roles'
 import type { Department, DepartmentListResponse } from '../lib/types'
@@ -47,24 +47,19 @@ export const Departments: Component = (_props, ctx) => {
     const loading = getDepts() === null
     const depts = getDepts() ?? []
     return (
-    <div class="wf-stack wf-gap-lg">
-      <PageHeader title="部门" sub="组织 Agent 与成员进行协作对话">
-        {/* ROLES-OPTIMIZATION 波次 2：写入口遮蔽（与 API 403 双保险——前端不点后端必拒）。
-            建部门仅 owner（波次 1 裁剪后）——member/viewer 禁用 + tooltip 引导 */}
+    <ListScaffold title="部门" sub="组织 Agent 与成员进行协作对话" loading={loading}
+      actions={
         <Button variant="primary" disabled={!isTenantOwner()}
           title={isTenantOwner() ? undefined : (clientRole() === 'viewer' ? writeDenyReason() : '只有租户所有者可以创建部门')}
           onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
-      </PageHeader>
-      <div class="wf-row wf-gap-sm wf-items-center">
+      }
+      empty={{ icon: 'users', text: '暂无部门', hint: '点击上方按钮创建第一个部门' }}>
+      <div class="wf-row wf-gap-sm wf-items-center wf-margin-bottom-md">
         <div class="wf-fill" style="max-width: 320px">
           <input class="wf-input wf-padding-x-sm wf-padding-y-xs" placeholder="搜索部门（名称——1000 实体可管）" value={$.q} onInput={onQInput} />
         </div>
         <span class="wf-font-xs wf-text-tertiary">{loading ? '加载中…' : `${depts.length} 个`}</span>
       </div>
-
-      {loading && <Loading />}
-      {!loading && depts.length === 0 && <EmptyState icon={<Icon name="users" />} text="暂无部门" hint="点击上方按钮创建第一个部门" />}
-
       {depts.length > 0 && (
         <div class="wf-grid">
           {depts.map((d: Department) => (
@@ -87,7 +82,7 @@ export const Departments: Component = (_props, ctx) => {
           ))}
         </div>
       )}
-    </div>
+    </ListScaffold>
     )
   }
 }
