@@ -9,7 +9,7 @@ import { z, f } from 'weifuwu'
 import { SHAPES } from './shapes.ts'
 
 /** 框架 _weifuwu_app_members（业务只读角色校验——归属框架 schema——不入平台 23 表） */
-export const weifuwuAppMembers: ZodRawShape = {
+export const weifuwuAppMembers = {
   app_id: f.req(z.uuid()),
   user_id: f.req(z.uuid()),
   role: f.req(z.string()),
@@ -17,7 +17,7 @@ export const weifuwuAppMembers: ZodRawShape = {
   joined_at: f.now(z.date()),
   source: z.string().nullable(),
   last_login_at: z.date().nullable(),
-}
+} satisfies ZodRawShape
 
 export function tables(orm: Orm): { [K in keyof typeof SHAPES]: OrmTable<typeof SHAPES[K]> } {
   const out = {} as { [K in keyof typeof SHAPES]: OrmTable<typeof SHAPES[K]> }
