@@ -31,8 +31,9 @@ export interface GqlShapeOptions {
   name?: string
   /** 执行面取数（默认 ctx.orm——协议层 = AST；orm.gql 内部绑定 ormBase） */
   sql?: (ctx: unknown) => unknown
-  /** 租户 scope：字段名 + 上下文取值（自动注入 where/insert——跨租户隔离） */
-  tenant?: { field: string; value: (ctx: unknown) => string }
+  /** 租户 scope：字段名 + 上下文取值（自动注入 where/insert——跨租户隔离；
+   *  与 OrmTenant.value 同签名——undefined=无值（不注入） */
+  tenant?: { field: string; value: (ctx: unknown) => string | undefined }
   /** 默认分页上限（默认 100） */
   maxLimit?: number
   /** 字段策略（命名契约 W0——fieldPolicy 首版）：敏感列豁免——
@@ -224,8 +225,9 @@ function buildResolvers<S extends ZodRawShape>(
         const q = db(ctx).from(table).select(...dbCols)
         const where = whereFrom(args.filter as Record<string, unknown> | null, ctx)
         if (Object.keys(where).length) q.where(where)
+        // I2（W1）：多字段排序链——SDL `[SortInput!]` 数组真实化（旧实现只取 sort[0]——声明-实现不一致）
         const sort = args.sort as { field: string; dir: string }[] | undefined
-        if (sort?.length) q.orderBy(shapeDef.dbFields[sort[0].field]?.column ?? sort[0].field, sort[0].dir === 'desc' ? 'desc' : 'asc')
+        if (sort?.length) for (const s of sort) q.orderBy(shapeDef.dbFields[s.field]?.column ?? s.field, s.dir === 'desc' ? 'desc' : 'asc')
         if (args.limit !== undefined && args.limit !== null) q.limit(Math.min(Number(args.limit), opts.maxLimit ?? 100))
         if (args.offset !== undefined && args.offset !== null) q.offset(Number(args.offset))
         const rows = await q.run()

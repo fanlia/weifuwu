@@ -36,6 +36,11 @@ export function filterToWhere(
     if (fval === null || typeof fval !== 'object') continue
     const col = shapeDef.dbFields[fname]?.column ?? fname
     const v = fval as Record<string, unknown>
+    // I1（W1——O1 对齐）：`{ eq: null }` = 判空——编译 isNull（真库 `= NULL` 恒假已废）
+    if (v.eq === null && Object.keys(v).length === 1) {
+      out[col] = { isNull: true }
+      continue
+    }
     // 单 eq 特判（组合式 path——{ col: { eq: v } } 直接输出——非对象值）
     if (Object.keys(v).some((k) => k === 'eq') && Object.keys(v).length === 1 && typeof v.eq !== 'object') {
       out[col] = { eq: v.eq as unknown }
@@ -43,7 +48,9 @@ export function filterToWhere(
     }
     const ops: Record<string, unknown> = {}
     for (const [op, val] of Object.entries(v)) {
-      if (val === undefined || val === null) continue
+      if (val === undefined) continue
+      if (val === null) { if (op === 'eq') { ops.isNull = true; continue } continue }
+      if (op === 'eq' && val === null) continue
       if (op === 'contains') { ops.ilike = `%${String(val).replace(/([%_])/g, '\\$1')}%`; continue }
       if (op === 'startsWith') { ops.ilike = `${String(val).replace(/([%_])/g, '\\$1')}%`; continue }
       if (op === 'endsWith') { ops.ilike = `%${String(val).replace(/([%_])/g, '\\$1')}`; continue }

@@ -273,8 +273,12 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
     gql: (t, opts) => {
       if (!(t as { __shape?: unknown }).__shape) throw new Error('orm.gql: 表未注册（orm.table 先行）')
       // resolver 执行面绑定 orm（query builder——不依赖 ctx.sql）
+      // I3（W1）：createOrm.tenant 自动派生 gql opts.tenant——单源（gql 面不可绕过租户隔离；
+      // 显式 opts.tenant 优先——覆盖面保留）
+      const explicit = opts as GqlShapeOptions | undefined
       const bound: GqlShapeOptions = {
-        ...(opts as GqlShapeOptions | undefined),
+        ...explicit,
+        ...(explicit?.tenant === undefined && tenant ? { tenant: { field: tenant.field, value: tenant.value } } : {}),
         sql: () => ormBase,
       }
       return gqlFromShape((t as { __shape: Parameters<typeof gqlFromShape>[0] }).__shape, bound)
