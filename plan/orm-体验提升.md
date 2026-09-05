@@ -69,13 +69,13 @@ platform：53 文件/10348 行 · routes 3807 行
 | W2 | f3326284 | undefined 四层显式拒绝（filterToWhere/qb 三入口/compileWhere/memory 入口——**空表逃逸实证**（filter 惰性：无行不判定——校验前移「声明即校验」）· fuzz 3 种子×201 对双面对账 · **判负**：undefined 编译期拒绝（`eq?: V` 可选属性 undefined 面——无 exactOptionalPropertyTypes；全局开启迁移风险） |
 | W3 | 1be54c61 | paginate.sort field: keyof S（tsd bogus/sideways 红）+ orm.tables() 注册表枚举 + pg.checkConsistency()（diffConsistency 纯函数双后端共用——normalizeType 宽等价组·表/列缺失 error·残留/类型 warn）· 契约 5/5 |
 | W4 | cf478590 | 平台试点：agents POST 30 行 body 类型+必填/枚举 → bodyOf 1 行（-48/+13 净 -35 行）· list → listQuery（非法 type 静默忽略→显式 400）· 框架支撑：bodyOf.omit（变体生成剔除——required 豁免）+ **OrmTable.__shape 收紧 Shape<S>**（unknown → BodyOf S 推断坍缩 {} 实证——收紧后精确）· T3 断言升级（AGENT_TYPE_LIST 引用消亡——bodyOf 单源更强） |
-| W5 | （本次） | docs §5.3 增补（bodyOf/listQuery/errorResponse 用法·undefined 契约·sort 类型化·checkConsistency 诊断·判负登记）+ 全量回归门 |
+| W5 | 25d51a72 | docs §5.3 增补（bodyOf/listQuery/errorResponse 用法·undefined 契约·sort 类型化·checkConsistency 诊断·判负登记）+ **listQuery __shape 解包修复**（W4 试点真 bug——OrmTable 直传 400）+ **性能基线独占域重定位**（全量并发抢占 30-34µs vs 独占 5µs——基准禁并发标准实践）+ 全量回归门全绿 |
 
-## 验收标准
+## 验收标准（全部达成——25d51a72 收口）
 
-- [ ] W0：parseBody 契约 4+ · tsd（BodyOf 精确——无 as 断言）· insertSchema 类型收窄（平台 tsc 0）
-- [ ] W1：listQuery/errorOf 提取契约 4+ · rest 回归绿（行为等价）
-- [ ] W2：undefined 双路径一致契约 · fuzz undefined 案例绿 · tsd 1
-- [ ] W3：sort keyof S tsd 2 · checkConsistency 契约 3 · 平台接线
-- [ ] W4：agents POST diff（body 类型 0 行）· list route diff（样板下降）· 平台全绿
-- [ ] W5：docs §5.3 增补 · 框架全量（契约 433+ · 场景 123 · server 840+）· showcase 328 · audit:all 七线 · tsc 双 0 + typecheck:tests 0 · 平台 475
+- [x] W0：bodyOf 契约 9/9 · tsd（BodyOf 精确——auto 列/枚举编译红）· insertSchema 类型收窄（平台 tsc 0）
+- [x] W1：listQuery/errorResponse 提取契约 7/7 · rest 回归绿（行为等价 8/8——唯一冲突 400→409 增强）
+- [x] W2：undefined 四层显式拒绝（双路径一致 + fuzz 3 种子×201 对双面对账绿）
+- [x] W3：sort keyof S tsd · checkConsistency 契约 5/5 · orm.tables() 透明面
+- [x] W4：agents POST diff（body 类型 30 行→0 · -48/+13 净 -35 行）· list route 收口 · 平台全绿
+- [x] W5：docs §5.3 增补 · test:server 864（863+1 独占域）· client 433 · 场景 123 · showcase 328 · audit:all 七线 · tsc 三 0 · 平台 475
