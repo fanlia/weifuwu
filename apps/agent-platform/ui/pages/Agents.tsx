@@ -5,26 +5,29 @@ import { canWrite, writeDenyReason } from '../lib/roles'
 import type { Agent, AgentListResponse } from '../lib/types'
 
 interface AgentsState {
-  agents: Agent[]; loading: boolean; q: string
+  agents: Agent[]; q: string
 }
 
 export const Agents: Component = (_props, ctx) => {
+  // W1 迁移（Templates 范本）：原 `load(q) + ctx.render()` 是 pre-useAsyncData
+  // 时代代码——工厂期异步启动 + finally(rerender)——v2 段复用语义下工厂
+  // 不重跑 → 数据永不刷新（导航返回/同会话停滞）。useAsyncData：同 key 并发
+  // 合并/竞态取消/缓存保留——搜索 q 用闭包 getter（reload 读最新）——
+  // get() 返回 null = loading（区块降级）。
   const $ = {} as AgentsState
-  const rerender = () => ctx.render()
-
-  $.agents = []; $.loading = true; $.q = ''
+  $.agents = []; $.q = ''
   let qTimer: ReturnType<typeof setTimeout> | null = null
-  const load = (q: string) => {
-    ctx.api.get<AgentListResponse>(`/api/agents${q ? `?q=${encodeURIComponent(q)}` : ''}`)
-      .then(d => { $.agents = d.agents ?? []; $.loading = false; rerender() })
-      .catch(() => { $.loading = false; rerender() })
-  }
-  load('')
+  let qValue = ''  // 搜索闭包（getter 纪律——reload 读最新）
+  const [getAgents, reloadAgents] = ctx.ui.useAsyncData(async () => {
+    const q = qValue
+    const d = await ctx.api.get<AgentListResponse>(`/api/agents${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+    return d.agents ?? []
+  }, 'agents-page')
   const onQInput = (e: Event) => {
     const v = ((e as unknown as { target: { value: string } }).target?.value ?? '')
-    $.q = v; rerender()
+    $.q = v; ctx.render()
     if (qTimer) clearTimeout(qTimer)
-    qTimer = setTimeout(() => load(v), 300)
+    qTimer = setTimeout(() => reloadAgents(), 300)
   }
 
   async function remove(e: Event, id: string) {
@@ -36,8 +39,8 @@ export const Agents: Component = (_props, ctx) => {
       // 只要不 throw 即成功（ApiError——2026-08 UI 测试抓出：删除成功
       // 却报「删除失败」——响应判断错——数据删了 UI 不刷新）
       await ctx.api.delete<{ ok?: boolean }>(`/api/agents/${id}`)
-      $.agents = $.agents.filter((a: Agent) => a.id !== id)
-      rerender()
+      reloadAgents()  // 真源刷新（useAsyncData reload——服务器权威）
+      ;ctx.toast('Agent 已删除', 'success')
       ;ctx.toast('Agent 已删除', 'success')
     } catch (e) {
       // ROLES-OPTIMIZATION 波次 3：403 原因透出（如 viewer 删除 →「仅管理员可删除」）
@@ -54,7 +57,12 @@ export const Agents: Component = (_props, ctx) => {
       else { ctx.toast('发起单聊失败', 'error') }
     } catch { ctx.toast('发起单聊失败', 'error') }
   }
-  return (props) => (
+  return (props) => {
+    // getter 纪律：渲染期读最新（工厂期解构 = 快照——state$ 更新后渲染
+    // 用旧值——Templates 范本在 renderFn 内读）
+    const loading = getAgents() === null
+    const agents = getAgents() ?? []
+    return (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="Agent" sub="创建和管理 AI 机器人、Webhook 与知识库">
         {/* ROLES-OPTIMIZATION 波次 2：viewer 禁用创建（member writer 合法不改） */}
@@ -65,10 +73,10 @@ export const Agents: Component = (_props, ctx) => {
         <div class="wf-fill" style="max-width: 320px">
           <input class="wf-input wf-padding-x-sm wf-padding-y-xs" placeholder="搜索 Agent（名称——1000 实体可管）" value={$.q} onInput={onQInput} />
         </div>
-        <span class="wf-font-xs wf-text-tertiary">{$.loading ? '加载中…' : `${$.agents.length} 个`}</span>
+        <span class="wf-font-xs wf-text-tertiary">{loading ? '加载中…' : `${agents.length} 个`}</span>
       </div>
 
-      {$.loading && (
+      {loading && (
         <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 280px), 1fr))">
           {[1, 2, 3, 4].map(i => (
             <Card key={i}><Skeleton variant="text" width="60%" /><Skeleton variant="text" width="90%" className="wf-margin-top-sm" /><Skeleton variant="text" width="45%" className="wf-margin-top-sm" /></Card>
@@ -76,7 +84,7 @@ export const Agents: Component = (_props, ctx) => {
         </div>
       )}
 
-      {!$.loading && $.agents.length === 0 && (
+      {!loading && agents.length === 0 && (
         <EmptyState icon="🤖" text="还没有 Agent" hint="创建你的第一个 AI 机器人、Webhook 或知识库">
           <div class="wf-row wf-gap-sm">
             <Button variant="primary" onClick={() => ctx.app?.navigate('/templates')}><Icon name="layers" size={14} /> 从模板开始</Button>
@@ -85,9 +93,9 @@ export const Agents: Component = (_props, ctx) => {
         </EmptyState>
       )}
 
-      {$.agents.length > 0 && (
+      {agents.length > 0 && (
         <div class="wf-grid">
-          {$.agents.map((a: Agent) => (
+          {agents.map((a: Agent) => (
             <Card key={a.id} clickable hover onClick={() => ctx.app?.navigate(`/agents/${a.id}`)} style={{ display: 'flex', flexDirection: 'column' }}>
               <div class="wf-row wf-gap-sm">
                 <Ava name={a.name} type={a.type} />
@@ -125,5 +133,6 @@ export const Agents: Component = (_props, ctx) => {
         </div>
       )}
     </div>
-  )
+    )
+  }
 }

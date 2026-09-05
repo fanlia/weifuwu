@@ -16,6 +16,7 @@
     "test:docker": "RUN_DOCKER_TESTS=1 node --env-file=.env --test --test-concurrency=1 test/sandbox.test.ts",
     "test:ui": "node --env-file=.env --test --test-concurrency=1 'test/ui/**/*.test.ts'",
     "check:shapes": "node scripts/shape-check.mjs",
-    "audit:routes": "node scripts/audit-route-coverage.mjs"
+    "audit:routes": "node scripts/audit-route-coverage.mjs",
+    "audit:pages": "node scripts/audit-page-generations.mjs"
   }
 }

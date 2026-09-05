@@ -9,21 +9,24 @@ interface DepartmentsState {
 }
 
 export const Departments: Component = (_props, ctx) => {
+  // W1 迁移（Agents 范本——Tests 实录同款）：load+ctx.render 是 pre-
+  // useAsyncData——工厂期异步启动在 v2 段复用下数据不刷新；useAsyncData
+  // 并发合并/竞态取消/缓存保留——getter 渲染期读（工厂期解构 = 快照 bug
+  // 实证——Agents W1 实录）
   const $ = {} as DepartmentsState
-  const rerender = () => ctx.render()
-  $.depts = []; $.loading = true; $.q = ''
+  $.depts = []; $.q = ''
   let qTimer: ReturnType<typeof setTimeout> | null = null
-  const load = (q: string) => {
-    ctx.api.get<DepartmentListResponse>(`/api/departments${q ? `?q=${encodeURIComponent(q)}` : ''}`)
-      .then(d => { $.depts = d.departments ?? []; $.loading = false; rerender() })
-      .catch(() => { $.loading = false; rerender() })
-  }
-  load('')
+  let qValue = ''
+  const [getDepts, reloadDepts] = ctx.ui.useAsyncData(async () => {
+    const q = qValue
+    const d = await ctx.api.get<DepartmentListResponse>(`/api/departments${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+    return d.departments ?? []
+  }, 'departments-page')
   const onQInput = (e: Event) => {
     const v = ((e as unknown as { target: { value: string } }).target?.value ?? '')
-    $.q = v; rerender()
+    $.q = v; ctx.render()
     if (qTimer) clearTimeout(qTimer)
-    qTimer = setTimeout(() => load(v), 300)
+    qTimer = setTimeout(() => reloadDepts(), 300)
   }
 
   async function remove(e: Event, id: string) {
@@ -34,14 +37,16 @@ export const Departments: Component = (_props, ctx) => {
       // API 封装返回 JSON body——res.ok 不存在——不 throw 即成功
       // （2026-08 UI 测试抓出：删除成功却报「删除失败」——响应判断错）
       await ctx.api.delete(`/api/departments/${id}`)
-      $.depts = $.depts.filter((d: Department) => d.id !== id)
-      rerender()
+      reloadDepts()  // 真源刷新
       ;ctx.toast('部门已删除', 'success')
     } catch {
       ;ctx.toast('删除失败', 'error')
     }
   }
-  return (props) => (
+  return (props) => {
+    const loading = getDepts() === null
+    const depts = getDepts() ?? []
+    return (
     <div class="wf-stack wf-gap-lg">
       <PageHeader title="部门" sub="组织 Agent 与成员进行协作对话">
         {/* ROLES-OPTIMIZATION 波次 2：写入口遮蔽（与 API 403 双保险——前端不点后端必拒）。
@@ -54,15 +59,15 @@ export const Departments: Component = (_props, ctx) => {
         <div class="wf-fill" style="max-width: 320px">
           <input class="wf-input wf-padding-x-sm wf-padding-y-xs" placeholder="搜索部门（名称——1000 实体可管）" value={$.q} onInput={onQInput} />
         </div>
-        <span class="wf-font-xs wf-text-tertiary">{$.loading ? '加载中…' : `${$.depts.length} 个`}</span>
+        <span class="wf-font-xs wf-text-tertiary">{loading ? '加载中…' : `${depts.length} 个`}</span>
       </div>
 
-      {$.loading && <Loading />}
-      {!$.loading && $.depts.length === 0 && <EmptyState icon={<Icon name="users" />} text="暂无部门" hint="点击上方按钮创建第一个部门" />}
+      {loading && <Loading />}
+      {!loading && depts.length === 0 && <EmptyState icon={<Icon name="users" />} text="暂无部门" hint="点击上方按钮创建第一个部门" />}
 
-      {$.depts.length > 0 && (
+      {depts.length > 0 && (
         <div class="wf-grid">
-          {$.depts.map((d: Department) => (
+          {depts.map((d: Department) => (
             <Card key={d.id} clickable hover onClick={() => ctx.app?.navigate(`/departments/${d.id}`)}>
               <div class="wf-row wf-gap-sm">
                 <Ava name={d.is_dm ? '💬' : '👥'} type={d.is_dm ? 'user' : 'knowledge_base'} />
@@ -83,5 +88,6 @@ export const Departments: Component = (_props, ctx) => {
         </div>
       )}
     </div>
-  )
+    )
+  }
 }

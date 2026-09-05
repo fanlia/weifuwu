@@ -193,5 +193,39 @@ auth: auth({ storage, onAuth: (c) => {...}, onRefresh: async () => {
 
 ---
 
+### 7.1 页面数据世代（web W1——useAsyncData 首选手册）
+
+**为什么迁（v2 段复用实录）**：老世代 `load() + ctx.render()` 在工厂期异步启动
+——v2 段复用语义下**工厂不重跑 → 数据永不刷新**（导航返回/同会话停滞——
+Templates 迁移先例）。**getter 快照 bug（Agents W1 实录）**：`const agents =
+getAgents() ?? []` 在**工厂期**解构 = 渲染用旧快照（state$ 更新后不显示）——
+**必须在 renderFn 内读**（getter 纪律的页面级体现）。
+
+**怎么迁（5 行范本）**：
+
+```ts
+export const Agents: Component = (_p, ctx) => {
+  const [getAgents, reloadAgents] = ctx.ui.useAsyncData(async () => {
+    return (await ctx.api.get(`/api/agents`)).agents ?? []
+  }, 'agents-page')            // 同 key 并发合并 · key 稳定（页面级）
+  let qValue = ''              // 搜索闭包（getter 纪律）
+  return () => {
+    const agents = getAgents() ?? []        // 渲染期读最新（不是工厂期！）
+    const loading = getAgents() === null     // null = loading 态
+    return h('ul', {}, agents.map(...))
+  }
+}
+```
+
+**迁移后得到什么**：① 同 key 并发合并（多次挂载 1 次请求）② 竞态取消
+（switchMap——快速搜索乱序响应丢弃）③ 缓存保留（重挂载零请求——导航返回
+瞬时）④ reload 显式刷新（删除/变更后服务器权威）。搜索面：q 闭包 +
+debounce(reload)——触发读最新 q。
+
+**哨兵**：`apps/agent-platform/scripts/audit-page-generations.mjs`（async 工厂
+= 红 exit 1——工厂同步契约；老世代标记 = 黄报——迁移进度可见）。
+
+---
+
 > **运行**：`npm run test:client`（428 契约）· `npm run test:scenario`（123 场景）·
 > `npm run test:showcase`（324 组件测试）——全量防线见 AGENTS.md §1。
