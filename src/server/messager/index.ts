@@ -676,7 +676,8 @@ export const WEIFUWU_MESSAGER_SCHEMA = {
         id: f.pk(z.uuid()),
         type: z.string().meta({ default: 'direct' }),
         created_by: z.uuid(),
-        direct_key: z.string().meta({ unique: true }),
+        direct_key: z.string().nullable().meta({ unique: true }),
+        // 迁移兼容：老库 ADD COLUMN 无默认值——NOT NULL 对存量行 23502（运行时 shape 已 nullable——业务 insert 总传）
         created_at: z.date().meta({ default: 'now' }),
       },
     },
