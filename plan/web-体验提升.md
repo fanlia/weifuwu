@@ -29,8 +29,8 @@
 
 | 波次 | 内容 | 验收 |
 | --- | --- | --- |
-| W0 | **ctx 类型面收口**（框架）：uiServe ctx 注入字段类型精确化（api/toast/confirm/app——非空即非可选——平台 198 断言 → 0 前提）；契约层 tsd（ctx 面无 `!` 可用） | 契约 2（tsd：ctx.api 直用·无 ! ）+ 平台 tsc 0 + 198 计数下降 |
-| W1 | **页面 hooks 世代迁移**（平台数据面）：用户数据页面按 Templates 范本迁移（Agents/Departments/Dashboard 等 top 热力页）——每页：useAsyncData（fetcher+key）+ 竞态取消注释——迁移断言（无 factory 期异步启动） | 页面迁移 diff（`ctx.render()` 数据面调用 → useAsyncData）+ **audit 哨兵**（factory 期 async 启动 = 红——机制化防回流） |
+| W0 | **ctx 类型面收口**（框架）：uiServe ctx 注入字段类型精确化（api/toast/confirm/app——非空即非可选——平台 198 断言 → 0 前提）+ **IDE 可读性**（hover 类型名简洁——`ApiClient.get<T>(url): Promise<T>` 而非嵌套 20 层展开——tsd 断言）；契约层 tsd（ctx 面无 `!` 可用） | 契约 2（tsd：ctx.api 直用·无 !·hover 类型名简洁）+ 平台 tsc 0 + 198 计数下降 |
+| W1 | **页面 hooks 世代迁移**（平台数据面）：用户数据页面按 Templates 范本迁移（Agents/Departments/Dashboard 等 top 热力页）——每页：useAsyncData（fetcher+key）+ 竞态取消注释——迁移断言（无 factory 期异步启动）；**配套迁移手册（docs——面向开发者 3 段式：为什么迁（v2 段复用下工厂期异步启动数据不刷新实录）/怎么迁（5 行范本）/迁移后得到什么（并发合并/竞态取消/缓存保留）** | 页面迁移 diff（`ctx.render()` 数据面调用 → useAsyncData）+ **audit 哨兵**（factory 期 async 启动 = 红——机制化防回流）· 手册增补（docs/client.md §7） |
 | W2 | **页面骨架原语**：平台列表页/表单页内联样板提取（PageHeader+Loading+EmptyState 组合；表单页 confirm/toast 模式）——复用框架组件（判负：单消费者面不提取） | 平台组件库 5→N + 页面样板行数下降（diff 断言） |
 | W3 | **渲染健康试点**：高频输入页 memo 普及（search 页/聊天输入——CodeEditor 先例对照）+ 指南（docs/client.md §5.1 示例完备化） | 试点页 diff（shouldRender 挂载）+ 指南增补 |
 | W4 | **docs + 回归门**：docs/client.md §7 前端动线增补（hooks 世代页面模板——useAsyncData 首选手册）+ 全量回归门 | showcase+场景 全绿 · audit 七线 · tsc 三 0 · 平台 475 |
@@ -44,6 +44,11 @@
   （如 Agents 独有的卡片组）留在页面内；推翻：第三消费者出现
 - **22 页面全量迁移**：不做——按热力迁移（数据面先行——需求驱动）；
   推翻：audit 哨兵抓出新工厂期异步 bug
+- **前端请求日志面**（dev 模式 request 面板）：不做——dev 仪表已有
+  render-health 四轴（错误计数/渲染健康）——请求面板热门但面重（拦截
+  fetch 全量）——推翻：出现「页面行为依赖请求时序」的疑难实例
+- **响应式状态全量化（signal 普及）**：不做（上文判负——无跨组件共享
+  实例）；推翻：全局筛选/全局选中页面出现
 
 ## 执行实录（边做边记）
 

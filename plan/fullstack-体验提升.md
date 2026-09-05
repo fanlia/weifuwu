@@ -28,10 +28,10 @@
 
 | 波次 | 内容 | 验收 |
 | --- | --- | --- |
-| W0 | **类型单源跨端**（机制 + 试点）：框架把后端 shape 类型面稳定导出（`RowOf`/`BodyOf` 已有）；平台试点——`ui/lib/types` 的 **Agent/Department 等 2 个** 改从 `SHAPES` 派生（`RowOf<typeof SHAPES.agents>` + 响应附加字段交叉）——37 interface 开始下降 | 试点 diff（派生替换——无字段漂移——tsd 断言）+ 平台 tsc 0 |
+| W0 | **类型单源跨端**（机制 + 试点）：**前置探针**（30 分钟——跨目录 `import type` 的路径面/循环依赖面（ui/ 与 src/ 边界）· 派生类型在 IDE 的 hover 可读性（`RowOf<SHAPES.agents>` 展开面））；框架把后端 shape 类型面稳定导出（`RowOf`/`BodyOf` 已有）；平台试点——`ui/lib/types` 的 **Agent/Department 等 2 个** 改从 `SHAPES` 派生（+ 响应附加字段交叉）——37 interface 开始下降 | 探针报告（路径/循环/可读性 三面裁决）+ 试点 diff（派生替换——无字段漂移——tsd 断言）+ 平台 tsc 0 |
 | W1 | **端点类型面评估**：探针——apiClient 端点注册表（URL → 方法/入参/出参类型——74 处可收口？）可行性 1 天探针——**判负或立项**（端点是动态拼接（query 参数）——注册表表达力评估） | 探针报告（可行性 + 样例 3 处）+ 判负/立项裁决 |
 | W2 | **权限单源**：roles 声明共享（`canWrite`/`requireWriter` 从同一份 roles 定义派生——后端 21 处 + 前端 8 处消费同源） | 单源文件（roles.ts 共享）+ 前后端 tsc 0 + 行为等价测试 |
-| W3 | **全栈测试动线**：契约（memory 单测）→ 场景（playwright SSR）→ 平台 e2e（真 server + memory）三层动线文档 + 每层哨兵（新增 route 的测试覆盖哨兵——audit 挂） | docs 增补 + 哨兵上线（新 route 无测试 = 黄/红） |
+| W3 | **全栈测试动线**：契约（memory 单测）→ 场景（playwright SSR）→ 平台 e2e（真 server + memory）三层动线文档 + **契约测试模板**（第一个测试 5 行示范——memory orm + handler 直调 + 状态码断言——新增开发者照抄即可）+ 每层哨兵（新增 route 的测试覆盖哨兵——audit 挂） | docs 增补 + 模板文件 + 哨兵上线（新 route 无测试 = 黄/红） |
 | W4 | **docs + 回归门**：docs/server.md §5 全栈类型共享增补 + 认证接线时序契约 + 全量回归门 | 五域+audit 七线 · tsc 三 0 · 平台 475 |
 
 ## 判负记录（可被新论证推翻）
@@ -44,6 +44,10 @@
   调用且不引入 any
 - **SSR 全页面化**：不做（ROADMAP 边界——auth token localStorage——登录/
   注册 only）；推翻：SEO 需求出现（内容页级）
+- **跨端类型生成管线**（codegen——后端 shape → 前端 .d.ts 文件）：不做——
+  **类型共享（import）优于类型生成**（生成面有同步/漂移问题——文件产物
+  天然落后于源）；推翻：跨目录 import 面探针显示不可行（循环依赖/路径
+  不可解）
 
 ## 执行实录（边做边记）
 
