@@ -3,6 +3,7 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import { HttpError } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { handleNewMessage, handleNewMessageStream, handleNewMessageStreamSSE } from '../services/chat.ts'
 import { ops, and, eq, inArray } from 'weifuwu'
@@ -34,7 +35,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const body = await req.json() as { ids?: string[] }
     const ids = [...new Set((body.ids ?? []).map(String))].slice(0, 50)
     if (ids.length === 0) {
-      return Response.json({ error: 'ids 为必填（≤50 条）' }, { status: 400 })
+      throw new HttpError('ids 为必填（≤50 条）', 400)
     }
     // 一次查全部目标（app 隔离 + 待审状态）——避免逐条查库
     const rows = await orm.query.from('messages m')
@@ -87,7 +88,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .where(and({ 'd.id': { eq: params.id }}, { 'd.app_id': { eq: String(appId) } }))
       .run()
     if (!dept) {
-      return Response.json({ error: '部门不存在' }, { status: 404 })
+      throw new HttpError('部门不存在', 404)
     }
 
     // cursor 分页：先查锚点 created_at（两查询同语义——子查询拆解，无 SQL 逃生舱）
@@ -134,7 +135,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     }
 
     if (!body.content && (!body.attachments || body.attachments.length === 0)) {
-      return Response.json({ error: 'content 为必填' }, { status: 400 })
+      throw new HttpError('content 为必填', 400)
     }
 
     // 消息长度上限（后端强制——防无界入库 + AI 上下文浪费）
@@ -164,7 +165,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .limit(1)
       .run()
     if (memberships.length === 0) {
-      return Response.json({ error: '你不是该部门的成员' }, { status: 403 })
+      throw new HttpError('你不是该部门的成员', 403)
     }
 
     // P1-3 附件：校验（白名单/大小/消毒）→ 落盘附件区 data/uploads/{app_id}/{dept}/{msg_id}/
@@ -246,7 +247,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const body = await req.json() as { content: string }
 
     if (!body.content) {
-      return Response.json({ error: 'content 为必填' }, { status: 400 })
+      throw new HttpError('content 为必填', 400)
     }
 
     // 消息长度上限（后端强制——防无界入库 + AI 上下文浪费）
@@ -274,7 +275,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .limit(1)
       .run()
     if (memberships.length === 0) {
-      return Response.json({ error: '你不是该部门的成员' }, { status: 403 })
+      throw new HttpError('你不是该部门的成员', 403)
     }
 
     // 创建消息
@@ -331,7 +332,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const body = await req.json() as { content: string }
 
     if (!body.content?.trim()) {
-      return Response.json({ error: 'content 不能为空' }, { status: 400 })
+      throw new HttpError('content 不能为空', 400)
     }
 
     // 查找消息，验证属于同一租户
@@ -341,18 +342,18 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
       .run()
     if (!msg) {
-      return Response.json({ error: '消息不存在' }, { status: 404 })
+      throw new HttpError('消息不存在', 404)
     }
 
     // 仅消息发送者可编辑
     if (msg.owner_user_id !== auth!.userId) {
-      return Response.json({ error: '只能编辑自己的消息' }, { status: 403 })
+      throw new HttpError('只能编辑自己的消息', 403)
     }
 
     // 5 分钟内可编辑
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
     if (new Date(String(msg.created_at)) < fiveMinutesAgo) {
-      return Response.json({ error: '消息已超过 5 分钟，无法编辑' }, { status: 400 })
+      throw new HttpError('消息已超过 5 分钟，无法编辑', 400)
     }
 
     const T = tables(orm)
@@ -379,7 +380,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
       .run()
     if (!msg) {
-      return Response.json({ error: '消息不存在' }, { status: 404 })
+      throw new HttpError('消息不存在', 404)
     }
 
     // 权限：发送者可撤回（5 分钟）；owner 可删除任意消息（不限时）。
@@ -388,14 +389,14 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const isOwner = msg.owner_user_id === auth!.userId
     const isAdmin = auth!.role === 'owner'
     if (!isOwner && !isAdmin) {
-      return Response.json({ error: '只能撤回自己的消息' }, { status: 403 })
+      throw new HttpError('只能撤回自己的消息', 403)
     }
 
     // 非管理员撤回限 5 分钟内；管理员删除不限
     if (!isAdmin) {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
       if (new Date(String(msg.created_at)) < fiveMinutesAgo) {
-        return Response.json({ error: '消息已超过 5 分钟，无法撤回' }, { status: 400 })
+        throw new HttpError('消息已超过 5 分钟，无法撤回', 400)
       }
     }
 
@@ -420,7 +421,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       : body.feedback === null || body.feedback === '' ? null
       : undefined
     if (fb === undefined) {
-      return Response.json({ error: 'feedback 必须是 like/dislike/null' }, { status: 400 })
+      throw new HttpError('feedback 必须是 like/dislike/null', 400)
     }
     // 校验消息属于租户且是 AI 回复
     const [msg] = await orm.query.from('messages m')
@@ -429,7 +430,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }, { 'a.type': { eq: 'ai' } }))
       .run()
     if (!msg) {
-      return Response.json({ error: '消息不存在' }, { status: 404 })
+      throw new HttpError('消息不存在', 404)
     }
     const T = tables(orm)
     await T.messages.update({ feedback: fb }).where(eq(T.messages.c.id, params.id)).run()
@@ -443,7 +444,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
     const body = await req.json() as { draft?: string }
     const draft = String(body.draft ?? '').trim()
     if (!draft) {
-      return Response.json({ error: '草稿不能为空' }, { status: 400 })
+      throw new HttpError('草稿不能为空', 400)
     }
     // 校验消息归属租户 + 待审批
     const [msg] = await orm.query.from('messages m')
@@ -452,7 +453,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }, { 'm.ai_approved': { isNull: true } }))
       .run()
     if (!msg) {
-      return Response.json({ error: '草稿不存在或已处理' }, { status: 404 })
+      throw new HttpError('草稿不存在或已处理', 404)
     }
     // 权限：部门管理员（同审批）
     const [caller] = await orm.query.from('department_members dm')
@@ -467,7 +468,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .run()
     // 部门级 admin（department_members.role——合法角色 710 实例——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
     if ((!caller || caller.role !== 'admin') && callerOwner?.role !== 'owner') {
-      return Response.json({ error: '只有部门管理员可以编辑草稿' }, { status: 403 })
+      throw new HttpError('只有部门管理员可以编辑草稿', 403)
     }
     const T = tables(orm)
     await T.messages.update({ ai_draft: draft }).where(eq(T.messages.c.id, params.id)).run()
@@ -490,11 +491,11 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
       .run()
     if (!msg) {
-      return Response.json({ error: '消息不存在' }, { status: 404 })
+      throw new HttpError('消息不存在', 404)
     }
 
     if (msg.ai_approved !== null) {
-      return Response.json({ error: '该消息已审批' }, { status: 400 })
+      throw new HttpError('该消息已审批', 400)
     }
 
     // 审批权限：仅部门管理员可批（部门内 role='admin' 的成员）
@@ -506,7 +507,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .run()
     // 部门级 admin（department_members.role——合法——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
     if (!approver || approver.role !== 'admin') {
-      return Response.json({ error: '只有部门管理员可以审批' }, { status: 403 })
+      throw new HttpError('只有部门管理员可以审批', 403)
     }
 
     const T = tables(orm)
@@ -530,7 +531,7 @@ export function registerMessageRoutes(app: Router<AppCtx>): void {
       .select('m.id', 'm.department_id', 'm.content')
       .where(and({ 'm.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }, { 'a.type': { eq: 'user' } }))
       .run()
-    if (!msg) return Response.json({ error: '消息不存在' }, { status: 404 })
+    if (!msg) throw new HttpError('消息不存在', 404)
 
     // 查上次执行状态（步骤清单——断点）
     const T = tables(orm)

@@ -7,7 +7,7 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { errorResponse, ok, created, badRequest } from './response.ts'
+import { errorResponse, ok, created, badRequest, forbidden, notFound } from './response.ts'
 import { HttpError } from './types.ts'
 import { DbError, ValidationError, ProtocolError } from './db/errors.ts'
 
@@ -44,4 +44,29 @@ test('W0：response helpers 面（ok/created/badRequest——错误面同家族�
   assert.equal(ok({}).status, 200)
   assert.equal(created({ id: 'x' }).status, 201)
   assert.equal(badRequest('坏').status, 400)
+})
+
+test('W1：throw 与 return 等价——同一 HttpError 双面同形状同状态（迁移依据）', async () => {
+  // 面 A：route 内 return errorResponse(e)（迁移前形态）
+  const a = errorResponse(new HttpError('无权', 403))
+  // 面 B：throw 经链捕获（迁移后形态——路由链回归经 router.test 验证）
+  const { Router } = await import('./core/router.ts')
+  const r = new Router().get('/', () => { throw new HttpError('无权', 403) })
+  const b = await r.handler()(new Request('http://localhost/'), { params: {}, query: {} } as never)
+  assert.equal(a.status, b.status)
+  assert.deepEqual(await a.json(), await b.json())
+})
+
+test('W1：errorResponse 家族矩阵——helpers 全走单源（badRequest/forbidden/notFound 等价 HttpError 语义）', async () => {
+  const cases: Array<[Response, number, string]> = [
+    [badRequest('参数错'), 400, '参数错'],
+    [forbidden('无权'), 403, '无权'],
+    [notFound('不见'), 404, '不见'],
+    [errorResponse(new HttpError('冲突', 409)), 409, '冲突'],
+  ]
+  for (const [res, status, msg] of cases) {
+    assert.equal(res.status, status)
+    const body = await res.json()
+    assert.equal((body as Record<string, unknown>).error, msg)
+  }
 })

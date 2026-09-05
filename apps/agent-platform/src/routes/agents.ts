@@ -5,6 +5,7 @@
  */
 
 import type { Router } from 'weifuwu'
+import { HttpError } from 'weifuwu'
 import { ops, and, eq, ne, bodyOf, listQuery, errorResponse } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { streamAgentPreview } from '../services/agent-runner.ts'
@@ -83,20 +84,20 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     const body = await bodyOf(req, T.agents, { variant: 'insert', omit: ['app_id'] })
     // user 类型仅允许注册/内部流程创建（绑定 user_id）——API 直调创建孤儿 user agent 防护
     if (body.type === 'user' && !body.user_id) {
-      return Response.json({ error: 'user 类型必须绑定用户账号（由注册流程创建）' }, { status: 400 })
+      throw new HttpError('user 类型必须绑定用户账号（由注册流程创建）', 400)
     }
     // 组织层级：department 类型 = 部门经理——绑定代表部门（同 app + 唯一：1 部门 1 经理）
     let managerPrompt: string | null = null
     if (body.type === 'department') {
       if (!body.department_id) {
-        return Response.json({ error: '部门经理必须绑定部门（department_id）' }, { status: 400 })
+        throw new HttpError('部门经理必须绑定部门（department_id）', 400)
       }
       const T = tables(orm)
       const [dept] = await T.departments
         .select('id', 'name')
         .where(and(eq(T.departments.c.id, body.department_id), eq(T.departments.c.app_id, appId)))
         .run()
-      if (!dept) return Response.json({ error: '绑定的部门不存在' }, { status: 404 })
+      if (!dept) throw new HttpError('绑定的部门不存在', 404)
       const [existing] = await T.agents
         .select('id')
         .where(and(
@@ -105,7 +106,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
           eq(T.agents.c.is_active, true),
         ))
         .run()
-      if (existing) return Response.json({ error: '该部门已有经理（1 部门 1 经理）' }, { status: 409 })
+      if (existing) throw new HttpError('该部门已有经理（1 部门 1 经理）', 409)
       managerPrompt = body.system_prompt ?? null
     }
 
@@ -179,7 +180,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       .where(and({ 'a.id': { eq: String(params.id) }}, { 'a.app_id': { eq: String(appId) } }))
       .one()
     if (!agent) {
-      return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+      throw new HttpError('Agent 不存在', 404)
     }
     // 配额用量（Wave 9 成本控制——本月已用 token）
     let quota_used = 0
@@ -211,7 +212,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       if (body[field] !== undefined) patch[field] = body[field]
     }
     if (Object.keys(patch).length <= 1) {
-      return Response.json({ error: '没有可更新的字段' }, { status: 400 })
+      throw new HttpError('没有可更新的字段', 400)
     }
 
     const T = tables(orm)
@@ -222,7 +223,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       .run()
 
     if (!agent) {
-      return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+      throw new HttpError('Agent 不存在', 404)
     }
     // 审计：Agent 更新（Wave 9）
     try {
@@ -248,7 +249,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     // 删除权限：仅 owner（防 member 越权删 Agent）。
     // （ROLES-OPTIMIZATION 波次 1：app 级 admin 幽灵角色裁剪——行为不变）
     if (auth!.role !== 'owner') {
-      return Response.json({ error: '仅管理员可删除 Agent' }, { status: 403 })
+      throw new HttpError('仅管理员可删除 Agent', 403)
     }
     const T = tables(orm)
     const result = await T.agents
@@ -256,7 +257,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
       .run()
     if (result.length === 0) {
-      return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+      throw new HttpError('Agent 不存在', 404)
     }
     // 审计：Agent 删除（Wave 9）
     try {
@@ -275,7 +276,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       .select('id')
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
       .run()
-    if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    if (!agent) throw new HttpError('Agent 不存在', 404)
     const [q] = await T.agent_logs
       .select()
       .count('*', 'runs')
@@ -306,7 +307,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       .select('id')
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
       .run()
-    if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    if (!agent) throw new HttpError('Agent 不存在', 404)
     const [mem] = await T.agent_memories
       .select('content', 'updated_at')
       .where(eq(T.agent_memories.c.agent_id, params.id))
@@ -321,7 +322,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       .select('id')
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId)))
       .run()
-    if (!agent) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    if (!agent) throw new HttpError('Agent 不存在', 404)
     await T.agent_memories
       .delete()
       .where(eq(T.agent_memories.c.agent_id, params.id))
@@ -343,12 +344,12 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       ))
       .run()
     if (!agent) {
-      return Response.json({ error: 'AI Agent 不存在' }, { status: 404 })
+      throw new HttpError('AI Agent 不存在', 404)
     }
     const body = await req.json().catch(() => ({ content: '' }))
     const content = String(body.content ?? '').slice(0, 2000)
     if (!content.trim()) {
-      return Response.json({ error: 'content 为必填' }, { status: 400 })
+      throw new HttpError('content 为必填', 400)
     }
 
     const stream = new ReadableStream({
@@ -380,7 +381,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     const { saveVersion } = await import('../services/versions.ts')
     const body = await req.json().catch(() => ({}))
     const result = await saveVersion(ctx as any, String(ctx.params.id), body.note)
-    if (!result) return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+    if (!result) throw new HttpError('Agent 不存在', 404)
     return Response.json({ version: result }, { status: 201 })
   })
 

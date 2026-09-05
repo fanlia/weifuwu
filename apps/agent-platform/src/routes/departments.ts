@@ -7,6 +7,7 @@
  */
 
 import type { Router } from 'weifuwu'
+import { HttpError } from 'weifuwu'
 import { ops, eq, ne, and, or, inArray, like, ilike } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { tables, weifuwuAppMembers } from '../db/orm.ts'
@@ -73,7 +74,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     const { orm, appId, auth } = ctx
     const body = await req.json() as { agent_id: string }
     if (!body.agent_id) {
-      return Response.json({ error: 'agent_id 为必填' }, { status: 400 })
+      throw new HttpError('agent_id 为必填', 400)
     }
     const T = tables(orm)
     // 目标 Agent 必须是同租户且不是 user 类型（不能和自己单聊）
@@ -82,7 +83,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.id, body.agent_id), eq(T.agents.c.app_id, appId), ne(T.agents.c.type, 'user')))
       .run()
     if (!target) {
-      return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+      throw new HttpError('Agent 不存在', 404)
     }
     // 当前用户的 user agent
     const [me] = await T.agents
@@ -90,7 +91,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'user'), eq(T.agents.c.user_id, auth!.userId)))
       .run()
     if (!me) {
-      return Response.json({ error: '当前用户无绑定 Agent' }, { status: 400 })
+      throw new HttpError('当前用户无绑定 Agent', 400)
     }
     // 找已有 DM（成员恰好 = me + target）——双 JOIN + NOT EXISTS 第三成员（=COUNT=2）
     const existing = await orm.query.from('departments d')
@@ -145,7 +146,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       // ROLES-OPTIMIZATION 波次 1：app 级 admin 幽灵角色裁剪（invite 只产
       // member/viewer、DB 零实例）——仅 owner 可建部门；行为不变
       if (role !== 'owner') {
-        return Response.json({ error: '只有租户所有者可以创建部门' }, { status: 403 })
+        throw new HttpError('只有租户所有者可以创建部门', 403)
       }
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '权限校验失败' }, { status: e?.status ?? 403 })
@@ -160,7 +161,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     }
 
     if (!body.name) {
-      return Response.json({ error: 'name 为必填' }, { status: 400 })
+      throw new HttpError('name 为必填', 400)
     }
 
     const T = tables(orm)
@@ -231,7 +232,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .select()
       .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
       .run()
-    if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+    if (!dept) throw new HttpError('部门不存在', 404)
     // 成员
     const members = await orm.query.from('department_members dm')
       .select('a.id', 'a.type', 'a.name', 'a.avatar_url', 'a.description', 'a.role_label', 'a.expertise', 'dm.role', 'dm.joined_at')
@@ -366,7 +367,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
       .run()
     if (!dept) {
-      return Response.json({ error: '部门不存在' }, { status: 404 })
+      throw new HttpError('部门不存在', 404)
     }
 
     // 获取成员列表——JOIN 表绑定
@@ -413,7 +414,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .run()
 
     if (!dept) {
-      return Response.json({ error: '部门不存在' }, { status: 404 })
+      throw new HttpError('部门不存在', 404)
     }
     return Response.json({ department: dept })
   })
@@ -429,7 +430,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       const { appRoleOf } = await import('../services/permissions.ts')
       const role = await appRoleOf(ctx)
       if (role !== 'owner') {
-        return Response.json({ error: '只有租户所有者可以删除部门' }, { status: 403 })
+        throw new HttpError('只有租户所有者可以删除部门', 403)
       }
     } catch (e: any) {
       return Response.json({ error: e?.message ?? '权限校验失败' }, { status: e?.status ?? 403 })
@@ -446,7 +447,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
       .run()
     if (result.length === 0) {
-      return Response.json({ error: '部门不存在' }, { status: 404 })
+      throw new HttpError('部门不存在', 404)
     }
     // 组织层级：部门经理是派生资源——部门亡经理亡（department_members 行 FK cascade 自动清）
     await T.agents
@@ -475,7 +476,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
     const body = await req.json() as { agent_id: string; role?: string }
 
     if (!body.agent_id) {
-      return Response.json({ error: 'agent_id 为必填' }, { status: 400 })
+      throw new HttpError('agent_id 为必填', 400)
     }
 
     const T = tables(orm)
@@ -485,7 +486,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
       .run()
     if (!dept) {
-      return Response.json({ error: '部门不存在' }, { status: 404 })
+      throw new HttpError('部门不存在', 404)
     }
 
     const [agent] = await T.agents
@@ -493,7 +494,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.id, body.agent_id), eq(T.agents.c.app_id, appId)))
       .run()
     if (!agent) {
-      return Response.json({ error: 'Agent 不存在' }, { status: 404 })
+      throw new HttpError('Agent 不存在', 404)
     }
 
     // 商业化 G7 知识库部门授权：成员管理（含 KB 添加）必须部门管理员或租户 owner——
@@ -514,7 +515,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .run()
     // 部门级 admin（department_members.role——合法——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
     if ((!caller || caller.role !== 'admin') && (callerOwner as any)?.role !== 'owner') {
-      return Response.json({ error: '只有部门管理员可以管理成员' }, { status: 403 })
+      throw new HttpError('只有部门管理员可以管理成员', 403)
     }
 
     await T.department_members
@@ -543,7 +544,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
       .run()
     if (!dept) {
-      return Response.json({ error: '部门不存在' }, { status: 404 })
+      throw new HttpError('部门不存在', 404)
     }
 
     await T.department_members
@@ -569,7 +570,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .select('id')
       .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
       .run()
-    if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+    if (!dept) throw new HttpError('部门不存在', 404)
     const { sql } = ctx
     const { listPendingArtifacts } = await import('../services/artifact-review.ts')
     const items = await listPendingArtifacts(sql, String(params.id))
@@ -579,13 +580,13 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
   app.post('/api/departments/:id/artifacts/:action', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { orm, appId, params, auth } = ctx
     const action = params.action as 'approve' | 'reject'
-    if (!['approve', 'reject'].includes(action)) return Response.json({ error: '不支持的 action' }, { status: 400 })
+    if (!['approve', 'reject'].includes(action)) throw new HttpError('不支持的 action', 400)
     const T = tables(orm)
     const [dept] = await T.departments
       .select('id')
       .where(and(eq(T.departments.c.id, params.id), eq(T.departments.c.app_id, appId)))
       .run()
-    if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+    if (!dept) throw new HttpError('部门不存在', 404)
     // 产物审批是管理动作（G7 同款权限）：部门管理员或租户 owner 才能批准/拒绝
     const [caller] = await orm.query.from('department_members dm')
       .select('dm.role')
@@ -602,7 +603,7 @@ export function registerDepartmentRoutes(app: Router<AppCtx>): void {
       .run()
     // 部门级 admin（department_members.role——合法——勿与租户级幽灵 admin 裁剪混淆——ROLES-OPTIMIZATION 波次 1）
     if ((!caller || caller.role !== 'admin') && (callerOwner as any)?.role !== 'owner') {
-      return Response.json({ error: '只有部门管理员可以审批产物' }, { status: 403 })
+      throw new HttpError('只有部门管理员可以审批产物', 403)
     }
     const body = await req.json().catch(() => ({}))
     const relPath = String(body.path ?? '')

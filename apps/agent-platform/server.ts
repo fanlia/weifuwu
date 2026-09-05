@@ -9,7 +9,7 @@ import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context, QueueWorker } from 'weifuwu'
 import type { AppCtx } from './src/middleware/ctx.ts'
-import { serve, Router, cors, postgres, redis, queue, ui, userSystem, appAuth, OpenAi, messager, rateLimit, verifyPassword, hashPassword, email, workflowSystem, ops , errorResponse } from 'weifuwu'
+import { serve, Router, cors, postgres, redis, queue, ui, userSystem, appAuth, OpenAi, messager, rateLimit, verifyPassword, hashPassword, email, workflowSystem, ops, errorResponse, HttpError } from 'weifuwu'
 import { readFileSync } from 'node:fs'
 
 // ── 中间件 ────────────────────────────────────────────────
@@ -445,7 +445,7 @@ async function main() {
   // C6 技能评分（登录——每租户每技能一次，upsert 可改评）
   app.post('/api/skills/rate', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const body = await req.json().catch(() => ({})) as { skill_dir?: string; liked?: boolean }
-    if (!body.skill_dir) return Response.json({ error: 'skill_dir 为必填' }, { status: 400 })
+    if (!body.skill_dir) throw new HttpError('skill_dir 为必填', 400)
     const liked = !!body.liked
     // key 统一 basename（绝对/相对路径一致）
     const key = String(body.skill_dir).split(/[\\/]/).filter(Boolean).pop() ?? String(body.skill_dir)
@@ -469,7 +469,7 @@ async function main() {
   app.get('/api/role-templates/:slug', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { getRoleTemplates } = await import('./src/routes/role-templates.ts')
     const template = getRoleTemplates().find(t => t.slug === ctx.params.slug)
-    if (!template) return Response.json({ error: '模板不存在' }, { status: 404 })
+    if (!template) throw new HttpError('模板不存在', 404)
     return Response.json({ template })
   })
 
@@ -483,9 +483,9 @@ async function main() {
   // 商业化 G15：管理 API（只读——客户系统集成；独立于登录会话，MANAGEMENT_API_KEY 认证）
   app.get('/api/v1/apps', async (_req: Request, ctx: AppCtx): Promise<Response> => {
     const expected = process.env.MANAGEMENT_API_KEY ?? ''
-    if (!expected) return Response.json({ error: '管理 API 未启用（配置 MANAGEMENT_API_KEY）' }, { status: 403 })
+    if (!expected) throw new HttpError('管理 API 未启用（配置 MANAGEMENT_API_KEY）', 403)
     if ((_req.headers.get('authorization') ?? '') !== `Bearer ${expected}`) {
-      return Response.json({ error: '无效的管理 API Key' }, { status: 401 })
+      throw new HttpError('无效的管理 API Key', 401)
     }
     const appRows = await ctx.orm.query.from('_weifuwu_apps').select('slug', 'name', 'status', 'plan', 'trial_ends_at', 'monthly_token_limit', 'created_at').orderBy('created_at', 'desc').run()
     const appIds = appRows.map((a) => String(a.id))
@@ -501,9 +501,9 @@ async function main() {
 
   app.get('/api/v1/usage', async (_req: Request, ctx: AppCtx): Promise<Response> => {
     const expected = process.env.MANAGEMENT_API_KEY ?? ''
-    if (!expected) return Response.json({ error: '管理 API 未启用（配置 MANAGEMENT_API_KEY）' }, { status: 403 })
+    if (!expected) throw new HttpError('管理 API 未启用（配置 MANAGEMENT_API_KEY）', 403)
     if ((_req.headers.get('authorization') ?? '') !== `Bearer ${expected}`) {
-      return Response.json({ error: '无效的管理 API Key' }, { status: 401 })
+      throw new HttpError('无效的管理 API Key', 401)
     }
     // orm-pg-date-trunc 判负登记：date_trunc('day') 分组投影（GROUP BY 表达式——列表达面）
     // ——改为拉取 30 天窗口（≤500 行/租户）按日聚合——语义等价
@@ -665,7 +665,7 @@ async function main() {
     if (c.appId) {
       const rows = await c.orm.query.from('_weifuwu_apps').select('status').where({ id: { eq: String(c.appId) } }).run()
       if (rows[0]?.status === 'disabled') {
-        return Response.json({ error: '该团队已被停用，请联系管理员' }, { status: 403 })
+        throw new HttpError('该团队已被停用，请联系管理员', 403)
       }
     }
     return next(req, ctx)
@@ -705,7 +705,7 @@ async function main() {
   protectedRoutes.get('/api/departments/:id/executions', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { orm, appId, params } = ctx
     const [dept] = await orm.query.from('departments').select('id').where({ id: { eq: String(params.id) }, app_id: { eq: String(appId) } }).run()
-    if (!dept) return Response.json({ error: '部门不存在' }, { status: 404 })
+    if (!dept) throw new HttpError('部门不存在', 404)
     const { manager } = await import('./src/sandbox/manager.ts')
     manager.init(orm)
     const { sandbox } = await import('./src/sandbox/docker.ts')
@@ -910,7 +910,7 @@ async function main() {
     const { orm, auth } = ctx
     const body = await req.json() as { name?: string }
     if (!body.name?.trim()) {
-      return Response.json({ error: 'name 不能为空' }, { status: 400 })
+      throw new HttpError('name 不能为空', 400)
     }
     // 框架用户表（_weifuwu_users）——应用层更新扩展字段
     const [user] = await orm.query.update('_weifuwu_users').set({ name: body.name.trim() })
@@ -965,18 +965,18 @@ async function main() {
     const { orm, auth } = ctx
     const body = await req.json() as { currentPassword: string; newPassword: string }
     if (!body.currentPassword || !body.newPassword) {
-      return Response.json({ error: 'currentPassword 和 newPassword 为必填' }, { status: 400 })
+      throw new HttpError('currentPassword 和 newPassword 为必填', 400)
     }
     if (body.newPassword.length < 6) {
-      return Response.json({ error: '新密码至少 6 位' }, { status: 400 })
+      throw new HttpError('新密码至少 6 位', 400)
     }
 
     const [user] = await orm.query.from('_weifuwu_users').select('password_hash').where({ id: { eq: String(auth!.userId) } }).run()
-    if (!user) return Response.json({ error: '用户不存在' }, { status: 404 })
+    if (!user) throw new HttpError('用户不存在', 404)
 
     const valid = await verifyPassword(body.currentPassword, user.password_hash as string)
     if (!valid) {
-      return Response.json({ error: '当前密码错误' }, { status: 403 })
+      throw new HttpError('当前密码错误', 403)
     }
 
     // 业务侧（appAuth 薄面）无 AuthApi 方法面——密码更新为通用原语（hashPassword 导出）
@@ -1020,7 +1020,7 @@ async function main() {
     const { sandbox } = await import('./src/sandbox/docker.ts')
     const action = ctx.params.action as 'stop' | 'start' | 'restart' | 'rm'
     if (!['stop', 'start', 'restart', 'rm'].includes(action)) {
-      return Response.json({ error: '不支持的 action' }, { status: 400 })
+      throw new HttpError('不支持的 action', 400)
     }
     const r = await sandbox.containerAction(ctx.params.name, action)
     return r.ok ? Response.json(r) : Response.json({ error: r.message }, { status: 400 })
@@ -1056,7 +1056,7 @@ async function main() {
     app.post('/api/test/orm', async (req: Request) => {
       try {
         const body = await req.json() as { query?: unknown }
-        if (!body.query || typeof body.query !== 'object') return Response.json({ error: 'query 必填（Query AST）' }, { status: 400 })
+        if (!body.query || typeof body.query !== 'object') throw new HttpError('query 必填（Query AST）', 400)
         const rows = await pg.orm.execute(body.query as never)
         return Response.json({ ok: true, rows })
       } catch (e: any) {
@@ -1066,7 +1066,7 @@ async function main() {
     app.post('/api/test/wf', async (req: Request) => {
       try {
         const body = await req.json() as { room?: string; events?: any[] }
-        if (!body.room || !Array.isArray(body.events)) return Response.json({ error: 'room/events 必填' }, { status: 400 })
+        if (!body.room || !Array.isArray(body.events)) throw new HttpError('room/events 必填', 400)
         for (const evt of body.events) messagerSystem.client.broadcast(body.room, evt)
         return Response.json({ ok: true, pushed: body.events.length })
       } catch (e: any) {
@@ -1228,7 +1228,7 @@ async function main() {
       // B3：请求体大小限制（64KB）——防滥用
       const contentLength = Number(req.headers.get('content-length') ?? 0)
       if (contentLength > 64 * 1024) {
-        return Response.json({ error: 'Request body too large (max 64KB)' }, { status: 413 })
+        throw new HttpError('Request body too large (max 64KB)', 413)
       }
       const body = await req.json()
       // R3 计量收口：Webhook 调用受计划配额约束（免费版到期/超限 → 402）
@@ -1257,7 +1257,7 @@ async function main() {
   app.post('/api/im/:platform', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const rawBody = await req.text().catch(() => '')
     let body: Record<string, any> = {}
-    try { body = rawBody ? JSON.parse(rawBody) : {} } catch { return Response.json({ error: '无效 JSON' }, { status: 400 }) }
+    try { body = rawBody ? JSON.parse(rawBody) : {} } catch { throw new HttpError('无效 JSON', 400) }
     const { parseImInbound } = await import('./src/services/im-inbound.ts')
     let msg: any
     try {
@@ -1271,7 +1271,7 @@ async function main() {
       .where({ type: { eq: 'webhook' }, im_bind_dept: { isNull: false }, is_active: { eq: true } }).limit(1).run()
     const whAgent = (Array.isArray(agents) ? agents : [agents])[0] as any
     if (!whAgent?.im_bind_dept) {
-      return Response.json({ error: '未配置 IM 绑定部门（Webhook Agent 需绑定 im_bind_dept）' }, { status: 404 })
+      throw new HttpError('未配置 IM 绑定部门（Webhook Agent 需绑定 im_bind_dept）', 404)
     }
 
     // G8 验签（安全底线）：配置了 webhook_secret 时强制校验
@@ -1286,11 +1286,11 @@ async function main() {
       const dtSign = req.headers.get('sign') ?? ''
       const dingOk = dt && dtSign ? verifyDingtalkSign(body, dt, dtSign, secret) : false
       if (!hmacOk && !dingOk) {
-        return Response.json({ error: '签名校验失败（需 X-Signature 或钉钉 timestamp+sign）' }, { status: 403 })
+        throw new HttpError('签名校验失败（需 X-Signature 或钉钉 timestamp+sign）', 403)
       }
       // Replay 防护（HMAC 路径）
       if (!checkNonce(req.headers.get('x-nonce') ?? undefined, req.headers.get('x-timestamp') ?? undefined)) {
-        return Response.json({ error: '重放请求' }, { status: 403 })
+        throw new HttpError('重放请求', 403)
       }
     }
 

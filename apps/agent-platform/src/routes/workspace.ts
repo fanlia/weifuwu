@@ -11,6 +11,7 @@
 import { readFile, readdir, writeFile, stat, mkdir } from 'node:fs/promises'
 import { join, resolve, normalize, sep, dirname } from 'node:path'
 import type { Router, Context } from 'weifuwu'
+import { HttpError } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 
 /** 宿主侧路径穿越防护（文件浏览器专用——agent 工具侧由容器 safePath 负责） */
@@ -45,7 +46,7 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
   app.get('/api/departments/:id/workspace/list', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { params } = ctx
     const ws = await getWorkspace(ctx, params.id)
-    if (!ws) return Response.json({ error: '部门不存在或无工作空间' }, { status: 404 })
+    if (!ws) throw new HttpError('部门不存在或无工作空间', 404)
     const rel = new URL(req.url).searchParams.get('path') ?? ''
     let abs: string
     try {
@@ -56,7 +57,7 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
     try {
       const st = await stat(abs)
       if (!st.isDirectory()) {
-        return Response.json({ error: '不是目录' }, { status: 400 })
+        throw new HttpError('不是目录', 400)
       }
       const entries = await readdir(abs, { withFileTypes: true })
       const items: Array<{ name: string; type: 'dir' | 'file'; size: number; mtime: string }> = []
@@ -93,14 +94,14 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
     }
     const body = await req.json().catch(() => ({}))
     const rel = String(body.path ?? '')
-    if (!rel) return Response.json({ error: 'path 为必填' }, { status: 400 })
+    if (!rel) throw new HttpError('path 为必填', 400)
     try {
       const { signToken } = await import('weifuwu')
       const secret = process.env.JWT_SECRET ?? 'default-secret'
       const ticket = signToken({ type: 'download', appId: ctx.appId, deptId: String(ctx.params?.id ?? ''), path: rel, sub: ctx.auth?.userId }, secret, 30)
       return Response.json({ ticket, expiresIn: 30 })
     } catch (e: any) {
-      return Response.json({ error: 'ticket 签发失败' }, { status: 500 })
+      throw new HttpError('ticket 签发失败', 500)
     }
   })
 
@@ -125,13 +126,13 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
         ;(ctx as any).auth = { userId: String(payload.sub ?? ''), ...(ctx as any).auth }
         ;(ctx as any).ticketUser = payload.sub
       } catch {
-        return Response.json({ error: '下载 ticket 无效或已过期（30s——请重新点击）' }, { status: 401 })
+        throw new HttpError('下载 ticket 无效或已过期（30s——请重新点击）', 401)
       }
     }
     const ws = await getWorkspace(ctx, params.id)
-    if (!ws) return Response.json({ error: '部门不存在或无工作空间' }, { status: 404 })
+    if (!ws) throw new HttpError('部门不存在或无工作空间', 404)
     const rel = url.searchParams.get('path') ?? ''
-    if (!rel) return Response.json({ error: 'path 为必填' }, { status: 400 })
+    if (!rel) throw new HttpError('path 为必填', 400)
     let abs: string
     try {
       abs = resolveWorkspacePath(ws, rel)
@@ -140,7 +141,7 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
     }
     try {
       const st = await stat(abs)
-      if (st.isDirectory()) return Response.json({ error: '是目录——请用 list 接口' }, { status: 400 })
+      if (st.isDirectory()) throw new HttpError('是目录——请用 list 接口', 400)
       const buf = await readFile(abs)
       // P1-3 产物下载：二进制流 + Content-Disposition（AI 生成的 xlsx/pdf/图表交付）
       if (url.searchParams.get('download') === '1') {
@@ -175,16 +176,16 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
   app.put('/api/departments/:id/workspace/file', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { params } = ctx
     const ws = await getWorkspace(ctx, params.id)
-    if (!ws) return Response.json({ error: '部门不存在或无工作空间' }, { status: 404 })
+    if (!ws) throw new HttpError('部门不存在或无工作空间', 404)
     const body = await req.json().catch(() => ({}))
     const rel = String(body.path ?? '')
     const content = String(body.content ?? '')
-    if (!rel) return Response.json({ error: 'path 为必填' }, { status: 400 })
+    if (!rel) throw new HttpError('path 为必填', 400)
     if (content.length > MAX_WRITE) {
       return Response.json({ error: `文件过大（上限 ${MAX_WRITE} 字符）` }, { status: 413 })
     }
     if (content.includes('\u0000')) {
-      return Response.json({ error: '二进制内容不可写——仅支持文本编辑' }, { status: 400 })
+      throw new HttpError('二进制内容不可写——仅支持文本编辑', 400)
     }
     let abs: string
     try {
@@ -196,7 +197,7 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
       // F4 目录名防抖：写 path 指向已存在目录 → 拒绝
       const st = await stat(abs).catch(() => null)
       if (st?.isDirectory()) {
-        return Response.json({ error: '目标已存在且是目录——不能覆盖' }, { status: 400 })
+        throw new HttpError('目标已存在且是目录——不能覆盖', 400)
       }
       await mkdir(dirname(abs), { recursive: true })
       await writeFile(abs, content, 'utf-8')
@@ -210,7 +211,7 @@ export async function registerWorkspaceRoutes(app: Router<AppCtx>): Promise<void
   app.post('/api/departments/:id/workspace/upload', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { params } = ctx
     const ws = await getWorkspace(ctx, params.id)
-    if (!ws) return Response.json({ error: '部门不存在或无工作空间' }, { status: 404 })
+    if (!ws) throw new HttpError('部门不存在或无工作空间', 404)
     const body = await req.json().catch(() => ({}))
     const rel = String(body.path ?? '')
     const { validateUploadFile } = await import('../services/upload.ts')

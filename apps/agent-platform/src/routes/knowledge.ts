@@ -10,6 +10,7 @@
  */
 
 import type { Router, Context } from 'weifuwu'
+import { HttpError } from 'weifuwu'
 import { and, eq } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { tables } from '../db/orm.ts'
@@ -34,7 +35,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
       .run()
     if (!agent) {
-      return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
+      throw new HttpError('知识库 Agent 不存在', 404)
     }
 
     const documents = await T.kb_documents
@@ -59,7 +60,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .where(and({ 'd.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
       .run()
     if (!doc) {
-      return Response.json({ error: '文档不存在' }, { status: 404 })
+      throw new HttpError('文档不存在', 404)
     }
 
     let chunks: any[] = []
@@ -86,13 +87,13 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
       .run()
     if (!agent) {
-      return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
+      throw new HttpError('知识库 Agent 不存在', 404)
     }
 
     const body = await req.json() as { filename: string; content: string }
 
     if (!body.filename || !body.content) {
-      return Response.json({ error: 'filename 和 content 为必填' }, { status: 400 })
+      throw new HttpError('filename 和 content 为必填', 400)
     }
     // 文档内容上限（200KB——分块/嵌入成本控制）
     body.content = String(body.content).slice(0, 200_000)
@@ -113,7 +114,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
       .run()
     if (!agent) {
-      return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
+      throw new HttpError('知识库 Agent 不存在', 404)
     }
 
     // 解析 multipart/form-data
@@ -121,7 +122,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
     try {
       formData = await req.formData()
     } catch {
-      return Response.json({ error: '请求格式错误，需要 multipart/form-data' }, { status: 400 })
+      throw new HttpError('请求格式错误，需要 multipart/form-data', 400)
     }
 
     const uploaded: Array<{ filename: string; content: string }> = []
@@ -186,17 +187,17 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
       .run()
     if (!agent) {
-      return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
+      throw new HttpError('知识库 Agent 不存在', 404)
     }
 
     const body = await req.json() as { documents: Array<{ filename: string; content: string }> }
 
     if (!body.documents || !Array.isArray(body.documents) || body.documents.length === 0) {
-      return Response.json({ error: 'documents 为必填，需包含 filename 和 content 的数组' }, { status: 400 })
+      throw new HttpError('documents 为必填，需包含 filename 和 content 的数组', 400)
     }
 
     if (body.documents.length > 20) {
-      return Response.json({ error: '单次最多上传 20 个文档' }, { status: 400 })
+      throw new HttpError('单次最多上传 20 个文档', 400)
     }
 
     const results = []
@@ -234,7 +235,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .select('d.id')
       .where(and({ 'd.id': { eq: params.id }}, { 'a.app_id': { eq: String(appId) } }))
       .run()
-    if (!own) return Response.json({ error: '文档不存在' }, { status: 404 })
+    if (!own) throw new HttpError('文档不存在', 404)
     const result = await T.kb_documents
       .delete()
       .where(eq(T.kb_documents.c.id, params.id))
@@ -242,7 +243,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .run()
 
     if (result.length === 0) {
-      return Response.json({ error: '文档不存在' }, { status: 404 })
+      throw new HttpError('文档不存在', 404)
     }
     return Response.json({ success: true })
   })
@@ -258,7 +259,7 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
       .run()
     if (!agent) {
-      return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
+      throw new HttpError('知识库 Agent 不存在', 404)
     }
 
     const docs = await T.kb_documents
@@ -315,12 +316,12 @@ export function registerKnowledgeRoutes(app: Router<AppCtx>): void {
       .where(and(eq(T.agents.c.id, params.id), eq(T.agents.c.app_id, appId), eq(T.agents.c.type, 'knowledge_base')))
       .run()
     if (!agent) {
-      return Response.json({ error: '知识库 Agent 不存在' }, { status: 404 })
+      throw new HttpError('知识库 Agent 不存在', 404)
     }
 
     const body = await req.json() as { query: string; top_k?: number }
     if (!body.query) {
-      return Response.json({ error: 'query 为必填' }, { status: 400 })
+      throw new HttpError('query 为必填', 400)
     }
 
     const topK = body.top_k ?? 5
