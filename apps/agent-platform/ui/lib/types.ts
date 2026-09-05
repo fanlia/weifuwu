@@ -2,9 +2,14 @@
  * agent-platform 共享类型 — API 实体与页面状态（Wave 5：页面状态类型化）
  *
  * 后端返回结构对齐 src/routes/*.ts（字段缺省可空——后端宽松，前端兜底）。
+ *
+ * W0 fullstack：Agent/Department 行类型从后端 SHAPES 单源派生（`import type`——
+ * 运行时零代码零打包泄漏）——查询附加字段（token_usage/members 等）交叉扩展。
  */
 
 /** Agent 类型 */
+import type { RowOf } from 'weifuwu'
+import type { SHAPES } from '../../src/db/shapes.ts'
 export type AgentType = 'ai' | 'user' | 'webhook' | 'knowledge_base' | 'department'
 
 /** 类型元数据单源（AGENT-TYPES-OPTIMIZE W4）——label/icon/color/desc/creatable
@@ -35,55 +40,21 @@ export interface TokenUsage {
   run_count: number
 }
 
-export interface Agent {
-  id: string
-  app_id?: string
-  type: AgentType
-  name: string
-  avatar_url?: string | null
-  description?: string | null
-  model?: string | null
-  system_prompt?: string | null
-  temperature?: number | null
-  max_tokens?: number | null
-  human_in_the_loop?: boolean
-  user_id?: string | null
-  webhook_url?: string | null
-  chunk_size?: number | null
-  chunk_overlap?: number | null
-  tools?: string[] | null
-  is_active?: boolean
-  workspace_path?: string | null
-  allow_file_tools?: boolean
-  allow_command_exec?: boolean
-  webhook_secret?: string | null
-  webhook_retry_count?: number | null
-  created_at?: string
-  updated_at?: string
+/** Agent 行类型——shape 单源派生（W0 fullstack——字段与 SHAPES.agents 零漂移） */
+export type Agent = RowOf<(typeof SHAPES)['agents']> & {
   /** GET /api/agents 附加（ai 类型） */
   token_usage?: TokenUsage
   /** GET /api/agents/:id 附加（user 类型绑定账号） */
   bound_email?: string | null
   bound_user_name?: string | null
   /** GET /api/agents/:id 详情附加（角色/专家/配额——AgentDetail 使用） */
-  role_label?: string | null
-  expertise?: string | null
-  monthly_token_quota?: number | null
   quota_used?: number | null
   memory?: string | null
-  light_model?: string | null
-  risk_policy?: string | null
   whisper_enabled?: boolean | null
   whisper_agent_id?: string | null
   memory_loaded?: boolean | null
-  webhook_platform?: string | null
-  im_bind_dept?: string | null
-  kb_id?: string | null
-  allow_network?: boolean
-  department_id?: string | null
 }
 
-/** 部门成员（department_members join agents——后端 SELECT a.id 别名 id） */
 export interface Member {
   /** agent id（后端 SELECT a.id） */
   id: string
@@ -95,26 +66,20 @@ export interface Member {
   avatar_url?: string | null
 }
 
-export interface Department {
-  id: string
-  app_id?: string
-  name: string
-  description?: string | null
-  created_at?: string
+/** 部门行类型——shape 单源派生（W0 fullstack——description 死字段消灭——
+ *  后端 departments shape 无 description——前端 interface 曾双写） */
+export type Department = RowOf<(typeof SHAPES)['departments']> & {
+  /** 部门列表附加（成员统计/会话预览——后端查询 join） */
   member_count?: number
   /** 人类成员数（UX-PLAN-2 波次 2——0 = 单 AI 待命间：列表引导加人而非发消息） */
   human_count?: number
   /** GET /api/departments 附加（会话列表） */
   last_message?: string | null
   last_message_at?: string | null
-  /** 产物审批模式（2026-12） */
-  artifact_review?: boolean
+  /** 部门成员（department_members join agents） */
   members?: Member[]
-  /** 部门列表附加 */
-  is_dm?: boolean
 }
 
-/** 消息工具调用卡 */
 export interface MessageTool {
   name: string
   args?: unknown
