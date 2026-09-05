@@ -169,7 +169,8 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
         webhook_retry_count: body.webhook_retry_count ?? 3,
         chunk_size: body.chunk_size ?? 500,
         chunk_overlap: body.chunk_overlap ?? 50,
-        tools: body.tools ?? [],
+        // W3 确定面：写入口归一（客户端可能传 JSON 字符串——入库恒对象——读面不再容错）
+        tools: typeof body.tools === 'string' ? JSON.parse(body.tools) : (body.tools ?? []),
         workspace_path: body.workspace_path ?? null,
         allow_file_tools: body.allow_file_tools ?? false,
         allow_command_exec: body.allow_command_exec ?? false,

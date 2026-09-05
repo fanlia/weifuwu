@@ -22,6 +22,10 @@ import type { ZodType } from '../../shared/zod.ts'
 import { createOrm, memoryAdapter } from './orm.ts'
 
 interface MemoryTable {
+  /** 状态机：declared=声明（applySchema/DDL——列集/类型/约束来自声明——确定）
+   *  observed=观测（insert 直建无 DDL——列集=行键事实——类型未知）
+   *  absent 不入表（tables Map 无键——访问即 42P01）——状态转换守卫见 obtain/declare 约束 */
+  state: 'declared' | 'observed'
   rows: Row[]
   nextId: number
   /** DDL 解析的约束：pk（DEFAULT 生成列）、unique 列、复合唯一组、DEFAULT now() 列 */
@@ -40,6 +44,7 @@ interface MemoryTable {
 
 /** 事务快照表条目（rows + 元数据副本——restore 需复活事务内 DROP 掉的表） */
 export interface MemorySnapshotEntry {
+  state: 'declared' | 'observed'
   rows: Row[]
   nextId: number
   columns: string[]
@@ -82,17 +87,26 @@ export class MemorySql {
     return this.jsonDecodeRows(q.table, result)
   }
 
-  /** jsonb 列读取解码（对齐真库驱动 convertValue(114/3802) → JSON.parse） */
+  /** jsonb 列读取解码（对齐真库驱动 convertValue(114/3802) → JSON.parse）
+   * 状态机行为矩阵（W3）：
+   *  - declared：columnTypes 判定（jsonb 列解码——确定）
+   *  - observed：行键值启发（JSON 可解析且结果为对象/数组 → 解码——列型未知的
+   *    诚实降级；text 列存 '[..]' 字符串会被解码——透明注记在 inspectTable） */
   private jsonDecodeRows(table: string | undefined, result: QueryResult<Row>): QueryResult<Row> {
     if (!table || !this.tables.has(table)) return result
-    const types = this.tables.get(table)!.columnTypes
-    const jsonCols = new Set(Object.entries(types).filter(([, t]) => /^jsonb?$/i.test(t)).map(([c]) => c))
-    if (!jsonCols.size) return result
+    const t = this.tables.get(table)!
+    const types = t.columnTypes
+    const declaredJson = new Set(Object.entries(types).filter(([, ty]) => /^jsonb?$/i.test(ty)).map(([c]) => c))
+    const inspect = (v: unknown): boolean => {
+      if (typeof v !== 'string') return false
+      try { const p = JSON.parse(v); return typeof p === 'object' && p !== null } catch { return false }
+    }
     for (const row of result) {
       if (typeof row !== 'object' || row === null) continue
       for (const k of Object.keys(row)) {
         const bare = k.includes('.') ? k.slice(k.lastIndexOf('.') + 1) : k
-        if (jsonCols.has(bare) && typeof row[k] === 'string') {
+        const isJson = t.state === 'declared' ? declaredJson.has(bare) : inspect(row[k])
+        if (isJson && typeof row[k] === 'string') {
           try { row[k] = JSON.parse(row[k] as string) } catch { /* 非 JSON 字符串——原样 */ }
         }
       }
@@ -300,7 +314,8 @@ export class MemorySql {
   }
 
   private execInsert(q: import('./query.ts').InsertQuery): QueryResult<Row> {
-    const t = this.table(q.table)
+    // 状态机：表不存在（absent）→ observed（insert 直建——行键事实列集；DDL/声明表已存在则取既有）
+    const t = this.obtain(q.table)
     const results: Row[] = []
     let inserted = 0
     const mapped = q.rows.map((r) => {
@@ -439,15 +454,56 @@ export class MemorySql {
     }
   }
 
+  /** 状态机获取：absent 访问显式拒绝（42P01——对齐真库——join 未注册表不再静默空表） */
   private table(name: string): MemoryTable {
+    const t = this.tables.get(name)
+    if (!t) throw new ProtocolError('relation', `memory-sql: 表 '${name}' 不存在（relation does not exist——对齐真库 42P01）`)
+    return t
+  }
+
+  /** 状态机唯一创建点：absent → 空表（state 由调用方转换——declare 或 observe） */
+  private obtain(name: string): MemoryTable {
     let t = this.tables.get(name)
-    if (!t) { t = { rows: [], nextId: 1, uniques: new Set(), groups: [], defaultNow: new Set(), defaultVals: new Map(), columns: [], columnTypes: {} }; this.tables.set(name, t) }
+    if (!t) {
+      t = { state: 'observed', rows: [], nextId: 1, uniques: new Set(), groups: [], defaultNow: new Set(), defaultVals: new Map(), columns: [], columnTypes: {} }
+      this.tables.set(name, t)
+    }
+    return t
+  }
+
+  /** 状态机转换：declared（声明态——applySchema/executeDdl(createTable) 调用） */
+  private toDeclared(name: string): MemoryTable {
+    const t = this.obtain(name)
+    t.state = 'declared'
     return t
   }
 
   /** 表是否存在（PG 服务器 42P01 检查——内存惰性建表 vs 真库报错） */
   hasTable(table: string): boolean {
     return this.tables.has(table)
+  }
+
+  /** 状态可见面（W3 状态机——透明契约）：状态 + 列集 + 类型 + 约束快照——测试断言用 */
+  inspectTable(table: string): {
+    state: 'declared' | 'observed'
+    columns: string[]
+    columnTypes: Record<string, string>
+    constraints: { pk?: { col: string; defaultUuid: boolean }; uniques: string[]; groups: string[][]; defaultNow: string[]; defaultVals: Record<string, unknown> }
+  } {
+    const t = this.tables.get(table)
+    if (!t) throw new ProtocolError('relation', `memory-sql: 表 '${table}' 不存在（42P01）`)
+    return {
+      state: t.state,
+      columns: [...t.columns],
+      columnTypes: { ...t.columnTypes },
+      constraints: {
+        pk: t.pk ? { ...t.pk } : undefined,
+        uniques: [...t.uniques],
+        groups: t.groups.map((g) => [...g]),
+        defaultNow: [...t.defaultNow],
+        defaultVals: { ...t.defaultVals },
+      },
+    }
   }
 
   /** PG 服务器 Describe：列类型 → OID 推断辅助 */
@@ -472,6 +528,7 @@ export class MemorySql {
         pk: t.pk ? { ...t.pk } : undefined,
         uniques: [...t.uniques],
         groups: t.groups.map((g) => [...g]),
+        state: t.state,
         defaultNow: [...t.defaultNow],
         defaultVals: Object.fromEntries(t.defaultVals),
       })
@@ -484,6 +541,7 @@ export class MemorySql {
     const restored = new Set<string>()
     for (const [name, e] of snap) {
       this.tables.set(name, {
+        state: e.state,
         rows: e.rows.map((r) => ({ ...r })),
         nextId: e.nextId,
         columns: [...e.columns],
@@ -504,7 +562,9 @@ export class MemorySql {
   /** 声明式 Schema 应用（applySchema——SchemaModule → 元数据直构造；与 DDL 解析器同落点） */
   applySchema(mod: import('./schema.ts').SchemaModule): void {
     for (const t of mod.tables ?? []) {
-      const tbl = this.table(t.name)
+      // 状态机：absent/observed → declared（applySchema 是声明权威——观察态表被声明采纳
+      // ——列集/类型以声明为准（覆盖观察行键面——行为矩阵：declared 态确定性）
+      const tbl = this.toDeclared(t.name)
       tbl.columns = []
       tbl.columnTypes = {}
       for (const [field, ztRaw] of Object.entries(t.columns)) {
@@ -525,7 +585,7 @@ export class MemorySql {
   /** DDL 执行（parser 产出 DdlQuery）——约束提取到表元数据 */
   private executeDdl(stmt: Extract<Query, { kind: 'ddl' }>): QueryResult<Row> {
     if (stmt.op === 'createTable' && stmt.table) {
-      const t = this.table(stmt.table)
+      const t = this.toDeclared(stmt.table)
       // 列定义（table-constraint 不是列——不进屋列序/类型——只贡献约束）
       const defs = (stmt.columns ?? []).filter((c) => c.type !== 'table-constraint')
       // 表列序（无列名 INSERT 按序映射——CREATE 时覆盖）+ 列类型（Describe OID）

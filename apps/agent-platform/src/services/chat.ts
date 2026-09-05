@@ -288,7 +288,7 @@ export async function handleNewMessage(
     rosterText: buildRosterText(rosterMembers, String(agent.id)),
     selfName: String(agent.name),
   })
-      const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
+      const tools = agent.tools ?? [] // W3: 写入面归一（route 收口）+ 双端 decode——读面直接取（容错删除——A1 闭合）
 
       // 加载 Agent 已启用的技能
       const preloadedSkills: import('./skills.ts').SkillContext[] = []
@@ -453,7 +453,7 @@ async function runAgentStreamForAgent(
     rosterText: buildRosterText(rosterMembers, String(agent.id)),
     selfName: String(agent.name),
   }) + QUICK_REPLY_GUIDE + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (workspaceLayer ? '\n\n' + workspaceLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : '')
-  const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
+  const tools = agent.tools ?? [] // W3: 写入面归一（route 收口）+ 双端 decode——读面直接取（容错删除——A1 闭合）
   const preloadedSkills = await loadAgentSkills(ctx, String(agent.id))
 
   // 消息占位（SSE 路径在内部创建）——msgId 在 try 外声明（B.1 兜底 catch 可访问）
@@ -913,7 +913,7 @@ async function runAllAgents(
         departmentId,
         systemPrompt: (agent.system_prompt ?? '你是一个有帮助的 AI 助手。') + '\n\n' + buildPersonaLayer({ rosterText: buildRosterText(rosterMembers, String(agent.id)), selfName: String(agent.name) }) + QUICK_REPLY_GUIDE + (groupMemoryLayer ? '\n\n' + groupMemoryLayer : '') + (workspaceLayer ? '\n\n' + workspaceLayer : '') + (attachmentLayer ? '\n\n' + attachmentLayer : ''),
         model: agent.model,
-        tools: typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? []),
+        tools: agent.tools ?? [], // W3: 写入面归一 + 双端 decode——容错删除
         maxSteps: agent.max_tokens ? Math.min(agent.max_tokens, 20) : 10,
         humanInTheLoop: true,
         preloadedSkills: await loadAgentSkills(ctx, String(agent.id)),

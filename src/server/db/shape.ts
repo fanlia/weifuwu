@@ -38,8 +38,6 @@ export interface FieldDbMeta extends ZodMeta {
   references?: string
   /** 级联（ON DELETE） */
   onDelete?: 'cascade' | 'set null' | 'restrict'
-  /** 软删除标记（查询自动过滤——W7 钩子消费） */
-  softDelete?: boolean
 }
 
 export interface DbField {
@@ -93,7 +91,6 @@ export function shape<S extends ZodRawShape>(def: {
       ...(m.default !== undefined ? { default: m.default } : {}),
       ...(m.references ? { references: m.references } : {}),
       ...(m.onDelete ? { onDelete: m.onDelete } : {}),
-      ...(m.softDelete ? { softDelete: true } : {}),
     }
     if (m.pk) pkField = name
   }
@@ -168,6 +165,4 @@ export const f = {
   now: <T extends ZodType>(t: T): T => withMeta(t, { default: 'now' }),
   /** 唯一 */
   unique: <T extends ZodType>(t: T): T => withMeta(t, { unique: true }),
-  /** 软删除标记 */
-  soft: <T extends ZodType>(t: T): T => withMeta(t, { softDelete: true }),
 }

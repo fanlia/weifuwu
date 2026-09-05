@@ -84,7 +84,7 @@ export async function rollbackVersion(ctx: AppCtx, agentId: string, versionId: s
   ]
   const patch: Record<string, unknown> = { updated_at: ops.now() }
   for (const f of sets) {
-    if (snap[f] !== undefined) patch[f] = f === 'tools' ? (typeof snap[f] === 'string' ? JSON.parse(snap[f]) : snap[f]) : snap[f]
+    if (snap[f] !== undefined) patch[f] = snap[f] // W3: snapshot 入库恒对象（versions 自己存）——tools 容错删除
   }
   await T.agents
     .update(patch)

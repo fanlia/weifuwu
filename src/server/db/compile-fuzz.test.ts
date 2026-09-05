@@ -49,7 +49,7 @@ test('compile fuzz：AST 生成 → 编译不变量 + 内存执行（200 对/种
     }
     const C = { id: { ref: 'id', __out: 0 as number }, name: { ref: 'name', __out: '' as string }, st: { ref: 'st', __out: '' as string }, val: { ref: 'val', __out: 0 as number } }
     for (let i = 0; i < 200; i++) {
-      const kind = Math.floor(rnd() * 10)
+      const kind = Math.floor(rnd() * 11)
       const n = Math.floor(rnd() * 20)
       let w: unknown
       if (kind === 0) w = eq(C.id, n)
@@ -61,6 +61,8 @@ test('compile fuzz：AST 生成 → 编译不变量 + 内存执行（200 对/种
       else if (kind === 6) w = and(eq(C.id, n), gt(C.val, n - 5))
       else if (kind === 7) w = or(eq(C.st, 'x'), eq(C.st, 'y'))
       else if (kind === 8) w = ilike(C.name, `${words[n % words.length]}%`)
+      // W3 盲区闭合：eq:null（O1 分裂修复——编译 IS NULL / 内存判空双端一致）
+      else if (kind === 9) w = eq(C.st, null)
       else w = and(eq(C.st, 'x'), or(eq(C.id, n), contains(C.name, 'a')))
       const direct = await sql.query.from('fz').select('id', 'name', 'st', 'val').where(w as never).run()
       const compiled = compileQuery({ kind: 'select', table: 'fz', cols: ['id', 'name', 'st', 'val'], where: w as never })

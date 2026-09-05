@@ -410,7 +410,7 @@ export async function streamAgentPreview(
   write: (chunk: string) => void,
 ): Promise<void> {
   const { ai, sql } = ctx
-  const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
+  const tools = agent.tools ?? [] // W3: 同上
   const preloadedSkills = await loadAgentSkillsPreview(ctx.orm, agent.id, ctx)
   const config: AgentRunnerConfig = {
     agentId: agent.id,

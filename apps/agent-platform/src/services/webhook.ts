@@ -238,7 +238,7 @@ export async function handleWebhookMessage(
   }
 
   const systemPrompt = agent.system_prompt ?? '你是一个 Webhook Bot。'
-  const tools = typeof agent.tools === 'string' ? JSON.parse(agent.tools) : (agent.tools ?? [])
+  const tools = agent.tools ?? [] // W3: 写入面归一 + 双端 decode——容错删除
   const retryCount = agent.webhook_retry_count ?? 3
 
   // B1：conversation_id 会话记忆——同一会话的多轮调用保持上下文（最近 10 轮）

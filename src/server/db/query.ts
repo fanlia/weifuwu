@@ -290,7 +290,10 @@ function compileWhere(expr: WhereExpr, params: unknown[]): string {
         return param(params, v)
       }
       if (ops.col !== undefined) parts.push(`${col} = ${ops.col}`) // 列引用与其余操作符可并存（AND 语义——不短路）
-      if (ops.eq !== undefined) opParts.push(['=', val(ops.eq)])
+      // O1 确定化（W3）：`{ eq: null }` 编译 IS NULL——双端判空一致（真库 `= NULL` 恒假 vs 内存 deepEq 判 true 的分裂修复——
+      // SQL 语义正确化：写 eq:null 的意图即判空——与 isNull 同语义（isNull 保留显式面）
+      if (ops.eq === null) opParts.push(['IS', 'NULL'])
+      else if (ops.eq !== undefined) opParts.push(['=', val(ops.eq)])
       if (ops.gt !== undefined) opParts.push(['>', val(ops.gt)])
       if (ops.gte !== undefined) opParts.push(['>=', val(ops.gte)])
       if (ops.lt !== undefined) opParts.push(['<', val(ops.lt)])

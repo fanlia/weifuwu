@@ -190,8 +190,7 @@ describe('query language — memory 执行面', () => {
   })
 
   it('DELETE + RETURNING + affectedRows', async () => {
-    const rows = await sql.query.delete('t2').where({ a: { eq: 1 } }).run()
-    assert.equal(rows.length, 0)
+    // 状态机（W3）：DELETE 未注册表 = 42P01（对齐真库——不再静默建空表）——先建表（insert 直建 observed）
     await sql.query.insert('t2').values({ a: 2 }).run()
     const res = await sql.query.delete('t2').where({ a: { eq: 2 } }).returning('a').run()
     assert.equal(res.length, 1)
