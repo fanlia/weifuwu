@@ -440,7 +440,7 @@ export function compileQuery(q: Query): Compiled {
     case 'insert': return compileInsert(q)
     case 'update': return compileUpdate(q)
     case 'delete': return compileDelete(q)
-    case 'ddl': throw new ProtocolError('memory-sql: DDL 不走 Query Language（用 sql.unsafe 字符串——真库直接执行）')
+    case 'ddl': throw new ProtocolError('memory-sql: DDL 不走 Query Language——声明式 migrateModule（SchemaModule）或迁移面 runMigration(name, sql)')
   }
 }
 

@@ -167,7 +167,7 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
         return b
       },
       async run(): Promise<Row[]> {
-        if (!ast.where) throw new ValidationError('weifuwu/db: UPDATE 必须带 WHERE（全表更新用 unsafe 显式）')
+        if (!ast.where) throw new ValidationError('weifuwu/db: UPDATE 必须带 WHERE（全表更新是危险操作——逐批 where 或迁移面显式执行）')
         return exec(ast)
       },
       toQuery(): UpdateQuery {
@@ -189,7 +189,7 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
         return b
       },
       async run(): Promise<Row[]> {
-        if (!ast.where) throw new ValidationError('weifuwu/db: DELETE 必须带 WHERE（全表删除用 unsafe 显式）')
+        if (!ast.where) throw new ValidationError('weifuwu/db: DELETE 必须带 WHERE（全表清空是危险操作——迁移面 runMigration 显式执行）')
         return exec(ast)
       },
       toQuery(): DeleteQuery {
