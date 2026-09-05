@@ -151,9 +151,9 @@ async function runAgents(source: string) {
 
 test('gql：enum 列——字面量输入（不带引号）+ 输出序列化 + 过滤面', async () => {
   const ins = await runAgents(`mutation { agentsInsert(data: { app_id: "a1000000-0000-4000-8000-000000000001", name: "enum甲", type: ai }) { id type } }`)
-  assert.equal((ins.agentsInsert as { type: string }).type, 'ai', '输出序列化')
+  assert.equal((ins.agentsInsert as { type: string; name: string }).type, 'ai', '输出序列化')
   const list = await runAgents(`query { agentsList(filter: { type: { eq: ai } }) { name type } }`)
-  assert.ok((list.agentsList as { type: string }[]).some((a) => a.name === 'enum甲'), 'enum 过滤面')
+  assert.ok((list.agentsList as { type: string; name: string }[]).some((a) => a.name === 'enum甲'), 'enum 过滤面')
   // 字符串输入 ≠ enum 字面量（GraphQL 规范）——执行错误
   const r = await graphql({ schema: agentsSchema, source: `mutation { agentsInsert(data: { app_id: "a1000000-0000-4000-8000-000000000001", name: "bad", type: "ai" }) { id } }`, contextValue: ctx })
   assert.ok(r.errors?.length, 'StringValue 不能表示 enum——规范错误')

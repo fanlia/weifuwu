@@ -319,7 +319,7 @@ test('orm：real shape（列名映射·toDb·变体面）', async () => {
 
 test('orm.gql：端到端（SDL+resolver 挂接 orm——内置链路执行）', async () => {
   const gql = orm.gql(Agent)
-  const schema = makeExecutableSchema({ typeDefs: (gql as { typeDefs: string }).typeDefs, resolvers: (gql as { resolvers: never }).resolvers })
+  const schema = makeExecutableSchema({ typeDefs: gql.typeDefs, resolvers: gql.resolvers })
   const r = await graphql({ schema, source: 'mutation { agentsInsert(data: { appId: "a1000000-0000-4000-8000-000000000001", name: "GQL助手", type: ai }) { id name type } }' })
   assert.ok(!r.errors, r.errors?.map((e) => e.message).join('; '))
   const ins = (r.data as { agentsInsert: { id: string; name: string; type: string } }).agentsInsert

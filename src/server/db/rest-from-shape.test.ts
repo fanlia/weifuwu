@@ -8,6 +8,7 @@
 import assert from 'node:assert/strict'
 import { test, before } from 'node:test'
 import { Router } from '../core/router.ts'
+import type { Handler, Context } from '../types.ts'
 import { postgres } from '../postgres/client.ts'
 import { restFromShape } from './rest-from-shape.ts'
 import { shape, f } from './shape.ts'
@@ -25,7 +26,7 @@ const Agents = shape({
 })
 
 let pg: ReturnType<typeof postgres>
-let handle: (req: Request, ctx?: unknown) => Promise<Response>
+let handle: Handler<Context>
 let ID_A = ''
 let ID_B = ''
 
@@ -55,12 +56,13 @@ before(async () => {
   handle = app.handler()
 })
 
-function req(method: string, path: string, body?: unknown, ctx?: unknown): Promise<Response> {
-  return handle(new Request(`http://localhost${path}`, {
+function req(method: string, path: string, body?: unknown, ctx?: object): Promise<Response> {
+  // Handler 允许同步/异步返回——Promise.resolve 归一（类型面）
+  return Promise.resolve(handle(new Request(`http://localhost${path}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
-  }) as never, { params: {}, query: {}, appId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ...(ctx as object) } as never)
+  }) as never, { params: {}, query: {}, appId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ...ctx } as never))
 }
 
 // ── 路由矩阵 ──────────────────────────────────────────────
@@ -140,8 +142,8 @@ test('W4：orm.rest 入口——与 restFromShape 同构（__shape 单源）', a
   app3.use(pg)
   const rest = pg.orm.rest(pg.orm.table('agentes'), { hidden: ['secret'] })
   rest.mount(app3 as never, '/api/agentes3')
-  const h3 = app3.handler() as unknown as (req: Request, ctx: unknown) => Promise<Response>
-  const r = await h3(new Request('http://localhost/api/agentes3', { method: 'GET' }), { params: {}, query: {}, appId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' })
+  const h3 = app3.handler()
+  const r = await h3(new Request('http://localhost/api/agentes3', { method: 'GET' }), { params: {}, query: {}, appId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' } as never)
   assert.equal(r.status, 200)
   const body = await r.json() as { agentes: { name: string }[] }
   assert.ok(body.agentes.some((x) => x.name === '甲'), '入口面与 restFromShape 同输出')
@@ -163,11 +165,11 @@ test('W4：hooks——beforeList 权限守卫（viewer 拒绝）+ afterList 响�
       afterList: (rows) => rows.map((r) => ({ ...r, annotated: true })),
     },
   }).mount(app2 as never, '/api/agentes2')
-  const h2 = app2.handler() as unknown as (req: Request, ctx: unknown) => Promise<Response>
-  const ok = await h2(new Request('http://localhost/api/agentes2', { method: 'GET' }), { params: {}, query: {}, appId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' })
+  const h2 = app2.handler()
+  const ok = await h2(new Request('http://localhost/api/agentes2', { method: 'GET' }), { params: {}, query: {}, appId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' } as never)
   assert.equal(ok.status, 200)
   const body = await ok.json() as { agentes: { annotated?: boolean }[] }
   assert.ok(body.agentes.every((x) => x.annotated), 'afterList 增强生效')
-  const denied = await h2(new Request('http://localhost/api/agentes2', { method: 'GET' }), { params: {}, query: {}, appId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', role: 'viewer' })
+  const denied = await h2(new Request('http://localhost/api/agentes2', { method: 'GET' }), { params: {}, query: {}, appId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', role: 'viewer' } as never)
   assert.equal(denied.status, 400, 'beforeList 抛错 → 400（业务守卫拒绝——接缝生效）')
 })
