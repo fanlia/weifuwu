@@ -5,10 +5,9 @@
  */
 
 import type { Router } from 'weifuwu'
-import { ops, and, eq, ne } from 'weifuwu'
+import { ops, and, eq, ne, bodyOf, listQuery, errorResponse } from 'weifuwu'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { streamAgentPreview } from '../services/agent-runner.ts'
-import { AGENT_TYPE_LIST } from '../../ui/lib/types.ts'
 import { tables } from '../db/orm.ts'
 
 /** 内置工具定义——单源：tools/builtin.ts（防止双份漂移——route 面 = 注册面） */
@@ -31,15 +30,13 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
   app.get('/api/agents', async (req: Request, ctx: AppCtx): Promise<Response> => {
     const { orm, appId } = ctx
     const url = new URL(req.url)
-    const type = url.searchParams.get('type')
-    const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10))
-    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50', 10)))
 
-    // W1 试点：ctxTable 自动 scope（tenant 接线——app_id 自动预置——手写过滤删除）
-    // W5 试点：paginate 收口（count+list 双查单调用——list/count 同一 scope 面）
-    const typeOk = !!type && AGENT_TYPE_LIST.includes(type as any)
+    // W4 试点：手写 parseInt ×2 + typeOk 白名单 → listQuery（行为等价——枚举白名单
+    // 显式 400（原静默忽略非法 type——不静默改进）；sort 固定 created_at desc）
+    try {
+    const { filter: qFilter, limit, offset } = listQuery(url, tables(orm).agents as never, { defaultLimit: 50 })
     const page = await orm.ctxTable('agents').paginate({
-      filter: typeOk ? { type: { eq: type } } : undefined,
+      filter: qFilter as never,
       sort: [{ field: 'created_at', dir: 'desc' }],
       limit,
       offset,
@@ -65,6 +62,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
     }
 
     return Response.json({ agents: agentsWithStats, total })
+    } catch (e) { return errorResponse(e) }
   })
 
   // ── 创建 Agent ───────────────────────────────────────────
@@ -78,44 +76,11 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       return Response.json({ error: e?.message ?? '无权操作' }, { status: e?.status ?? 403 })
     }
     const { orm, appId } = ctx
-    const body = await req.json() as {
-      type: string
-      name: string
-      description?: string
-      avatar_url?: string
-      // AI
-      model?: string
-      system_prompt?: string
-      temperature?: number
-      max_tokens?: number
-      human_in_the_loop?: boolean
-      tools?: unknown[]
-      // User
-      user_id?: string
-      // Webhook
-      webhook_url?: string
-      kb_id?: string | null
-      webhook_secret?: string
-      webhook_retry_count?: number
-      // Knowledge Base
-      chunk_size?: number
-      chunk_overlap?: number
-      // Workspace
-      workspace_path?: string
-      allow_file_tools?: boolean
-      allow_command_exec?: boolean
-      // 组织层级（type='department' 部门经理）
-      department_id?: string
-      allow_network?: boolean
-    }
-
-    if (!body.type || !body.name) {
-      return Response.json({ error: 'type 和 name 为必填' }, { status: 400 })
-    }
-
-    if (!AGENT_TYPE_LIST.includes(body.type as any)) {
-      return Response.json({ error: 'type 必须是 ai/user/webhook/knowledge_base/department 之一' }, { status: 400 })
-    }
+    // W4 试点：手写 body 类型 30 行 + 必填/枚举校验 → bodyOf（shape 单源——
+    // type/name 必填 + enum 白名单自动；app_id 系统列 omit（tenant 注入面）
+    const T = tables(orm)
+    try {
+    const body = await bodyOf(req, T.agents, { variant: 'insert', omit: ['app_id'] })
     // user 类型仅允许注册/内部流程创建（绑定 user_id）——API 直调创建孤儿 user agent 防护
     if (body.type === 'user' && !body.user_id) {
       return Response.json({ error: 'user 类型必须绑定用户账号（由注册流程创建）' }, { status: 400 })
@@ -144,7 +109,6 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       managerPrompt = body.system_prompt ?? null
     }
 
-    const T = tables(orm)
     const [agent] = await T.agents
       .insert({
         app_id: appId,
@@ -195,6 +159,7 @@ export function registerAgentRoutes(app: Router<AppCtx>): void {
       }
     }
     return Response.json({ agent }, { status: 201 })
+    } catch (e) { return errorResponse(e) }
   })
 
   // ── 获取单个 Agent ───────────────────────────────────────

@@ -95,13 +95,13 @@ export interface Shape<S extends ZodRawShape = ZodRawShape> {
   /** infers */
   output: { [K in keyof S]: Infer<S[K]> }
   /** 插入变体（省略 auto 列：pk+random/now 默认——类型面 = 输入行 BodyOf） */
-  insertSchema(): ZodType<BodyOf<S>>
+  insertSchema(opts?: { omit?: string[] }): ZodType<BodyOf<S>>
   /** 字段名 → 列名翻译（写入面：shape 字段名 → db 列名） */
   toDb(record: object): Record<string, unknown>
   /** 列名 → 字段名翻译（读取面：db 行 → shape 字段名——GraphQL/API 输出） */
   fromDb(record: object): Record<string, unknown>
   /** 更新变体（全字段 optional——部分更新面——类型面 = PatchOf） */
-  updateSchema(): ZodType<PatchOf<S>>
+  updateSchema(opts?: { omit?: string[] }): ZodType<PatchOf<S>>
 }
 
 /** DB 字段 meta 装饰快捷（zod schema 上挂 meta——db 列语义） */
@@ -136,10 +136,12 @@ export function shape<S extends ZodRawShape>(def: {
     const m = dbFields[name]
     return m?.default === 'random' || m?.default === 'now'
   }
-  ;(sig as unknown as { insertSchema: () => ZodType<BodyOf<S>> }).insertSchema = () => {
+  ;(sig as unknown as { insertSchema: (o?: { omit?: string[] }) => ZodType<BodyOf<S>> }).insertSchema = (o = {}) => {
     const entries: Record<string, unknown> = {}
     for (const [name, field] of Object.entries(def.fields)) {
       if (isAuto(name)) continue
+      // W4：系统列 omit（租户/服务端注入面——不校验不要求——注入面权威）
+      if (o.omit?.includes(name)) continue
       // DB 侧默认值列（default 显式存在）→ 可缺省（省略走 DB 默认）
       // nullable 列 → 可缺省（键缺 = DB NULL——nullable 语义即可选）
       const v = field as ZodType
@@ -170,10 +172,11 @@ export function shape<S extends ZodRawShape>(def: {
     }
     return out
   }
-  ;(sig as unknown as { updateSchema: () => ZodType<PatchOf<S>> }).updateSchema = () => {
+  ;(sig as unknown as { updateSchema: (o?: { omit?: string[] }) => ZodType<PatchOf<S>> }).updateSchema = (o = {}) => {
     const optionalized: Record<string, ZodType> = {}
     for (const [name, s] of Object.entries(def.fields)) {
       if (isAuto(name)) continue
+      if (o.omit?.includes(name)) continue
       optionalized[name] = (s as ZodType).optional()
     }
     return cleanUndefined(z.object(optionalized)) as unknown as ZodType<PatchOf<S>>

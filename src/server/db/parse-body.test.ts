@@ -106,3 +106,25 @@ test('W0：parseBody 接受 OrmTable（__shape 解包——与 orm 面同源）'
   assert.equal(d.type, 'user')
   void ZodString
 })
+
+test('W4：bodyOf omit——系统列（租户注入面）校验前剔除', async () => {
+  const sh = shape({
+    table: 'agents',
+    fields: {
+      id: f.pk(z.uuid()),
+      appId: f.req(f.col(z.uuid(), 'app_id')),
+      name: f.req(z.string()),
+      type: f.req(z.enum(['ai', 'user'])),
+    },
+  })
+  // app_id 传了也被忽略（注入面权威——不校验它的格式）
+  const body = await bodyOf(reqOf({ app_id: 'not-a-uuid', name: '助手', type: 'ai' }), sh, { omit: ['appId', 'id'] })
+  assert.equal(body.name, '助手')
+  // omit 键不在 schema 校验面（app_id 必填豁免——租户注入面承担）
+  const body2 = await bodyOf(reqOf({ name: 'x', type: 'user' }), sh, { omit: ['appId'] })
+  assert.equal(body2.type, 'user')
+
+  function reqOf(obj: unknown): Request {
+    return new Request('http://localhost/api/agents', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(obj) })
+  }
+})

@@ -65,7 +65,7 @@ export interface OrmTable<S extends ZodRawShape> {
   /** shape 定义（元数据/变体/校验——业务类型注入） */
   shapeDef: S
   /** 内部 shape 实体（gql 元数据消费） */
-  readonly __shape: unknown
+  readonly __shape: import('./shape.ts').Shape<S>
 }
 
 /** 租户 scope 配置（withCtx 自动注入面——平台 47 处手写 app_id 过滤收口） */

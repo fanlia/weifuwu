@@ -19,12 +19,16 @@ import { ValidationError } from './errors.ts'
 export interface BodyOfOptions {
   /** insert（缺省——裸行 body——省略 auto）· patch（全可选——部分更新） */
   variant?: 'insert' | 'patch'
+  /** 系统列（租户/服务端注入面）——校验前剔除（不变式：注入列声明面权威——
+   *  body 传该键被忽略而非校验——W4 试点（agents app_id）实证） */
+  omit?: string[]
 }
 
-type ShapeLike<S extends ZodRawShape> = Shape<S> | { __shape: Shape<S> }
+type ShapeLike<S extends ZodRawShape> = Shape<S> | { __shape: import('./shape.ts').Shape<S> }
 
 function shapeOf<S extends ZodRawShape>(s: ShapeLike<S>): Shape<S> {
-  return (s as { __shape?: Shape<S> }).__shape ?? (s as Shape<S>)
+  const sh = (s as { __shape?: unknown }).__shape
+  return sh ? (sh as Shape<S>) : (s as Shape<S>)
 }
 
 /** 校验错误聚合（字段路径 + 消息——可读优先——不是原始 issues 堆） */
@@ -55,7 +59,10 @@ export async function bodyOf<S extends ZodRawShape>(
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     throw new ValidationError(`参数校验失败：body 必须为对象`)
   }
-  const schema = opts.variant === 'patch' ? (sh.updateSchema() as ZodType<PatchOf<S>>) : (sh.insertSchema() as ZodType<BodyOf<S>>)
+  // omit：变体生成时剔除（required 豁免——系统列声明面权威——insert/update 同面）
+  const schema = opts.variant === 'patch'
+    ? (sh.updateSchema({ omit: opts.omit }) as ZodType<PatchOf<S>>)
+    : (sh.insertSchema({ omit: opts.omit }) as ZodType<BodyOf<S>>)
   try {
     return schema.parse(data) as BodyOf<S>
   } catch (e) {

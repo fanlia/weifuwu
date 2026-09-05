@@ -31,7 +31,10 @@ test('T2: creatable 语义——仅 user 不可创建（向导过滤——防 us
 
 test('T3: 后端无硬编码类型列表——agents.ts 消费单源', () => {
   const src = readFileSync(join(APP_ROOT, 'src/routes/agents.ts'), 'utf-8')
-  assert.ok(src.includes('AGENT_TYPE_LIST'), 'agents.ts 应引用 AGENT_TYPE_LIST 单源')
+  // W4 试点（更强）：枚举校验收口 bodyOf（shape enum 单源——AGENT_TYPE_LIST
+  // 引用也没有了——bodyOf 的 insertSchema 从 shape enum 校验——值集单源）
+  assert.ok(src.includes('bodyOf'), 'agents.ts 消费 bodyOf（shape enum 单源校验）')
+  assert.ok(!src.includes('AGENT_TYPE_LIST'), 'W4 收口后无 AGENT_TYPE_LIST 引用（bodyOf 单源更强）')
   assert.ok(!src.includes("'ai', 'user', 'webhook', 'knowledge_base'"), '消灭硬编码白名单（G5）')
 })
 
