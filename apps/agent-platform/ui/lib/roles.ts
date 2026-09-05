@@ -13,6 +13,8 @@
 
 export type ClientRole = 'owner' | 'admin' | 'member' | 'viewer' | 'unknown'
 
+import { hasCapability } from '../../src/shared/roles.ts'
+
 const ALL: ReadonlySet<string> = new Set(['owner', 'admin', 'member', 'viewer'])
 
 function readToken(): string | null {
@@ -35,15 +37,14 @@ export function clientRole(): ClientRole {
   return tokenRole() ?? 'unknown'
 }
 
-/** 部门消息/建 Agent 等 writer 面写权限（owner/member 合法——viewer/unknown 拒） */
+/** 部门消息/建 Agent 等 writer 面写权限——能力矩阵单源（src/shared/roles.ts） */
 export function canWrite(): boolean {
-  const r = clientRole()
-  return r === 'owner' || r === 'member' || r === 'admin'
+  return hasCapability(clientRole(), 'write')
 }
 
-/** 租户管理面（建删部门/邀请/审批操作）——仅 owner（波次 1 裁剪后唯一租户管理角色） */
+/** 租户管理面——仅 owner（能力矩阵单源） */
 export function isTenantOwner(): boolean {
-  return clientRole() === 'owner'
+  return hasCapability(clientRole(), 'tenant')
 }
 
 /** 禁用原因文案（tooltip/placeholder 用——引导而非惩罚——走查 P0 语义） */

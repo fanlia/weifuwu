@@ -56,6 +56,13 @@
 
 - W0（c4a223ee）：类型单源跨端——Agent/Department 从 SHAPES 派生（试点 2 个
   ——37 interface 开始下降）· 探针三面裁决（路径/循环/hover）· bundle 零泄漏
+- W2（本提交）：权限单源——src/shared/roles.ts（ROLES/CAPABILITIES/hasCapability
+  ——矩阵注释代码化——ASCII 表消失）· 后端 requireWriter → hasCapability(role,
+  'write')（viewer/unknown/null 拒——行为等价）· 前端 canWrite/isTenantOwner →
+  hasCapability（write/tenant 面——同源查表）· requireDeptManager 不并入
+  （部门级角色 vs 租户角色——语义不同——诚实边界）· 契约 3（write 矩阵/tenant
+  manage 面/声明闭合）+ 行为等价（auth 17/17 · messages 5/5 · ui agents/chat
+  12/12 · bundle 含 CAPABILITIES——单源面打包）
 - W1（本提交）：**端点注册表判负**——探针净结果：ui/ 面 api.* 调用 32 处
   （74 旧计数含口径漂移）——模板参数化后唯一端点 **26** 个——其中 >50% 是
   动作/子资源端点（approve/draft/feedback/memory/plan/status/ai-config/setup/

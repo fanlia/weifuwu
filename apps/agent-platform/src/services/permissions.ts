@@ -7,19 +7,11 @@
  *   member   普通成员：对话/使用已授权 Agent
  *   viewer   只读成员：查看全部，禁止任何写操作（发消息/建 Agent/管理）
  *
- * 能力矩阵：
- * ┌──────────────┬───────┬───────┬────────┬────────┐
- * │ 操作          │ owner │ admin │ member │ viewer │
- * ├──────────────┼───────┼───────┼────────┼────────┤
- * │ 发消息        │   ✓   │   ✓   │   ✓    │   ✗    │
- * │ 建 Agent      │   ✓   │   ✓   │   ✓    │   ✗    │
- * │ 建部门/加成员  │   ✓   │   ✓   │   ✗    │   ✗    │
- * │ 审批/编辑草稿  │   ✓   │   ✓   │   ✗    │   ✗    │
- * │ 邀请/计费     │   ✓   │   ✗   │   ✗    │   ✗    │
- * └──────────────┴───────┴───────┴────────┴────────┘
+ * 能力矩阵（单源——src/shared/roles.ts CAPABILITIES——本注释不再双维护）
  */
 
 import type { AppCtx } from '../middleware/ctx.ts'
+import { hasCapability } from '../shared/roles.ts'
 
 /** 查询用户的应用角色（owner/admin/member/viewer——框架 app_members role） */
 export async function appRoleOf(ctx: AppCtx, userId?: string): Promise<string | null> {
@@ -33,10 +25,11 @@ export async function appRoleOf(ctx: AppCtx, userId?: string): Promise<string | 
   return rows[0]?.role ? String(rows[0].role) : null
 }
 
-/** 禁止只读成员（viewer）执行写操作——403 带明确提示 */
+/** 禁止只读成员（viewer）执行写操作——403 带明确提示
+ * W2：能力矩阵单源（src/shared/roles.ts）——requireWriter 从 CAPABILITIES.write 查 */
 export async function requireWriter(ctx: AppCtx): Promise<void> {
   const role = await appRoleOf(ctx)
-  if (role === 'viewer') {
+  if (!hasCapability(role, 'write')) {
     const err = new Error('只读成员无权执行此操作') as Error & { status?: number }
     err.status = 403
     throw err
