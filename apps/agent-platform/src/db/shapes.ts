@@ -21,7 +21,8 @@ const ts = () => z.date() // ISO 字符串（Infer=string——DB 原生形态�
 /** 枚举值单源（W4——S1 定案）：shape 声明 + DDL enum + columnTypes 三面从这里派生——加枚举值只改这一处 */
 export const AGENT_TYPES = ['ai', 'user', 'webhook', 'knowledge_base', 'department'] as const
 /** 字面量 DB 默认（NOT NULL + DEFAULT——写入面可缺省·与 schema 对齐） */
-const dflt = <T extends ZodType>(t: T, v: unknown): T => t.meta({ default: v }) as T
+/** 字面量默认值（框架 f.dflt——meta 类型保留（BodyOf 判定 default 列可缺省的根基）） */
+const dflt = f.dflt
 
 // ── agents（单表继承四类 agent + 组织层级经理 + 工具/配额） ──
 export const agents = {

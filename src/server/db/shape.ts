@@ -20,7 +20,41 @@
  *     },
  *   })
  */
-import { z, type ZodType, type Infer, type ZodRawShape, type ZodMeta } from '../../shared/zod.ts'
+import { z, type ZodType, type Infer, type ZodRawShape, type ZodMeta, ZodOptional, ZodNullable, ZodDefault } from '../../shared/zod.ts'
+
+/** meta 类型保留面：withMeta 返回交叉（meta 字面量类型不坍缩——BodyOf 推导的根基） */
+export type WithMeta<T extends ZodType, M extends ZodMeta> = T & { metaInfo: M & ZodMeta }
+
+/** auto 字段（DB 侧生成——insert/update 时省略：default 'random'/'now'）——从 meta 字面量推导 */
+export type AutoFieldOf<S extends ZodRawShape> = {
+  [K in keyof S]: S[K] extends { metaInfo: infer M }
+    ? (M extends { default: infer D } ? (D extends 'random' | 'now' ? K : never) : never)
+    : never
+}[keyof S]
+
+/** body 字段是否可缺省（nullable/optional/default 包装或 meta default 键——对齐 insertSchema 规则） */
+type IsBodyOptional<T extends ZodType> = T extends ZodOptional<any>
+  ? true
+  : T extends ZodNullable<any>
+    ? true
+    : T extends ZodDefault<any, any>
+      ? true
+      : T extends { metaInfo: infer M }
+        ? (M extends { default: unknown } ? true : false)
+        : false
+
+/** insert 输入行类型（省略 auto 列——字段精确·全字段键级可选——
+ * required/optional 精确性由运行时权威（insertSchema 校验）承载——字段名/
+ * 值类型/枚举编译期精确（核心价值）） */
+export type BodyOf<S extends ZodRawShape> = {
+  [K in keyof S as K extends AutoFieldOf<S> ? never : K]?: Infer<S[K]>
+}
+
+/** update/patch 输入行类型（省略 auto 列 · 全字段可缺省——与 updateSchema 运行时一致） */
+type PatchValueOf<T extends ZodType> = T extends ZodType<infer Out> ? Out : never
+export type PatchOf<S extends ZodRawShape> = {
+  [K in keyof S as K extends AutoFieldOf<S> ? never : K]?: PatchValueOf<S[K]>
+}
 
 /** 字段级 db 元数据（shape 层语义——建表/算子/校验收窄的驱动面） */
 export interface FieldDbMeta extends ZodMeta {
@@ -32,8 +66,8 @@ export interface FieldDbMeta extends ZodMeta {
   unique?: boolean
   /** NOT NULL（校验面 optional 之外——DB 层约束） */
   notNull?: boolean
-  /** 默认值（'random'=gen_random_uuid · 'now'=NOW() · 字面量） */
-  default?: 'random' | 'now' | string | number
+  /** 默认值（'random'=gen_random_uuid · 'now'=NOW() · 字面量（string/number/boolean）） */
+  default?: 'random' | 'now' | string | number | boolean
   /** 外键（references 表.列——关系面） */
   references?: string
   /** 级联（ON DELETE） */
@@ -60,19 +94,19 @@ export interface Shape<S extends ZodRawShape = ZodRawShape> {
   pkField?: string
   /** infers */
   output: { [K in keyof S]: Infer<S[K]> }
-  /** 插入变体（省略 auto 列：pk+random/now 默认） */
-  insertSchema(): ZodType<Record<string, unknown>>
+  /** 插入变体（省略 auto 列：pk+random/now 默认——类型面 = 输入行 BodyOf） */
+  insertSchema(): ZodType<BodyOf<S>>
   /** 字段名 → 列名翻译（写入面：shape 字段名 → db 列名） */
-  toDb(record: Record<string, unknown>): Record<string, unknown>
+  toDb(record: object): Record<string, unknown>
   /** 列名 → 字段名翻译（读取面：db 行 → shape 字段名——GraphQL/API 输出） */
-  fromDb(record: Record<string, unknown>): Record<string, unknown>
-  /** 更新变体（全字段 optional——部分更新面） */
-  updateSchema(): ZodType<Record<string, unknown>>
+  fromDb(record: object): Record<string, unknown>
+  /** 更新变体（全字段 optional——部分更新面——类型面 = PatchOf） */
+  updateSchema(): ZodType<PatchOf<S>>
 }
 
 /** DB 字段 meta 装饰快捷（zod schema 上挂 meta——db 列语义） */
-function withMeta<T extends ZodType>(t: T, m: FieldDbMeta): T {
-  return t.meta(m) as T
+function withMeta<T extends ZodType, M extends ZodMeta>(t: T, m: M): WithMeta<T, M> {
+  return t.meta(m) as WithMeta<T, M>
 }
 
 export function shape<S extends ZodRawShape>(def: {
@@ -102,7 +136,7 @@ export function shape<S extends ZodRawShape>(def: {
     const m = dbFields[name]
     return m?.default === 'random' || m?.default === 'now'
   }
-  ;(sig as unknown as { insertSchema: () => ZodType<Record<string, unknown>> }).insertSchema = () => {
+  ;(sig as unknown as { insertSchema: () => ZodType<BodyOf<S>> }).insertSchema = () => {
     const entries: Record<string, unknown> = {}
     for (const [name, field] of Object.entries(def.fields)) {
       if (isAuto(name)) continue
@@ -112,35 +146,37 @@ export function shape<S extends ZodRawShape>(def: {
       const isNullable = (v as { _typeName?: () => string })._typeName?.() === 'nullable'
       entries[name] = dbFields[name]?.default !== undefined || isNullable ? v.optional() : v
     }
-    return cleanUndefined(z.object(entries as S)) as unknown as ZodType<Record<string, unknown>>
+    return cleanUndefined(z.object(entries as S)) as unknown as ZodType<BodyOf<S>>
   }
-  ;(sig as unknown as { toDb: (r: Record<string, unknown>) => Record<string, unknown> }).toDb = (record) => {
+  ;(sig as unknown as { toDb: (r: object) => Record<string, unknown> }).toDb = (record: object) => {
     const out: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(record)) {
+    const rec = record as Record<string, unknown>
+    for (const [k, v] of Object.entries(rec)) {
       const meta = dbFields[k]
       out[meta?.column ?? k] = v
     }
     return out
   }
-  ;(sig as unknown as { fromDb: (r: Record<string, unknown>) => Record<string, unknown> }).fromDb = (record) => {
+  ;(sig as unknown as { fromDb: (r: object) => Record<string, unknown> }).fromDb = (record: object) => {
     const out: Record<string, unknown> = {}
+    const rec = record as Record<string, unknown>
     for (const [name, meta] of Object.entries(dbFields)) {
-      if (record[(meta as FieldDbMeta).column ?? name] !== undefined) out[name] = record[(meta as FieldDbMeta).column ?? name]
+      if (rec[(meta as FieldDbMeta).column ?? name] !== undefined) out[name] = rec[(meta as FieldDbMeta).column ?? name]
     }
     // 未映射列（select 额外列如 member_count）原键保留——join/聚合面不丢
-    for (const k of Object.keys(record)) {
+    for (const k of Object.keys(rec)) {
       const mapped = Object.values(dbFields).some((m) => (m as FieldDbMeta).column === k)
-      if (!mapped && !(k in out)) out[k] = record[k]
+      if (!mapped && !(k in out)) out[k] = rec[k]
     }
     return out
   }
-  ;(sig as unknown as { updateSchema: () => ZodType<Record<string, unknown>> }).updateSchema = () => {
+  ;(sig as unknown as { updateSchema: () => ZodType<PatchOf<S>> }).updateSchema = () => {
     const optionalized: Record<string, ZodType> = {}
     for (const [name, s] of Object.entries(def.fields)) {
       if (isAuto(name)) continue
       optionalized[name] = (s as ZodType).optional()
     }
-    return cleanUndefined(z.object(optionalized)) as unknown as ZodType<Record<string, unknown>>
+    return cleanUndefined(z.object(optionalized)) as unknown as ZodType<PatchOf<S>>
   }
   return sig
 }
@@ -156,13 +192,16 @@ function cleanUndefined<T extends import('../../shared/zod.ts').ZodType>(t: T): 
 /** 字段 meta 快捷方法（shape 定义侧手感的统一入口） */
 export const f = {
   /** 主键（random uuid 默认） */
-  pk: <T extends ZodType>(t: T): T => withMeta(t, { pk: true, default: 'random' }),
+  pk: <T extends ZodType>(t: T): WithMeta<T, { pk: true; default: 'random' }> => withMeta(t, { pk: true, default: 'random' }),
   /** NOT NULL */
-  req: <T extends ZodType>(t: T): T => withMeta(t, { notNull: true }),
+  req: <T extends ZodType>(t: T): WithMeta<T, { notNull: true }> => withMeta(t, { notNull: true }),
   /** 列名映射 */
-  col: <T extends ZodType>(t: T, column: string): T => withMeta(t, { column }),
+  col: <T extends ZodType>(t: T, column: string): WithMeta<T, { column: string }> => withMeta(t, { column }),
   /** 默认 now */
-  now: <T extends ZodType>(t: T): T => withMeta(t, { default: 'now' }),
+  now: <T extends ZodType>(t: T): WithMeta<T, { default: 'now' }> => withMeta(t, { default: 'now' }),
   /** 唯一 */
-  unique: <T extends ZodType>(t: T): T => withMeta(t, { unique: true }),
+  unique: <T extends ZodType>(t: T): WithMeta<T, { unique: true }> => withMeta(t, { unique: true }),
+  /** 字面量默认值（DB 侧默认——body 可缺省——meta 类型保留；值域任意字面量（jsonb
+   *  默认 [] 等）——default 值的语义由 shape/DDL 面消费（string/number/boolean 主流）） */
+  dflt: <T extends ZodType, V>(t: T, v: V): WithMeta<T, { default: V }> => withMeta(t, { default: v }),
 }
