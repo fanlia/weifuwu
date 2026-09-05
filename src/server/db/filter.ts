@@ -10,10 +10,11 @@
  *   - 算子集：eq/ne/gt/gte/lt/lte/in/notIn/isNull + contains/startsWith/endsWith
  *     （→ ilike 转义——% _ 反斜杠转义）
  *   - 单 eq 特判（{ col: { eq: v } } 直接 { col: { eq: v } }——组合式 path）
- *   - 危险面：空值跳过（undefined/null——不入 WhereExpr——断言于调用侧显式处理）
+ *   - undefined 值显式拒绝（W2 定案——不静默跳过——省略键或显式 isNull）
  *   - 租户注入是调用侧拼装（协议策略——不在此函数内）
  */
 import type { Shape } from './shape.ts'
+import { ValidationError } from './errors.ts'
 
 /** 列映射面（shapeDef.dbFields——字段→DB 列） */
 export interface FilterShapeFields {
@@ -48,7 +49,9 @@ export function filterToWhere(
     }
     const ops: Record<string, unknown> = {}
     for (const [op, val] of Object.entries(v)) {
-      if (val === undefined) continue
+      // W2（定案）：undefined 值显式拒绝——不静默跳过（跳过=过滤被静默放宽——与
+      // 「声明了就有行为」冲突；I1 eq:null 同型）。缺条件请省略键；判空用 isNull
+      if (val === undefined) throw new ValidationError(`filter 值不能为 undefined（列 ${col} 算子 ${op}）——省略该键或显式 isNull`)
       if (val === null) { if (op === 'eq') { ops.isNull = true; continue } continue }
       if (op === 'eq' && val === null) continue
       if (op === 'contains') { ops.ilike = `%${String(val).replace(/([%_])/g, '\\$1')}%`; continue }

@@ -29,7 +29,7 @@ const Dept = shape({
   },
 })
 
-test('filterToWhere：字段→列映射 + 算子转译 + and/or 递归 + 空值跳过', () => {
+test('filterToWhere：字段→列映射 + 算子转译 + and/or 递归 + undefined 显式拒绝', () => {
   // 字段→列映射（appId → app_id）
   assert.deepEqual(filterToWhere({ appId: { eq: 'x' } }, Dept), { app_id: { eq: 'x' } })
   // contains→ilike 转义（% _ \ 反斜杠）
@@ -45,8 +45,10 @@ test('filterToWhere：字段→列映射 + 算子转译 + and/or 递归 + 空值
   assert.deepEqual(filterToWhere({ name: { eq: null, contains: 'a' } }, Dept), { name: { isNull: true, ilike: '%a%' } })
   // 纯 eq:null → 单键 isNull
   assert.deepEqual(filterToWhere({ name: { eq: null } }, Dept), { name: { isNull: true } })
-  // undefined 跳过（无值是「没传」——不入 WhereExpr）
-  assert.deepEqual(filterToWhere({ name: { contains: 'a', ne: undefined } }, Dept), { name: { ilike: '%a%' } })
+  // W2：undefined 值显式拒绝（不静默跳过——省略键或显式 isNull）
+  assert.throws(() => filterToWhere({ name: { contains: 'a', ne: undefined } }, Dept), /undefined/)
+  // 省略键=无该条件（合法）——判空用 isNull
+  assert.deepEqual(filterToWhere({ name: { contains: 'a' } }, Dept), { name: { ilike: '%a%' } })
   // null filter → {}
   assert.deepEqual(filterToWhere(null, Dept), {})
 })

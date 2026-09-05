@@ -10,7 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createMemoryOrm, type MemorySql } from './memory-sql.ts'
-import { compileQuery } from './query.ts'
+import { compileQuery, type SelectQuery } from './query.ts'
 import { eq, ne, gt, gte, lt, lte, inArray, between, ilike, contains, isNull, and, or, mergeInc, mergeAppend } from './ops.ts'
 import * as ops from './ops.ts'
 import { z } from '../../shared/zod.ts'
@@ -142,5 +142,26 @@ test('W3 fuzz：mergeInc/mergeAppend 随机序列终态 = 数学期望（多种�
       assert.equal(r.hits, e.hits, `hits 累计（种子 ${seed}）`)
       assert.deepEqual(r.items, e.items, `items 顺序拼接（种子 ${seed}）`)
     }
+  }
+})
+
+
+test('W2 fuzz：undefined 值双面显式拒绝（compile + memory 对账——不静默/不分裂）', () => {
+  for (const seed of [7, 99, 555]) {
+    const rnd = mulberry32(seed)
+    const { mem } = createMemoryOrm()
+    fx(mem, 'fz2', { id: z.number().int(), name: z.string() })
+    // 生成器盲区补测：undefined 算子值——编译面/执行面都抛（语义一致）
+    for (let n = 0; n < 201; n++) {
+      const col = rnd() < 0.5 ? 'id' : 'name'
+      const kind = ['eq', 'gt', 'ilike', 'in'][Math.floor(rnd() * 4)]
+      const bad: SelectQuery = { kind: 'select', table: 'fz2', where: { [col]: { [kind]: undefined } } }
+      assert.throws(() => compileQuery(bad), /undefined/, `compile 拒绝（种子 ${seed} #${n} ${col}.${kind}）`)
+      // executeQuery 同步执行（入口校验同步抛）——同语义断言
+      assert.throws(() => mem.executeQuery(bad), /undefined/, `memory 拒绝（种子 ${seed} #${n} ${col}.${kind}）`)
+    }
+    // 生成器盲区补测：eq 为 undefined 的 jsonb 深度等值候选——同样拒绝
+    const bad2: SelectQuery = { kind: 'select', table: 'fz2', where: { id: { eq: undefined } } }
+    assert.throws(() => compileQuery(bad2), /undefined/)
   }
 })

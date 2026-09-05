@@ -156,4 +156,9 @@ test('W4：enum 字面量推断 + vector 断言——tsd（W1 登记失效断言
   const V = z.vector(1024)
   const vec: Infer<typeof V> = [0.1, 0.2]
   void vec
+  // D) W2 判负登记：undefined 的编译期拒绝**不可行**——可选属性 `eq?: V` 的
+  // undefined 面（无 exactOptionalPropertyTypes）恒绿——TS 条件类型惰性+可选
+  // 属性语义——不做 exactOptionalPropertyTypes 迁移（全局风险判负）——
+  // undefined 的权威拒绝在**运行时**（qb 入口/filterToWhere/compile/execution
+  // 四层同语义——fuzz 3 种子×201 对双面对账绿）
 })

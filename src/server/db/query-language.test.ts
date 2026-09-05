@@ -337,6 +337,25 @@ describe('query language — E3 条件安全组合与 RawSql 面', () => {
     assert.deepEqual(or({}, {}), {})
   })
 
+  it('W2：where 值 undefined 显式拒绝（入口校验——compile/memory 共享 AST 源头拦截）', async () => {
+    const mem = new (await import('./memory-sql.ts')).MemorySql()
+    fx(mem, 'c1', { id: z.string(), name: z.string() })
+    const orm = createMemoryOrm(mem).orm
+    const q = orm.query
+    await q.insert('c1').rows([{ id: 'w2-1', name: '甲' }] as never).run()
+    // select 入口
+    assert.throws(() => q.from('c1').where({ name: { eq: undefined as never } }), /undefined/)
+    // update 入口
+    assert.throws(() => q.update('c1').set({ name: 'x' }).where({ id: { eq: undefined as never } }), /undefined/)
+    // delete 入口
+    assert.throws(() => q.delete('c1').where({ id: { eq: undefined as never } }), /undefined/)
+    // 省略键=无该条件（合法）
+    const rows = await q.from('c1').select('id', 'name').where({ name: { ilike: '%甲%' } }).run()
+    assert.equal(rows.length, 1, '合法条件不受影响')
+    // update 的 set 值 undefined 保留（部分更新面——updateSchema 省略语义——不拒绝）
+    await q.update('c1').set({ name: '乙' }).where({ id: { eq: 'w2-1' } }).run()
+  })
+
   it('set 值接受 RawSql（类型面——编译通过即真）', () => {
     // 编译期断言：RawSql 直接赋值（无需 as never）
     const s2 = createMemoryOrm().orm

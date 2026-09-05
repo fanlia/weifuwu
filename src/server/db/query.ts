@@ -16,7 +16,7 @@
  *
  * 内存端诚实裁剪：raw 片段与内存无法等价的语义（窗口/递归）→ ProtocolError。
  */
-import { ProtocolError, ValidationError } from './errors.ts'
+import { ProtocolError, ValidationError, DbError } from './errors.ts'
 import type { Row, QueryResult } from './contracts.ts'
 
 // ── RAW（逃生舱：任意 SQL 片段——merge/select 列/join on 值面；W3a 后 where 值面禁用） ─────
@@ -273,6 +273,11 @@ function compileWhere(expr: WhereExpr, params: unknown[]): string {
     }
     if (typeof field === 'object' && field !== null) {
       const ops = field as ColOps
+      // W2（定案）：算子值 undefined 显式拒绝（qb 入口拦截后同语义兜底——编译面
+      // 不静默——undefined 值序列化分裂（'{}'）与静默跳过都不透明）
+      for (const [ok, ov] of Object.entries(ops as Record<string, unknown>)) {
+        if (ov === undefined) throw new DbError('protocol', `where.${col}.${ok} 不能为 undefined——省略该键或显式 isNull`, { code: 'PROTOCOL' })
+      }
       const hasOp = COL_OPS_KEYS.some((k) => (ops as Record<string, unknown>)[k] !== undefined)
       if (!hasOp) {
         // jsonb 深度等值（无算子键对象——按值比较；与 memory deepEq 同语义）

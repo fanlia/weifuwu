@@ -190,6 +190,7 @@ export class MemorySql {
       return merged
     }
     const whereExpr = q.where
+    assertWhereNoUndefined(whereExpr)
     let filtered = whereExpr ? rows.filter((r) => matchWhereExpr(matchRow(r), whereExpr, q.alias)) : rows
     // 子查询（IN/EXISTS——关联：每外层行执行子 AST，外层列经 outerCtx 引用）
     for (const sub of q.sub ?? []) {
@@ -431,6 +432,7 @@ export class MemorySql {
   }
 
   private execDelete(q: import('./query.ts').DeleteQuery): QueryResult<Row> {
+    assertWhereNoUndefined(q.where)
     const t = this.table(q.table)
     const before = t.rows.length
     let kept: Row[] = []
@@ -805,6 +807,16 @@ function unqualified(row: Row): Row {
 
 function isRaw(v: unknown): v is RawSql {
   return typeof v === 'object' && v !== null && '__raw' in v
+}
+
+/** W2（定案）：WhereExpr 的 undefined 值显式拒绝——入口校验（声明即校验——与数据
+ *  无关——空表不逃逸（filter 惰性）；compile 面同语义（双端一致）） */
+function assertWhereNoUndefined(expr: WhereExpr | null | undefined, path = 'where'): void {
+  if (!expr) return
+  for (const [k, v] of Object.entries(expr as Record<string, unknown>)) {
+    if (v === undefined) throw new ProtocolError(`weifuwu/db: ${path}.${k} 不能为 undefined——省略该键或显式 isNull`)
+    if (typeof v === 'object' && v !== null) assertWhereNoUndefined(v as WhereExpr, `${path}.${k}`)
+  }
 }
 
 /** WhereExpr（query language）→ 行判定 */

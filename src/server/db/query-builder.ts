@@ -12,6 +12,25 @@
  */
 import type { Row } from './contracts.ts'
 import { ValidationError } from './errors.ts'
+
+/**
+ * W2（定案）：WhereExpr 的 undefined 值显式拒绝——不静默（qb 入口统一校验——
+ * compile/memory 共享 AST——源头拦截；既防「filter 放宽」（filterToWhere 同型）
+ * 也防「undefined 序列化分裂」（JSON.stringify({eq:undefined})='{}'——真库
+ * string 列 ='{}' vs memory jsonb 比较——行为分裂——同输入同语义铁律）。
+ */
+function assertWhereDefined(expr: unknown, path = 'where'): void {
+  if (expr === null || expr === undefined) return
+  if (Array.isArray(expr)) { for (const e of expr) assertWhereDefined(e, path); return }
+  if (typeof expr !== 'object') return
+  for (const [k, v] of Object.entries(expr as Record<string, unknown>)) {
+    if (v === undefined) throw new ValidationError(`weifuwu/db: ${path}.${k} 不能为 undefined——省略该键（无该条件）或显式 isNull`)
+    // 全递归（算子对象 { eq: undefined } / jsonb 对象值 / or/and 组——undefined 任何深度都显式
+    // 拒绝——「同输入同语义」且防 undefined JSON 序列化分裂）
+    if (typeof v === 'object' && v !== null) assertWhereDefined(v, `${path}.${k}`)
+  }
+}
+
 import {
   type SelectQuery, type InsertQuery, type UpdateQuery, type DeleteQuery,
   type Query, type WhereExpr, type RawSql,
@@ -44,6 +63,7 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
         return b
       },
       where(expr: WhereExpr): SelectBuilder {
+        assertWhereDefined(expr)
         // 多次 where 追加 AND（不覆盖——同列对象级合并；不可合并 and 包装——AND 语义不丢）
         ast.where = ast.where ? mergeWhere(ast.where, expr) : expr
         return b
@@ -159,6 +179,7 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
         return b
       },
       where(expr: WhereExpr): UpdateBuilder {
+        assertWhereDefined(expr)
         ast.where = ast.where ? mergeWhere(ast.where, expr) : expr
         return b
       },
@@ -181,6 +202,7 @@ export function createQueryBuilder(exec: Executor): QueryBuilder {
     const ast: DeleteQuery = { kind: 'delete', table }
     const b: DeleteBuilder = {
       where(expr: WhereExpr): DeleteBuilder {
+        assertWhereDefined(expr)
         ast.where = ast.where ? mergeWhere(ast.where, expr) : expr
         return b
       },
