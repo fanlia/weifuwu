@@ -92,7 +92,7 @@ router.get('*', async (req, ctx) => {
 | 导入路径 | 模块 | 用途 |
 | --- | --- | --- |
 | `weifuwu` | Router / serve / cors / serveStatic | Trie 路由 + 中间件链 + HTTP 服务器 + 静态服务 |
-| `weifuwu` | postgres / redis / Memory | 自研 PG v3 + RESP2 协议（`ctx.sql` / `ctx.redis`）；Memory 零数据库测试 |
+| `weifuwu` | postgres / redis / Memory | 自研 PG v3 + RESP2 协议（`ctx.orm` / `ctx.redis`——数据面 = 声明式 ORM AST，业务零 SQL 文本）；Memory 零数据库测试 |
 | `weifuwu` | ui | SSR 渲染 + esbuild JS/CSS 动态编译（`ctx.ui`） |
 | `weifuwu/vdom` | UIRouter / uiServe / uiSsr | 前端路由唯一入口 + 浏览器 boot + SSR（结构吸收） |
 | `weifuwu/vdom` | 命令流引擎 + hooks 全家 | 渲染周期/事件代理/三状态机 + useAsyncData/usePopup/useControlled/… |

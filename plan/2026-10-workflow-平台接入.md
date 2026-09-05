@@ -12,10 +12,10 @@
 | 模式 | 出处 | 复刻 |
 |---|---|---|
 | 表结构 | `db/schema.sql`（23 表——app_id + UUID + JSONB + NOW() 时间戳 + 跨边界不 FK） | workflows / workflow_runs |
-| Route 注册 | `routes/agents.ts`（`register*Routes(protectedRoutes)` + `ctx.sql` tagged template + appId 隔离） | routes/workflows.ts |
+| Route 注册 | `routes/agents.ts`（`register*Routes(protectedRoutes)` + ctx.orm 声明式查询 + appId 隔离） | routes/workflows.ts |（注：ctx.sql 已随协议 AST 化消亡——见 orm-协议AST化.md）
 | 后台任务 | server.ts `queue({ redis })` + `createVideoPollWorker`（QueueClient worker + visibilityTimeout） | workflow 执行 worker |
 | UI 页面 | `ui/pages/Surveys.tsx` + `ui/router.ts`（`page(Comp)` SSR + client 同构） | pages/Workflows.tsx |
-| 上下文 | `middleware/ctx.ts`（AppCtx：sql/auth/appId/ai/msg） | 直接用 |
+| 上下文 | `middleware/ctx.ts`（AppCtx：orm/auth/appId/ai/msg） | 直接用 |
 
 ## 1. 数据表（schema.sql 追加）
 

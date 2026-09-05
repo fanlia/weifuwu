@@ -35,7 +35,7 @@ server.listen(3000)
 
 | 中间件 | ctx 面 | 说明 |
 | --- | --- | --- |
-| `postgres()` | `ctx.sql` | PG v3 自研协议（无 pg 依赖） |
+| `postgres()` | `ctx.orm` | PG v3 自研协议——ORM AST 面（业务零 SQL 文本——见 §5 数据层） |
 | `redis()` | `ctx.redis` | RESP2 自研协议 |
 | `scheduler()` | `ctx.schedule` | 任务调度（持久化/恢复） |
 | `queue()` | `ctx.queue` | 任务队列（worker/retry/backoff） |
