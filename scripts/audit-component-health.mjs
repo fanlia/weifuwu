@@ -238,5 +238,21 @@ for (const f of files) {
 }
 console.log(`  ${bannerBare} 处（登记表 ${bannerWhitelist.length}——W1 清 · registry desc 面 ${descOf.size}）`)
 
-if (failures) { console.error(`\nC3/C4/C5 健康审计：${failures} 违例`); process.exit(1) }
-console.log('\nC3/C4/C5 健康审计：全绿')
+// ── ⑦ props 类型注解 any（C6-① —— 组件 props 接口内 any = 红——VNodeChild 单源化 W1）──
+console.log('C6-① props `?: any`（组件 props 接口类型注解——VNodeChild 单源化）:')
+const anyPropsWhitelist = JSON.parse(readFileSync(join(root, 'scripts/components-anyprops-whitelist.json'), 'utf8'))
+let anyProps = 0
+for (const f of files) {
+  const s = readFileSync(f, 'utf8')
+  const name = f.slice(COMPONENTS.length + 1)
+  for (const m of s.matchAll(/([a-zA-Z]+)\??\s*:\s*any(\[\])?\s*[,;\n\}]/g)) {
+    anyProps++
+    const key = `${m[1]}${m[2] ?? ''}`
+    if ((anyPropsWhitelist[name] || []).includes(key)) continue // 登记在册（W1 清）
+    fail(`props any 注解 ${name}: ${key}——VNodeChild 单源化（children/title/icon/content 家族）或登记`)
+  }
+}
+console.log(`  ${anyProps} 处（登记表 ${Object.values(anyPropsWhitelist).reduce((a, v) => a + v.length, 0)}——W1 清）`)
+
+if (failures) { console.error(`\nC3/C4/C5/C6 健康审计：${failures} 违例`); process.exit(1) }
+console.log('\nC3/C4/C5/C6 健康审计：全绿')

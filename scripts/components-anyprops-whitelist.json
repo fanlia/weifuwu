@@ -1,0 +1,249 @@
+{
+  "Accordion/Accordion.ts": [
+    "content"
+  ],
+  "Affix/Affix.ts": [
+    "children"
+  ],
+  "Alert/Alert.ts": [
+    "children"
+  ],
+  "AlertGroup/AlertGroup.ts": [
+    "message"
+  ],
+  "Anchor/Anchor.ts": [
+    "title"
+  ],
+  "AppShell/AppShell.ts": [
+    "icon",
+    "children",
+    "footer"
+  ],
+  "AspectRatio/AspectRatio.ts": [
+    "children"
+  ],
+  "AuthPage/AuthPage.ts": [
+    "children"
+  ],
+  "AutoComplete/AutoComplete.ts": [
+    "label"
+  ],
+  "BackTop/BackTop.ts": [
+    "children"
+  ],
+  "Badge/Badge.ts": [
+    "children"
+  ],
+  "Button/Button.ts": [
+    "children"
+  ],
+  "Card/Card.ts": [
+    "children"
+  ],
+  "Carousel/Carousel.ts": [
+    "children[]"
+  ],
+  "Cascader/Cascader.ts": [
+    "panelBody"
+  ],
+  "Chart/Chart.ts": [
+    "chartContent"
+  ],
+  "CodeEditor/CodeEditor.ts": [
+    "prev"
+  ],
+  "Collapse/Collapse.ts": [
+    "icon",
+    "extra",
+    "content"
+  ],
+  "Command/Command.ts": [
+    "icon"
+  ],
+  "Confirm/Confirm.ts": [
+    "message"
+  ],
+  "ContextMenu/ContextMenu.ts": [
+    "icon",
+    "children"
+  ],
+  "Descriptions/Descriptions.ts": [
+    "label",
+    "value"
+  ],
+  "Divider/Divider.ts": [
+    "children"
+  ],
+  "Drawer/Drawer.ts": [
+    "children",
+    "footer"
+  ],
+  "DropZone/DropZone.ts": [
+    "children"
+  ],
+  "Dropdown/Dropdown.ts": [
+    "trigger"
+  ],
+  "EmptyState/EmptyState.ts": [
+    "children"
+  ],
+  "ExportCSV/ExportCSV.ts": [
+    "value",
+    "children"
+  ],
+  "Field/Field.ts": [
+    "children"
+  ],
+  "FileTree/FileTree.ts": [
+    "label"
+  ],
+  "FileUpload/FileUpload.ts": [
+    "children"
+  ],
+  "FloatButton/FloatButton.ts": [
+    "icon",
+    "children",
+    "k"
+  ],
+  "Form/Form.ts": [
+    "children"
+  ],
+  "Grid/Grid.ts": [
+    "children"
+  ],
+  "HoverCard/HoverCard.ts": [
+    "content",
+    "children"
+  ],
+  "InView/InView.ts": [
+    "placeholder",
+    "children"
+  ],
+  "InfiniteScroll/InfiniteScroll.ts": [
+    "children"
+  ],
+  "JSONViewer/JSONViewer.ts": [
+    "root"
+  ],
+  "JsonSchemaForm/JsonSchemaForm.ts": [
+    "val",
+    "value"
+  ],
+  "Label/Label.ts": [
+    "children"
+  ],
+  "Layout/Layout.ts": [
+    "style",
+    "children",
+    "trigger"
+  ],
+  "Link/Link.ts": [
+    "icon",
+    "children"
+  ],
+  "List/List.ts": [
+    "header",
+    "footer",
+    "emptyIcon"
+  ],
+  "Menu/Menu.ts": [
+    "label",
+    "icon",
+    "item"
+  ],
+  "Menubar/Menubar.ts": [
+    "icon"
+  ],
+  "MessageBubble/MessageBubble.ts": [
+    "content",
+    "actions"
+  ],
+  "Modal/Modal.ts": [
+    "children",
+    "footer"
+  ],
+  "NavBar/NavBar.ts": [
+    "left",
+    "right"
+  ],
+  "NavMenu/NavMenu.ts": [
+    "label"
+  ],
+  "PageHeader/PageHeader.ts": [
+    "children"
+  ],
+  "Popconfirm/Popconfirm.ts": [
+    "title",
+    "icon",
+    "children"
+  ],
+  "Popover/Popover.ts": [
+    "content",
+    "children"
+  ],
+  "Result/Result.ts": [
+    "title",
+    "desc",
+    "extra"
+  ],
+  "Scrollbar/Scrollbar.ts": [
+    "children",
+    "style"
+  ],
+  "Select/Select.ts": [
+    "children"
+  ],
+  "SortableList/SortableList.ts": [
+    "items[]"
+  ],
+  "Space/Space.ts": [
+    "split",
+    "children"
+  ],
+  "Table/Table.ts": [
+    "a",
+    "value",
+    "row",
+    "data[]",
+    "bodyRows[]"
+  ],
+  "Tabs/Tabs.ts": [
+    "content"
+  ],
+  "Tag/Tag.ts": [
+    "children"
+  ],
+  "Timeline/Timeline.ts": [
+    "title",
+    "content",
+    "dot"
+  ],
+  "ToggleGroup/ToggleGroup.ts": [
+    "children",
+    "label"
+  ],
+  "Tooltip/Tooltip.ts": [
+    "children"
+  ],
+  "Tree/Tree.ts": [
+    "icon"
+  ],
+  "Typography/Typography.ts": [
+    "children"
+  ],
+  "VirtualList/VirtualList.ts": [
+    "items[]",
+    "item"
+  ],
+  "VirtualTable/VirtualTable.ts": [
+    "data[]",
+    "row",
+    "body"
+  ],
+  "Watermark/Watermark.ts": [
+    "children"
+  ],
+  "Wave/Wave.ts": [
+    "children"
+  ]
+}
