@@ -33,6 +33,10 @@
       "default": "./dist/client/components/index.js"
     },
     "./client/components/style.css": "./dist/client/components/style.css",
+    "./client/layout": {
+      "types": "./dist/client/layout/index.d.ts",
+      "default": "./dist/client/layout/index.js"
+    },
     "./client/layout/weifuwu-layout.css": "./dist/client/layout/weifuwu-layout.css",
     "./dev": {
       "types": "./dist/dev/index.d.ts",

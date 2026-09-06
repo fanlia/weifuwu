@@ -134,6 +134,18 @@ await esbuild.build({
   plugins: [externalizeUiDomPlugin],
 })
 
+// weifuwu/client/layout — JS 入口（defineLayout 原语声明 + 装配——node 构建工具面）
+await mkdir(join(distDir, 'client', 'layout'), { recursive: true })
+await esbuild.build({
+  entryPoints: [join(srcDir, 'client', 'layout', 'index.ts')],
+  outfile: join(distDir, 'client', 'layout', 'index.js'),
+  format: 'esm',
+  platform: 'node',
+  bundle: true,
+  minify: true,
+  external,
+})
+
 // 编译 layout CSS → 单文件（**装配单源**：src/client/layout/bundle.ts——LAYOUT-PLAN W1）
 // 历史：本处曾有 LAYER_OF + mergeLayoutCss 内联实现，与 apps/showcase/server.ts、
 // src/test/scenario/server.ts 的两份内联实现并存（四管线三种层序语义——测试环境
