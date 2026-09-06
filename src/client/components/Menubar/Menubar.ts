@@ -116,7 +116,7 @@ export const Menubar: Component<MenubarProps> = (_init, ctx)=> {
         key: menu.key,
         ref: triggerRefFor(i),
         'aria-haspopup': 'menu',
-        'aria-expanded': open ? 'true' : 'false',
+        'aria-expanded': open,
         onClick: menu.disabled ? undefined : ()=> toggle(menu.key),
         onKeyDown: (e: any)=> {
           if (e.key === 'ArrowDown' || e.key === 'Enter') {

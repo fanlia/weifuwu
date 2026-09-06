@@ -72,7 +72,7 @@ export const FloatButtonGroup: Component<FloatButtonGroupProps> = (_init, ctx: U
       h('button', {
         class: 'wf-float-group-main',
         'aria-label': open.get() ? '收起' : '展开',
-        'aria-expanded': open.get() ? 'true' : 'false',
+        'aria-expanded': open.get(),
         onClick: ()=> open.set((v) => !v),
       }, h('span', { class: `wf-float-group-icon${open.get() ? ' is-open' : ''}` }, '+')),
     ])

@@ -53,7 +53,7 @@ export const ColorPicker: Component<ColorPickerProps> = (_init, ctx)=> {
         class: `wf-color-picker-swatch${sel ? ' wf-color-picker-swatch--sel' : ''}`,
         style: { background: c },
         'aria-label': c,
-        'aria-pressed': sel ? 'true' : 'false',
+        'aria-pressed': sel,
         onClick: ()=> select(c),
       }, sel ? h(Icon, { name: 'check', size: 14, className: 'wf-color-picker-check' }) : null)
     })
@@ -83,7 +83,7 @@ export const ColorPicker: Component<ColorPickerProps> = (_init, ctx)=> {
       'aria-label': ariaLabel ?? '选择颜色',
       'aria-disabled': disabled ? 'true' : undefined,
       'aria-haspopup': 'dialog',
-      'aria-expanded': open ? 'true' : 'false',
+      'aria-expanded': open,
     }, [
       h('span', { class: 'wf-color-picker-swatch', style: { background: current || 'var(--wf-color-bg, #fff)' } }),
       h('span', { class: 'wf-color-picker-value' }, current || '颜色'),

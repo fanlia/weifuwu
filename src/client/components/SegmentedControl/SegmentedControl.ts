@@ -48,7 +48,7 @@ export const SegmentedControl: Component<SegmentedControlProps> = (_init, ctx)=>
       type: 'button',
       key: opt.value, // 选项身份（选项增删/重排——keyed diff move）
       class: `wf-segmented-option${opt.value === ctrl?.value ? ' wf-segmented-option--active' : ''}`,
-      'aria-pressed': opt.value === ctrl?.value ? 'true' : 'false',
+      'aria-pressed': opt.value === ctrl?.value,
       disabled: opt.disabled || undefined,
       onClick: opt.disabled ? undefined : ()=> select(opt.value),
     }, opt.label))

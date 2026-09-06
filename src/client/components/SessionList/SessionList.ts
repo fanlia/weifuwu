@@ -133,7 +133,7 @@ export const SessionList: Component<SessionListProps, UIContext> = (_init, ctx)=
         class: `wf-session-item${active ? ' wf-session-item--active' : ''}${focused ? ' wf-session-item--focus' : ''}`,
         'data-id': s.id,
         role: 'option',
-        'aria-selected': active ? 'true' : 'false',
+        'aria-selected': active,
         onClick: ()=> onSelect?.(s.id),
         onKeyDown: (e: any)=> { if (e.key === 'Enter') { e.preventDefault(); onSelect?.(s.id) } },
       }, [

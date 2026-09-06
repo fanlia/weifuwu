@@ -109,7 +109,7 @@ export const Collapse: Component<CollapseProps> = (_init, ctx)=> {
           type: 'button',
           class: 'wf-collapse-header',
           ref: headerRefFor(i),
-          'aria-expanded': open ? 'true' : 'false',
+          'aria-expanded': open,
           onClick: ()=> toggle(item.key),
         }, headerChildren),
         content,

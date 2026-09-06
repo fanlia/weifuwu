@@ -215,7 +215,7 @@ export const Tree: Component<TreeProps> = (_init, ctx)=> {
               isHalf(node) ? 'wf-tree-checkbox--half' : '',
             ].filter(Boolean).join(' '),
             role: 'checkbox',
-            'aria-checked': isHalf(node) ? 'mixed' : (checked ? 'true' : 'false'),
+            'aria-checked': isHalf(node) ? 'mixed' : (checked),
             onClick: (e: Event)=> { e.stopPropagation(); toggleCheck(node) },
           })
         : null
@@ -236,7 +236,7 @@ export const Tree: Component<TreeProps> = (_init, ctx)=> {
         style: { paddingLeft: `${level * 20}px` },
         ref: rowRefs[rowIndex],
         tabIndex: node.disabled ? undefined : 0,
-        'aria-selected': selected ? 'true' : 'false',
+        'aria-selected': selected,
         onClick: node.disabled ? undefined : ()=> {
           // expandOnClick：有子节点 → 展开/折叠；叶子 → 选中
           if (hasChildren && expandOnClick) toggleExpand(node.key)

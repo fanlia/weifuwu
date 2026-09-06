@@ -91,7 +91,7 @@ export const Accordion: Component<AccordionProps> = (_init, ctx)=> {
           class: 'wf-accordion-summary',
           ref: summaryRefFor(i),
           disabled: item.disabled || undefined,
-          'aria-expanded': open ? 'true' : 'false',
+          'aria-expanded': open,
           onClick: item.disabled ? undefined : ()=> toggle(item.key),
         }, [item.title, h(Icon, { name: 'chevron-down', size: 14, className: 'wf-accordion-arrow' })]),
         open && item.content ? h('div', { class: 'wf-accordion-content' }, item.content) : null,

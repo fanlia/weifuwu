@@ -49,7 +49,7 @@ export const Toggle: Component<ToggleProps> = (_init)=>
         pressed ? 'wf-toggle--pressed' : '',
         className,
       ].filter(Boolean).join(' '),
-      'aria-pressed': pressed ? 'true' : 'false',
+      'aria-pressed': pressed,
       'aria-label': ariaLabel || undefined,
       disabled: disabled || undefined,
       onClick: disabled ? undefined : ()=> onPressedChange?.(!pressed),

@@ -89,7 +89,7 @@ export const TabBar: Component<TabBarProps> = (_init, ctx: UIContext)=> {
           t.disabled ? 'wf-tab-bar-item--disabled' : '',
         ].filter(Boolean).join(' '),
         tabindex: selected ? 0 : -1,
-        'aria-selected': selected ? 'true' : 'false',
+        'aria-selected': selected,
         disabled: t.disabled || undefined,
         onClick: t.disabled ? undefined : ()=> {
           if (!controlled) internalActive = t.key

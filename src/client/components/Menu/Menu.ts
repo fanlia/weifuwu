@@ -135,7 +135,7 @@ export const Menu: Component<MenuProps> = (_init, ctx)=> {
           role: 'menuitem',
           tabIndex: isActive ? 0 : -1,
           'aria-haspopup': 'menu',
-          'aria-expanded': popupOpen ? 'true' : 'false',
+          'aria-expanded': popupOpen,
           onClick: (e: MouseEvent)=> {
             if (popupOpen) { collapsedPopupKey = null; ctx.render() }
             else {
@@ -169,7 +169,7 @@ export const Menu: Component<MenuProps> = (_init, ctx)=> {
         class: `wf-menu-submenu-title${isActive ? ' wf-menu-submenu-title--active' : ''}`,
         role: 'menuitem',
         tabIndex: isActive ? 0 : -1,
-        'aria-expanded': open ? 'true' : 'false',
+        'aria-expanded': open,
         onClick: ()=> toggleOpen(item.key),
         onKeyDown: (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {

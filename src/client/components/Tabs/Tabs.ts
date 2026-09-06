@@ -103,7 +103,7 @@ export const Tabs: Component<TabsProps> = (_init, ctx)=> {
       role: 'tab',
       // roving tabindex：仅激活 tab 可 Tab 聚焦，方向键在 tab 间移动
       tabindex: tab.key === activeKey ? 0 : -1,
-      'aria-selected': tab.key === activeKey ? 'true' : 'false',
+      'aria-selected': tab.key === activeKey,
       onClick: tab.key !== activeKey ? ((e: any)=> { measureTab(e?.currentTarget as HTMLElement); select(tab.key) }) : undefined,
     }, [
       tab.label,
