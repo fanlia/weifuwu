@@ -7,11 +7,19 @@
 > [docs/client.md](docs/client.md) / [docs/server.md](docs/server.md)。
 
 **防线快照（2027-xx）**：
-契约 **441** · 场景 **129** · showcase **328**（134 组件全覆盖）· server **740** ·
-shared **25** · 平台 **449** · audit:all **七线** exit 0（semantics/interactivity/vdom/theme/api/
+契约 **450** · 场景 **129** · showcase **328**（134 组件全覆盖）· server **859**（858 pass + 1 docker-gated skip）·
+shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 155** · audit:all **七线** exit 0（semantics/interactivity/vdom/theme/api/
 bundle/showcase）· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· tsc **0 错**。
 
 **内核资产**：
+- **layout**（`src/client/layout/`——CSS 布局系统）：装配单源 `bundle.ts`（build/showcase/scenario/`ctx.ui.css`
+  四管线共用 + D4 审计）· 层序 `@layer tokens, base, layout, components, utilities`（**工具类恒胜组件**——
+  消费侧显式覆盖意图）+ display 族基类 `:where()` 零优先级（变体恒胜基类，零 `!important`——仅
+  reduced-motion 白名单 4 处）· `@property { inherits: false }` 钩子污染隔离（9 条——外层内联赋值
+  不污染子孙原语）· 断点白名单单源（`--wf-bp-*` → 媒体查询字面量 V / V-0.02 两形态）· 间距双标尺
+  **派生**（gap = space 紧一档——关系入代码，预设只覆写 space）· token 死面/双名/px 字面量三登记制 ·
+  **L1-L16 契约 20 断言** · `docs/layout.md` 机器生成参考（inventory 全量——L15 校验漂移）·
+  dist minify（esbuild——layout 28.1K/gzip 5.7K/br 5.1K · style 220.9K/gzip 29.4K/br 24.3K）
 - **vdom**（`src/client/vdom/`）——命令流引擎（13 命令 NDJSON 自足）+ 三实体状态机
   + 双树对账器 + fuzz 生成器 + render-health 四轴仪表
 - **外部依赖内存化矩阵**（四类核心依赖——Memory 实现 + Server 协议替身双层——主包全导出）：

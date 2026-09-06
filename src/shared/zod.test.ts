@@ -146,7 +146,7 @@ test('shape：updateSchema 全字段 optional（部分更新面）', () => {
   assert.equal(upd.safeParse({ name: 1 }).success, false)
 })
 
-test('shape：f 快捷装饰（pk/req/col/now/unique/soft）', async () => {
+test('shape：f 快捷装饰（pk/req/col/now/unique）', async () => {
   const { f } = await import('../server/db/shape.ts')
   const Agent = shape({
     table: 'agents',
@@ -154,14 +154,14 @@ test('shape：f 快捷装饰（pk/req/col/now/unique/soft）', async () => {
       id: f.pk(z.uuid()),
       name: f.req(f.col(z.string(), 'full_name')),
       email: f.unique(z.string().email()),
-      deletedAt: f.soft(z.date().nullable()),
+      // soft 装饰已删（2027-xx 状态机化——softDelete 零行为 → 判负移除，见 AGENTS.md §3.5 先行：
+      // 同一逻辑声明的行为矩阵缺面 = 不透明 = 实现或移除——移除后测试同步收口）
     },
   })
   assert.equal(Agent.pkField, 'id')
   assert.equal(Agent.dbFields.name.column, 'full_name')
   assert.equal(Agent.dbFields.name.notNull, true)
   assert.equal(Agent.dbFields.email.unique, true)
-  assert.equal(Agent.dbFields.deletedAt.softDelete, true)
 })
 
 test('shape：输出类型（infer 编译期）', () => {
