@@ -60,8 +60,10 @@ shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 15
   线协议替身（无 HTTP 面——客户端连 TCP 真协议）
 - **createItem**（`src/client/vdom/core/create-item.ts`）——交互元素状态捆绑
   原语（类后缀 + aria 布尔捆绑声明——子项/单元素组件；aria 布尔直传内核归一
-  ——禁手写三元；ariaText 文本值；roving tabindex；extra.class 追加）——
-  抽象单位 = 元素（组件 = 容器 + 可交互子项——createComponent 适用面窄登记）
+  ——禁手写三元；ariaText 文本值；roving tabindex；extra.class 追加；多状态槽
+  states——槽名默认后缀/布尔 aria/文本 ariaText/roving——槽值布尔——多值枚举
+  契约外）——抽象单位 = 元素（组件 = 容器 + 可交互子项——createComponent
+  适用面窄登记）
 - **ai**（`src/server/ai/`）——AIInterface 契约 + provider 正门构造（new OpenAi/new
   MemoryAi——返回模块：中间件 + 全能力直接调用）+ 多模态（image/video 独立
   配置——同 embedding 平级——多 url 多 key）+ MemoryAiServer 协议替身

@@ -428,8 +428,16 @@ aria 布尔几乎总在**子项**（43 组件含状态面 · 12 组件同条件�
   const tab = createItem({ cls: 'wf-tab', role: 'tab', aria: 'aria-selected', roving: true })
   h('button', tab(key === active, { onClick }), label)
   ```
-  边界（诚实）：单活动态（Menu current+expanded 双状态判负——多槽设计后迁）；
-  aria 多值（Tree 'mixed'）判负。
+  多状态槽（Menu/NavMenu 判负反转——回馈 #4）：`states` 声明任意槽
+  （槽名 → 默认后缀 · aria 布尔 / ariaText 文本（undefined 移除语义）·
+  roving）——单槽 boolean 调用零改动（向后兼容）。
+  ```ts
+  const title = createItem({ cls: 'wf-menu-submenu-title', role: 'menuitem',
+    states: { active: { roving: true }, open: { aria: 'aria-expanded' } } })
+  h('div', title({ active: isActive, open: popupOpen }, { onClick }), ...)
+  ```
+  边界（诚实）：槽值是布尔——aria 多值枚举（Tree 'mixed' / Cascader
+  String() 多态）仍在契约外（值域槽下代）。
 
 判据（两者）：**声明比实现短且机械部分全消失**（防配置地狱）。
 
