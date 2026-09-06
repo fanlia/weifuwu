@@ -163,6 +163,7 @@ export const RelationGraph: Component<RelationGraphProps> = (_init, _ctx) => {
         class: 'wf-rg-canvas',
         width, height,
         viewBox,
+        role: 'img', // 语义容器（节点 title 子元素提供命名——WCAG img 命名机制）
         preserveAspectRatio: 'xMidYMid meet',
       }, [
         // 有向箭头 marker

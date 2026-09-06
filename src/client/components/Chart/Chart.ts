@@ -87,7 +87,7 @@ export const Chart: Component<ChartProps> = (_props, ctx) => {
         ])
       })
 
-      return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}` }, [
+      return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img' }, [
         ...ticks.map((t, i) => h('g', { key: `tick-${i}` }, [
           h('line', {
             x1: pad, y1: t.y + pad, x2: W - pad, y2: t.y + pad,
@@ -134,7 +134,7 @@ export const Chart: Component<ChartProps> = (_props, ctx) => {
       const ticks = getYTicks(yScale)
       const rects = barRects(data, xScale, yScale)
 
-      return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}` }, [
+      return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img' }, [
         ...ticks.map((t, i) => h('g', { key: `tick-${i}` }, [
           h('line', {
             x1: pad, y1: t.y + pad, x2: W - pad, y2: t.y + pad,
@@ -175,7 +175,7 @@ export const Chart: Component<ChartProps> = (_props, ctx) => {
       const radius = Math.min(cw, ch) / 2 - 4
       const arcs = pieArcs(data, cx, cy, radius)
 
-      return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}` }, [
+      return h('svg', { style: { width: '100%' }, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img' }, [
         ...arcs.map((a, i) => h('g', { key: `arc-${i}` }, [
           h('path', {
             d: a.d, fill: a.color,
