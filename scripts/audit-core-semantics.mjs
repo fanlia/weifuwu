@@ -36,6 +36,10 @@ const TEXT_PATTERNS = [
 
 const EXEMPT = [
   /node\/hole\.ts/,
+  // create-item 的 typeof boolean 是**参数收窄**（单槽 boolean vs 多槽对象
+  // 判别——插入 vnode props 的属性装配面）——非渲染级空洞/文本判定——
+  // 语义不同（判定对象是 API 入参不是 vnode 值）
+  /create-item\.ts/,
   /node\/index\.ts/,
   /field\//,
   /ssr\/html\.ts/,
