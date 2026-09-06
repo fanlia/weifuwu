@@ -8,6 +8,35 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.93.0] - 2026-09-06
+
+按域统计：core 22
+
+### Other（未分类——人工补域）
+
+- core：docs(components)：C2-W4 收尾——token 消费纪律成文 + 快照 + 全量回归门全绿
+- core：chore(components)：C2-W3 零消费 83 项定案——全保留 0 删除（理由入档）
+- core：feat(components)：C2-W2 弹层钩子接线——Popover/Tooltip max-width → min(var(--wf-popup-max,…),calc(100vw-32px))
+- core：feat(components)：C2-W1 line-height 接线——8 处近值恒等 → var(--wf-line-height-*)
+- core：test(components)：C2 token 消费哨兵（line-height 近值/弹层面板宽/零消费三桶——W0 防线先行）
+- core：docs(components)：W4 收尾——组件 px 四纪律成文 + 快照更新 + 全量回归门全绿
+- core：feat(components)：W3 半标尺补面 + 结构值理由定案
+- core：feat(components)：W2 标尺档 token 化——42 形态手写 4/8/12/16px → var(--wf-space-*/--wf-gap-*)
+- core：feat(components)：W1 发丝 token 化——43 形态 1px 字面量 → var(--wf-border-width)
+- core：test(components)：C1 组件 px 分类哨兵（发丝/标尺/结构值/z-index 四桶登记制——W0 防线先行）
+- core：plan：layout 优化完成归档（W0-W7 全部闭环——按 plan/plan.md §5 不物理保留）
+- core：docs(layout)：W7 收尾——全量回归门全绿 + 规则生效 + 计划归档
+- core：perf(layout)：W6 CSS minify——载荷兑现（layout -50% raw / br 12.1K→5.1K）
+- core：docs(layout)：W5 参考面生成 + 悬空引用清零——L15/L16 双哨兵
+- core：fix(layout)：W4 token 面定案——双标尺派生 + 同值双名单源化 + px 白名单
+- core：fix(layout)：W3 断点单源 + token 死面清理——L10/L11 双哨兵
+- core：fix(layout)：W2 层叠语义修正——utilities 恒胜 components + @property 钩子隔离 + display 族 :where
+- core：fix(layout)：W1 CSS 装配单源——四管线归一 + 层序声明复活 + 新鲜度键含依赖
+- core：plan：layout W0 实录（commit 锚点 + 断言数校正 5 条）
+- core：test(layout)：W0 防线先行——层叠语义场景契约 + 冲突矩阵/零值档位登记 + CSS 体积基线
+- core：plan：layout 优化立项（W0-W7——探针锚点）
+- core：fix(release)：changelog 生成接口漂移修复 + v0.92.0 条目补录
+
 ## [0.92.0] - 2026-09-06
 
 按域统计：plan 2 · core 30
