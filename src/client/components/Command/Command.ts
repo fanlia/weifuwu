@@ -50,23 +50,9 @@ export const Command: Component<CommandProps> = (_init, ctx)=> {
     }
   })
 
-  // 命令式弹窗（唯一形态 openPopup）：mask 全屏遮罩（§5.4 统一——全屏模态）——
-  // 受控 open/onOpenChange；Escape/遮罩点击关闭内核内置
-  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
-  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
-  const syncCommand = (panel: import('../../vdom/index.ts').VNode | null): void => {
-    if (latest.open && panel && !handle)
-      handle = ctx.ui.openPopup({
-        key: 'command',
-        mask: true,
-        maskCentered: true,
-        content: ()=> panel,
-        onClose: ()=> { handle = null; if (latest.open) latest.onOpenChange?.(false) },
-      })
-    else if (!latest.open && handle) { handle.close(); handle = null }
-    else if (handle) handle.update(panel)
-  }
-  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
+  // 行为契约（弹层开/关/Esc/遮罩单源——mask 面板——与现状对齐：
+  // trapFocus/lockScroll 保持 false——搜索面板焦点自由；Esc/遮罩关闭契约内置）
+  const ov = ctx.ui.useOverlay({ role: 'dialog' })
 
   return (props)=> {
     const {
@@ -76,8 +62,8 @@ export const Command: Component<CommandProps> = (_init, ctx)=> {
     latest = { open, onOpenChange, shortcut: globalShortcut }
 
     if (!open) {
-      // 关闭：命令式同步（open false → 内核自动清空）
-      syncCommand(null)
+      // 关闭：契约同步（open false → 内核自动清空）
+      ov.sync(()=> null as never, { open: false })
       return null
     }
 
@@ -147,8 +133,11 @@ export const Command: Component<CommandProps> = (_init, ctx)=> {
       h('div', { class: 'wf-command-list' }, list),
     ])
 
-    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
-    syncCommand(panel)
+    // 渲染期同步（openPopup 生命周期——受控 + 内容更新——每次渲染恒调用）
+    ov.sync(()=> panel, {
+      open: !!open,
+      onOpenChange: (v)=> { if (!v && open) onOpenChange?.(false) },
+    })
     return null
   }
 }

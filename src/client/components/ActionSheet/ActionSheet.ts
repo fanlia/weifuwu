@@ -42,24 +42,13 @@ export interface ActionSheetProps {
 }
 
 export const ActionSheet: Component<ActionSheetProps> = (_init, ctx: UIContext)=> {
-  // ── mount（只一次）：会话级模态（Modal/Drawer 同款四件套——presence/trap/lock/定位） ──
-  let latestOpen = false
-  /** 键盘焦点项（方向键移动——menu 语义） */
+  // ── mount（只一次）：行为契约（弹层四件套——presence/trap/lock/Esc/遮罩） ──
+  const ov = ctx.ui.useOverlay({ role: 'dialog' })
+  /** 键盘焦点项（方向键移动——menu 语义——业务面保留） */
   let focusKey = ''
-  // 命令式弹窗（唯一形态 openPopup）：presence 退场 + 焦点 trap + 滚动锁
-  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
-  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
-  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
-  // ESC 关闭（document 级——焦点在 trap 外也可关闭；phase=open 才触发避免 exit 期间重复）
-  let latestOnClose: (()=> void) | undefined
-  ctx.ui.useGlobalKey((e: KeyboardEvent)=> {
-    if (e.key === 'Escape' && handle?.open && latestOpen) latestOnClose?.()
-  })
 
   return (props: ActionSheetProps)=> {
     const { open, items, onSelect, onClose, cancelText, title } = props
-    latestOpen = open
-    latestOnClose = onClose
 
     // 键盘：方向键上下 + Enter 选择（menu 语义——跳过 disabled）
     const onKeyDown = (e: KeyboardEvent)=> {
@@ -94,8 +83,8 @@ export const ActionSheet: Component<ActionSheetProps> = (_init, ctx: UIContext)=
     if (!items.some((i)=> i.key === focusKey)) focusKey = items[0]?.key ?? ''
 
     const overlay = h('div', {
+      ...ov.maskProps,
       class: 'wf-actionsheet-overlay',
-      onClick: onClose,
     })
 
     const itemEls = items.map((item)=> {
@@ -143,33 +132,18 @@ export const ActionSheet: Component<ActionSheetProps> = (_init, ctx: UIContext)=
     ])
 
     const root = h('div', {
+      ...ov.panelProps,
       class: `wf-actionsheet ${open ? 'wf-actionsheet--enter' : 'wf-actionsheet--exit'}`,
-      role: 'dialog',
-      'aria-modal': 'true',
       'aria-label': title ?? '操作面板',
       tabIndex: -1,
     }, [overlay, panel])
 
-    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
-    if (open && !handle)
-      handle = ctx.ui.openPopup({
-        key: 'actionsheet',
-        presence: true,
-        trapFocus: true,
-        lockScroll: true,
-        positioning: 'none',
-        closeOnOutside: false,
-        closeOnEscape: false,
-        content: ()=> root,
-        onClose: ()=> { handle = null },
-      })
-    else if (!open && handle) {
-      // 退场：先渲染 exit class（动画）→ close（presence——animationend → dispose）
-      handle.update(root)
-      handle.close()
-      handle = null
-    }
-    else if (handle) handle.update(root)
+    // 渲染期同步（openPopup 生命周期——受控 + 内容更新——每次渲染恒调用）
+    ov.sync(()=> root, {
+      open: !!open,
+      onOpenChange: (v)=> { if (!v) onClose() },
+      presence: true,
+    })
 
     return null
   }

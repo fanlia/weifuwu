@@ -1,10 +1,12 @@
 /** Drawer：侧边面板，左右滑入 + ESC 关闭（showcase /components/drawer） */
 /**
  * weifuwu/client/components — Drawer
+ *
+ * 2027-09 原语全面化 W1：行为面（openPopup 生命周期/焦点 trap/滚动锁/Esc/
+ * 遮罩点击）→ useOverlay 契约——组件只写皮（overlay/panel/关闭钮/header/footer）。
  */
 
 import type {Component, VNodeChild} from '../../vdom/index.ts'
-import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
@@ -22,27 +24,16 @@ export interface DrawerProps {
 }
 
 export const Drawer: Component<DrawerProps> = (_props, ctx)=> {
-  // openPopup 内核 会话级模态（统一弹窗能力）：presence 退场状态机 + 焦点 trap + 滚动锁
-  let latestOpen = false
-  // 命令式弹窗（唯一形态 openPopup）：presence 退场状态机 + 焦点 trap + 滚动锁
-  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
-  let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
-  // ESC 关闭（document 级——焦点在 trap 外也可关闭；open 期间才触发避免退场重复）
-  let latestOnClose: (()=> void) | undefined
-  ctx.ui.useGlobalKey((e: KeyboardEvent)=> {
-    if (e.key === 'Escape' && handle?.open && latestOpen) latestOnClose?.()
-  })
-  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
+  // 行为契约（弹层四件套单源）——皮自由（overlay/panel/关闭钮）
+  const ov = ctx.ui.useOverlay({ role: 'dialog' })
 
   return (props: DrawerProps)=> {
     const { open, title, position = 'right', onClose, children, footer, width } = props
-    latestOnClose = onClose
     const DL = ctx?.i18n?.components?.Drawer ?? {}
-    latestOpen = !!open
 
     const overlay = h('div', {
+      ...ov.maskProps,
       class: 'wf-drawer-overlay',
-      onClick: onClose,
     })
 
     const closeBtn = h('button', {
@@ -64,39 +55,22 @@ export const Drawer: Component<DrawerProps> = (_props, ctx)=> {
     const panel = h('div', {
       class: `wf-drawer-panel wf-drawer-panel--${position}`,
       style: width ? { '--wf-drawer-width': width } : undefined,
-      
       onClick: (e: Event)=> e.stopPropagation(),
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {
+      ...ov.panelProps,
       class: `wf-drawer wf-drawer--${position} ${open ? 'wf-drawer--enter' : 'wf-drawer--exit'}`,
-      role: 'dialog',
-      'aria-modal': 'true',
       'aria-label': title ?? (DL.ariaLabel ?? '侧边面板'),
       tabIndex: -1,
-      onKeyDown: (e: KeyboardEvent)=> { if (e.key === 'Escape') onClose?.() },
     }, [overlay, panel])
 
-    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
-    if (open && !handle)
-      handle = ctx.ui.openPopup({
-        key: 'drawer',
-        presence: true,
-        trapFocus: true,
-        lockScroll: true,
-        positioning: 'none',
-        closeOnOutside: false,
-        closeOnEscape: false,
-        content: ()=> root,
-        onClose: ()=> { handle = null },
-      })
-    else if (!open && handle) {
-      // 退场：先渲染 exit class（动画）→ close（presence——animationend → dispose）
-      handle.update(root)
-      handle.close()
-      handle = null
-    }
-    else if (handle) handle.update(root)
+    // 渲染期同步（openPopup 生命周期——受控 + 内容更新——每次渲染恒调用）
+    ov.sync(()=> root, {
+      open: !!open,
+      onOpenChange: (v)=> { if (!v) onClose?.() },
+      presence: true,
+    })
 
     return null
   }
