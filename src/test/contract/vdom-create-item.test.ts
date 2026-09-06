@@ -60,3 +60,44 @@ test('无 aria 声明：仅类面（纯样式项）', () => {
   assert.deepEqual(item(false), { class: 'wf-plain' })
   assert.equal(item(true).class, 'wf-plain wf-plain--active')
 })
+
+// ── 多状态槽（回馈 #4）──
+test('多槽：active+open 双后缀 + 各自 aria 面', () => {
+  const title = createItem({
+    cls: 'wf-menu-submenu-title', role: 'menuitem',
+    states: { active: { roving: true }, open: { aria: 'aria-expanded' } },
+  })
+  const p = title({ active: true, open: true })
+  assert.equal(p.class, 'wf-menu-submenu-title wf-menu-submenu-title--active wf-menu-submenu-title--open')
+  assert.equal(p.tabindex, 0)
+  assert.equal(p['aria-expanded'], true)
+})
+
+test('多槽：槽假值——aria 布尔 false 保留 · ariaText undefined 移除', () => {
+  const title = createItem({
+    cls: 'wf-x',
+    states: { open: { aria: 'aria-expanded' }, cur: { ariaText: { key: 'aria-current', value: 'page' } } },
+  })
+  const p = title({ open: false, cur: false })
+  assert.equal(p['aria-expanded'], false)
+  assert.equal(p['aria-current'], undefined)
+  assert.equal(p.class, 'wf-x')
+})
+
+test('多槽：suffix false = roving-only 槽（无类面）', () => {
+  const item = createItem({ cls: 'wf-y', states: { active: { roving: true, suffix: false } } })
+  const p = item({ active: true })
+  assert.equal(p.class, 'wf-y')
+  assert.equal(p.tabindex, 0)
+})
+
+test('多槽：槽名默认后缀（--open 自动派生）', () => {
+  const item = createItem({ cls: 'wf-z', states: { open: { aria: 'aria-expanded' } } })
+  assert.equal(item({ open: true }).class, 'wf-z wf-z--open')
+})
+
+test('多槽：未传入槽键 → false（不激活）', () => {
+  const item = createItem({ cls: 'wf-z', states: { open: { aria: 'aria-expanded' } } })
+  assert.equal(item({}).class, 'wf-z')
+  assert.equal(item({})['aria-expanded'], false)
+})

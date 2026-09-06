@@ -16,7 +16,7 @@
 
 import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface NavMenuItem {
@@ -37,6 +37,9 @@ export interface NavMenuProps {
 const HOVER_CLOSE_DELAY = 120
 
 export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext)=> {
+  // 交互子项状态捆绑（createItem 多槽——active 类 + open 布尔（ariaText
+  // undefined 移除——hasChildren gated：无子项 = 不可展开语义））
+  const navItem = createItem({ cls: 'wf-navmenu-item', role: 'menuitem', states: { active: {}, open: { ariaText: { key: 'aria-expanded', value: 'true' } } } })
   // ── mount（只一次）──
   let openKey: string | null = null
   let nestedKey: string | null = null
@@ -230,12 +233,10 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext)=> {
         }, renderSub(item.children || [], activeKey, onSelect, 1)))
       }
       syncSubFallback()
-      return h('div', {
-        class: `wf-navmenu-item${item.disabled ? ' wf-navmenu-item--disabled' : ''}${activeKey === item.key ? ' wf-navmenu-item--active' : ''}`,
+      return h('div', navItem({ active: activeKey === item.key, open: hasChildren && isOpen }, {
         key: item.key,
-        role: 'menuitem',
+        class: [item.disabled ? 'wf-navmenu-item--disabled' : ''],
         'aria-haspopup': hasChildren ? 'menu' : undefined,
-        'aria-expanded': hasChildren && isOpen ? 'true' : undefined,
         ref: itemRef(item.key),
         tabIndex: item.disabled ? undefined : 0, // P1：可聚焦才可操作
         onClick: ()=> {
@@ -279,7 +280,7 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext)=> {
             ctx.render()
           }
         },
-      }, itemChildren)
+      }), itemChildren)
     }))
     // 顶层关闭兜底（nested fallback 只在 renderSub 内——顶层子菜单关闭后
     // renderSub 不再被调——nestedHandle 残留（点击叶子项嵌套面板残留实证）——

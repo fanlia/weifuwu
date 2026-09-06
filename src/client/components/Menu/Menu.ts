@@ -51,6 +51,13 @@ export const Menu: Component<MenuProps> = (_init, ctx)=> {
   // 交互子项状态捆绑（createItem——--active 类 + aria-current 文本值 + roving——
   // danger/child 第二类面走 extra class 追加）
   const menuItemActive = createItem({ cls: 'wf-menu-item', role: 'menuitem', ariaText: { key: 'aria-current', value: 'page' }, roving: true })
+  // 多状态槽（createItem states——active roving + open aria-expanded 布尔；
+  // collapsed 常量类走 extra.class 追加）
+  const multiTitleItem = createItem({
+    cls: 'wf-menu-submenu-title',
+    role: 'menuitem',
+    states: { active: { roving: true }, open: { aria: 'aria-expanded' } },
+  })
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
@@ -132,13 +139,10 @@ export const Menu: Component<MenuProps> = (_init, ctx)=> {
       // 折叠态：图标标题 + 点击弹出子菜单浮层（roadmap DO，openPopup 内核基座）
       if (isCollapsed) {
         const popupOpen = collapsedPopupKey === item.key
-        const titleEl = h('div', {
+        const titleEl = h('div', multiTitleItem({ active: isActive, open: popupOpen }, {
           'data-key': item.key,
-          class: `wf-menu-submenu-title wf-menu-submenu-title--collapsed${isActive ? ' wf-menu-submenu-title--active' : ''}`,
-          role: 'menuitem',
-          tabIndex: isActive ? 0 : -1,
+          class: 'wf-menu-submenu-title--collapsed',
           'aria-haspopup': 'menu',
-          'aria-expanded': popupOpen,
           onClick: (e: MouseEvent)=> {
             if (popupOpen) { collapsedPopupKey = null; ctx.render() }
             else {
@@ -151,7 +155,7 @@ export const Menu: Component<MenuProps> = (_init, ctx)=> {
             if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); if (!popupOpen) { popupAnchor = e.currentTarget as HTMLElement; collapsedPopupKey = item.key; ctx.render() } }
             else if (e.key === 'Escape') { e.preventDefault(); collapsedPopupKey = null; ctx.render() }
           },
-        }, [
+        }), [
           item.icon ? h('span', { class: 'wf-menu-icon' }, item.icon) : null,
         ].filter(Boolean))
         // 浮层：命令式弹窗（openPopup——定位/外部点击/Escape 内置——只打开项调）
@@ -169,10 +173,7 @@ export const Menu: Component<MenuProps> = (_init, ctx)=> {
       ].filter(Boolean)
       const title = h('div', {
         'data-key': item.key,
-        class: `wf-menu-submenu-title${isActive ? ' wf-menu-submenu-title--active' : ''}`,
-        role: 'menuitem',
-        tabIndex: isActive ? 0 : -1,
-        'aria-expanded': open,
+        ...multiTitleItem({ active: isActive, open }),
         onClick: ()=> toggleOpen(item.key),
         onKeyDown: (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
