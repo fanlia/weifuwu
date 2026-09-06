@@ -195,6 +195,9 @@ props camelCase · **`className=`（组件 props）`class=`（DOM 元素）** ·
 | renderFn 同步段 timer · 全局 window | effect-guard + audit:vdom |
 | 交互面无测试断言 | audit:interactivity L2 |
 | 事件进 attrs / value 走 attribute | 契约 7/8 |
+| div/span/a 冒充按钮（onClick 无键盘语义——role/tabIndex/onKeyDown/href 至少其一） | **audit:health C3-①**（豁免登记：拦截语义/父面键盘完整/装饰反馈/指针面等价） |
+| as any 新增（组件面——只降不升） | audit:health C3-②（基线 0——0.93.1 后） |
+| tree-shake 失效（未用组件残留产物） | audit:health C3-③（特征探针——真使用登记） |
 
 ### 5.7 注册与文档
 

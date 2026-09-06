@@ -41,3 +41,18 @@
 | 波次 | commit | 结果 |
 | --- | --- | --- |
 | W0 | | **防线先行（C3 三线审计——未改业务代码）**：`scripts/audit-component-health.mjs`——① **a11y 静态违规**（div/span/a onClick 无键盘语义——豁免登记遮罩类（usePopup Esc 等价）· **待修登记 4 处**（Modal content 点击 · Popconfirm wrap · **StatCard clickable div**（卡片可点击无 role）· **Tooltip wrap 缺键盘显示面**——W2 修）· ② **as any 基线 34**（只降不升——平台 audit:any 组件面版）· ③ **JS 体积 511KB + tree-shake 特征探针**（22 重组件——4 真使用登记——残留 0——**tree-shake 有效实证**）。**探针修正**：`h('div'` 单引号形态盲区（双引号 h() 漏检）+ showcase 引用检测 walk 数组 endsWith 恒 false（死组件 145 误报根因）。**负控三线全验**（双引号 div onClick · as any 35 > 34 各红）。**audit:all 八线→十一线**（+health）· 全绿。 |
+
+---
+
+## 波次交付实录（W3 收尾——2027-xx）
+
+| 波次 | commit | 交付 |
+| --- | --- | --- |
+| W0 | `9845e1fa` | C3 三线审计（a11y/as any 34/app.js 511KB+tree-shake）+ audit:all 十一线 |
+| W1 | `ad196b60` | **as any 34 → 0**（i18n 类型链清理 ×12 + 零散最小接口 ×9） |
+| W2 | `e4f18fd3` | **a11y 键盘可达**（Dropdown/Popover trigger 三件套 · FileUpload zone · VirtualTable row + 豁免 8 类 + 审计平衡扫描修正） |
+| W3 | （本 commit） | docs §5.6 红线表 +5 · AGENTS 快照（十一线/C3 基线）· 全量回归门 exit 0 |
+
+**终态判定**：大优化面全判负（a11y 专项/Editor 拆分/JS 体积/重复实现/死组件）——唯一动手术面 = as any（清 0）+ a11y 键盘可达（3 处真修 + 8 豁免定案）。医嘱：组件面 0 死代码/as any 已锁死——下次体检窗口 = 新组件入库时（C3 自动化守卫已就位）。
+
+**归档**：计划完成——按 plan/plan.md §5 不物理保留（本文件删除——历史由 git log 承接——本 commit 前的文件内容即计划本体）。
