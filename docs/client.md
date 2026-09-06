@@ -360,5 +360,51 @@ debounce(reload)——触发读最新 q。
 
 ---
 
+### 5.11 分层抽象（2027-09——三层各上浮为可生成的抽象）
+
+> 哲学：组件 = **契约 + 默认皮**——行为正确性由契约结构性保证，皮只是样式/结构
+> 自由面。开发者三用法（每层同构）：**用现成** · **换皮** · **拓场景**。
+
+#### ① 行为契约 hooks（vdom 层——`ctx.ui.*`）
+
+| 契约 | 语义 | 首个消费 |
+| --- | --- | --- |
+| `useSignal(init)` | 局部状态原语（set 自动重渲染——getter 纪律） | 新组件 |
+| `useOverlay(opts)` | 弹层开/关/焦点困禁/Esc/滚动锁/遮罩（sync 渲染期） | Modal |
+| `useField(opts)` | label/error/hint/aria 连接（label for·invalid·describedby） | Input |
+
+**换皮示例**（自绘弹层——行为全契约）：
+```ts
+const ov = ctx.ui.useOverlay({ open, onOpenChange, role: 'dialog' })
+const root = h('div', { class: 'my-panel', ...ov.panelProps }, [
+  h('div', { class: 'my-mask', ...ov.maskProps }),
+  h('div', { class: 'my-body' }, children),
+])
+ov.sync(() => root, { open, maskClosable: false }) // 渲染期同步
+```
+
+#### ② 组件抽象（components 层——`createComponent`）
+
+声明（class 词根 · enumStates 直拼/映射 · boolStates 显式 · ariaBools ·
+role · render 皮）——**机械面生成，结构/内容/事件自由**。首个消费：Button。
+```ts
+const Badge = createComponent({ class: 'wf-badge',
+  enumStates: { variant: null }, ariaBools: { ... } })
+```
+判据：**声明比实现短且机械部分全消失**（防配置地狱）。
+
+#### ③ 布局原语（layout 层——`defineLayout`）
+
+声明（class/base/defaults/variants——组合缺省内建 · 零优先级默认 · 变体
+继承基）→ 生成器 → CSS。首个迁移：row/stack/items 族（生成 = 旧手写逐
+属性等价）。断点变体声明即有（bp 面后续波次）。
+```ts
+structure({ class: 'wf-row', base: { display: 'flex', 'flex-wrap': 'wrap' },
+  defaults: { gap: 'var(--wf-gap, var(--wf-gap-md))' } })
+```
+
+> **存量零改动原则**：抽象是**增量**（新组件/维护组件走契约）——存量组件
+> 行为零回归（每波契约全量回归门）。
+
 > **运行**：`npm run test:client`（428 契约）· `npm run test:scenario`（123 场景）·
 > `npm run test:showcase`（324 组件测试）——全量防线见 AGENTS.md §1。

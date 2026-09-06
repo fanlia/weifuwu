@@ -60,6 +60,10 @@ export type { Component, RenderFn, VNode, VNodeChild } from './core/vnode.ts'
 export type { Ui } from './hooks/env.ts'
 /** 页面作者渲染入口（ctx.stream——vnode → Response 命令流） */
 export type { RenderCtx } from './core/protocol.ts'
+// 契约 hooks（分层抽象——行为契约面：开发者自定义 hook/组合/换皮的公共 API）
+export { useSignal, type SignalHandle } from './hooks/signal.ts'
+export { useOverlay, type OverlayOptions, type OverlayHandle } from './hooks/overlay.ts'
+export { useField, type FieldOptions, type FieldHandle } from './hooks/field.ts'
 export type { Browser } from './browser/Browser.ts'
 export type { ApiClient } from './middlewares/api.ts'
 export type { AuthClient, I18nState } from './middlewares/auth-i18n.ts'
