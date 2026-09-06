@@ -12,6 +12,11 @@ import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
+import { Badge } from '../Badge/Badge.ts'
+
+/** 徽标渲染（数字 → Badge count 胶囊；字符串 → 原样） */
+const badgeOf = (b: string | number | undefined): any =>
+  b == null ? null : h('span', { class: 'wf-menu-badge' }, h(Badge, { count: b }))
 
 export interface MenuItem {
   key: string
@@ -21,6 +26,8 @@ export interface MenuItem {
   group?: string
   active?: boolean
   danger?: boolean
+  /** 计数徽标（数字 → Badge count 胶囊——99+ 溢出；label 直传自定义形态） */
+  badge?: string | number
   onClick?: ()=> void
   /** 子菜单项（有 children 即渲染为可展开子菜单） */
   children?: MenuItem[]
@@ -154,6 +161,7 @@ export const Menu: Component<MenuProps> = (_init, ctx)=> {
       const titleChildren = [
         item.icon ? h('span', { class: 'wf-menu-icon' }, item.icon) : null,
         isCollapsed ? null : h('span', { class: 'wf-menu-label' }, item.label),
+        isCollapsed ? null : badgeOf(item.badge),
         isCollapsed ? null : h('span', { class: 'wf-menu-arrow' }, h(Icon, { name: 'chevron-right', size: 12 })),
       ].filter(Boolean)
       const title = h('div', {
@@ -210,6 +218,7 @@ export const Menu: Component<MenuProps> = (_init, ctx)=> {
       }, [
         item.icon ? h('span', { class: 'wf-menu-icon' }, item.icon) : null,
         isCollapsed && !forceLabel ? null : h('span', { class: 'wf-menu-label' }, item.label),
+        isCollapsed && !forceLabel ? null : badgeOf(item.badge),
       ].filter(Boolean))
     }
 

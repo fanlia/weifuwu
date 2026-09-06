@@ -476,10 +476,6 @@
     "--wf-z": {
       "token": "--wf-z",
       "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
-    },
-    "--wf-z-overlay": {
-      "token": "--wf-z-overlay",
-      "reason": "色板功能档（纯白/遮罩——主题面组件间接消费）"
     }
   }
 }

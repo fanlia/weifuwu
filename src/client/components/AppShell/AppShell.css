@@ -78,3 +78,49 @@
   0%, 100% { opacity: 0.5 }
   50% { opacity: 1 }
 }
+
+/* ── 移动端抽屉（W2——AppLayout 功能面入库：layout 堆叠降级被替换）── */
+.wf-app-shell-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.wf-app-shell-body .wf-main {
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 767.98px) {
+  /* 侧栏 → 抽屉：fixed 覆盖（脱离文档流——替换 layout 堆叠降级） */
+  .wf-app-shell .wf-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(80vw, 300px);
+    z-index: var(--wf-z-modal);
+    transform: translateX(-105%);
+    transition: transform var(--wf-transition);
+    box-shadow: none;
+    visibility: hidden;
+  }
+  .wf-app-shell .wf-sidebar.wf-app-shell-drawer--open {
+    transform: translateX(0);
+    visibility: visible;
+    box-shadow: var(--wf-shadow-lg);
+  }
+  .wf-app-shell-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--wf-overlay);
+    z-index: var(--wf-z-overlay);
+  }
+  .wf-app-shell .wf-sidebar-header {
+    justify-content: flex-end;
+  }
+  .wf-app-shell .wf-sidebar-header > :nth-child(2) {
+    margin-right: auto;
+  }
+}

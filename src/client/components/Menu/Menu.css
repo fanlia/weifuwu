@@ -183,3 +183,8 @@
 /* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
 :where(.wf-menu-label) {}
 :where(.wf-menu-submenu-title--active) {}
+
+/* 计数徽标（MenuItem.badge——Badge count 胶囊——右贴合） */
+.wf-menu-badge {
+  margin-left: auto;
+}
