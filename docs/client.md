@@ -130,7 +130,12 @@ app.router(Router())
   高频输入页的「静态邻居」零 diff）；回调经闭包（onDm/onRemove 豁免——
   CodeEditor 同款）；单消费者页内组件（不违反「>1 消费者入库」——判负登记）
 
-### 5.2 三件套
+### 5.2 三件套 + 文件头 banner
+
+组件文件 = `<Comp>.ts` + `<Comp>.css` + `<Comp>.test.ts`。**文件头 banner 单源**：
+首行 `/** <Name>：<desc>（showcase /components/<id>） */`——**desc/id 派生自
+showcase registry**（`apps/showcase/src/registry/components.ts`）——新组件注册
+登记即 banner 就位（C5-① 哨兵校验首行格式——desc 改注册后必须同步 banner）。
 
 ```
 src/client/components/<Comp>/
@@ -200,6 +205,8 @@ props camelCase · **`className=`（组件 props）`class=`（DOM 元素）** ·
 | tree-shake 失效（未用组件残留产物） | audit:health C3-③（特征探针——真使用登记） |
 | i18n 裸文案（有机制面组件中文用户可见文案不走 ctx.i18n/editorText/SL./labels） | **audit:health C4-①**（文件级登记制——fallback 形态 + 数据层/定义表豁免内联） |
 | CSS 死类（css 定义类全库词干无生成者——动态拼接豁免 wf-hl-*/wf-md-*） | audit:health C4-②（登记表防空表防回潮——W2 清 0） |
+| 文件头 banner 缺失（组件文件首行 = `/** <Name>：<desc>（showcase /components/<id>） */`——desc 单源 registry） | **audit:health C5-①**（首行格式校验——desc 变更 → banner 红——防漂移） |
+| svg 无 aria（h('svg') 平衡 body 无 role/aria-hidden/aria-label） | audit:health C3-svg（role:img 语义容器 / aria-hidden 装饰面） |
 
 ### 5.7 注册与文档
 
