@@ -24,6 +24,7 @@ import { useDragDrop, useMedia, useBreakpoint } from './drag-media.ts'
 import { useChat } from './chat.ts'
 import { useTween, useDrag, useVisualViewport, useReducedMotion, type TweenOptions } from './stable.ts'
 import { useSignal, type SignalHandle } from './signal.ts'
+import { useOverlay, type OverlayHandle, type OverlayOptions } from './overlay.ts'
 
 /** hooks 环境（per 组件实例——renderComponent 注入） */
 /** me() 会话面（useSession 返回——轻量结构——不依赖 server 类型） */
@@ -137,6 +138,9 @@ export interface Ui {
   /** 局部状态原语（set 自动重渲染——getter 纪律：get() 任意位置读最新）
    *  **增量原语**：不取代既有 ctx.render() 用法（存量保留） */
   useSignal<T>(init: T): SignalHandle<T>
+  /** 弹层行为契约（open/onOpenChange/焦点困禁/滚动锁/Esc/遮罩单源——
+   *  sync 渲染期调用（openPopup 生命周期）——详见 hooks/overlay.ts） */
+  useOverlay(opts: OverlayOptions): OverlayHandle
 }
 
 /** useAsyncData 模块级注册表（2027-08——跨组件共享同 key——并发合并）
@@ -316,5 +320,6 @@ export function createUi(env: HookEnv): Ui {
     useVisualViewport: () => useVisualViewport(env),
     useReducedMotion: () => useReducedMotion(env),
     useSignal: <T>(init: T) => useSignal(env, init),
+    useOverlay: (opts: OverlayOptions) => useOverlay(env, opts),
   }
 }

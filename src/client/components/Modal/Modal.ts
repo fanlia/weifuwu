@@ -1,12 +1,15 @@
 /** Modal：自定义宽度 + closable 控制关闭按钮（showcase /components/modal） */
 /**
  * weifuwu/components — Modal
+ *
+ * 行为面（2027-09 分层抽象 W2）：openPopup 生命周期/焦点 trap/滚动锁/Esc/
+ * 遮罩点击 → useOverlay 契约（手搓面消除——行为正确性结构性保证）。
+ * 组件只写皮：overlay（遮罩）+ content（面板）+ 关闭按钮/标题/footer。
  */
 
 import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
-import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
 
 export interface ModalProps {
   open?: boolean
@@ -23,29 +26,17 @@ export interface ModalProps {
 }
 
 export const Modal: Component<ModalProps> = (_props, ctx)=> {
-  // 命令式弹窗（唯一形态 openPopup）：presence 退场状态机 + 焦点 trap + 滚动锁
+  // 行为契约（mount 期闭包——maskProps/panelProps/close/sync）
   // positioning 'none'：.wf-modal 自己 inset:0 居中（CSS flex——不依赖锚点坐标）
-  let latestOpen = false
-  let latestOnClose: (()=> void) | undefined
-  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
-  let handle: PopupHandle | null = null
-
-  // ESC 关闭（document 级——焦点在 trap 外也可关闭；open 期间才触发避免退场重复）
-  ctx.ui.useGlobalKey((e: KeyboardEvent)=> {
-    if (e.key === 'Escape' && handle?.open && latestOpen) latestOnClose?.()
-  })
-  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
+  const ov = ctx.ui.useOverlay({ role: 'dialog' })
 
   return (props: ModalProps)=> {
     const { open, title, onClose, children, footer, width, closable = true, maskClosable = true } = props
-    latestOnClose = onClose
-    latestOpen = !!open
     const ML = ctx?.i18n?.components?.Modal ?? {}
 
     const overlay = h('div', {
+      ...ov.maskProps,
       class: 'wf-modal-overlay',
-      // 遮罩点击关闭：危险确认（maskClosable=false）下禁用，防误触
-      onClick: maskClosable ? onClose : undefined,
     })
 
     const closeBtn = closable ? h('button', {
@@ -71,32 +62,18 @@ export const Modal: Component<ModalProps> = (_props, ctx)=> {
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
     const root = h('div', {
+      ...ov.panelProps,
       class: `wf-modal ${open ? 'wf-modal--enter' : 'wf-modal--exit'}`,
-      role: 'dialog',
-      'aria-modal': 'true',
       'aria-label': title ?? (ML.ariaLabel ?? '弹窗'),
     }, [overlay, content])
 
-    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
-    if (open && !handle)
-      handle = ctx.ui.openPopup({
-        key: 'modal',
-        presence: true,
-        trapFocus: true,
-        lockScroll: true,
-        positioning: 'none',
-        closeOnOutside: false, // 关闭语义组件自控（overlay 点击 maskClosable）
-        closeOnEscape: false,  // Escape 组件自控（useGlobalKey——危险操作差异留在组件层）
-        content: ()=> root,
-        onClose: ()=> { handle = null },
-      })
-    else if (!open && handle) {
-      // 退场：先渲染 exit class（动画）→ close（presence——animationend → dispose）
-      handle.update(root)
-      handle.close()
-      handle = null
-    }
-    else if (handle) handle.update(root)
+    // 渲染期同步（openPopup 生命周期——受控 + 内容更新——每次渲染恒调用）
+    ov.sync(()=> root, {
+      open: !!open,
+      onOpenChange: (v)=> { if (!v) onClose?.() },
+      maskClosable,
+      presence: true,
+    })
 
     return null
   }
