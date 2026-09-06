@@ -1796,7 +1796,36 @@ const RedirectTarget = (_init: Record<string, never>, _ctx: any) => () =>
   h('div', { id: 'redirect-ok', class: 'redirect-scene' }, '重定向目标页')
 const REDIRECT = { id: 'redirect-target', title: 'redirect 目标（302 消费——replaceState + 渲染）', render: RedirectTarget }
 
+// ── 场景：layout 层叠语义（LAYOUT-PLAN W0——现状基线固化） ────────────────
+// 目的：把一次性探针读数（plan/layout-优化.md）变成可回归的浏览器契约——
+// `getComputedStyle` 真实计算值。**断言的是当前行为**（含三处已登记缺陷/缺口——
+// W2 根治后由执行波次同步翻转断言，红/绿可判定）：
+//   ① `--wf-gap` 继承污染：外层内联钩子污染内层原语（应回落默认 12px）
+//   ② utilities 层被 components 层压制：工具类覆盖组件样式失效（_hidden.css:4-7
+//      已用 !important 变通并登记根因「@layer 顺序下 utilities 永远输给 components」）
+//   ③ 零值档位缺口：`wf-padding-none`/`wf-radius-none` 未定义（margin/gap 有 none 档）
+//   ④ 冲突对静默：`wf-row wf-stack` 同设 align-items/flex-direction——取 column
+const LayoutSemantics = (_init: Record<string, never>, _ctx: any) => () =>
+  h('div', { class: 'layout-semantics' }, [
+    // ① gap 继承污染（外层内联 --wf-gap → 内层 .wf-stack 被污染）
+    h('div', { class: 'ls-gap-outer wf-stack', style: '--wf-gap:20px' }, [
+      h('div', { class: 'ls-gap-inner wf-stack' }, 'inner'),
+    ]),
+    // ② 工具类被组件类压制（双向 + 对照组）
+    h('div', { class: 'ls-override-down wf-card wf-card--pad-lg wf-padding-xs' }, 'card pad-lg + padding-xs'),
+    h('div', { class: 'ls-override-up wf-card wf-card--pad-sm wf-padding-lg' }, 'card pad-sm + padding-lg'),
+    h('button', { class: 'ls-override-btn wf-btn wf-padding-lg' }, 'btn + padding-lg'),
+    h('div', { class: 'ls-util-alone wf-padding-xs' }, '工具类单独（对照组）'),
+    // ③ 零值档位缺口（wf-padding-none 未定义 → 组件 padding 保持）
+    h('div', { class: 'ls-zero wf-card wf-card--pad-lg wf-padding-none' }, 'card + padding-none'),
+    // ④ 断点变体（!important 变通面——@1280 生效）+ 冲突对静默取值
+    h('div', { class: 'ls-bp wf-flex wf-hidden@lg' }, 'wf-flex + wf-hidden@lg'),
+    h('div', { class: 'ls-conflict wf-row wf-stack' }, 'wf-row + wf-stack'),
+  ])
+const LAYOUT_SEMANTICS = { id: 'layout-semantics', title: 'layout 层叠语义（现状基线——gap 污染/工具类压制/零值缺口/冲突对）', render: LayoutSemantics }
+
 export const scenarios: Scenario[] = [
+  LAYOUT_SEMANTICS,
   { id: 'hole-placeholder', title: '占位同构（§6.3 按钮保留回归）', render: HolePlaceholder },
   { id: 'hole-matrix', title: '空洞完整矩阵（全形态 × 组件/嵌套/keyed——childNodes 恒定）', render: HoleMatrix },
   { id: 'component-reuse', title: '组件复用（工厂不重跑——状态保持）', render: ComponentReuse },

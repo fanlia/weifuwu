@@ -7,7 +7,7 @@
 > [docs/client.md](docs/client.md) / [docs/server.md](docs/server.md)。
 
 **防线快照（2027-xx）**：
-契约 **433** · 场景 **123** · showcase **328**（134 组件全覆盖）· server **740** ·
+契约 **435** · 场景 **128** · showcase **328**（134 组件全覆盖）· server **740** ·
 shared **25** · 平台 **449** · audit:all **七线** exit 0（semantics/interactivity/vdom/theme/api/
 bundle/showcase）· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· tsc **0 错**。
 
@@ -66,8 +66,9 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 （渲染路径副作用守卫）、`build`（首帧命令序列）、`diff`（setProp 只发变化键/
 组件复用/空洞互换）、`key/keyed/attrs`、`router/store/data/html`、`events`、
 `api`（真实 HTTP fixture）、`auth`、`ai-stream`（wf: SSE）、`layout-inventory`
-（布局层清单 8 断言——计数基线/死类=0/缺口=0/无非法选择器/零值形态唯一/
-方向词隔离/双名歼灭/文档计数同步）。
+（布局层清单 11 断言——计数基线/死类=0/缺口=0/无非法选择器/零值形态唯一/
+方向词隔离/双名歼灭/**零值档位矩阵（L5d——取消面缺口登记）**/文档计数同步/
+dist 可解析/**冲突矩阵登记（L8——同属性不同值对的同元素共用逐对登记胜者+胜因）**）。
 
 ### 场景层（src/test/scenario/——playwright 真实 DOM）
 
@@ -79,6 +80,8 @@ diff-update/events-rebind/fragment-expand/ref-lifecycle · navigate · ssr-adopt
 hooks 全契约（use-external/media/popup/chat/scroll/in-view/drag-drop）·
 popup-placement/close-switch/hover/controlled-none/presence/mask/trap ·
 toast-fire/confirm-command · use-controlled/breakpoint/tween/drag ·
+**layout-semantics**（层叠语义现状基线——getComputedStyle 读数：gap 继承污染/
+utilities 被 components 层压制/零值档位缺口/断点变体/冲突对——LAYOUT-PLAN W0）。
 
 ### showcase 组件层（apps/showcase/test/comp-<id>.test.ts）
 

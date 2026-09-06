@@ -63,14 +63,16 @@ app.router(Router())
 
 ## 4. 布局系统
 
-`src/client/layout/`——49 原语（`_*.css`）+ 92 工具 + 2 内部，全部 `wf-` 前缀：
+`src/client/layout/`——50 原语（`_*.css`）+ 97 工具 + 2 内部，全部 `wf-` 前缀：
 
 - **原语**：`wf-stack` / `wf-row` / `wf-grid` / `wf-center` / `wf-card-surface` / `wf-divider`
 - **工具**：`wf-padding` / `wf-margin` / `wf-text-*` / `wf-bg-*` / `wf-hidden`
 - **命名规则**：三类词根 + 三后缀（完整词根表见 `apps/showcase/src/demos/layout.tsx`
   与 `src/test/contract/layout-inventory.test.ts` L1 计数断言——**测试即登记表**）
 
-零值形态唯一（`none` 归一）· 对齐域禁方向词 · 双名歼灭——layout-inventory 8 断言锁定。
+零值形态唯一（`none` 归一）· 对齐域禁方向词 · 双名歼灭 · 零值档位矩阵（取消面缺口登记）·
+冲突矩阵（同属性不同值对的同元素共用逐对登记胜者+胜因）——layout-inventory 11 断言锁定；
+层叠语义的浏览器计算值读数见场景层 `e2e-layout-semantics.test.ts`（现状基线）。
 
 ## 5. 组件编写规范（唯一入口）
 

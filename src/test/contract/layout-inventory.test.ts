@@ -7,7 +7,10 @@
  *   L3 缺口 = 0:消费侧"使用未定义类"归零(@变体归一基类)
  *   L4 非法选择器 = 0:未转义 @ 的类选择器(_flex.css 死规则根因防线)
  *   L5 命名规则:零值形态唯一(none)/对齐域禁物理方向词/双名歼灭(声明指纹)
+ *   L5d 零值档位矩阵(登记制):取消面完备性基线——缺口显式可见(LAYOUT-PLAN W0)
  *   L6 文档计数同步:layout-guide/README 数字 == inventory
+ *   L8 冲突矩阵(登记制):同属性不同值的基类对 = import 顺序定胜负(顺序敏感)——
+ *      消费侧同串共用必须逐对登记(静默顺序敏感 = 不透明——LAYOUT-PLAN W0 激活休眠防线)
  *
  * node:test 直跑——零浏览器(契约层纪律)。
  */
@@ -15,7 +18,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { inventory } from '../../../scripts/layout-inventory.mjs'
+import { inventory, conflictMatrix } from '../../../scripts/layout-inventory.mjs'
 
 const root = join(import.meta.dirname, '..', '..', '..')
 const LAYOUT = join(root, 'src/client/layout')
@@ -161,6 +164,26 @@ test('L5c 双名歼灭(声明指纹全等 = 别名对)', () => {
   assert.equal(aliases.length, 0, `同一声明多类名(保留一个,其余迁移消费侧):\n${aliases.map((ns) => '  ' + ns.join(' ≡ ')).join('\n')}`)
 })
 
+test('L5d 零值档位矩阵(登记制——取消面完备性基线)', () => {
+  // 有标尺的属性域应有 none 档(取消面)——当前缺口显式登记(补齐后基线更新):
+  //   已有: bg / border / gap / margin / margin-top
+  //   缺口: padding / radius(消费侧「取消组件内边距」无工具类面——只能 app.css !important)
+  // 场景契约 e2e-layout-semantics.test.ts ③ 是本缺口的浏览器读数(补齐后两处同时翻转)
+  const noneDomains = new Set(
+    bases.filter((c) => /-none$/.test(c.name)).map((c) => c.name.replace(/^wf-/, '').replace(/-none$/, '')),
+  )
+  const BASELINE = ['bg', 'border', 'gap', 'margin', 'margin-top']
+  assert.deepEqual(
+    [...noneDomains].sort(),
+    [...BASELINE].sort(),
+    `零值档位面变更必须有意(新增=取消面补齐·删除=消费侧断链): ${[...noneDomains].sort()}`,
+  )
+  // 缺口不静默:补齐即响(提示同步 BASELINE + 场景契约 ③)
+  for (const gap of ['padding', 'radius']) {
+    assert.ok(!noneDomains.has(gap), `wf-${gap}-none 已补——更新 BASELINE 并翻转 e2e-layout-semantics ③(24px → 0px)`)
+  }
+})
+
 test('L6 文档计数同步(README == inventory)', () => {
   const readme = readFileSync(join(root, 'README.md'), 'utf-8')
   const line = `${inv.primitives} 个布局原语 + ${inv.utilities} 个工具类 + ${inv.tokens} 个主题 Token`
@@ -185,4 +208,46 @@ test('L7 构建产物 CSS 可解析（dist PostCSS 合格——style.css 500 根
       assert.fail(`${f}: PostCSS 解析失败（构建产物损坏——500 根因）: ${String(e.message).slice(0, 120)}`)
     }
   }
+})
+
+test('L8 冲突矩阵（登记制——同属性不同值 = 源顺序定胜负）', () => {
+  // conflictMatrix 自 2027-09 导出但零测试消费（防线休眠）——本断言激活：
+  // 冲突对 = 两基类设同一布局身份属性且值不同 → 同元素共挂时胜者由
+  // weifuwu-layout.css 的 @import 顺序（同层）或 specificity 决定——改导入顺序即改行为。
+  const pairs = conflictMatrix(inv)
+  assert.equal(pairs.length, 169, '冲突对基线（变更必须有意：新增 = 新顺序敏感面 / 减少 = 属性收敛）')
+
+  // 消费侧同串共用（同一 class 字符串内两类同挂 = 同元素）必须逐对登记：
+  // 登记内容 = 实证胜者（浏览器 getComputedStyle 读数）+ 胜因（specificity / 源顺序）。
+  // 未登记的共用对 = 静默顺序敏感（改 @import 顺序无声翻转页面）——即红。
+  const REGISTERED: Record<string, string> = {
+    // 实证：dir=column align=center wrap=wrap——align 胜者 = _row 的 :where 回退 center
+    // （两原语均 :where() 零优先级——同层后序胜：_row 在 _stack 后）；dir 只有 stack 设
+    'wf-row×wf-stack': 'align-items → center（_row 后于 _stack——:where 同零优先级取后序）',
+    // 实证：align=center justify=center——center 胜因是 specificity（.wf-center 0,1,0 > :where(.wf-stack) 0,0,0）
+    'wf-center×wf-stack': 'align-items → center（specificity 胜——与源顺序无关）',
+    // 实证：wrap=nowrap——同 specificity（0,1,0）下 _nowrap 后于 _row → 显式禁换行意图胜
+    'wf-nowrap×wf-row': 'flex-wrap → nowrap（_nowrap 后于 _row——显式禁换行意图胜）',
+  }
+  const key = (p: { a: string; b: string }): string => [p.a, p.b].sort().join('×')
+  const lits = (collectCode(['apps', 'src/client/components']).match(/['"`]([^'"`\n]*)['"`]/g) ?? [])
+    .map((s) => s.slice(1, -1))
+    .filter((s) => s.includes('wf-'))
+  const coUsed = new Map<string, number>()
+  for (const p of pairs) {
+    const n = lits.filter((l) => { const cs = l.split(/\s+/); return cs.includes(p.a) && cs.includes(p.b) }).length
+    if (n) coUsed.set(key(p), n)
+  }
+  const unregistered = [...coUsed.keys()].filter((k) => !(k in REGISTERED))
+  assert.equal(
+    unregistered.length, 0,
+    `同元素共用的冲突对未登记（胜者由源顺序静默决定——登记胜者+胜因或拆开共用）:\n${unregistered.join('\n')}`,
+  )
+  const stale = Object.keys(REGISTERED).filter((k) => !coUsed.has(k))
+  assert.equal(stale.length, 0, `登记已陈旧（消费侧不再同串共用——移除登记）: ${stale.join(' ')}`)
+  assert.deepEqual(
+    [...coUsed.keys()].sort(),
+    Object.keys(REGISTERED).sort(),
+    '共用对集合 == 登记集合（逐对可追溯）',
+  )
 })

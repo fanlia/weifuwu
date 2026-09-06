@@ -1,7 +1,13 @@
 {
   "date": "2027-10",
+  "css_date": "2027-xx（LAYOUT-PLAN W0 锚点）",
   "app_js_bytes": 933028,
   "app_js_gzip_bytes": 220268,
+  "css_layout_bytes": 50878,
+  "css_layout_gzip_bytes": 14831,
+  "css_style_bytes": 319052,
+  "css_style_gzip_bytes": 57043,
   "tolerance": 1.05,
-  "note": "showcase 主 bundle（132 组件 demo 全量·esbuild 同源编译）——超基线 5% = exit 1（逼按需加载决策——计数基线制只能缩小或持平）——gzip 口径 = node zlib gzipSync（与审计工具一致）"
+  "note": "showcase 主 bundle（132 组件 demo 全量·esbuild 同源编译）——超基线 5% = exit 1（逼按需加载决策——计数基线制只能缩小或持平）——gzip 口径 = node zlib gzipSync（与审计工具一致）",
+  "css_note": "CSS 基线（LAYOUT-PLAN W0）——口径 = **dist 发布产物**（weifuwu/layout 单文件 + weifuwu/components/style.css 全量），非 dev 管线（dev 聚合语义与 dist 不同——见 plan/layout-优化.md 装配管线读数）；W6 minify 目标：layout 50878→~28K（gzip 14831→~5.7K）· style.css 319052→~226K（gzip 57043→~30K）；dist 未构建时审计打印可见跳过（不静默）"
 }
