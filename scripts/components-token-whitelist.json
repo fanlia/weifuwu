@@ -161,343 +161,335 @@
   "zeroConsume": {
     "--wf-accent-color": {
       "token": "--wf-accent-color",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-align": {
       "token": "--wf-align",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-amber-50": {
       "token": "--wf-amber-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-amber-500": {
       "token": "--wf-amber-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-amber-700": {
       "token": "--wf-amber-700",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-bp-lg": {
       "token": "--wf-bp-lg",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-bp-md": {
       "token": "--wf-bp-md",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-bp-sm": {
       "token": "--wf-bp-sm",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-bp-xl": {
       "token": "--wf-bp-xl",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-brand-50": {
       "token": "--wf-brand-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-brand-500": {
       "token": "--wf-brand-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-brand-600": {
       "token": "--wf-brand-600",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-brand-700": {
       "token": "--wf-brand-700",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-brand-seed": {
       "token": "--wf-brand-seed",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "语义接线钩子（主题覆写入口——页面面）"
     },
     "--wf-caret-color": {
       "token": "--wf-caret-color",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-color-on-warning": {
       "token": "--wf-color-on-warning",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "语义接线钩子（主题覆写入口——页面面）"
     },
     "--wf-cols": {
       "token": "--wf-cols",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-cover-z": {
       "token": "--wf-cover-z",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-amber-50": {
       "token": "--wf-dark-amber-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-amber-500": {
       "token": "--wf-dark-amber-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-bg": {
       "token": "--wf-dark-bg",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-bg-hover": {
       "token": "--wf-dark-bg-hover",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-brand-50": {
       "token": "--wf-dark-brand-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-brand-500": {
       "token": "--wf-dark-brand-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-brand-600": {
       "token": "--wf-dark-brand-600",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-brand-seed": {
       "token": "--wf-dark-brand-seed",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "语义接线钩子（主题覆写入口——页面面）"
     },
     "--wf-dark-fill": {
       "token": "--wf-dark-fill",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-green-50": {
       "token": "--wf-dark-green-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-green-500": {
       "token": "--wf-dark-green-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-overlay": {
       "token": "--wf-dark-overlay",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "色板功能档（纯白/遮罩——主题面组件间接消费）"
     },
     "--wf-dark-red-50": {
       "token": "--wf-dark-red-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-red-500": {
       "token": "--wf-dark-red-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-shadow": {
       "token": "--wf-dark-shadow",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-shadow-inset": {
       "token": "--wf-dark-shadow-inset",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-shadow-lg": {
       "token": "--wf-dark-shadow-lg",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-shadow-md": {
       "token": "--wf-dark-shadow-md",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-shadow-sm": {
       "token": "--wf-dark-shadow-sm",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-sky-50": {
       "token": "--wf-dark-sky-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-sky-500": {
       "token": "--wf-dark-sky-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-slate-100": {
       "token": "--wf-dark-slate-100",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-slate-200": {
       "token": "--wf-dark-slate-200",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-slate-300": {
       "token": "--wf-dark-slate-300",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-slate-400": {
       "token": "--wf-dark-slate-400",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
-    },
-    "--wf-dark-slate-50": {
-      "token": "--wf-dark-slate-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-slate-500": {
       "token": "--wf-dark-slate-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-slate-900": {
       "token": "--wf-dark-slate-900",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-state-hover": {
       "token": "--wf-dark-state-hover",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-state-pressed": {
       "token": "--wf-dark-state-pressed",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-dark-surface-shadow": {
       "token": "--wf-dark-surface-shadow",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
-    },
-    "--wf-dur-": {
-      "token": "--wf-dur-",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-gap-2xl": {
       "token": "--wf-gap-2xl",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-gap-lg": {
       "token": "--wf-gap-lg",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-gap-xl": {
       "token": "--wf-gap-xl",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-green-50": {
       "token": "--wf-green-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-green-500": {
       "token": "--wf-green-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-green-700": {
       "token": "--wf-green-700",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-justify": {
       "token": "--wf-justify",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-layout-sider-collapsed-width": {
       "token": "--wf-layout-sider-collapsed-width",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-layout-sider-width": {
       "token": "--wf-layout-sider-width",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-letter-spacing-wide": {
       "token": "--wf-letter-spacing-wide",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "文本档位完整性（{tight,base,relaxed} 档——W1 后 relaxed 零消费=备用档——字距唯一档）"
     },
     "--wf-line-height-relaxed": {
       "token": "--wf-line-height-relaxed",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "文本档位完整性（{tight,base,relaxed} 档——W1 后 relaxed 零消费=备用档——字距唯一档）"
     },
     "--wf-max": {
       "token": "--wf-max",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-offset": {
       "token": "--wf-offset",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-pop-z": {
       "token": "--wf-pop-z",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-red-50": {
       "token": "--wf-red-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-red-500": {
       "token": "--wf-red-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-red-700": {
       "token": "--wf-red-700",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-shadow": {
       "token": "--wf-shadow",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-sidebar-width": {
       "token": "--wf-sidebar-width",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-sky-50": {
       "token": "--wf-sky-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-sky-500": {
       "token": "--wf-sky-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-sky-700": {
       "token": "--wf-sky-700",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-slate-100": {
       "token": "--wf-slate-100",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-slate-200": {
       "token": "--wf-slate-200",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-slate-300": {
       "token": "--wf-slate-300",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-slate-400": {
       "token": "--wf-slate-400",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-slate-50": {
       "token": "--wf-slate-50",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-slate-500": {
       "token": "--wf-slate-500",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-slate-900": {
       "token": "--wf-slate-900",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-transition-duration": {
       "token": "--wf-transition-duration",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-transition-timing": {
       "token": "--wf-transition-timing",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-w-sm": {
       "token": "--wf-w-sm",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-white": {
       "token": "--wf-white",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "色板功能档（纯白/遮罩——主题面组件间接消费）"
     },
     "--wf-z": {
       "token": "--wf-z",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "组件面非消费面（保留——公共 API 不删；消费形态异于 var() 引用）——W3 定案"
     },
     "--wf-z-overlay": {
       "token": "--wf-z-overlay",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
+      "reason": "色板功能档（纯白/遮罩——主题面组件间接消费）"
     }
   }
 }

@@ -21,8 +21,8 @@ import postcss from 'postcss'
 
 const root = join(import.meta.dirname, '..', '..', '..')
 const COMPONENTS = join(root, 'src/client/components')
-const TOKENS = readFileSync(join(root, 'src/client/layout/_tokens.css'), 'utf-8') +
-  readFileSync(join(root, 'src/client/layout/_props.css'), 'utf-8')
+const TOKENS = (readFileSync(join(root, 'src/client/layout/_tokens.css'), 'utf-8') +
+  readFileSync(join(root, 'src/client/layout/_props.css'), 'utf-8')).replace(/\/\*[\s\S]*?\*\//g, '')
 const WL = JSON.parse(readFileSync(join(root, 'scripts/components-token-whitelist.json'), 'utf-8'))
 
 /** line-height token 档位（从 _tokens.css 解析——单源） */
