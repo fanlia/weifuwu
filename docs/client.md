@@ -198,6 +198,8 @@ props camelCase · **`className=`（组件 props）`class=`（DOM 元素）** ·
 | div/span/a 冒充按钮（onClick 无键盘语义——role/tabIndex/onKeyDown/href 至少其一） | **audit:health C3-①**（豁免登记：拦截语义/父面键盘完整/装饰反馈/指针面等价） |
 | as any 新增（组件面——只降不升） | audit:health C3-②（基线 0——0.93.1 后） |
 | tree-shake 失效（未用组件残留产物） | audit:health C3-③（特征探针——真使用登记） |
+| i18n 裸文案（有机制面组件中文用户可见文案不走 ctx.i18n/editorText/SL./labels） | **audit:health C4-①**（文件级登记制——fallback 形态 + 数据层/定义表豁免内联） |
+| CSS 死类（css 定义类全库词干无生成者——动态拼接豁免 wf-hl-*/wf-md-*） | audit:health C4-②（登记表防空表防回潮——W2 清 0） |
 
 ### 5.7 注册与文档
 
