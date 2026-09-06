@@ -263,12 +263,19 @@ function compileWhere(expr: WhereExpr, params: unknown[]): string {
   for (const [col, field] of Object.entries(expr)) {
     if (col === 'or') {
       const ors = field as WhereExpr[]
-      parts.push(`(${ors.map((o) => compileWhere(o, params)).join(' OR ')})`)
+      // 空对象子项 = 无条件（memory matchWhereExpr 同语义——空对象 evAlue true）——
+      // 子项编译为空串时跳过——否则裸 OR（如 `( OR x )`——PG 语法错）
+      const sub = ors.map((o) => compileWhere(o, params)).filter((s) => s !== '')
+      parts.push(sub.length ? `(${sub.join(' OR ')})` : '')
       continue
     }
     if (col === 'and') {
       const ands = field as WhereExpr[]
-      parts.push(`(${ands.map((o) => compileWhere(o, params)).join(' AND ')})`)
+      // 空对象子项 = 无条件——跳过（否则裸 AND——`( AND x )`——PG 语法错——
+      // 2027-09 platform `/api/agents` 400：listQuery 空 filter={} 经 ctxTable scope
+      // 合并 `{ and: [{}, sc] }` → compiler 空串 → `syntax error at or near "AND"`
+      const sub = ands.map((o) => compileWhere(o, params)).filter((s) => s !== '')
+      parts.push(sub.length ? `(${sub.join(' AND ')})` : '')
       continue
     }
     if (typeof field === 'object' && field !== null) {
@@ -315,7 +322,7 @@ function compileWhere(expr: WhereExpr, params: unknown[]): string {
     }
     throw new ProtocolError(`weifuwu/db: WHERE 列 ${col} 值必须为算子对象（{ eq: v } / { in: [...] } / { isNull: true }——裸标量/数组/null 形态已移除）`)
   }
-  return parts.join(' AND ')
+  return parts.filter((s) => s !== '').join(' AND ')
 }
 
 function compileOrderBy(orderBy: SelectQuery['orderBy']): string {
@@ -352,9 +359,12 @@ export function compileSelect(q: SelectQuery): Compiled {
   let sql = `SELECT ${distinct}${cols}${agg} FROM ${q.table}${q.alias ? ` ${q.alias}` : ''}`
   for (const j of q.joins ?? []) {
     const on = isRaw(j.on) ? interpRaw(j.on, params) : compileWhere(j.on, params)
-    sql += ` ${j.type === 'left' ? 'LEFT JOIN' : 'JOIN'} ${j.table}${j.alias ? ` ${j.alias}` : ''} ON ${on}`
+    sql += ` ${j.type === 'left' ? 'LEFT JOIN' : 'JOIN'} ${j.table}${j.alias ? ` ${j.alias}` : ''} ON ${on || '(1=1)'}` // 空 on（{}）= 无条件——(1=1) 保 SQL 合法（memory 同语义）
   }
-  if (q.where) sql += ` WHERE ${compileWhere(q.where, params)}`
+  {
+    const w = q.where ? compileWhere(q.where, params) : ''
+    if (w) sql += ` WHERE ${w}`
+  }
   for (const s of q.sub ?? []) {
     const sub = compileSelect(s.query)
     // 子查询参数重编号（base offset——子查询内部 $n 独立，映射到全局参数数组）
@@ -420,7 +430,12 @@ export function compileUpdate(q: UpdateQuery): Compiled {
     .map(([col, v]) => `${col} = ${compileMergeVal(col, v, params, q.table)}`)
     .join(', ')
   let sql = `UPDATE ${q.table} SET ${setSql}`
-  if (q.where) sql += ` WHERE ${compileWhere(q.where, params)}`
+  // 空条件（{} / 全空 and 组）——编译为空串——显式拒绝（不静默——防全表守卫延续）
+  {
+    const w = compileWhere(q.where, params)
+    if (!w) throw new ValidationError('weifuwu/db: UPDATE 条件为空（空对象/空 and 组 = 全表更新——显式拒绝）')
+    sql += ` WHERE ${w}`
+  }
   if (q.returning) {
     const r = q.returning === '*' ? '*' : q.returning.join(', ')
     sql += ` RETURNING ${r}`
@@ -433,7 +448,12 @@ export function compileDelete(q: DeleteQuery): Compiled {
   const params: unknown[] = []
   if (!q.where) throw new ValidationError('weifuwu/db: DELETE 必须带 WHERE（全表删除用 orm.execute 显式）')
   let sql = `DELETE FROM ${q.table}`
-  if (q.where) sql += ` WHERE ${compileWhere(q.where, params)}`
+  // 空条件（{} / 全空 and 组）——编译为空串——显式拒绝（不静默——防全表守卫延续）
+  {
+    const w = compileWhere(q.where, params)
+    if (!w) throw new ValidationError('weifuwu/db: DELETE 条件为空（空对象/空 and 组 = 全表删除——显式拒绝）')
+    sql += ` WHERE ${w}`
+  }
   if (q.returning) {
     const r = q.returning === '*' ? '*' : q.returning.join(', ')
     sql += ` RETURNING ${r}`

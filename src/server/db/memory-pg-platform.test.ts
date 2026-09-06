@@ -89,3 +89,44 @@ test('compileQuery SQL 形状静态契约（wire 消亡后单向封闭输出金�
   const up = compileQuery({ kind: 'insert', table: 'role_templates', rows: [{ name: 'x', slug: 's' }], onConflict: { col: 'slug', update: true } } as never)
   assert.match(up.sql, /ON CONFLICT \(slug\) DO UPDATE SET name = EXCLUDED\.name/)
 })
+
+
+// ── 空条件契约（2027-09 platform /api/agents 400「syntax error at or near AND」根因防线） ──
+// 根因：listQuery 空 filter={} 经 ctxTable scope 合并 `{ and: [{}, sc] }` →
+// compileWhere 空对象子项编译为空串 → `( AND app_id = $1 )`（PG 语法错）。
+// 语义定案：空对象 = 无条件（memory matchWhereExpr 同语义——双端对账一致）。
+
+test('空对象 where 子项 = 无条件——compile 无裸 AND（and 组/顶层/全空组）', () => {
+  // ① and 组内含空对象子项（ctxTable scope 合并形态——bug 现场）
+  const c1 = compileSelect({ kind: 'select', table: 'agents', where: { and: [{}, { app_id: { eq: 'a1' } }] }, cols: ['*'] } as never)
+  assert.doesNotMatch(c1.sql, /\bAND AND\b|\( AND|^\(AND/)
+  assert.match(c1.sql, /WHERE \(\$1\)|WHERE \(.*app_id = \$1\)/)
+  assert.deepEqual(c1.params, ['a1'])
+  // ② 顶层空对象 = 无条件（无 WHERE 子句）
+  const c2 = compileSelect({ kind: 'select', table: 'agents', where: {}, cols: ['*'] } as never)
+  assert.doesNotMatch(c2.sql, /WHERE/)
+  // ③ 全空 and 组 = 无条件（同 ②）
+  const c3 = compileSelect({ kind: 'select', table: 'agents', where: { and: [{}] }, cols: ['*'] } as never)
+  assert.doesNotMatch(c3.sql, /WHERE/)
+  // ④ or 组内空对象子项 = 跳过（裸 OR 同款）
+  const c4 = compileSelect({ kind: 'select', table: 'agents', where: { or: [{}, { state: { eq: 'active' } }] }, cols: ['*'] } as never)
+  assert.doesNotMatch(c4.sql, /OR OR|\( OR /)
+  assert.match(c4.sql, /state = \$1/)
+  // ⑤ update/delete 空条件显式拒绝（防全表守卫延续——不静默）
+  assert.throws(() => compileQuery({ kind: 'update', table: 'agents', sets: { name: 'x' }, where: {} } as never), /条件为空/)
+  assert.throws(() => compileQuery({ kind: 'delete', table: 'agents', where: {} } as never), /条件为空/)
+})
+
+test('空对象 where 子项——memory 同语义对账（{} = true——无条件）', async () => {
+  const mem = new MemorySql()
+  mem.applySchema(AGENT_PLATFORM_SCHEMA as never)
+  await mem.executeQuery({ kind: 'insert', table: 'agents', rows: [{ app_id: 'a1', name: 'x', type: 'ai' }] } as never)
+  // ① and 含空对象子项——等价于单条件（空对象不干扰——非死条件）
+  const q1 = { kind: 'select', table: 'agents', cols: ['*'], where: { and: [{}, { app_id: { eq: 'a1' } }] } } as never
+  const r1 = (await mem.executeQuery(q1)) as unknown as unknown[]
+  assert.equal(r1.length, 1)
+  // ② 空对象 alone = 全量（无条件）
+  const q2 = { kind: 'select', table: 'agents', cols: ['*'], where: {} } as never
+  const r2 = (await mem.executeQuery(q2)) as unknown as unknown[]
+  assert.equal(r2.length, 1)
+})
