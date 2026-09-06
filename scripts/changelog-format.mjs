@@ -8,7 +8,7 @@
 
 /** 解析 commit 行 → { type, scope, title } */
 export function parseCommitLine(line) {
-  const m = line.match(/^\w+ ((?:feat|fix|docs|test|chore))(?:\(([^)]*)\))?: (.+)$/)
+  const m = line.match(/^\w+ ((?:feat|fix|docs|test|chore))(?:\(([^)]*)\))?[:：]\s*(.+)$/)
   if (m) return { type: m[1], scope: m[2] ?? '', title: m[3].trim() }
   if (line) return { type: 'other', scope: '', title: line.replace(/^\w+\s/, '').trim() }
   return null

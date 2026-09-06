@@ -10,6 +10,13 @@ test('W2：scope 提取——feat(orm): xxx → 域 orm', () => {
   assert.deepEqual(p, { type: 'feat', scope: 'orm', title: 'bodyOf 输入面' })
 })
 
+test('W2：全角冒号——feat(components)：xxx 同解析（2027-09 回归：components/layout 提交全落 Other）', () => {
+  const p = parseCommitLine('082fa34e feat(components)：C1 组件 px 分类哨兵')
+  assert.deepEqual(p, { type: 'feat', scope: 'components', title: 'C1 组件 px 分类哨兵' })
+  const { groups } = parseCommits('c5a3a13c fix(layout)：W4 token 面定案')
+  assert.match(groups.fix[0], /^layout：/)
+})
+
 test('W2：无 scope → 核心层（域标签诚实——不猜测）', () => {
   const { groups } = parseCommits('abc feat: serve 修正')
   assert.equal(groups.feat[0], 'core：serve 修正')
