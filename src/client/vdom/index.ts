@@ -78,6 +78,8 @@ export { renderToStreamV2 as renderToStream } from './core/v2/integrate.ts' // v
 export { diffToStreamV2 as diffStream } from './core/v2/integrate.ts' // v1 退役——v2 兼容桥
 export { CommandApplier } from './core/patch/index.ts'
 export { createComponentRegistry } from './core/node/component.ts'
+export { createComponent } from './core/create-component.ts'
+export type { CreateComponentDecl } from './core/create-component.ts'
 export { aiStream } from './hooks/ai-stream.ts'
 export type { AiStreamHandle } from './hooks/ai-stream.ts'
 export type { ExternalStore } from './store.ts'

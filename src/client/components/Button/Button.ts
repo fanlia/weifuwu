@@ -1,7 +1,13 @@
 /** Button：4 variants × 3 sizes + loading + block + disabled（showcase /components/button） */
-import type {Component, VNodeChild} from '../../vdom/index.ts'
-import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+/**
+ * weifuwu/components — Button
+ *
+ * 2027-09 W3：状态类（variant/size/block/loading）+ aria-busy → createComponent
+ * 声明（BEM 直拼单源）——render 只写结构/内容/事件（皮）。
+ */
+
+import type {VNodeChild, UIContext} from '../../vdom/index.ts'
+import { h, createComponent } from '../../vdom/index.ts'
 
 export interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost'
@@ -20,33 +26,24 @@ export interface ButtonProps {
   onClick?: (e: MouseEvent)=> void
   children?: VNodeChild}
 
-export const Button: Component<ButtonProps> = (_init, ctx)=>
-  (props)=> {
-  const { variant = 'primary', size = 'md', block, loading, disabled, type, onClick, children } = props
-  // CHAT-UX-PLAN 波次 1（C3 核心层修复）：合并透传 class（ButtonProps.class 曾声明
-  // 「覆盖默认组合」但实现未消费——调用方响应式类（wf-hidden@lg 等）静默失效实证）
-  const cls = [
-    'wf-btn',
-    `wf-btn--${variant}`,
-    `wf-btn--${size}`,
-    block && 'wf-btn--block',
-    loading && 'wf-btn--loading',
-    props.class,
-  ].filter(Boolean).join(' ')
-
-  const L = ctx?.i18n?.components?.Button ?? {}
-
-  return h('button', {
-    id: props.id,
-    title: props.title,
-    class: cls,
-    type: type ?? 'button',
-    disabled: disabled || loading || undefined,
-    'aria-busy': loading || undefined,
-    'aria-label': props['aria-label'],
-    onClick,
-  }, loading
-    ? [h('span', { class: 'wf-btn-spinner' }), L.loading ?? '加载中...']
-    : children)
-
-  }
+export const Button = createComponent<ButtonProps>({
+  class: 'wf-btn',
+  enumStates: { variant: null, size: null },
+  boolStates: { block: 'wf-btn--block', loading: 'wf-btn--loading' },
+  ariaBools: { loading: 'aria-busy' },
+  render: (root, props, ctx) => {
+    const { loading, disabled, type, onClick, children } = props
+    const L = ctx?.i18n?.components?.Button ?? {}
+    return h('button', {
+      ...root,
+      id: props.id,
+      title: props.title,
+      type: type ?? 'button',
+      disabled: disabled || loading || undefined,
+      'aria-label': props['aria-label'],
+      onClick,
+    }, loading
+      ? [h('span', { class: 'wf-btn-spinner' }), L.loading ?? '加载中...']
+      : children)
+  },
+})
