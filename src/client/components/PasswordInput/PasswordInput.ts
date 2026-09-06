@@ -40,9 +40,14 @@ export const PasswordInput: Component<PasswordInputProps> = (_init, ctx)=> {
       ctx.render()
     }
 
-    const labelEl = label
-      ? h('label', { class: 'wf-input-label' }, [label, required ? h('span', { class: 'wf-input-req' }, '*') : null].filter(Boolean))
-      : null
+    // 字段契约（label/error/hint 结构 + aria——复用 Input 类面）
+    const f = ctx.ui.useField({
+      label, error, hint, required, name,
+      labelClass: 'wf-input-label',
+      errClass: 'wf-input-err',
+      hintClass: 'wf-input-hint',
+      reqClass: 'wf-input-req',
+    })
 
     const input = h('input', {
       class: 'wf-input',
@@ -66,12 +71,14 @@ export const PasswordInput: Component<PasswordInputProps> = (_init, ctx)=> {
 
     const wrap = h('div', { class: 'wf-input-wrap wf-password' }, [input, eye])
 
-    const children: any[] = []
-    if (labelEl) children.push(labelEl)
-    children.push(wrap)
-    if (error) children.push(h('div', { class: 'wf-input-err' }, error))
-    if (hint && !error) children.push(h('div', { class: 'wf-input-hint' }, hint))
-
-    return h('div', { class: `wf-field${className ? ` ${className}` : ''}` }, children)
+    // 与 Textarea 同（恒包 wf-field——className 透传）
+    return h('div', {
+      class: `wf-field${f.stateClass}${className ? ` ${className}` : ''}`,
+    }, [
+      f.renderLabel(),
+      wrap,
+      f.renderError(),
+      f.renderHint(),
+    ].filter(Boolean))
   }
 }
