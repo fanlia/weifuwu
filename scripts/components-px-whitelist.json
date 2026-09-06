@@ -1532,12 +1532,6 @@
       "value": "2px",
       "reason": "2px 发丝级偏移/间距（标尺最小档 4px=xs——密集面惯用）"
     },
-    "Popover/Popover.css#max-width#320px": {
-      "file": "Popover/Popover.css",
-      "prop": "max-width",
-      "value": "320px",
-      "reason": "结构最大宽（组件域——判负 token 化）（值 320px——组件域登记）"
-    },
     "ProgressBar/ProgressBar.css#height#12px": {
       "file": "ProgressBar/ProgressBar.css",
       "prop": "height",
@@ -2587,12 +2581,6 @@
       "prop": "left",
       "value": "5px",
       "reason": "定位偏移（组件域结构）（值 5px——组件域登记）"
-    },
-    "Tooltip/Tooltip.css#max-width#240px": {
-      "file": "Tooltip/Tooltip.css",
-      "prop": "max-width",
-      "value": "240px",
-      "reason": "结构最大宽（组件域——判负 token 化）（值 240px——组件域登记）"
     },
     "Tooltip/Tooltip.css#top#5px": {
       "file": "Tooltip/Tooltip.css",

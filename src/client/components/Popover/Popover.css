@@ -19,7 +19,7 @@
   box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space);
   min-width: var(--wf-popover-width,  160px);
-  max-width: 320px;
+  max-width: min(var(--wf-popup-max, 320px), calc(100vw - 32px));
 }
 
 .wf-popover--bottom {

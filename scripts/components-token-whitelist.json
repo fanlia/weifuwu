@@ -127,12 +127,6 @@
       "value": "120px",
       "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
     },
-    "Popover/Popover.css#max-width#320px": {
-      "file": "Popover/Popover.css",
-      "prop": "max-width",
-      "value": "320px",
-      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
-    },
     "Result/Result.css#max-width#420px": {
       "file": "Result/Result.css",
       "prop": "max-width",
@@ -155,12 +149,6 @@
       "file": "Toast/Toast.css",
       "prop": "max-width",
       "value": "400px",
-      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
-    },
-    "Tooltip/Tooltip.css#max-width#240px": {
-      "file": "Tooltip/Tooltip.css",
-      "prop": "max-width",
-      "value": "240px",
       "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
     },
     "Tour/Tour.css#max-width#360px": {
@@ -425,10 +413,6 @@
     },
     "--wf-pop-z": {
       "token": "--wf-pop-z",
-      "reason": "零消费——待 W3 定案（保留/真死判决）"
-    },
-    "--wf-popup-max": {
-      "token": "--wf-popup-max",
       "reason": "零消费——待 W3 定案（保留/真死判决）"
     },
     "--wf-red-50": {
