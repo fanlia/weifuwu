@@ -436,8 +436,19 @@ aria 布尔几乎总在**子项**（43 组件含状态面 · 12 组件同条件�
     states: { active: { roving: true }, open: { aria: 'aria-expanded' } } })
   h('div', title({ active: isActive, open: popupOpen }, { onClick }), ...)
   ```
-  边界（诚实）：槽值是布尔——aria 多值枚举（Tree 'mixed' / Cascader
-  String() 多态）仍在契约外（值域槽下代）。
+  值域槽（回馈 #5——Tree 'mixed' 判负反转）：`enum` 单键互斥多值——三态
+  checkbox 原型（类后缀/aria 键值/props 三面捆绑——indeterminate 同步单源）：
+  ```ts
+  const tri = createItem({ cls: 'wf-checkbox', enum: {
+    key: 'aria-checked',
+    off: { props: { checked: false, indeterminate: false } },
+    values: { checked: { props: { checked: true }, aria: true },
+              half: { props: { indeterminate: true }, aria: 'mixed' } } } })
+  h('input', tri(someSelected ? 'half' : null), ...)
+  ```
+  边界（诚实）：enum = 单键互斥（值域）· states = 多键独立（可同时）——
+  正交两组件型；常量单值（Breadcrumb 'page'）无状态机面——常量直写判负；
+  Cascader String() 多态（数值/选择字符串混合）仍在契约外。
 
 判据（两者）：**声明比实现短且机械部分全消失**（防配置地狱）。
 
