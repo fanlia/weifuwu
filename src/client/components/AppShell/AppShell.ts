@@ -18,7 +18,7 @@
  * - loading：守卫加载态（骨架占位）
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Avatar } from '../Avatar/Avatar.ts'
 import { Button } from '../Button/Button.ts'
@@ -28,7 +28,7 @@ import { Menu, type MenuItem } from '../Menu/Menu.ts'
 export interface AppShellNavItem {
   key: string
   label: string
-  icon?: any
+  icon?: VNodeChild
   group?: string
 }
 
@@ -42,33 +42,33 @@ export interface AppShellProps {
   /** 用户信息（null = 未登录——父层守卫） */
   user?: { name?: string; email?: string } | null
   /** 导航回调（菜单选择 → 父层 navigate） */
-  onNavigate?: (key: string) => void
-  onLogout?: () => void
-  onSettings?: () => void
+  onNavigate?: (key: string)=> void
+  onLogout?: ()=> void
+  onSettings?: ()=> void
   /** 守卫加载态（骨架占位——不渲染菜单/用户） */
   loading?: boolean
   /** 主内容区 */
-  children?: any
+  children?: VNodeChild
   /** 自定义底部（覆盖用户区——高级场景） */
-  footer?: any
+  footer?: VNodeChild
   /** 侧栏宽度（layout 变量——默认 240px） */
   sidebarWidth?: string
 }
 
 const activeOf = (nav: AppShellNavItem[], path: string): string => {
   const p = path || '/'
-  const hit = nav.find((n) => n.key === '/' ? p === '/' : p.startsWith(n.key))
+  const hit = nav.find((n)=> n.key === '/' ? p === '/' : p.startsWith(n.key))
   return hit?.key ?? ''
 }
 
-export const AppShell: Component<AppShellProps> = (_init, ctx) => {
-  return (props) => {
+export const AppShell: Component<AppShellProps> = (_init, ctx)=> {
+  return (props)=> {
     const {
       nav = [], path = '', user = null, brand = {},
       onNavigate, onLogout, onSettings, loading = false,
       sidebarWidth = '240px',
     } = props
-    const items: MenuItem[] = nav.map((n) => ({ key: n.key, label: n.label, icon: n.icon, group: n.group }))
+    const items: MenuItem[] = nav.map((n)=> ({ key: n.key, label: n.label, icon: n.icon, group: n.group }))
     const name = brand.name ?? 'App'
     const subtitle = brand.subtitle ?? ''
 
@@ -93,7 +93,7 @@ export const AppShell: Component<AppShellProps> = (_init, ctx) => {
             : h(Menu, {
                 items,
                 activeKey: activeOf(nav, path),
-                onSelect: (k: string) => onNavigate?.(k),
+                onSelect: (k: string)=> onNavigate?.(k),
               }),
         ]),
         // 用户区（loading = 骨架占位）

@@ -28,10 +28,10 @@ export interface DiffViewProps {
  * 展开状态用闭包 let + render()（手动模式）：`$` 深度 Proxy 包装的
  * Set 会破坏 Set.prototype.has 的 this 绑定（内置类型不可 Proxy 方法调用）。
  */
-export const DiffView: Component<DiffViewProps> = (_init, ctx) => {
+export const DiffView: Component<DiffViewProps> = (_init, ctx)=> {
   let expanded = new Set<number>() // 已展开的折叠块索引（手动：不触发 $ Proxy）
 
-  return (props) => {
+  return (props)=> {
     const {
       oldCode = '',
       newCode = '',
@@ -49,7 +49,7 @@ export const DiffView: Component<DiffViewProps> = (_init, ctx) => {
     const foldable = (g: (typeof groups)[number], idx: number) =>
       g.kind === 'same' && g.sameCount! > foldThreshold
 
-    const isExpanded = (idx: number) => expanded.has(idx)
+    const isExpanded = (idx: number)=> expanded.has(idx)
 
     const rows: any[] = []
     let lineCount = 0
@@ -63,12 +63,12 @@ export const DiffView: Component<DiffViewProps> = (_init, ctx) => {
             class: 'wf-diffview-fold',
             role: 'button',
             tabindex: 0,
-            onClick: () => {
+            onClick: ()=> {
               if (expanded.has(gi)) expanded.delete(gi)
               else expanded.add(gi)
               ctx.render()
             },
-            onKeyDown: (e: KeyboardEvent) => {
+            onKeyDown: (e: KeyboardEvent)=> {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
                 if (expanded.has(gi)) expanded.delete(gi)

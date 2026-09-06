@@ -1,5 +1,5 @@
 /** EmptyState：空状态占位，支持 icon/text/hint/action（showcase /components/emptystate） */
-import type { Component, VNode } from '../../vdom/index.ts'
+import type {Component, VNode, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -9,11 +9,10 @@ export interface EmptyStateProps {
   icon?: string | VNode | null
   text?: string
   hint?: string
-  children?: any
-}
+  children?: VNodeChild}
 
-export const EmptyState: Component<EmptyStateProps> = (_init, _ctx) =>
-  (props) => {
+export const EmptyState: Component<EmptyStateProps> = (_init, _ctx)=>
+  (props)=> {
   const { icon = h(Icon, { name: 'inbox' }), text = '暂无数据', hint, children } = props
 
   const parts: any[] = [

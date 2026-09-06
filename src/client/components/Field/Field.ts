@@ -1,5 +1,5 @@
 /** Field：label+error+hint 容器（showcase /components/field） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -8,11 +8,10 @@ export interface FieldProps {
   required?: boolean
   error?: string
   hint?: string
-  children?: any
-}
+  children?: VNodeChild}
 
-export const Field: Component<FieldProps> = (_init, _ctx) =>
-  (props) => {
+export const Field: Component<FieldProps> = (_init, _ctx)=>
+  (props)=> {
   const { label, required, error, hint, children } = props
 
   const parts: any[] = []

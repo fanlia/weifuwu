@@ -14,7 +14,7 @@ import { Icon } from '../Icon/Icon.ts'
  * <CitationCard
  *   items={[{ id, title, source, snippet, url? }]}
  *   maxVisible={3}
- *   onOpen={(c) => openDoc(c.id)}
+ *   onOpen={(c)=> openDoc(c.id)}
  * />
  * ```
  */
@@ -38,30 +38,30 @@ export interface CitationCardProps {
   /** 初始展开（默认折叠） */
   defaultExpanded?: boolean
   /** 点击条目回调（提供时 a 不带 href——role=button + onClick——跳转/打开由调用方处理） */
-  onOpen?: (citation: Citation) => void
+  onOpen?: (citation: Citation)=> void
 }
 
-export const CitationCard: Component<CitationCardProps, UIContext> = (initProps, ctx) => {
+export const CitationCard: Component<CitationCardProps, UIContext> = (initProps, ctx)=> {
   let expanded = !!initProps.defaultExpanded
 
-  return (props) => {
+  return (props)=> {
     const { items, label = '引用来源', maxVisible = 3, onOpen } = props
     if (!items?.length) return null
 
-    const toggle = () => { expanded = !expanded; ctx.render() }
+    const toggle = ()=> { expanded = !expanded; ctx.render() }
 
     // 折叠时最多 maxVisible 条；溢出追加 +N 汇总条目（点击整条展开）
     const shown = items.slice(0, maxVisible)
     const overflow = items.length - shown.length
 
-    const rows: any[] = shown.map((c, i) => {
+    const rows: any[] = shown.map((c, i)=> {
       // **交互语义修正（2027-09 交互完整性审计）**：原 linkProps（role/tabindex/
       // onKeyDown）被 spread 到装饰图标 a 上——整条 item 无交互，且 onOpen 时
       // 仍渲染链接（与 demo 注释「提供 onOpen 时不渲染链接」相悳）。
       // 修正：onOpen 时整条 item 可点（citation 惯例——Perplexity/ChatGPT 式），
       // 图标装饰化；url 时真链接新窗口（图标区）。
       const itemProps: any = onOpen
-        ? { role: 'button', tabindex: 0, onClick: () => onOpen(c), onKeyDown: (e: any) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(c) } } }
+        ? { role: 'button', tabindex: 0, onClick: ()=> onOpen(c), onKeyDown: (e: any)=> { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(c) } } }
         : {}
       return h('div', { key: c.id, class: 'wf-citation-item', ...itemProps }, [
         h('span', { class: 'wf-citation-idx' }, String(i + 1)),
@@ -88,7 +88,7 @@ export const CitationCard: Component<CitationCardProps, UIContext> = (initProps,
         tabindex: 0,
         'aria-label': `展开全部 ${items.length} 条引用`,
         onClick: toggle,
-        onKeyDown: (e: any) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } },
+        onKeyDown: (e: any)=> { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } },
       }, `+${overflow} 条更多`))
     }
 
@@ -98,7 +98,7 @@ export const CitationCard: Component<CitationCardProps, UIContext> = (initProps,
         class: 'wf-citation-toggle',
         'aria-expanded': expanded ? 'true' : 'false', // 显式字符串（枚举语义——布尔直传依赖引擎归一）
         onClick: toggle,
-        onKeyDown: (e: any) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } },
+        onKeyDown: (e: any)=> { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } },
       }, [
         h('span', { class: `wf-citation-chevron${expanded ? ' wf-citation-chevron--open' : ''}` }, h(Icon, { name: 'chevron-down' })),
         h('span', { class: 'wf-citation-count' }, `${label} · ${items.length} 条`),

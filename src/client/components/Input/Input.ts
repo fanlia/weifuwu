@@ -16,8 +16,8 @@ export interface InputProps {
   hint?: string
   /** 边框变体：borderless 用于可编辑标题/内联编辑（hover/focus 才显边框） */
   variant?: 'default' | 'borderless'
-  onInput?: (e: Event) => void
-  onChange?: (e: Event) => void
+  onInput?: (e: Event)=> void
+  onChange?: (e: Event)=> void
   /** 原生 input 属性透传（type=number 时 min/max/step 等） */
   min?: string | number
   max?: string | number
@@ -25,8 +25,8 @@ export interface InputProps {
   [key: string]: any
 }
 
-export const Input: Component<InputProps> = (_init) =>
-  (props) => {
+export const Input: Component<InputProps> = (_init)=>
+  (props)=> {
   const { label, name, type = 'text', value, placeholder, required, disabled, readonly, error, hint, variant = 'default', onInput, onChange, ...rest } = props
 
   const inputEl = h('input', {

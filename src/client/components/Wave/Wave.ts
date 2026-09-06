@@ -6,12 +6,12 @@
  * 实现：点击 → 在点击坐标生成波纹元素（absolute 圆形）→ 动画扩散消失
  * 纪律：动效走 --wf-dur-*；reduced-motion 自动降级（_base.css）
  */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 
 export interface WaveProps {
-  children?: any
+  children?: VNodeChild
   className?: string
   /** 波纹颜色（默认 currentColor 12% 透明） */
   color?: string
@@ -19,11 +19,11 @@ export interface WaveProps {
 
 let waveSeq = 0
 
-export const Wave: Component<WaveProps> = (_init, ctx) =>
-  (props) => {
+export const Wave: Component<WaveProps> = (_init, ctx)=>
+  (props)=> {
     const { children, className = '', color } = props
 
-    const spawnRipple = (e: MouseEvent) => {
+    const spawnRipple = (e: MouseEvent)=> {
       const el = e.currentTarget as HTMLElement
       const rect = el.getBoundingClientRect()
       const size = Math.max(rect.width, rect.height) * 2
@@ -35,7 +35,7 @@ export const Wave: Component<WaveProps> = (_init, ctx) =>
       ripple.style.cssText = `left:${x}px;top:${y}px;width:${size}px;height:${size}px;${color ? `background:${color};` : ''}`
       el.appendChild(ripple)
       // 动画结束移除（reduced-motion 下动画 0.01ms——等效瞬时）
-      const done = () => ripple.remove()
+      const done = ()=> ripple.remove()
       ripple.addEventListener('animationend', done, { once: true })
       // 兜底（animationend 丢失防泄漏）
       ctx.browser?.timeout?.(done, 600)
@@ -43,7 +43,7 @@ export const Wave: Component<WaveProps> = (_init, ctx) =>
 
     return h('span', {
       class: `wf-wave${className ? ` ${className}` : ''}`,
-      onClick: (e: MouseEvent) => {
+      onClick: (e: MouseEvent)=> {
         // 透传原点击（包装不吞事件）
         spawnRipple(e)
       },

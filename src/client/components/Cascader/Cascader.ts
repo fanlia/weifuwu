@@ -1,5 +1,5 @@
 /** Cascader：级联选择：多列面板逐级推进（antd/EP Cascader）（showcase /components/cascader） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -15,7 +15,7 @@ export interface CascaderProps {
   options?: CascaderOption[]
   /** 选中路径（数组，如 ['zj','hz','xh']） */
   value?: string[]
-  onChange?: (value: string[]) => void
+  onChange?: (value: string[])=> void
   placeholder?: string
   disabled?: boolean
   error?: string
@@ -31,7 +31,7 @@ function findPathLabel(options: CascaderOption[], path: string[], sep = ' / '): 
   let cur: CascaderOption[] | undefined = options
   const labels: string[] = []
   for (const key of path) {
-    const opt: CascaderOption | undefined = cur?.find((o: CascaderOption) => o.value === key)
+    const opt: CascaderOption | undefined = cur?.find((o: CascaderOption)=> o.value === key)
     if (!opt) break
     labels.push(opt.label)
     cur = opt.children
@@ -56,14 +56,14 @@ function flattenLeafPaths(options: CascaderOption[], prefix: string[] = [], pref
 
 /** 级联选择（对应 antd/EP Cascader）：多列面板逐级选择，点击叶子完成 + 可选搜索。
  * 裁剪（CS-05，见 docs/client.md）：hover 展开、任意层级配置、异步加载。 */
-export const Cascader: Component<CascaderProps> = (_init, ctx) => {
+export const Cascader: Component<CascaderProps> = (_init, ctx)=> {
   // render-only：内部状态 let + 显式 render（open/面板路径/搜索词）
   let open = false
   let activePath: string[] = [] // 面板内推进的路径（不含最终选中提交）
   let kw = ''
 
   let triggerEl: HTMLElement | null = null
-  const triggerRef = (el: HTMLElement | null) => { triggerEl = el }
+  const triggerRef = (el: HTMLElement | null)=> { triggerEl = el }
 
   // 键盘导航高亮（R43 W1：listbox 方向键 + Enter/Home/End/←→ 列推进）
   let hl: { col: number; idx: number } = { col: 0, idx: 0 }
@@ -76,18 +76,18 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
   const syncPanel = (panel: import('../../vdom/index.ts').VNode): void => {
     if (open && !handle)
       handle = ctx.ui.openPopup({
-        anchor: () => triggerEl,
+        anchor: ()=> triggerEl,
         placement: 'bottom',
         center: false,
         gap: 6,
-        content: () => panel,
-        onClose: () => { handle = null; if (open) { open = false; ctx.render() } }, // 外部点击/Escape 关闭必须显式渲染
+        content: ()=> panel,
+        onClose: ()=> { handle = null; if (open) { open = false; ctx.render() } }, // 外部点击/Escape 关闭必须显式渲染
       })
     else if (!open && handle) { handle.close(); handle = null }
     else if (handle) handle.update(panel)
   }
 
-  return (props) => {
+  return (props)=> {
     const {
       options = [], value, onChange, placeholder = '请选择', disabled,
       error, label, showSearch, searchPlaceholder = '搜索…', 'aria-label': ariaLabel,
@@ -97,7 +97,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
     const panelPath: string[] = open ? activePath : []
 
     // 打开瞬间坐标由 openPopup 内核.portal 内部处理
-    const toggleOpen = () => {
+    const toggleOpen = ()=> {
       if (disabled) return
       open = !open
       activePath = Array.isArray(value) ? [...value] : []
@@ -115,7 +115,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
       return cur
     }
 
-    const pick = (opt: CascaderOption, path: string[]) => {
+    const pick = (opt: CascaderOption, path: string[])=> {
       if (opt.disabled) return
       const nextPath = [...path, opt.value]
       if (opt.children?.length) {
@@ -125,7 +125,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
       } else {
         if (Array.isArray(value) && !onChange) {
           // 受控（value 已传）但无 onChange：选中无法生效——开发期提示（与 Collapse/Tree/Calendar 一致）
-          console.warn(`[weifuwu/Cascader] 受控模式（value 已传）但未提供 onChange，选择无法生效。\n非受控：去掉 value；受控：传入 onChange={(path) => setPath(path)}`)
+          console.warn(`[weifuwu/Cascader] 受控模式（value 已传）但未提供 onChange，选择无法生效。\n非受控：去掉 value；受控：传入 onChange={(path)=> setPath(path)}`)
         }
         open = false
         ctx.render()
@@ -134,7 +134,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
     }
 
     // 搜索态选择（键盘 Enter 与点击共用——受控提示/关闭/提交）
-    const pickMatched = (m: { path: string[]; labels: string[] }) => {
+    const pickMatched = (m: { path: string[]; labels: string[] })=> {
       if (Array.isArray(value) && !onChange) {
         console.warn(`[weifuwu/Cascader] 受控模式（value 已传）但未提供 onChange，选择无法生效。`)
       }
@@ -162,7 +162,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
       columns.push(h('div', {
         class: 'wf-cascader-col',
         key: level,
-      }, levelOptions.map((opt, idx) => {
+      }, levelOptions.map((opt, idx)=> {
         const sel = activeOpt?.value === opt.value
         const hlThis = hl.col === level && idx === curIdx
         return h('button', {
@@ -175,7 +175,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
           ].filter(Boolean).join(' '),
           key: opt.value,
           'aria-selected': String(hlThis || sel),
-          onClick: () => pick(opt, levelPath),
+          onClick: ()=> pick(opt, levelPath),
         }, [
           h('span', { class: 'wf-cascader-opt-label' }, opt.label),
           opt.children?.length
@@ -190,7 +190,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
 
     // 搜索态：扁平过滤结果列表
     const kwLower = kw.trim().toLowerCase()
-    let panelBody: any
+    let panelBody: VNodeChild
     let matched: { path: string[]; labels: string[] }[] = []
     if (showSearch && kwLower) {
       const all = flattenLeafPaths(options)
@@ -203,7 +203,7 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
               class: 'wf-cascader-search-item',
               key: m.path.join('/'),
               'aria-selected': String(hlSearch === matched.indexOf(m)),
-              onClick: () => pickMatched(m),
+              onClick: ()=> pickMatched(m),
             }, m.labels.join(' / '))
           ))
     } else {
@@ -216,12 +216,12 @@ export const Cascader: Component<CascaderProps> = (_init, ctx) => {
           type: 'text',
           placeholder: searchPlaceholder,
           value: kw,
-          onInput: (e: any) => { kw = e.target.value; ctx.render() },
+          onInput: (e: any)=> { kw = e.target.value; ctx.render() },
         })
       : null
 
     // 面板键盘导航（render 内定义——依赖最新 colData/matched；Escape 由 openPopup 内核 处理）
-    const onPanelKeyDown = (e: any) => {
+    const onPanelKeyDown = (e: any)=> {
       const k = e.key
       if (k === 'Escape') return
       // 搜索态：扁平结果 ↑↓/Home/End/Enter

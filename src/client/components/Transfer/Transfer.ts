@@ -14,7 +14,7 @@ export interface TransferProps {
   data?: TransferItem[]
   /** 目标侧已选 keys */
   targetKeys?: string[]
-  onChange?: (targetKeys: string[]) => void
+  onChange?: (targetKeys: string[])=> void
   titles?: [string, string]
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
@@ -26,14 +26,14 @@ export interface TransferProps {
 
 /** 穿梭框（对应 antd/EP Transfer）：双列表 + 中间穿梭按钮 + 可选搜索。
  * 裁剪（CS-05，见 docs/client.md）：拖拽排序、自定义渲染。 */
-export const Transfer: Component<TransferProps> = (_init, ctx) => {
+export const Transfer: Component<TransferProps> = (_init, ctx)=> {
   // render-only：内部状态 let + 显式 render（选中/搜索词）
   let selLeft: string[] = []
   let selRight: string[] = []
   let kwLeft = ''
   let kwRight = ''
 
-  return (props) => {
+  return (props)=> {
     const {
       data = [], targetKeys = [], onChange, titles = ['源列表', '目标列表'],
       size = 'md', disabled, showSearch, searchPlaceholder = '搜索…',
@@ -42,16 +42,16 @@ export const Transfer: Component<TransferProps> = (_init, ctx) => {
     const leftData = data.filter(d => !targetKeys.includes(d.key))
     const rightData = data.filter(d => targetKeys.includes(d.key))
 
-    const toggleSel = (side: 'left' | 'right', key: string) => {
+    const toggleSel = (side: 'left' | 'right', key: string)=> {
       if (disabled) return
       const arr: string[] = side === 'left' ? selLeft : selRight
-      const next = arr.includes(key) ? arr.filter((k: string) => k !== key) : [...arr, key]
+      const next = arr.includes(key) ? arr.filter((k: string)=> k !== key) : [...arr, key]
       if (side === 'left') selLeft = next
       else selRight = next
       ctx.render()
     }
 
-    const moveRight = () => {
+    const moveRight = ()=> {
       if (!onChange || selLeft.length === 0) return
       const next = [...targetKeys, ...selLeft]
       selLeft = []
@@ -59,7 +59,7 @@ export const Transfer: Component<TransferProps> = (_init, ctx) => {
       onChange(next)
     }
 
-    const moveLeft = () => {
+    const moveLeft = ()=> {
       if (!onChange || selRight.length === 0) return
       const next = targetKeys.filter(k => !selRight.includes(k))
       selRight = []
@@ -67,7 +67,7 @@ export const Transfer: Component<TransferProps> = (_init, ctx) => {
       onChange(next)
     }
 
-    const renderList = (side: 'left' | 'right', items: TransferItem[]) => {
+    const renderList = (side: 'left' | 'right', items: TransferItem[])=> {
       const sel = side === 'left' ? selLeft : selRight
       const kw = (side === 'left' ? kwLeft : kwRight).toLowerCase()
       const filtered = kw ? items.filter(it => it.label.toLowerCase().includes(kw)) : items
@@ -77,7 +77,7 @@ export const Transfer: Component<TransferProps> = (_init, ctx) => {
             type: 'text',
             placeholder: searchPlaceholder,
             value: side === 'left' ? kwLeft : kwRight,
-            onInput: (e: any) => { if (side === 'left') kwLeft = e.target.value; else kwRight = e.target.value; ctx.render() },
+            onInput: (e: any)=> { if (side === 'left') kwLeft = e.target.value; else kwRight = e.target.value; ctx.render() },
           })
         : null
       return h('div', { class: `wf-transfer-list wf-transfer-list--${side}` }, [
@@ -96,7 +96,7 @@ export const Transfer: Component<TransferProps> = (_init, ctx) => {
                   ].filter(Boolean).join(' '),
                   key: item.key,
                   disabled: item.disabled || undefined,
-                  onClick: item.disabled ? undefined : () => toggleSel(side, item.key),
+                  onClick: item.disabled ? undefined : ()=> toggleSel(side, item.key),
                 }, item.label)
               )
         ),

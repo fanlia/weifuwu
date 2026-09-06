@@ -14,7 +14,7 @@ import { Icon } from '../Icon/Icon.ts'
 
 export interface TagsInputProps {
   value?: string[]
-  onChange?: (tags: string[]) => void
+  onChange?: (tags: string[])=> void
   placeholder?: string
   maxTags?: number
   allowDuplicates?: boolean
@@ -25,11 +25,11 @@ export interface TagsInputProps {
   className?: string
 }
 
-export const TagsInput: Component<TagsInputProps> = (_init, ctx) => {
+export const TagsInput: Component<TagsInputProps> = (_init, ctx)=> {
   // 输入法 composition 状态（中文候选词确认 Enter 不应提交标签）
   let composing = false
 
-  return (props: TagsInputProps) => {
+  return (props: TagsInputProps)=> {
     const {
       placeholder, maxTags, allowDuplicates,
       disabled, label, error, hint, className,
@@ -38,13 +38,13 @@ export const TagsInput: Component<TagsInputProps> = (_init, ctx) => {
     // useControlled：受控/非受控统一（原非受控 add/remove 不可用——受控纪律违规）
     const ctrl = ctx?.ui?.useControlled<string[]>({ value: props.value, onChange: props.onChange, name: 'TagsInput' })
     const value = ctrl?.value ?? []
-    const setTags = (next: string[]) => {
+    const setTags = (next: string[])=> {
       const wasControlled = ctrl?.controlled?.value !== undefined
       ctrl?.setValue(next)
       if (!wasControlled) props.onChange?.(next)
     }
 
-    const addTag = (raw: string) => {
+    const addTag = (raw: string)=> {
       if (disabled) return
       const tag = raw.trim().replace(/,$/, '')
       if (!tag) return
@@ -53,12 +53,12 @@ export const TagsInput: Component<TagsInputProps> = (_init, ctx) => {
       setTags([...value, tag])
     }
 
-    const removeTag = (tag: string) => {
+    const removeTag = (tag: string)=> {
       if (disabled) return
-      setTags(value.filter((t) => t !== tag))
+      setTags(value.filter((t)=> t !== tag))
     }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent)=> {
       const el = e.target as HTMLInputElement
       if (e.key === 'Enter' || e.key === ',') {
         e.preventDefault()
@@ -74,13 +74,13 @@ export const TagsInput: Component<TagsInputProps> = (_init, ctx) => {
       ? h('label', { class: 'wf-input-label' }, label)
       : null
 
-    const tags = value.map((t) =>
+    const tags = value.map((t)=>
       h('span', { key: t, class: 'wf-tags-tag' }, [
         h('span', { class: 'wf-tags-text' }, t),
         h('button', {
           class: 'wf-tags-remove', type: 'button',
           'aria-label': `移除 ${t}`,
-          onClick: () => removeTag(t),
+          onClick: ()=> removeTag(t),
         }, h(Icon, { name: 'close', size: 12 })),
       ]))
 
@@ -90,8 +90,8 @@ export const TagsInput: Component<TagsInputProps> = (_init, ctx) => {
       placeholder: value.length === 0 ? placeholder : undefined,
       disabled,
       onKeyDown: handleKeyDown,
-      onCompositionStart: () => { composing = true },
-      onCompositionEnd: () => { composing = false },
+      onCompositionStart: ()=> { composing = true },
+      onCompositionEnd: ()=> { composing = false },
     })
 
     const wrap = h('div', {

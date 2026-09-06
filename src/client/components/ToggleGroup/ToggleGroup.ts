@@ -1,23 +1,23 @@
 /** ToggleGroup：（无 demo 卡片——组件目录存在）（showcase /components/togglegroup） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
 export interface ToggleProps {
   /** 按下状态（受控） */
   pressed?: boolean
-  onPressedChange?: (pressed: boolean) => void
+  onPressedChange?: (pressed: boolean)=> void
   variant?: 'default' | 'outline'
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
   'aria-label'?: string
-  children?: any
+  children?: VNodeChild
   className?: string
   [key: string]: any
 }
 
 export interface ToggleGroupOption {
   value: string
-  label?: any
+  label?: VNodeChild
   disabled?: boolean
 }
 
@@ -25,7 +25,7 @@ export interface ToggleGroupProps {
   /** single 单选 / multiple 多选（shadcn 对齐） */
   type?: 'single' | 'multiple'
   value?: string | string[]
-  onChange?: (value: string | string[]) => void
+  onChange?: (value: string | string[])=> void
   options?: ToggleGroupOption[]
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
@@ -34,8 +34,8 @@ export interface ToggleGroupProps {
 }
 
 /** 单个切换按钮（对应 shadcn Toggle）：加粗/斜体/视图切换等 */
-export const Toggle: Component<ToggleProps> = (_init) =>
-  (props) => {
+export const Toggle: Component<ToggleProps> = (_init)=>
+  (props)=> {
     const {
       pressed, onPressedChange, variant = 'default', size = 'md',
       disabled, 'aria-label': ariaLabel, children, className, ...rest
@@ -52,14 +52,14 @@ export const Toggle: Component<ToggleProps> = (_init) =>
       'aria-pressed': pressed ? 'true' : 'false',
       'aria-label': ariaLabel || undefined,
       disabled: disabled || undefined,
-      onClick: disabled ? undefined : () => onPressedChange?.(!pressed),
+      onClick: disabled ? undefined : ()=> onPressedChange?.(!pressed),
       ...rest,
     }, children)
   }
 
 /** 切换按钮组（对应 shadcn ToggleGroup）：type=single 单选 / multiple 多选 */
-export const ToggleGroup: Component<ToggleGroupProps> = (_init, ctx) =>
-  (props) => {
+export const ToggleGroup: Component<ToggleGroupProps> = (_init, ctx)=>
+  (props)=> {
     const {
       type = 'single', options = [],
       size = 'md', disabled, 'aria-label': ariaLabel, className,
@@ -69,12 +69,12 @@ export const ToggleGroup: Component<ToggleGroupProps> = (_init, ctx) =>
     const ctrl = ctx?.ui?.useControlled<string | string[]>({ value: props.value, onChange: props.onChange, name: 'ToggleGroup' })
     const value = ctrl?.value
 
-    const isSelected = (v: string) =>
+    const isSelected = (v: string)=>
       type === 'multiple'
         ? Array.isArray(value) && value.includes(v)
         : value === v
 
-    const handleToggle = (v: string) => {
+    const handleToggle = (v: string)=> {
       let next: string | string[]
       if (type === 'multiple') {
         const arr = Array.isArray(value) ? [...value] : []
@@ -91,7 +91,7 @@ export const ToggleGroup: Component<ToggleGroupProps> = (_init, ctx) =>
       if (!wasControlled) props.onChange?.(next)
     }
 
-    const handleKeyDown = (e: any) => {
+    const handleKeyDown = (e: any)=> {
       if (disabled || type !== 'single') return
       const idx = options.findIndex(o => o.value === value)
       if (idx < 0) return
@@ -109,7 +109,7 @@ export const ToggleGroup: Component<ToggleGroupProps> = (_init, ctx) =>
       size,
       disabled: disabled || o.disabled,
       'aria-label': o.value,
-      onClick: disabled || o.disabled ? undefined : () => handleToggle(o.value),
+      onClick: disabled || o.disabled ? undefined : ()=> handleToggle(o.value),
     }, o.label ?? o.value))
 
     return h('div', {

@@ -25,14 +25,14 @@ export type DatePickerMode = 'date' | 'datetime' | 'time' | 'range'
 export interface DatePickerProps {
   mode?: DatePickerMode
   value?: string
-  onChange?: (value: string) => void
+  onChange?: (value: string)=> void
   placeholder?: string
   disabled?: boolean
   /** 错误态（F2 状态矩阵——输入类基线） */
   error?: string
 }
 
-export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
+export const DatePicker: Component<DatePickerProps> = (_props, ctx)=> {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let show = false
@@ -49,11 +49,11 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
   let rangeEnd: string | null = null
 
   let inputEl: HTMLElement | null = null
-  const inputRef = (el: HTMLElement | null) => { inputEl = el }
+  const inputRef = (el: HTMLElement | null)=> { inputEl = el }
   let latestMode: DatePickerMode = 'date'
 
   // ESC 关闭（document 级——面板 keydown 只在焦点内生效；这里覆盖全局）
-  ctx.ui.useGlobalKey((e: KeyboardEvent) => {
+  ctx.ui.useGlobalKey((e: KeyboardEvent)=> {
     if (e.key === 'Escape' && show) { show = false; ctx.render() }
   })
   // 统一命令式弹窗（openPopup）：mask 遮罩（点外部关）+ 自由定位（left 对齐 +
@@ -67,38 +67,38 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         mask: true,
         maskClosable: true,
         closeOnEscape: false,   // 组件自控（useGlobalKey）
-        content: () => panel,
-        position: () => {
+        content: ()=> panel,
+        position: ()=> {
           const r = inputEl?.getBoundingClientRect()
           if (!r) return { x: 0, y: 0 }
           // range 模式双面板自适应宽度（不塞 trigger 宽）；其余跟随 trigger
           const isRange = latestMode === 'range'
           return { x: r.left, y: r.bottom + 4, width: isRange ? undefined : r.width }
         },
-        onClose: () => { handle = null; if (show) { show = false; ctx.render() } },
+        onClose: ()=> { handle = null; if (show) { show = false; ctx.render() } },
       })
     else if (!show && handle) { handle.close(); handle = null }
     else if (handle) handle.update(panel)
   }
 
-  return (props: DatePickerProps) => {
+  return (props: DatePickerProps)=> {
     const L = ctx?.i18n?.components?.DatePicker ?? {}
     const { mode = 'date', value, onChange, placeholder = L.placeholder ?? '选择日期', disabled, error } = props
     latestMode = mode
 
     const isOpen = show
-    const setOpen = (v: boolean) => {
+    const setOpen = (v: boolean)=> {
       show = v
       ctx.render()
     }
 
-    const toggle = (e: Event) => {
+    const toggle = (e: Event)=> {
       if (disabled) return
       setOpen(!show)
     }
 
     // ── 日期选择 ──────────────────────────────────────
-    const selectDate = (day: CalendarDay) => {
+    const selectDate = (day: CalendarDay)=> {
       if (mode === 'datetime') {
         selYear = day.year; selMonth = day.month; selDay = day.day
         viewYear = day.year; viewMonth = day.month
@@ -123,25 +123,25 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
       }
     }
 
-    const prevMonth = () => {
+    const prevMonth = ()=> {
       if (viewMonth === 0) { viewYear--; viewMonth = 11 }
       else viewMonth--
       ctx.render()
     }
 
-    const nextMonth = () => {
+    const nextMonth = ()=> {
       if (viewMonth === 11) { viewYear++; viewMonth = 0 }
       else viewMonth++
       ctx.render()
     }
 
-    const confirmTime = () => {
+    const confirmTime = ()=> {
       selectedValue = formatTime(hour, minute)
       onChange?.(selectedValue)
       setOpen(false)
     }
 
-    const confirmDateTime = () => {
+    const confirmDateTime = ()=> {
       selectedValue = formatDateTime(selYear, selMonth, selDay, hour, minute)
       onChange?.(selectedValue)
       setOpen(false)
@@ -150,7 +150,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
     const grid = getCalendarGrid(viewYear, viewMonth)
     const weekdays = [L.w0, L.w1, L.w2, L.w3, L.w4, L.w5, L.w6].some(v => v) ? [L.w0, L.w1, L.w2, L.w3, L.w4, L.w5, L.w6] : getWeekdays()
 
-    const headerBtn = (name: IconName, ariaLabel: string, onClick: () => void) =>
+    const headerBtn = (name: IconName, ariaLabel: string, onClick: ()=> void) =>
       h('button', { class: 'wf-datepicker-header-btn', type: 'button', 'aria-label': ariaLabel, onClick }, h(Icon, { name }))
 
     const header = h('div', { class: 'wf-datepicker-header' }, [
@@ -162,9 +162,9 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
     const weekdayRow = h('div', { class: 'wf-datepicker-weekdays' },
       weekdays.map(w => h('span', { class: 'wf-datepicker-weekday' }, w)))
 
-    const gridRows = grid.map((row, ri) =>
+    const gridRows = grid.map((row, ri)=>
       h('div', { class: 'wf-datepicker-grid', key: `row-${ri}` },
-        row.map((cell, ci) => {
+        row.map((cell, ci)=> {
           const classes = ['wf-datepicker-cell']
           if (cell.isOtherMonth) classes.push('wf-datepicker-cell--other-month')
           if (cell.isToday) classes.push('wf-datepicker-cell--today')
@@ -181,7 +181,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
             class: classes.join(' '),
             key: `${cell.year}-${cell.month}-${cell.day}`,
             type: 'button',
-            onClick: () => selectDate(cell),
+            onClick: ()=> selectDate(cell),
           }, String(cell.day))
         })))
 
@@ -189,7 +189,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
       header, weekdayRow, ...gridRows,
     ])
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent)=> {
       if (e.key === 'Escape') { setOpen(false); return }
       // 日历网格方向键导航（time/datetime 面板无网格，跳过）
       if (mode === 'time' || mode === 'datetime') return
@@ -217,7 +217,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const timePanel = h('div', {
           class: 'wf-time-picker', role: 'dialog',
           onKeyDown: handleKeyDown,
-          onMouseDown: (e: Event) => e.stopPropagation(),
+          onMouseDown: (e: Event)=> e.stopPropagation(),
         }, [
           h('div', { class: 'wf-time-body' }, [
             h('div', { class: 'wf-time-col' }, [
@@ -226,7 +226,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
                 hours.map(hv => h('button', {
                   class: `wf-time-opt${hv === hour ? ' wf-time-opt--selected' : ''}`,
                   type: 'button', key: hv,
-                  onClick: () => { hour = hv; ctx.render() },
+                  onClick: ()=> { hour = hv; ctx.render() },
                 }, String(hv).padStart(2, '0')))),
             ]),
             h('div', { class: 'wf-time-col' }, [
@@ -235,12 +235,12 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
                 minutes.map(mv => h('button', {
                   class: `wf-time-opt${mv === minute ? ' wf-time-opt--selected' : ''}`,
                   type: 'button', key: mv,
-                  onClick: () => { minute = mv; ctx.render() },
+                  onClick: ()=> { minute = mv; ctx.render() },
                 }, String(mv).padStart(2, '0')))),
             ]),
           ]),
           h('div', { class: 'wf-time-footer' }, [
-            h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: () => setOpen(false) }, L.cancel ?? '取消'),
+            h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: ()=> setOpen(false) }, L.cancel ?? '取消'),
             h('button', { class: 'wf-datepicker-footer-btn', type: 'button', onClick: confirmTime }, L.confirm ?? '确定'),
           ]),
         ])
@@ -252,7 +252,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
 
         const rangeWrap = h('div', {
           class: 'wf-datepicker-range-wrap',
-          onMouseDown: (e: Event) => e.stopPropagation(),
+          onMouseDown: (e: Event)=> e.stopPropagation(),
         }, [
           h('div', { class: 'wf-datepicker-range-panel' }, [
             h('div', { class: 'wf-datepicker-header' }, [
@@ -270,7 +270,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
               headerBtn('chevron-right', L.nextMonth ?? '下个月', nextMonth),
             ]),
             h('div', { class: 'wf-datepicker-weekdays' }, weekdays.map(w => h('span', { class: 'wf-datepicker-weekday' }, w))),
-            ...nextGrid.map((row, ri) =>
+            ...nextGrid.map((row, ri)=>
               h('div', { class: 'wf-datepicker-grid', key: `row-${ri}` },
                 row.map(cell => {
                   const dateStr = formatDate(cell.year, cell.month, cell.day)
@@ -281,7 +281,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
                   else if (rangeStart && rangeEnd && dateStr > rangeStart && dateStr < rangeEnd) cls.push('wf-datepicker-cell--in-range')
                   return h('button', {
                     class: cls.join(' '), key: dateStr, type: 'button',
-                    onClick: () => selectDate(cell),
+                    onClick: ()=> selectDate(cell),
                   }, String(cell.day))
                 }))),
           ]),
@@ -296,13 +296,13 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
               h('select', {
                 class: 'wf-datetime-select',
                 value: hour,
-                onChange: (e: Event) => { hour = parseInt((e.target as HTMLSelectElement).value); ctx.render() },
+                onChange: (e: Event)=> { hour = parseInt((e.target as HTMLSelectElement).value); ctx.render() },
               }, hourOptions().map(hv => h('option', { value: hv, key: hv }, String(hv).padStart(2, '0')))),
               h('span', { class: 'wf-datetime-sep' }, ':'),
               h('select', {
                 class: 'wf-datetime-select',
                 value: minute,
-                onChange: (e: Event) => { minute = parseInt((e.target as HTMLSelectElement).value); ctx.render() },
+                onChange: (e: Event)=> { minute = parseInt((e.target as HTMLSelectElement).value); ctx.render() },
               }, minuteOptions().map(mv => h('option', { value: mv, key: mv }, String(mv).padStart(2, '0')))),
             ]),
           ]))
@@ -313,7 +313,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
         const dp = h('div', {
           class: 'wf-datepicker-dropdown', role: 'dialog',
           onKeyDown: handleKeyDown,
-          onMouseDown: (e: Event) => e.stopPropagation(),
+          onMouseDown: (e: Event)=> e.stopPropagation(),
         }, content)
         panel = dp
       }

@@ -15,20 +15,20 @@ export interface ResizableProps {
   /** 键盘步进（px），默认 20 */
   step?: number
   children: [any, any]
-  onResize?: (size: number) => void
+  onResize?: (size: number)=> void
   className?: string
 }
 
 /** 可拖拽分割面板（对应 shadcn Resizable）：两面板 + 拖拽手柄（pointer + 键盘方向键）。
  * 拖拽经 ctx.ui.useDrag（pointerdown 捕获 → window move delta / up 释放），不再自建 window 监听。
  * 最新 props 经 propsRef 供 mount 期 useDrag 回调读取。 */
-export const Resizable: Component<ResizableProps> = (_init, ctx) => {
+export const Resizable: Component<ResizableProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let size = 0
   const propsRef: any = { ..._init }
 
-  const clamp = (v: number) => Math.max(propsRef.min ?? 80, Math.min(v, propsRef.max ?? 600))
-  const setSize = (v: number) => {
+  const clamp = (v: number)=> Math.max(propsRef.min ?? 80, Math.min(v, propsRef.max ?? 600))
+  const setSize = (v: number)=> {
     const next = clamp(v)
     if (next !== size) {
       size = next
@@ -40,14 +40,14 @@ export const Resizable: Component<ResizableProps> = (_init, ctx) => {
   // 拖拽原语：onStart 记录起始尺寸，onMove 按方向取 delta
   let startSize = 0
   const drag = ctx.ui.useDrag({
-    onStart: () => { startSize = size },
-    onMove: (e, d) => {
+    onStart: ()=> { startSize = size },
+    onMove: (e, d)=> {
       const delta = propsRef.direction === 'horizontal' ? d.x : d.y
       setSize(startSize + delta)
     },
   })
 
-  return (props) => {
+  return (props)=> {
     const {
       direction = 'horizontal', defaultSize = 300, min = 80, max = 600,
       step = 20, children, onResize, className,
@@ -57,7 +57,7 @@ export const Resizable: Component<ResizableProps> = (_init, ctx) => {
 
     if (size === 0) size = defaultSize
 
-    const onKeyDown = (e: any) => {
+    const onKeyDown = (e: any)=> {
       const inc = direction === 'horizontal'
         ? (e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0)
         : (e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0)

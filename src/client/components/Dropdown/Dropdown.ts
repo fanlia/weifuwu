@@ -6,7 +6,7 @@
  * 弹层在 portal 中按 Escape 也能关）+ 定位/视口 clamp + portal。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
@@ -16,21 +16,21 @@ export interface DropdownItem {
   value?: string
   disabled?: boolean
   variant?: 'default' | 'danger'
-  onClick?: () => void
+  onClick?: ()=> void
 }
 
 export interface DropdownProps {
-  trigger: any
+  trigger?: VNodeChild
   items?: DropdownItem[]
   open?: boolean
   /** 关闭回调（面板内 Escape / 外部点击） */
-  onOpenChange?: (open: boolean) => void
+  onOpenChange?: (open: boolean)=> void
 }
 
-export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
+export const Dropdown: Component<DropdownProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let wrapEl: HTMLElement | null = null
-  const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
+  const wrapRef = (el: HTMLElement | null)=> { wrapEl = el }
 
   // useOpen：受控/非受控 open 统一（warn 缺回调——受控纪律自动化）
   let openCtrl: ReturnType<UIContext['ui']['useOpen']> | null = null
@@ -41,10 +41,10 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
   let hl = 0
   let prevOpen = false
 
-  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
+  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
 
   // ── render（每次 dirty/props 变化）──
-  return (props: DropdownProps) => {
+  return (props: DropdownProps)=> {
     const { trigger, items = [] } = props
     openCtrl = ctx.ui.useOpen({ open: props.open, onOpenChange: props.onOpenChange, name: 'Dropdown' })
 
@@ -54,10 +54,10 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     prevOpen = openNow
 
     // 菜单键盘导航（render 内定义——依赖最新 items；Escape 由 openPopup 内核 处理）
-    const onMenuKeyDown = (e: any) => {
+    const onMenuKeyDown = (e: any)=> {
       const k = e.key
       if (k === 'Escape') return
-      const enabled = items.map((it, i) => (it.disabled ? -1 : i)).filter(i => i >= 0)
+      const enabled = items.map((it, i)=> (it.disabled ? -1 : i)).filter(i => i >= 0)
       if (!enabled.length) return
       // 当前高亮在 enabled 中的位置（钳制：无效高亮归第一个可用项）
       const pos = enabled.indexOf(hl)
@@ -78,7 +78,7 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
       }
     }
 
-    const menuItems = items.map((item, i) =>
+    const menuItems = items.map((item, i)=>
       h('button', {
         class: [
           'wf-dropdown-item',
@@ -87,7 +87,7 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
         ].filter(Boolean).join(' '),
         key: item.value ?? i, disabled: item.disabled || undefined,
         role: 'menuitem', 'aria-selected': String(i === hl && openNow),
-        onClick: item.disabled ? undefined : () => { item.onClick?.() },
+        onClick: item.disabled ? undefined : ()=> { item.onClick?.() },
       }, item.label)
     )
 
@@ -98,9 +98,9 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     // 命令式同步（受控 + 内容更新——每次渲染恒调用）
     if (openCtrl?.open && !handle)
       handle = ctx.ui.openPopup({
-        anchor: () => wrapEl,
-        content: () => menu,
-        onClose: () => { handle = null; openCtrl?.setOpen(false) },
+        anchor: ()=> wrapEl,
+        content: ()=> menu,
+        onClose: ()=> { handle = null; openCtrl?.setOpen(false) },
       })
     else if (!openCtrl?.open && handle) { handle.close(); handle = null }
     else if (handle) handle.update(menu)
@@ -108,13 +108,13 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
     return h('div', {
       class: `wf-dropdown${openCtrl?.open ? ' wf-dropdown--open' : ''}`,
       ref: wrapRef,
-      onClick: (e: Event) => { e.stopPropagation?.(); openCtrl?.setOpen(!openCtrl.open) }, // click 触发
+      onClick: (e: Event)=> { e.stopPropagation?.(); openCtrl?.setOpen(!openCtrl.open) }, // click 触发
       // 触发区语义：菜单弹出（trigger 为不透明 VNode，ARIA 挂在包装层，文档注明）
       'aria-haspopup': 'menu',
       'aria-expanded': String(!!openCtrl?.open),
       role: 'button',
       tabIndex: 0,
-      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCtrl?.setOpen(!openCtrl.open) } },
+      onKeyDown: (e: KeyboardEvent)=> { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCtrl?.setOpen(!openCtrl.open) } },
     }, trigger)
   }
 }

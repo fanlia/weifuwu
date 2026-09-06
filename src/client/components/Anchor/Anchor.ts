@@ -7,42 +7,41 @@
  * 裁剪（CS-05，见 docs/client.md）：嵌套滚动容器、滚动容器非视口（container 未提供时仅视口）、自动生成标题锚点。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
 export interface AnchorItem {
   href: string
-  title: any
-}
+  title?: VNodeChild}
 
 export interface AnchorProps {
   items: AnchorItem[]
   /** 当前激活锚点（受控可选；省略时滚动自动跟随） */
   activeKey?: string
   /** 激活锚点变化回调（受控或观察） */
-  onAnchorChange?: (href: string) => void
+  onAnchorChange?: (href: string)=> void
   /** 点击是否更新 location.hash（默认 false——回调 + 滚动） */
   useHash?: boolean
   /** 滚动容器（默认 window） */
-  container?: () => HTMLElement | Window
+  container?: ()=> HTMLElement | Window
   /** 高亮阈值：锚点进入视口该偏移内视为激活（px），默认 80 */
   offsetTop?: number
   className?: string
 }
 
-export const Anchor: Component<AnchorProps> = (_init, ctx) => {
+export const Anchor: Component<AnchorProps> = (_init, ctx)=> {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let navEl: HTMLElement | null = null
   let internalActive: string | undefined
   let lastNotified: string | undefined
-  const navRef = (el: HTMLElement | null) => { if (el) navEl = el }
+  const navRef = (el: HTMLElement | null)=> { if (el) navEl = el }
   const propsRef: any = { ..._init }
 
-  const getScroller = () => propsRef.container ? propsRef.container() : window
+  const getScroller = ()=> propsRef.container ? propsRef.container() : window
   const scroll = ctx.ui.useScrollPosition({ getScroller })
 
   // 滚动高亮：最后一个顶部 <= 阈值的锚点（render 时读 scroll.y——y 响应式自动 dirty）
@@ -56,7 +55,7 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
     return active ?? items[0]?.href
   }
 
-  const onKeyDown = (e: KeyboardEvent) => {
+  const onKeyDown = (e: KeyboardEvent)=> {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
     const links = navEl ? Array.from(navEl.querySelectorAll<HTMLElement>('.wf-anchor-link')) : []
     const idx = links.indexOf((_browser?.activeElement() ?? null) as HTMLElement)
@@ -70,7 +69,7 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
     links[next].focus()
   }
 
-  return (props: AnchorProps) => {
+  return (props: AnchorProps)=> {
     Object.assign(propsRef, props)
     const { items, activeKey, onAnchorChange, useHash, offsetTop = 80, className } = props
 
@@ -89,7 +88,7 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
     }
     const active = activeKey !== undefined ? activeKey : (internalActive ?? computed)
 
-    const handleClick = (href: string) => (e: Event) => {
+    const handleClick = (href: string)=> (e: Event)=> {
       e.preventDefault()
       if (useHash) ctx.browser?.setHash(href)
       onAnchorChange?.(href)
@@ -110,7 +109,7 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
         tabIndex: 0,
         'aria-current': isActive ? 'true' : undefined,
         onClick: handleClick(it.href),
-        onKeyDown: (e: KeyboardEvent) => {
+        onKeyDown: (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(it.href)(e) }
         },
       }, it.title)

@@ -10,7 +10,7 @@
  * 裁剪（CS-05，见 docs/client.md）：不做 hover 弹层预览/图标内置枚举（icon 任意 VNode）。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -20,13 +20,12 @@ export interface LinkProps {
   underline?: boolean
   disabled?: boolean
   target?: string
-  icon?: any
-  onClick?: (e: any) => void
-  children?: any
-}
+  icon?: VNodeChild
+  onClick?: (e: any)=> void
+  children?: VNodeChild}
 
-export const Link: Component<LinkProps> = (_init, _ctx: UIContext) =>
-  (props) => {
+export const Link: Component<LinkProps> = (_init, _ctx: UIContext)=>
+  (props)=> {
     const {
       href, variant = 'default', underline = true, disabled, target, icon, onClick, children,
     } = props
@@ -42,7 +41,7 @@ export const Link: Component<LinkProps> = (_init, _ctx: UIContext) =>
       const kids: any[] = [icon]
       if (Array.isArray(children)) kids.push(...children)
       else if (children !== undefined) kids.push(children)
-      return h('a', { class: cls, href: disabled ? undefined : href, target, rel: target === '_blank' ? 'noopener noreferrer' : undefined, 'aria-disabled': disabled ? 'true' : undefined, onClick: disabled ? (e: any) => { e.preventDefault(); e.stopPropagation() } : onClick }, kids)
+      return h('a', { class: cls, href: disabled ? undefined : href, target, rel: target === '_blank' ? 'noopener noreferrer' : undefined, 'aria-disabled': disabled ? 'true' : undefined, onClick: disabled ? (e: any)=> { e.preventDefault(); e.stopPropagation() } : onClick }, kids)
     }
-    return h('a', { class: cls, href: disabled ? undefined : href, target, rel: target === '_blank' ? 'noopener noreferrer' : undefined, 'aria-disabled': disabled ? 'true' : undefined, onClick: disabled ? (e: any) => { e.preventDefault(); e.stopPropagation() } : onClick }, children)
+    return h('a', { class: cls, href: disabled ? undefined : href, target, rel: target === '_blank' ? 'noopener noreferrer' : undefined, 'aria-disabled': disabled ? 'true' : undefined, onClick: disabled ? (e: any)=> { e.preventDefault(); e.stopPropagation() } : onClick }, children)
   }

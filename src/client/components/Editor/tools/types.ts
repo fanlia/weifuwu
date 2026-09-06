@@ -17,13 +17,13 @@ export type ToolbarItem =
 
 export interface EditorProps {
   value?: string
-  onChange?: (html: string) => void
+  onChange?: (html: string)=> void
   placeholder?: string
   disabled?: boolean
   minHeight?: string
   toolbar?: ToolbarItem[]
   /** 图片上传回调 — 接收 File 返回图片 URL。不传时弹出 URL 输入框 */
-  onUpload?: (file: File) => Promise<string>
+  onUpload?: (file: File)=> Promise<string>
   /** AI 协作（可选——不传则无 AI 能力）：选区操作 → wf: 流式端点 → 建议浮层 →
    *  接受 = edit:ai-apply commit（原子撤销一步） */
   ai?: EditorAiOptions
@@ -38,7 +38,7 @@ export interface EditorAiAction {
   /** 按钮标签（如 '润色'） */
   label: string
   /** 提示词模板（选区文本注入 {selection} 由调用方替换） */
-  prompt: (ctx: { selection: string }) => string
+  prompt: (ctx: { selection: string })=> string
 }
 
 export interface EditorAiOptions {
@@ -48,7 +48,7 @@ export interface EditorAiOptions {
   /** 自定义动作（缺省 = 内置 5 个：润色/翻译/缩写/扩写/纠错） */
   actions?: EditorAiAction[]
   /** x:* 自定义事件透传 */
-  onEvent?: (name: string, data: unknown) => void
+  onEvent?: (name: string, data: unknown)=> void
 }
 
 export type FormatState = Record<string, boolean>

@@ -1,5 +1,5 @@
 /** Watermark：水印：canvas 平铺绘制 + overlay（antd Watermark）（showcase /components/watermark） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
@@ -16,13 +16,13 @@ export interface WatermarkProps {
   rotate?: number
   /** 平铺间距（px），默认 100 */
   gap?: number
-  children?: any
+  children?: VNodeChild
   className?: string
 }
 
 /** 水印（对应 antd Watermark）：canvas 绘制平铺文字 + overlay 覆盖内容（pointer-events none）。
  * 裁剪（CS-05，见 docs/client.md）：图片水印、多行文字、动态旋转。 */
-export const Watermark: Component<WatermarkProps> = (_init, _ctx) => {
+export const Watermark: Component<WatermarkProps> = (_init, _ctx)=> {
   const _browser = _ctx?.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let bgImage = ''
@@ -31,14 +31,14 @@ export const Watermark: Component<WatermarkProps> = (_init, _ctx) => {
   let latest: { text: string; fontSize: number; color: string; opacity: number; rotate: number; gap: number } = {
     text: 'weifuwu', fontSize: 14, color: 'currentColor', opacity: 0.15, rotate: -25, gap: 100,
   }
-  const overlayRef = (el: HTMLElement | null) => {
+  const overlayRef = (el: HTMLElement | null)=> {
     if (el && !bgImage) {
       draw(latest.text, latest.fontSize, latest.color, latest.opacity, latest.rotate, latest.gap)
       if (bgImage) el.style.backgroundImage = `url(${bgImage})`
     }
   }
 
-  const draw = (text: string, fontSize: number, color: string, opacity: number, rotate: number, gap: number) => {
+  const draw = (text: string, fontSize: number, color: string, opacity: number, rotate: number, gap: number)=> {
     const canvas = _browser?.createElement('canvas')
     if (!canvas) return
     const ctx2d = canvas.getContext('2d')
@@ -57,7 +57,7 @@ export const Watermark: Component<WatermarkProps> = (_init, _ctx) => {
     bgImage = canvas.toDataURL()
   }
 
-  return (props) => {
+  return (props)=> {
     const {
       text = 'weifuwu', fontSize = 14, color = 'currentColor', opacity = 0.15,
       rotate = -25, gap = 100, children, className,

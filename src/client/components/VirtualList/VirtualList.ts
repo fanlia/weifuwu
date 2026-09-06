@@ -1,5 +1,5 @@
 /** VirtualList：虚拟列表：spacer + 可见窗口，200 条只渲染 ~12 个 DOM（showcase /components/virtuallist） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -9,10 +9,10 @@ export interface VirtualListProps {
   height?: number
   /** 固定 item 高度（px）——虚拟滚动的基础 */
   itemHeight?: number
-  renderItem?: (item: any, index: number) => any
+  renderItem?: (item: VNodeChild, index: number)=> any
   /** 可见区外额外渲染数量 */
   overscan?: number
-  keyBy?: (item: any, index: number) => string | number
+  keyBy?: (item: VNodeChild, index: number)=> string | number
   /** 空数据占位（F2 状态矩阵——容器类基线） */
   emptyText?: string
   className?: string
@@ -25,7 +25,7 @@ export interface VirtualListProps {
  * 滚动跟随：ctx.ui.useScrollPosition（内置全局 scroll 监听 + rAF 节流）——
  * 像素级 scrollTop 响应式，无组件自建 scroll 监听。
  */
-export const VirtualList: Component<VirtualListProps> = (_init, ctx) => {
+export const VirtualList: Component<VirtualListProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let el: HTMLElement | null = null
 
@@ -34,9 +34,9 @@ export const VirtualList: Component<VirtualListProps> = (_init, ctx) => {
   // useScrollPosition 认为目标有效（注册到 window——容器滚动不冒泡——
   // 永不触发）且不重试——虚拟列表滚动失效（首项永不更新）——
   // 改为 null（未挂载 → 微任务重试 → 挂载后注册容器）
-  const scroll = ctx.ui.useScrollPosition({ getScroller: () => el ?? null })
+  const scroll = ctx.ui.useScrollPosition({ getScroller: ()=> el ?? null })
 
-  const stableRef = (node: HTMLElement | null) => {
+  const stableRef = (node: HTMLElement | null)=> {
     if (node) {
       el = node
       scroll.refresh()
@@ -45,7 +45,7 @@ export const VirtualList: Component<VirtualListProps> = (_init, ctx) => {
     }
   }
 
-  return (props) => {
+  return (props)=> {
     const {
       items = [], height = 400, itemHeight = 40, renderItem,
       overscan = 5, keyBy, emptyText = '暂无数据', className,

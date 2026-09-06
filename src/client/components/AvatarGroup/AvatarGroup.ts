@@ -25,15 +25,15 @@ export interface AvatarGroupProps {
   className?: string
 }
 
-export const AvatarGroup: Component<AvatarGroupProps> = (_init, _ctx) =>
-  (props) => {
+export const AvatarGroup: Component<AvatarGroupProps> = (_init, _ctx)=>
+  (props)=> {
     const { items, max, size, className } = props
     if (!items || items.length === 0) return null
 
     const visible = max && items.length > max ? items.slice(0, max) : items
     const hiddenCount = max ? Math.max(0, items.length - max) : 0
 
-    const avatars = visible.map((it, i) =>
+    const avatars = visible.map((it, i)=>
       h('span', { key: i, class: 'wf-avatar-group-item' },
         h(Avatar, { name: it.name, src: it.src, color: it.color, size })))
 

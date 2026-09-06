@@ -1,5 +1,5 @@
 /** InfiniteScroll：无限滚动：底部哨兵触底加载 + loading/end 态（showcase /components/infinitescroll） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -7,10 +7,10 @@ export interface InfiniteScrollProps {
   hasMore?: boolean
   loading?: boolean
   /** 触底加载回调（sentinel 进入视口触发） */
-  onLoadMore?: () => void
+  onLoadMore?: ()=> void
   /** 提前触发距离（px） */
   threshold?: number
-  children?: any
+  children?: VNodeChild
   loadMoreText?: string
   endText?: string
   className?: string
@@ -19,19 +19,19 @@ export interface InfiniteScrollProps {
 /** 无限滚动（对应 EP InfiniteScroll）：底部哨兵进入视口 → 加载更多。
  * 实现：ctx.ui.useInView（IO 封装——合成器线程评估，替代组件自建 IntersectionObserver）。
  * onChange 在交叉状态变化时回调（IO 语义），与自建 IO 等价且不重复触发。 */
-export const InfiniteScroll: Component<InfiniteScrollProps> = (_init, ctx) => {
+export const InfiniteScroll: Component<InfiniteScrollProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   const propsRef: any = {}
   const inView = ctx.ui.useInView({
-    rootMargin: () => `0px 0px ${propsRef.threshold ?? 100}px 0px`,
-    onChange: (_entry, isIn) => {
+    rootMargin: ()=> `0px 0px ${propsRef.threshold ?? 100}px 0px`,
+    onChange: (_entry, isIn)=> {
       if (isIn && propsRef.hasMore !== false && !propsRef.loading) {
         propsRef.onLoadMore?.()
       }
     },
   })
 
-  return (props) => {
+  return (props)=> {
     Object.assign(propsRef, props)
     const {
       hasMore = true, loading, threshold = 100,

@@ -179,9 +179,9 @@ export function parseHtml(html: string, doc?: Document): DocState {
   holder.innerHTML = html
   const st = new ParseState()
   for (const child of Array.from(holder.childNodes)) walk(child, st, null)
-  st.marks.sort((a, b) => a.start - b.start || a.end - b.end)
-  st.blockProps.sort((a, b) => a.start - b.start)
-  st.embeds.sort((a, b) => a.at - b.at)
+  st.marks.sort((a, b)=> a.start - b.start || a.end - b.end)
+  st.blockProps.sort((a, b)=> a.start - b.start)
+  st.embeds.sort((a, b)=> a.at - b.at)
   // 尾部空段折叠（HTML 解析产物：孤儿 </p>/尾空块——模型空段 = 空文本）
   if (st.text.endsWith('\n')) st.text = st.text.slice(0, -1)
   return { text: st.text, blockProps: st.blockProps, marks: st.marks, embeds: st.embeds }
@@ -206,7 +206,7 @@ function renderSegment(doc: DocState, start: number, end: number): string {
     bounds.add(Math.min(end, m.end))
     active.push(m)
   }
-  const pts = [...bounds].sort((a, b) => a - b)
+  const pts = [...bounds].sort((a, b)=> a - b)
   let out = ''
   for (let i = 0; i < pts.length - 1; i++) {
     const s = pts[i]
@@ -214,16 +214,16 @@ function renderSegment(doc: DocState, start: number, end: number): string {
     if (e <= s) continue
     const segText = doc.text.slice(s, e)
     // 该片覆盖的 marks（按固定顺序 b > i > u > link 嵌套避免交错）
-    const covers = active.filter((m) => m.start <= s && m.end >= e)
+    const covers = active.filter((m)=> m.start <= s && m.end >= e)
     const order: MarkSpan['type'][] = ['b', 'i', 'u', 'link']
     const ordered = order
-      .map((t) => covers.find((m) => m.type === t))
+      .map((t)=> covers.find((m)=> m.type === t))
       .filter((m): m is MarkSpan => !!m)
     let body = ''
     for (let k = 0; k < segText.length; k++) {
       const ch = segText[k]
       if (ch === EMBED_CHAR) {
-        const emb = doc.embeds.find((x) => x.at === s + k)
+        const emb = doc.embeds.find((x)=> x.at === s + k)
         body += emb ? emb.html : ''
       } else {
         body += ch

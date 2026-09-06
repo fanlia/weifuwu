@@ -27,7 +27,7 @@ export interface ParseResult {
 export function parseFormulaReply(text: string, ctx: AiContext): ParseResult {
   const clean = text.trim()
   // 单行或多行——每行一个单元格写入；行内 `ref=value` 或 `ref: value`
-  const lines = clean.split('\n').map((l) => l.trim()).filter(Boolean)
+  const lines = clean.split('\n').map((l)=> l.trim()).filter(Boolean)
   const ops: OfficeOp[] = []
   const sheet = 0
   let used = false

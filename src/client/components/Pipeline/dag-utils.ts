@@ -117,7 +117,7 @@ export function layoutGraph(
   const pos = new Map<string, { x: number; y: number }>()
   for (const [l, ids] of byLayer) {
     const count = ids.length
-    ids.forEach((id, i) => {
+    ids.forEach((id, i)=> {
       if (orientation === 'vertical') {
         // 垂直：上下流动——y 方向 = 层，x 方向 = 层内
         const y = l === 0 ? nodeH / 2 : l === layerCount - 1 ? height - nodeH / 2 : (l / (layerCount - 1)) * height

@@ -17,13 +17,13 @@ export interface MarkdownProps {
   className?: string
 }
 
-export const Markdown: Component<MarkdownProps> = (_init, _ctx) =>
-  (props) => {
+export const Markdown: Component<MarkdownProps> = (_init, _ctx)=>
+  (props)=> {
     const { content = '', className } = props
     const blocks = parseMarkdown(content)
     if (blocks.length === 0) return null
 
-    return h('div', { class: `wf-md${className ? ` ${className}` : ''}` }, blocks.map((b, i) => renderBlock(b, i)))
+    return h('div', { class: `wf-md${className ? ` ${className}` : ''}` }, blocks.map((b, i)=> renderBlock(b, i)))
   }
 
 function renderBlock(b: MdBlock, key: number): any {
@@ -35,7 +35,7 @@ function renderBlock(b: MdBlock, key: number): any {
     case 'list': {
       const hasTask = b.checks?.some(c => c !== null)
       const Tag = b.ordered ? 'ol' : 'ul'
-      return h(Tag, { class: `wf-md-${b.ordered ? 'ol' : 'ul'}${hasTask ? ' wf-md-task-list' : ''}`, key }, b.items!.map((it, i) => {
+      return h(Tag, { class: `wf-md-${b.ordered ? 'ol' : 'ul'}${hasTask ? ' wf-md-task-list' : ''}`, key }, b.items!.map((it, i)=> {
         const checked = b.checks?.[i]
         return h('li', { class: `wf-md-li${checked !== null && checked !== undefined ? ' wf-md-task' : ''}`, key: i },
           checked !== null && checked !== undefined
@@ -50,12 +50,12 @@ function renderBlock(b: MdBlock, key: number): any {
     case 'hr':
       return h('hr', { class: 'wf-md-hr', key })
     case 'table': {
-      const alignStyle = (i: number) => b.aligns?.[i] ? { textAlign: b.aligns[i] } : undefined
+      const alignStyle = (i: number)=> b.aligns?.[i] ? { textAlign: b.aligns[i] } : undefined
       return h('div', { class: 'wf-md-table-wrap', key }, h('table', { class: 'wf-md-table' }, [
-        h('thead', { key: 'h' }, h('tr', { key: 'r' }, b.headers!.map((hd, i) =>
+        h('thead', { key: 'h' }, h('tr', { key: 'r' }, b.headers!.map((hd, i)=>
           h('th', { class: 'wf-md-th', style: alignStyle(i), key: i }, renderInline(parseInline(hd)))))),
-        h('tbody', { key: 'b' }, b.rows!.map((row, ri) =>
-          h('tr', { class: 'wf-md-tr', key: ri }, row.map((cell, ci) =>
+        h('tbody', { key: 'b' }, b.rows!.map((row, ri)=>
+          h('tr', { class: 'wf-md-tr', key: ri }, row.map((cell, ci)=>
             h('td', { class: 'wf-md-td', style: alignStyle(ci), key: ci }, renderInline(parseInline(cell))))))),
       ]))
     }
@@ -65,7 +65,7 @@ function renderBlock(b: MdBlock, key: number): any {
 }
 
 export function renderInline(nodes: MdInline[]): any[] {
-  return nodes.map((n, i) => {
+  return nodes.map((n, i)=> {
     switch (n.type) {
       case 'code':
         return h('code', { class: 'wf-md-code', key: i }, n.text ?? '')

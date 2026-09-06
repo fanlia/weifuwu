@@ -26,7 +26,7 @@ import type { Component, VNode } from '../../vdom/index.ts'
 export interface SheetGridProps {
   /** 受控工作簿（FilePreview 传入——编辑经 onChange 回写） */
   workbook: WorkbookState
-  onChange?: (wb: WorkbookState) => void
+  onChange?: (wb: WorkbookState)=> void
   /** AI 公式（SSE wf: 协议——选中单元格 → 建议 → 接受 commit） */
   ai?: { url: string; headers?: Record<string, string> }
   height?: string
@@ -47,7 +47,7 @@ const colName = (col: number): string => {
   return c
 }
 
-export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
+export const SheetGrid: Component<SheetGridProps> = (_init, ctx)=> {
   const i18n = ctx.i18n?.components?.SheetGrid ?? {}
   // ── mount（只一次） ──
   let wb: WorkbookState = _init.workbook
@@ -69,11 +69,11 @@ export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
     if (aiPending && !aiHandle)
       aiHandle = ctx.ui.openPopup({
         key: 'sheet-ai',
-        anchor: () => anchorEl,
+        anchor: ()=> anchorEl,
         placement: 'bottom',
         gap: 8,
-        content: () => panel,
-        onClose: () => { aiHandle = null; if (aiPending) { aiPending = null; ctx.render() } },
+        content: ()=> panel,
+        onClose: ()=> { aiHandle = null; if (aiPending) { aiPending = null; ctx.render() } },
       })
     else if (!aiPending && aiHandle) { aiHandle.close(); aiHandle = null }
     else if (aiHandle && panel) aiHandle.update(panel)
@@ -143,17 +143,17 @@ export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
       messages: [{ role: 'user', content: prompt }],
     }, {
       headers: _init.ai.headers,
-      onToken: (text) => {
+      onToken: (text)=> {
         if (!aiPending) return
         aiPending.revised += text
         ctx.render()
       },
-      onDone: () => {
+      onDone: ()=> {
         if (!aiPending) return
         aiPending.streaming = false
         ctx.render()
       },
-      onError: (e) => {
+      onError: (e)=> {
         if (!aiPending) return
         aiPending.streaming = false
         aiPending.error = e?.message ?? 'AI 请求失败'
@@ -188,7 +188,7 @@ export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
   }
 
   // ── 渲染 ──
-  return (props: SheetGridProps) => {
+  return (props: SheetGridProps)=> {
     // **受控回流门控（CLIENT-EXCELLENCE-PLAN A2——SlideCanvas 模式防御）**：
     // 仅当外部显式传入受控 workbook 时才回流（undefined/字面量重置会吞
     // live 编辑状态——受控纪律：非受控消费不参与回流比较）。
@@ -227,13 +227,13 @@ export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
         tds.push(h('td', {
           key: ref,
           class: ['wf-sheet-cell', isActive ? 'wf-sheet-cell--active' : ''].filter(Boolean).join(' '),
-          onClick: () => {
+          onClick: ()=> {
             if (readonly) return
             activeRef = ref
             editing = { ref, value: cellVal(ref) }
             ctx.render()
           },
-          onKeyDown: (e: KeyboardEvent) => {
+          onKeyDown: (e: KeyboardEvent)=> {
             if (readonly) return
             if (e.key === 'Enter' && editing?.ref === ref) { e.preventDefault(); commitEdit(); ctx.render() }
             if (e.key === 'Escape' && editing?.ref === ref) { editing = null; ctx.render() }
@@ -243,9 +243,9 @@ export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
             ref: editingInputRef,
             class: 'wf-sheet-input',
             value: editing?.value ?? '',
-            onInput: (e: Event) => { editing = { ref, value: (e.target as HTMLInputElement).value } },
-            onFocusout: () => { commitEdit() }, // focusout 冒泡（blur 不冒泡——事件代理不可达）
-            onClick: (e: Event) => e.stopPropagation(),
+            onInput: (e: Event)=> { editing = { ref, value: (e.target as HTMLInputElement).value } },
+            onFocusout: ()=> { commitEdit() }, // focusout 冒泡（blur 不冒泡——事件代理不可达）
+            onClick: (e: Event)=> e.stopPropagation(),
           })
           : cellVal(ref)))
       }
@@ -279,11 +279,11 @@ export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
           h('button', {
             class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button', key: 'ok',
             disabled: aiPending.streaming,
-            onClick: () => acceptAi(),
+            onClick: ()=> acceptAi(),
           }, i18n.accept ?? '应用'),
           h('button', {
             class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'no',
-            onClick: () => rejectAi(),
+            onClick: ()=> rejectAi(),
           }, i18n.reject ?? '拒绝'),
         ]),
       ])
@@ -291,7 +291,7 @@ export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
 
     const vn = h('div', {
       class: 'wf-sheet',
-      onKeyDown: (e: KeyboardEvent) => {
+      onKeyDown: (e: KeyboardEvent)=> {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLast() }
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'enter' && _init.ai && activeRef) { e.preventDefault(); runAi() }
       },
@@ -300,28 +300,28 @@ export const SheetGrid: Component<SheetGridProps> = (_init, ctx) => {
       // 工具条
       h('div', { class: 'wf-sheet-toolbar' }, [
         h('div', { class: 'wf-sheet-tabs', key: 'tabs' },
-          ...wb.sheets.map((s, i) =>
+          ...wb.sheets.map((s, i)=>
             h('button', {
               key: `tab${i}`,
               class: ['wf-sheet-tab', i === wb.activeSheet ? 'wf-sheet-tab--active' : ''].filter(Boolean).join(' '),
               type: 'button',
-              onClick: () => { if (i !== wb.activeSheet) { wb = { ...wb, activeSheet: i }; ctx.render() } },
+              onClick: ()=> { if (i !== wb.activeSheet) { wb = { ...wb, activeSheet: i }; ctx.render() } },
             }, s.name))),
         h('div', { class: 'wf-sheet-tools', key: 'tools' }, [
-          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'ir', onClick: () => insertRows(), disabled: readonly }, i18n.insertRow ?? '插入行'),
-          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'dr', onClick: () => deleteRows(), disabled: readonly }, i18n.deleteRow ?? '删除行'),
-          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'ic', onClick: () => insertCols(), disabled: readonly }, i18n.insertCol ?? '插入列'),
-          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'dc', onClick: () => deleteCols(), disabled: readonly }, i18n.deleteCol ?? '删除列'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'ir', onClick: ()=> insertRows(), disabled: readonly }, i18n.insertRow ?? '插入行'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'dr', onClick: ()=> deleteRows(), disabled: readonly }, i18n.deleteRow ?? '删除行'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'ic', onClick: ()=> insertCols(), disabled: readonly }, i18n.insertCol ?? '插入列'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'dc', onClick: ()=> deleteCols(), disabled: readonly }, i18n.deleteCol ?? '删除列'),
           ...(_init.ai
             ? [h('button', {
               ref: aiAnchorRef,
               class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'ai',
               'aria-expanded': String(!!aiPending),
               disabled: readonly || !activeRef,
-              onClick: () => runAi(),
+              onClick: ()=> runAi(),
             }, i18n.aiFormula ?? 'AI 公式')]
             : []),
-          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'undo', onClick: () => undoLast(), disabled: readonly || undo.length === 0 }, i18n.undo ?? '撤销'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'undo', onClick: ()=> undoLast(), disabled: readonly || undo.length === 0 }, i18n.undo ?? '撤销'),
         ]),
         h('span', { class: 'wf-sheet-status', key: 'st' },
           `${i18n.activeCell ?? '单元格'}: ${activeRef ?? '—'}（Ctrl+Enter AI / Ctrl+Z 撤销）`),

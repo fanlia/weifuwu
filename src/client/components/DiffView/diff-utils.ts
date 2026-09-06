@@ -22,7 +22,7 @@ export function diffLines(oldCode: string, newCode: string): DiffLine[] {
   if (m === 0) return oldLines.map(line => ({ type: 'remove' as const, line }))
 
   // DP：dp[i][j] = oldLines[i..] 与 newLines[j..] 的 LCS 长度
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+  const dp: number[][] = Array.from({ length: n + 1 }, ()=> new Array(m + 1).fill(0))
   for (let i = n - 1; i >= 0; i--) {
     for (let j = m - 1; j >= 0; j--) {
       if (oldLines[i] === newLines[j]) dp[i][j] = dp[i + 1][j + 1] + 1
@@ -65,7 +65,7 @@ export function groupDiffLines(
   const groups: { kind: 'same' | 'change'; sameCount?: number; lines: DiffLine[] }[] = []
   let run: DiffLine[] = []
 
-  const flush = () => {
+  const flush = ()=> {
     if (run.length === 0) return
     if (run[0].type === 'same') {
       groups.push({ kind: 'same', sameCount: run.length, lines: run })

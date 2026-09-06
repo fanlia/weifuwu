@@ -29,11 +29,11 @@ export interface VirtualTableProps {
   /** 当前排序方向 */
   sortOrder?: 'asc' | 'desc'
   /** 排序变化回调 */
-  onSort?: (key: string, order: 'asc' | 'desc') => void
+  onSort?: (key: string, order: 'asc' | 'desc')=> void
   /** 数据为空时显示的文本 */
   emptyText?: string
   /** 行点击 */
-  onRowClick?: (row: any, index: number) => void
+  onRowClick?: (row: any, index: number)=> void
   /** 行选择配置（受控） */
   rowSelection?: {
     selectedRowKeys: (string | number)[]
@@ -49,7 +49,7 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
   const col = columns.find(c => c.key === sortKey)
   if (!col || !col.sortable) return data
   const sorted = [...data]
-  sorted.sort((a, b) => {
+  sorted.sort((a, b)=> {
     const va = a[sortKey]
     const vb = b[sortKey]
     const result = col.sorter ? col.sorter(va, vb) : String(va ?? '').localeCompare(String(vb ?? ''))
@@ -58,11 +58,11 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
   return sorted
 }
 
-export const VirtualTable: Component<VirtualTableProps> = (_init, ctx) => {
+export const VirtualTable: Component<VirtualTableProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let bodyEl: HTMLElement | null = null
-  const scroll = ctx.ui.useScrollPosition({ getScroller: () => bodyEl ?? null })
-  const stableRef = (node: HTMLElement | null) => {
+  const scroll = ctx.ui.useScrollPosition({ getScroller: ()=> bodyEl ?? null })
+  const stableRef = (node: HTMLElement | null)=> {
     if (node) {
       bodyEl = node
       scroll.refresh()
@@ -71,7 +71,7 @@ export const VirtualTable: Component<VirtualTableProps> = (_init, ctx) => {
     }
   }
 
-  return (props: VirtualTableProps) => {
+  return (props: VirtualTableProps)=> {
     const {
       columns, data = [], height = 400, rowHeight = 40, overscan = 5,
       sortKey, sortOrder, onSort, emptyText = '暂无数据', onRowClick, rowSelection, className,
@@ -86,30 +86,30 @@ export const VirtualTable: Component<VirtualTableProps> = (_init, ctx) => {
 
     // 行 key 提取（rowSelection）
     const rowKeyField = rowSelection?.rowKey ?? 'id'
-    const rowKeyOf = (row: any, i: number) => row[rowKeyField] != null ? row[rowKeyField] : i
+    const rowKeyOf = (row: any, i: number)=> row[rowKeyField] != null ? row[rowKeyField] : i
     const selectedSet = new Set(rowSelection?.selectedRowKeys ?? [])
-    const toggleRow = (row: any, i: number) => {
+    const toggleRow = (row: any, i: number)=> {
       if (!rowSelection) return
       const k = rowKeyOf(row, i)
       const next = selectedSet.has(k)
         ? (rowSelection.selectedRowKeys.filter(x => x !== k))
         : [...rowSelection.selectedRowKeys, k]
-      const nextRows = next.map(nk => sortedData.find((r, ri) => rowKeyOf(r, ri) === nk)).filter(Boolean)
+      const nextRows = next.map(nk => sortedData.find((r, ri)=> rowKeyOf(r, ri) === nk)).filter(Boolean)
       rowSelection.onChange?.(next, nextRows)
     }
-    const toggleAll = () => {
+    const toggleAll = ()=> {
       if (!rowSelection) return
-      const allSelected = total > 0 && sortedData.every((r, ri) => selectedSet.has(rowKeyOf(r, ri)))
+      const allSelected = total > 0 && sortedData.every((r, ri)=> selectedSet.has(rowKeyOf(r, ri)))
       if (allSelected) {
         rowSelection.onChange?.([], [])
       } else {
-        const allKeys = sortedData.map((r, ri) => rowKeyOf(r, ri))
+        const allKeys = sortedData.map((r, ri)=> rowKeyOf(r, ri))
         rowSelection.onChange?.(allKeys, [...sortedData])
       }
     }
 
     // 列宽：width 显式 → px；无 width → flex 均分剩余
-    const colStyle = (col: TableColumn) => ({
+    const colStyle = (col: TableColumn)=> ({
       width: typeof col.width === 'number' ? `${col.width}px` : col.width,
       flex: col.width ? undefined : '1',
     })
@@ -127,12 +127,12 @@ export const VirtualTable: Component<VirtualTableProps> = (_init, ctx) => {
         style: colStyle(col),
         role: col.sortable ? 'button' : undefined,
         tabIndex: col.sortable ? 0 : undefined,
-        onClick: col.sortable ? () => {
+        onClick: col.sortable ? ()=> {
           if (!onSort) return
           if (sortKey !== col.key) onSort(col.key, 'asc')
           else onSort(col.key, sortOrder === 'asc' ? 'desc' : 'asc')
         } : undefined,
-        onKeyDown: col.sortable ? (e: KeyboardEvent) => {
+        onKeyDown: col.sortable ? (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             if (!onSort) return
@@ -149,8 +149,8 @@ export const VirtualTable: Component<VirtualTableProps> = (_init, ctx) => {
     // 行选择：表头全选复选框列（三态：全选 / 部分选中 indeterminate / 未选）
     const headerCells: any[] = []
     if (rowSelection) {
-      const allSelected = total > 0 && sortedData.every((r, ri) => selectedSet.has(rowKeyOf(r, ri)))
-      const someSelected = total > 0 && !allSelected && sortedData.some((r, ri) => selectedSet.has(rowKeyOf(r, ri)))
+      const allSelected = total > 0 && sortedData.every((r, ri)=> selectedSet.has(rowKeyOf(r, ri)))
+      const someSelected = total > 0 && !allSelected && sortedData.some((r, ri)=> selectedSet.has(rowKeyOf(r, ri)))
       headerCells.push(h('div', {
         class: 'wf-virtual-table-th wf-virtual-table-th--select',
         style: { width: '40px' },
@@ -197,8 +197,8 @@ export const VirtualTable: Component<VirtualTableProps> = (_init, ctx) => {
             class: 'wf-virtual-table-check',
             checked,
             'aria-label': `选择第 ${i + 1} 行`,
-            onChange: () => toggleRow(row, i),
-            onClick: (e: Event) => e.stopPropagation(),
+            onChange: ()=> toggleRow(row, i),
+            onClick: (e: Event)=> e.stopPropagation(),
           })))
         }
         for (const col of columns) {
@@ -211,9 +211,9 @@ export const VirtualTable: Component<VirtualTableProps> = (_init, ctx) => {
           class: 'wf-virtual-table-row',
           style: { position: 'absolute', top: `${i * rowHeight}px`, left: 0, right: 0, height: `${rowHeight}px` },
           key: String(row.id ?? i),
-          onClick: onRowClick ? () => onRowClick(row, i) : undefined,
+          onClick: onRowClick ? ()=> onRowClick(row, i) : undefined,
           tabIndex: onRowClick ? 0 : undefined,
-          onKeyDown: onRowClick ? (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row, i) } } : undefined,
+          onKeyDown: onRowClick ? (e: KeyboardEvent)=> { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row, i) } } : undefined,
         }, cells))
       }
       body = h('div', {

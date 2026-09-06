@@ -11,7 +11,7 @@ export interface TreeSelectProps {
   /** 受控：单选 string / 多选 string[] */
   value?: string | string[]
   /** 受控回调：单选 key / 多选 keys[] */
-  onChange?: (value: any) => void
+  onChange?: (value: any)=> void
   /** 多选（checkable 父子联动语义） */
   multiple?: boolean
   placeholder?: string
@@ -44,7 +44,7 @@ export function findLabel(nodes: TreeNode[], key: string): string | undefined {
  * 单选 selectedKeys / 多选 checkable checkedKeys（父子联动）。
  * 受控纪律：value 受控无 onChange → warn。
  */
-export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
+export const TreeSelect: Component<TreeSelectProps> = (_init, ctx)=> {
   let open = false
   let expanded: string[] = []
   let triggerEl: HTMLElement | null = null
@@ -57,18 +57,18 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
     if (open && !handle)
       handle = ctx.ui.openPopup({
         key: 'treeselect',
-        anchor: () => triggerEl,
+        anchor: ()=> triggerEl,
         placement: 'bottom',
         center: false,
         gap: 4,
-        content: () => dropdown,
-        onClose: () => { handle = null; if (open) { open = false; ctx.render() } }, // 外部点击/Escape 关闭必须显式渲染
+        content: ()=> dropdown,
+        onClose: ()=> { handle = null; if (open) { open = false; ctx.render() } }, // 外部点击/Escape 关闭必须显式渲染
       })
     else if (!open && handle) { handle.close(); handle = null }
     else if (handle) handle.update(dropdown)
   }
 
-  const toggle = () => {
+  const toggle = ()=> {
     open = !open
     ctx.render()
   }
@@ -87,13 +87,13 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
   }
 
   // 稳定 ref（纪律）：内联 ref 每次渲染新引用 → 回调重复执行
-  const triggerRef = (el: any) => {
+  const triggerRef = (el: any)=> {
     triggerEl = el as HTMLElement | null
     // 首次挂载后（含重渲染）若已打开 → 跟随定位
     if (el && handle?.open) handle.refresh()
   }
 
-  return (props) => {
+  return (props)=> {
     const {
       options,
       value,
@@ -120,7 +120,7 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
       // 点击有子节点行 = 展开/折叠（直观）；叶子行 = 选中
       expandOnClick: true,
       selectedKeys: isMultiple ? undefined : value ? [value as string] : [],
-      onSelect: (keys: string[]) => {
+      onSelect: (keys: string[])=> {
         if (keys.length === 0) return
         onChange?.(keys[0])
         open = false
@@ -128,11 +128,11 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
       },
       checkable: multiple || undefined,
       checkedKeys: isMultiple ? (value as string[]) : undefined,
-      onCheck: multiple ? (keys: string[]) => {
+      onCheck: multiple ? (keys: string[])=> {
         onChange?.(keys)
       } : undefined,
       expandedKeys: expanded,
-      onExpand: (keys: string[]) => {
+      onExpand: (keys: string[])=> {
         expanded = keys
         ctx.render()
       },
@@ -160,7 +160,7 @@ export const TreeSelect: Component<TreeSelectProps> = (_init, ctx) => {
         'aria-disabled': disabled ? 'true' : undefined,
         ref: triggerRef,
         onClick: disabled ? undefined : toggle,
-        onKeyDown: (e: KeyboardEvent) => {
+        onKeyDown: (e: KeyboardEvent)=> {
           if (disabled) return
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()

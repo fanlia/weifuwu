@@ -1,5 +1,5 @@
 /** Card：容器，支持 default/outlined/clickable（showcase /components/card） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -13,16 +13,15 @@ export interface CardProps {
   hover?: boolean
   /** 选中态（边框高亮 + 品牌浅底），适合选择卡片 */
   active?: boolean
-  onClick?: () => void
+  onClick?: ()=> void
   className?: string
   /** id 属性（锚点定位——AgentDetail Tab 导航用） */
   id?: string
   style?: Record<string, string>
-  children?: any
-}
+  children?: VNodeChild}
 
-export const Card: Component<CardProps> = (_init, _ctx) =>
-  (props) => {
+export const Card: Component<CardProps> = (_init, _ctx)=>
+  (props)=> {
   const { variant = 'default', padding = 'md', clickable, hover, active, onClick, className, id, style, children } = props
 
   const cls = [
@@ -44,7 +43,7 @@ export const Card: Component<CardProps> = (_init, _ctx) =>
     tabindex: clickable ? 0 : undefined,
     // 可点击卡片 = role=button，Enter/Space 必须可操作（键盘可达红线）
     onKeyDown: clickable
-      ? (e: KeyboardEvent) => {
+      ? (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             onClick?.()

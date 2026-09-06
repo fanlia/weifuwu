@@ -8,7 +8,7 @@
  * 裁剪（CS-05，见 docs/client.md）：不做打字指示动画（Loading 已有）。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -16,16 +16,16 @@ export type MessageBubbleRole = 'user' | 'assistant'
 export type MessageBubbleStatus = 'complete' | 'streaming' | 'error'
 
 export interface MessageBubbleProps {
-  content: any
+  content?: VNodeChild
   role: MessageBubbleRole
   status?: MessageBubbleStatus
   /** 气泡尾部操作区（重试/复制按钮等，VNode 或数组） */
-  actions?: any
+  actions?: VNodeChild
   className?: string
 }
 
-export const MessageBubble: Component<MessageBubbleProps> = (_init, _ctx) =>
-  (props) => {
+export const MessageBubble: Component<MessageBubbleProps> = (_init, _ctx)=>
+  (props)=> {
     const { content, role, status = 'complete', actions, className } = props
 
     const roleClass = role === 'user' ? 'wf-bubble--own' : 'wf-bubble--ai'

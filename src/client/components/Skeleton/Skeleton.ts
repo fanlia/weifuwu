@@ -17,8 +17,8 @@ export interface SkeletonProps {
   className?: string
 }
 
-export const Skeleton: Component<SkeletonProps> = (_init) =>
-  (props) => {
+export const Skeleton: Component<SkeletonProps> = (_init)=>
+  (props)=> {
     const { variant = 'text', lines = 1, cols = 3, width, height, className } = props
 
     const style: Record<string, string> = {}
@@ -32,8 +32,8 @@ export const Skeleton: Component<SkeletonProps> = (_init) =>
     ].filter(Boolean).join(' ')
 
     if (variant === 'table') {
-      const rows = Array.from({ length: lines }, (_, r) => {
-        const cells = Array.from({ length: cols }, (_, c) => {
+      const rows = Array.from({ length: lines }, (_, r)=> {
+        const cells = Array.from({ length: cols }, (_, c)=> {
           const cellW = r === lines - 1 && c === cols - 1 ? '40%' : undefined
           return h('div', {
             class: 'wf-skeleton wf-skeleton--text',
@@ -49,7 +49,7 @@ export const Skeleton: Component<SkeletonProps> = (_init) =>
       return h('div', { class: cls, style: Object.keys(style).length ? style : undefined })
     }
 
-    const items = Array.from({ length: lines }, (_, i) => {
+    const items = Array.from({ length: lines }, (_, i)=> {
       const itemCls = i === lines - 1 && lines > 1
         ? `${cls} wf-skeleton--short`
         : cls

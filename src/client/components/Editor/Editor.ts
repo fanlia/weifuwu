@@ -32,7 +32,7 @@ import { editEmit } from './edit-events.ts'
 
 export type { EditorProps, ToolbarItem, EditorAiAction, EditorAiOptions } from './tools/types.ts'
 
-export const Editor: Component<EditorProps> = (_props, ctx) => {
+export const Editor: Component<EditorProps> = (_props, ctx)=> {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let activeFormats: FormatState | null = null
@@ -54,7 +54,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   let domDirty = false
 
   let editorEl: HTMLElement | null = null
-  const editorRef = (el: HTMLElement | null) => {
+  const editorRef = (el: HTMLElement | null)=> {
     if (el) {
       editorEl = el
       parseDom()
@@ -64,7 +64,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   // ── 模型 ↔ DOM ────────────────────────────────────────
   // **单一实现源（2027-09 死代码审计修复）**：editorRef 曾内联同逻辑——
   // parseDom 沦为死函数——收敛到 parseDom 单点（ref 与同步共用）。
-  const parseDom = () => {
+  const parseDom = ()=> {
     if (!editorEl) return
     doc = parseHtml(editorEl.innerHTML)
   }
@@ -74,7 +74,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   //   无法推导（多位置同时变化）→ 整体同步无事件（诚实裁剪——撤销退快照）。 ──
   let pendingInput: { startDoc: DocState; events: EditEvent[]; ts: number } | null = null
   let inputTimer: ReturnType<typeof setTimeout> | null = null
-  const flushInputCommit = () => {
+  const flushInputCommit = ()=> {
     if (inputTimer) { clearTimeout(inputTimer); inputTimer = null }
     if (!pendingInput) return
     pushCommit(hist, { label: '输入', events: pendingInput.events, before: pendingInput.startDoc, ts: pendingInput.ts })
@@ -84,7 +84,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     saveDraft(html)
     pendingInput = null
   }
-  const ensureInputCommit = (events: EditEvent[], newDoc: DocState) => {
+  const ensureInputCommit = (events: EditEvent[], newDoc: DocState)=> {
     if (!pendingInput) pendingInput = { startDoc: doc, events: [], ts: Date.now() }
     pendingInput.events.push(...events)
     doc = newDoc
@@ -108,8 +108,8 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       const at = p
       events.push({
         type: 'text-delete', at, len: delLen, removed: old.slice(at, at + delLen),
-        removedEmbeds: oldDoc.embeds.filter((e) => e.at >= at && e.at <= at + delLen),
-        removedBlocks: oldDoc.blockProps.filter((b) => b.start >= at && b.start <= at + delLen),
+        removedEmbeds: oldDoc.embeds.filter((e)=> e.at >= at && e.at <= at + delLen),
+        removedBlocks: oldDoc.blockProps.filter((b)=> b.start >= at && b.start <= at + delLen),
       })
     }
     if (insText.length > 0) events.push({ type: 'text-insert', at: p, text: insText })
@@ -122,20 +122,20 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     return null
   }
 
-  const writeDom = (d: DocState, caret?: { start: number; end: number } | null) => {
+  const writeDom = (d: DocState, caret?: { start: number; end: number } | null)=> {
     if (!editorEl) return
     editorEl.innerHTML = serializeHtml(d)
     if (caret) setSelectionOffsets(editorEl, caret.start, caret.end)
     domDirty = false
   }
 
-  const markState = (mark: MarkType): MarkSpan[] => doc.marks.filter((m) => m.type === mark)
+  const markState = (mark: MarkType): MarkSpan[] => doc.marks.filter((m)=> m.type === mark)
 
   /** 语义操作事务：事件序列 → commit（before 快照 + undo 栈 + DOM 写回 + 光标） */
-  const commitEvents = (events: EditEvent[], label: string, caret: { start: number; end: number } | null) => {
+  const commitEvents = (events: EditEvent[], label: string, caret: { start: number; end: number } | null)=> {
     flushInputCommit() // 输入 commit 落栈（格式/AI 操作 = 新 commit 边界）
     const before = doc
-    const next = events.reduce((d, e) => applyEdit(d, e), before)
+    const next = events.reduce((d, e)=> applyEdit(d, e), before)
     doc = next
     pushCommit(hist, { label, events, before, caret: caret ?? undefined })
     writeDom(next, caret)
@@ -145,7 +145,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     editEmit('commit', { label, count: events.length })
   }
 
-  const undo = () => {
+  const undo = ()=> {
     flushInputCommit()
     const c = popUndo(hist)
     if (!c) return
@@ -157,7 +157,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     editEmit('undo', { label: c.label })
   }
 
-  const redo = () => {
+  const redo = ()=> {
     flushInputCommit()
     const c = popRedo(hist)
     if (!c) return
@@ -172,15 +172,15 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   }
 
   // ── 格式命令（事件构建——替代 execCommand） ─────────────
-  const applyMarkCmd = (mark: MarkType) => {
+  const applyMarkCmd = (mark: MarkType)=> {
     const sel = selectionOffsets(editorEl!)
     if (!sel || sel.start === sel.end) return
     // toggle：选区整体激活 → off，否则 on
-    const on = !doc.marks.some((m) => m.type === mark && m.start <= sel.start && m.end >= sel.end)
+    const on = !doc.marks.some((m)=> m.type === mark && m.start <= sel.start && m.end >= sel.end)
     commitEvents([{ type: 'mark-apply', start: sel.start, end: sel.end, mark, on, prev: markState(mark) }], `mark-${mark}`, sel)
   }
 
-  const blockCmd = (kind: BlockKind) => {
+  const blockCmd = (kind: BlockKind)=> {
     const sel = selectionOffsets(editorEl!)
     const caret = sel?.start ?? 0
     const segStart = segmentStartAt(doc.text, caret)
@@ -190,7 +190,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     commitEvents([{ type: 'block-set', start: segStart, kind: cur === kind ? 'p' : kind, align: null, prev }], `block-${kind}`, sel)
   }
 
-  const alignCmd = (align: Align) => {
+  const alignCmd = (align: Align)=> {
     const sel = selectionOffsets(editorEl!)
     const caret = sel?.start ?? 0
     const segStart = segmentStartAt(doc.text, caret)
@@ -200,7 +200,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     commitEvents([{ type: 'block-set', start: segStart, kind: prev?.kind ?? 'p', align: cur === align ? null : align, prev }], `align-${align}`, sel)
   }
 
-  const linkCmd = (url: string, remove = false) => {
+  const linkCmd = (url: string, remove = false)=> {
     const sel = selectionOffsets(editorEl!)
     if (!sel || sel.start === sel.end) return
     commitEvents([{
@@ -209,7 +209,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     }], remove ? 'unlink' : 'link', sel)
   }
 
-  const insertEmbedCmd = (html: string, type: 'img' | 'table' | 'hr') => {
+  const insertEmbedCmd = (html: string, type: 'img' | 'table' | 'hr')=> {
     const sel = selectionOffsets(editorEl!)
     const at = sel?.start ?? doc.text.length
     const id = `e${Date.now()}${Math.floor(Math.random() * 1e4)}`
@@ -218,7 +218,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     commitEvents([{ type: 'embed-insert', at, embed: { id, at, type, html } }], `embed-${type}`, caret)
   }
 
-  const clearCmd = () => {
+  const clearCmd = ()=> {
     const sel = selectionOffsets(editorEl!)
     if (!sel) return
     const events: EditEvent[] = []
@@ -255,14 +255,14 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
 
   // ── 选区保存/恢复（Modal/Table 弹层用） ──────────────────
   let savedSel: { start: number; end: number } | null = null
-  const saveSelection = () => { savedSel = selectionOffsets(editorEl!) }
-  const restoreSelection = () => {
+  const saveSelection = ()=> { savedSel = selectionOffsets(editorEl!) }
+  const restoreSelection = ()=> {
     if (!editorEl || !savedSel) return
     setSelectionOffsets(editorEl, savedSel.start, savedSel.end)
   }
 
   // onChange 引用（renderFn 更新——事件回调在 render 定义读最新）
-  const onChangeRef: { current?: (v: string) => void } = {}
+  const onChangeRef: { current?: (v: string)=> void } = {}
   let firstMount = true
 
   // ── 草稿持久化（draftKey：防抖自动保存——刷新/崩溃恢复） ────────
@@ -271,14 +271,14 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   // 定时器纪律（AGENTS.md #12）：输入提交/草稿防抖定时器创建于事件回调内
   //（合法窗口）——卸载时未触发定时器必清（否则卸载后 flush/storageSet +
   // 上层 onChange 违例触发）
-  ctx.ui.hold(() => {
+  ctx.ui.hold(()=> {
     if (inputTimer) { clearTimeout(inputTimer); inputTimer = null }
     if (draftTimer) { clearTimeout(draftTimer); draftTimer = null }
   })
-  const saveDraft = (html: string) => {
+  const saveDraft = (html: string)=> {
     if (!draftKeyRef) return
     if (draftTimer) clearTimeout(draftTimer)
-    draftTimer = setTimeout(() => {
+    draftTimer = setTimeout(()=> {
       draftTimer = null
       try { _browser.storageSet(`wf-editor-draft:${draftKeyRef}`, html) } catch { /* 存储失败隔离 */ }
     }, 500)
@@ -290,11 +290,11 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
 
   // ── AI 协作状态（选区操作 → 建议浮层 → 接受 = ai-apply commit） ──────
   const DEFAULT_AI_ACTIONS: EditorAiAction[] = [
-    { id: 'polish', label: '润色', prompt: ({ selection }) => `请润色以下文本，保持原意，输出润色后的完整文本（不要额外解释）：\n\n${selection}` },
-    { id: 'translate', label: '翻译', prompt: ({ selection }) => `请将以下文本翻译成中文，直接输出译文（不要额外解释）：\n\n${selection}` },
-    { id: 'shorten', label: '缩写', prompt: ({ selection }) => `请将以下文本缩写为更精炼的版本，保留核心信息，直接输出结果（不要额外解释）：\n\n${selection}` },
-    { id: 'expand', label: '扩写', prompt: ({ selection }) => `请在保持原意的基础上扩写以下文本，使内容更充实，直接输出完整结果（不要额外解释）：\n\n${selection}` },
-    { id: 'fix', label: '纠错', prompt: ({ selection }) => `请修正以下文本中的错别字、语法和标点错误，直接输出修正后的完整文本（不要额外解释）：\n\n${selection}` },
+    { id: 'polish', label: '润色', prompt: ({ selection })=> `请润色以下文本，保持原意，输出润色后的完整文本（不要额外解释）：\n\n${selection}` },
+    { id: 'translate', label: '翻译', prompt: ({ selection })=> `请将以下文本翻译成中文，直接输出译文（不要额外解释）：\n\n${selection}` },
+    { id: 'shorten', label: '缩写', prompt: ({ selection })=> `请将以下文本缩写为更精炼的版本，保留核心信息，直接输出结果（不要额外解释）：\n\n${selection}` },
+    { id: 'expand', label: '扩写', prompt: ({ selection })=> `请在保持原意的基础上扩写以下文本，使内容更充实，直接输出完整结果（不要额外解释）：\n\n${selection}` },
+    { id: 'fix', label: '纠错', prompt: ({ selection })=> `请修正以下文本中的错别字、语法和标点错误，直接输出修正后的完整文本（不要额外解释）：\n\n${selection}` },
   ]
   interface AiPending {
     action: EditorAiAction
@@ -318,11 +318,11 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     if (historyOpen && !historyHandle)
       historyHandle = ctx.ui.openPopup({
         key: 'editor-history',
-        anchor: () => anchorEl,
+        anchor: ()=> anchorEl,
         placement: 'bottom',
         gap: 8,
-        content: () => panel,
-        onClose: () => { historyHandle = null; if (historyOpen) { historyOpen = false; ctx.render() } },
+        content: ()=> panel,
+        onClose: ()=> { historyHandle = null; if (historyOpen) { historyOpen = false; ctx.render() } },
       })
     else if (!historyOpen && historyHandle) { historyHandle.close(); historyHandle = null }
     else if (historyHandle) historyHandle.update(panel)
@@ -331,7 +331,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   /** 回到指定 commit（undo 栈下标——0 = 最早）：从目标 before 重放其 events——
    *  精确恢复该版本（重放到当前 doc 会触发事件一致性校验失败——prev 快照过期）；
    *  目标之后的 commit 移入 redo（可重做回来） */
-  const goToCommit = (targetIndex: number) => {
+  const goToCommit = (targetIndex: number)=> {
     const target = hist.undoStack[targetIndex]
     if (!target) return
     let d = target.before
@@ -351,7 +351,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
 
   // 浮层锚点：最后点击的工具栏按钮（table Popover 同款——弹窗跟按钮走）
   let anchorEl: HTMLElement | null = null
-  const setAnchor = (el: HTMLElement | null) => { anchorEl = el }
+  const setAnchor = (el: HTMLElement | null)=> { anchorEl = el }
 
   // ── Link/Image 输入浮层（§5.4：轻量锚定浮层——命令式弹窗；Modal 会话级过重） ──
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
@@ -360,11 +360,11 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     if (showLinkInput && panel && !linkHandle)
       linkHandle = ctx.ui.openPopup({
         key: 'editor-link',
-        anchor: () => anchorEl,
+        anchor: ()=> anchorEl,
         placement: 'bottom',
         gap: 8,
-        content: () => panel,
-        onClose: () => { linkHandle = null; if (showLinkInput) { showLinkInput = false; ctx.render() } },
+        content: ()=> panel,
+        onClose: ()=> { linkHandle = null; if (showLinkInput) { showLinkInput = false; ctx.render() } },
       })
     else if (!showLinkInput && linkHandle) { linkHandle.close(); linkHandle = null }
     else if (linkHandle && panel) linkHandle.update(panel)
@@ -374,11 +374,11 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     if (showImageInput && panel && !imageHandle)
       imageHandle = ctx.ui.openPopup({
         key: 'editor-image',
-        anchor: () => anchorEl,
+        anchor: ()=> anchorEl,
         placement: 'bottom',
         gap: 8,
-        content: () => panel,
-        onClose: () => { imageHandle = null; if (showImageInput) { showImageInput = false; ctx.render() } },
+        content: ()=> panel,
+        onClose: ()=> { imageHandle = null; if (showImageInput) { showImageInput = false; ctx.render() } },
       })
     else if (!showImageInput && imageHandle) { imageHandle.close(); imageHandle = null }
     else if (imageHandle && panel) imageHandle.update(panel)
@@ -388,11 +388,11 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     if (aiPanelOpen && panel && !aiHandle)
       aiHandle = ctx.ui.openPopup({
         key: 'editor-ai-panel',
-        anchor: () => anchorEl,
+        anchor: ()=> anchorEl,
         placement: 'bottom',
         gap: 8,
-        content: () => panel,
-        onClose: () => {
+        content: ()=> panel,
+        onClose: ()=> {
           aiHandle = null
           if (aiPanelOpen) {
             aiPanelOpen = false
@@ -406,7 +406,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   }
 
   /** 触发 AI 动作：选区（无选区 = 全文）→ 提示词 → wf: 流式 → 建议浮层 */
-  const runAiAction = (action: EditorAiAction, aiOpts: EditorAiOptions) => {
+  const runAiAction = (action: EditorAiAction, aiOpts: EditorAiOptions)=> {
     if (!editorEl) return
     const sel = selectionOffsets(editorEl)
     const start = sel?.start ?? 0
@@ -428,18 +428,18 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       messages: [{ role: 'user', content: prompt }],
     }, {
       headers: aiOpts.headers,
-      onToken: (text) => {
+      onToken: (text)=> {
         if (!aiPending) return
         aiPending.revised += text
         ctx.render()
       },
-      onDone: () => {
+      onDone: ()=> {
         if (!aiPending) return
         aiPending.streaming = false
         editEmit('ai-apply', { action: action.id, status: 'done', chars: aiPending.revised.length })
         ctx.render()
       },
-      onError: (e) => {
+      onError: (e)=> {
         if (!aiPending) return
         aiPending.streaming = false
         aiPending.error = e?.message ?? 'AI 请求失败'
@@ -452,7 +452,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   }
 
   /** 接受建议：AI 替换 = edit:ai-apply commit（原子撤销一步——事件流杀手级能力） */
-  const acceptAi = (aiOpts: EditorAiOptions) => {
+  const acceptAi = (aiOpts: EditorAiOptions)=> {
     const p = aiPending
     if (!p || p.streaming || !p.revised.trim()) return
     aiPanelOpen = false
@@ -470,8 +470,8 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       ctx.render()
       return
     }
-    const removedEmbeds = doc.embeds.filter((e) => e.at >= p.start && e.at < p.end)
-    const removedBlocks = doc.blockProps.filter((b) => b.start >= p.start && b.start <= p.end)
+    const removedEmbeds = doc.embeds.filter((e)=> e.at >= p.start && e.at < p.end)
+    const removedBlocks = doc.blockProps.filter((b)=> b.start >= p.start && b.start <= p.end)
     commitEvents([{
       type: 'ai-apply', start: p.start, end: p.end,
       original: p.original, revised,
@@ -486,20 +486,20 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
   const editorText = (key: string, fallback: string): string =>
     ctx?.i18n?.components?.Editor?.[key] ?? fallback
 
-  return (props: EditorProps) => {
+  return (props: EditorProps)=> {
     const { value = '', onChange, onUpload, placeholder = '', disabled = false, minHeight = '200px', draftKey } = props
     const toolbarItems = props.toolbar ?? DEFAULT_TOOLBAR
     const isRichMode = mode === 'rich'
     onChangeRef.current = onChange
     draftKeyRef = draftKey ?? null
 
-    const emitChange = (html: string) => {
+    const emitChange = (html: string)=> {
       domDirty = true
       onChange?.(html)
     }
 
     // ── 工具栏点击 ───────────────────────────────────────
-    const handleToolbarItem = (item: ToolbarItem, anchor?: HTMLElement | null) => {
+    const handleToolbarItem = (item: ToolbarItem, anchor?: HTMLElement | null)=> {
       if (disabled) return
       if (anchor) anchorEl = anchor
       editorEl?.focus()
@@ -552,7 +552,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
             return
           }
           // 已有链接 → unlink；否则输入 URL
-          const hasLink = doc.marks.some((m) => m.type === 'link' && m.start <= sel.start && m.end >= sel.end)
+          const hasLink = doc.marks.some((m)=> m.type === 'link' && m.start <= sel.start && m.end >= sel.end)
           if (hasLink) {
             restoreSelection()
             linkCmd('', true)
@@ -572,7 +572,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     }
 
     // ── 链接 ────────────────────────────────────────────
-    const confirmLink = (url: string) => {
+    const confirmLink = (url: string)=> {
       showLinkInput = false
       ctx.render()
       if (!url) return
@@ -581,14 +581,14 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       ctx.render()
     }
 
-    const cancelLink = () => {
+    const cancelLink = ()=> {
       showLinkInput = false
       linkUrl = ''
       ctx.render()
     }
 
     // ── 图片 ────────────────────────────────────────────
-    const handleImageFile = async (files: File[]) => {
+    const handleImageFile = async (files: File[])=> {
       const file = files[0]
       if (!file) return
       imageUploading = true
@@ -607,7 +607,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       }
     }
 
-    const confirmImageUrl = (url: string) => {
+    const confirmImageUrl = (url: string)=> {
       showImageInput = false
       imageUrl = ''
       ctx.render()
@@ -615,14 +615,14 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       insertEmbedCmd(`<img src="${url}" alt="">`, 'img')
     }
 
-    const cancelImage = () => {
+    const cancelImage = ()=> {
       showImageInput = false
       imageUrl = ''
       ctx.render()
     }
 
     // ── 表格 ────────────────────────────────────────────
-    const handleTableSelect = (rows: number, cols: number) => {
+    const handleTableSelect = (rows: number, cols: number)=> {
       showTableGrid = false
       tableHoverRow = -1
       tableHoverCol = -1
@@ -631,13 +631,13 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       ctx.render()
     }
 
-    const handleTableHover = (row: number, col: number) => {
+    const handleTableHover = (row: number, col: number)=> {
       tableHoverRow = row
       tableHoverCol = col
       ctx.render()
     }
 
-    const handleTableLeave = () => {
+    const handleTableLeave = ()=> {
       tableHoverRow = -1
       tableHoverCol = -1
       ctx.render()
@@ -660,7 +660,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     const tablePopover = h(Popover, {
       key: 'table',
       open: isRichMode && !!showTableGrid,
-      onOpenChange: (v: boolean) => {
+      onOpenChange: (v: boolean)=> {
         showTableGrid = v
         if (v) saveSelection()
         ctx.render()
@@ -669,7 +669,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     }, tableButton)
 
     // ── 输入事件（浏览器直写 DOM → 同步模型——不产生事件，阶段 2 输入入流） ──
-    const handleRichInput = () => {
+    const handleRichInput = ()=> {
       if (disabled) return
       const el = editorEl
       if (!el) return
@@ -705,13 +705,13 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       emitChange(serializeHtml(newDoc))
     }
 
-    const handleSourceInput = (e: Event) => {
+    const handleSourceInput = (e: Event)=> {
       const val = (e.target as HTMLTextAreaElement).value
       onChange?.(val)
     }
 
     // ── 键盘 ────────────────────────────────────────────
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent)=> {
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === 'z') {
         // 输入已入流（阶段 2）——撤销全走自建栈（精确回退输入/格式/AI）
@@ -742,7 +742,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       }
     }
 
-    const handleKeyUp = (e: KeyboardEvent) => {
+    const handleKeyUp = (e: KeyboardEvent)=> {
       if (disabled || !isRichMode) return
       const isFormatShortcut = (e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())
       if (isFormatShortcut) {
@@ -757,7 +757,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       ctx.render()
     }
 
-    const handleMouseUp = () => {
+    const handleMouseUp = ()=> {
       if (!isRichMode) return
       saveSelection()
       const caret = selectionOffsets(editorEl!)?.start ?? 0
@@ -768,7 +768,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       }
     }
 
-    const handleMouseDown = () => {
+    const handleMouseDown = ()=> {
       saveSelection()
       let needsRender = false
       if (showLinkInput) { showLinkInput = false; needsRender = true }
@@ -784,8 +784,8 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       h('input', {
         type: 'url', class: 'wf-editor-link-input', placeholder: 'https://...',
         value: linkUrl, 'data-editor-link-input': true,
-        onInput: (e: Event) => { linkUrl = (e.target as HTMLInputElement).value; ctx.render() },
-        onKeyDown: (e: KeyboardEvent) => {
+        onInput: (e: Event)=> { linkUrl = (e.target as HTMLInputElement).value; ctx.render() },
+        onKeyDown: (e: KeyboardEvent)=> {
           if (e.key === 'Enter') confirmLink((e.target as HTMLInputElement).value)
           if (e.key === 'Escape') cancelLink()
         },
@@ -794,7 +794,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
         h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', onClick: cancelLink }, '取消'),
         h('button', {
           class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button',
-          onClick: () => confirmLink(linkUrl),
+          onClick: ()=> confirmLink(linkUrl),
         }, '确定'),
       ]),
     ]) : null)
@@ -820,8 +820,8 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       placeholder: onUpload ? '粘贴图片链接' : 'https://...',
       value: imageUrl, 'data-image-input': true,
       disabled: imageUploading || undefined,
-      onInput: (e: Event) => { imageUrl = (e.target as HTMLInputElement).value; ctx.render() },
-      onKeyDown: (e: KeyboardEvent) => {
+      onInput: (e: Event)=> { imageUrl = (e.target as HTMLInputElement).value; ctx.render() },
+      onKeyDown: (e: KeyboardEvent)=> {
         if (e.key === 'Enter') confirmImageUrl((e.target as HTMLInputElement).value)
         if (e.key === 'Escape') cancelImage()
       },
@@ -837,7 +837,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
         h('button', {
           class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button',
           disabled: imageUploading || undefined,
-          onClick: () => confirmImageUrl(imageUrl),
+          onClick: ()=> confirmImageUrl(imageUrl),
         }, onUpload ? '插入' : '确定'),
       ]),
     ]) : null)
@@ -901,13 +901,13 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       })
     }
 
-    const customRender: Record<string, (item: ToolbarItem) => VNode> = {
-      table: () => tablePopover,
+    const customRender: Record<string, (item: ToolbarItem)=> VNode> = {
+      table: ()=> tablePopover,
     }
 
     // ── AI 协作（工具栏按钮组 + 建议浮层） ─────────────────────
     const aiOpts = props.ai
-    const aiActions = (aiOpts?.actions ?? DEFAULT_AI_ACTIONS).map((a) => ({
+    const aiActions = (aiOpts?.actions ?? DEFAULT_AI_ACTIONS).map((a)=> ({
       ...a,
       label: editorText(`ai-${a.id}`, a.label),
     }))
@@ -934,7 +934,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
         title: editorText('historyTitle', '操作历史'),
         'aria-label': editorText('historyTitle', '操作历史'),
         'data-item': 'history',
-        onClick: (e: MouseEvent) => { setAnchor(e.currentTarget as HTMLElement); historyOpen = !historyOpen; ctx.render() },
+        onClick: (e: MouseEvent)=> { setAnchor(e.currentTarget as HTMLElement); historyOpen = !historyOpen; ctx.render() },
       }, '🕘')
       if (historyOpen) {
         const rows: VNode[] = []
@@ -947,7 +947,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
             key: `u-${idx}`,
             class: ['wf-editor-hist-item', i === 0 ? 'wf-editor-hist-item--current' : ''].filter(Boolean).join(' '),
             type: 'button',
-            onClick: () => goToCommit(idx),
+            onClick: ()=> goToCommit(idx),
           }, [
             h('span', { class: 'wf-editor-hist-label' }, c.label),
             h('span', { class: 'wf-editor-hist-time' }, new Date(c.ts ?? Date.now()).toLocaleTimeString()),
@@ -960,7 +960,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
             key: `r-${i}`,
             class: 'wf-editor-hist-item wf-editor-hist-item--redo',
             type: 'button',
-            onClick: () => {
+            onClick: ()=> {
               while (canRedo(hist) && hist.redoStack.length > i) redo()
               historyOpen = false
               ctx.render()
@@ -979,7 +979,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
     if (aiOpts && !disabled && isRichMode) {
       aiButtons = h('div', { class: 'wf-editor-ai-bar' }, [
         h('span', { class: 'wf-editor-tb-sep', key: 'ai-sep' }),
-        ...aiActions.map((a) => h('button', {
+        ...aiActions.map((a)=> h('button', {
           key: `ai-${a.id}`,
           class: ['wf-editor-tb-btn', 'wf-editor-tb-btn--ai', aiPending?.streaming && aiPending?.action.id === a.id ? 'wf-editor-tb-btn--active' : ''].filter(Boolean).join(' '),
           type: 'button',
@@ -988,7 +988,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
           'aria-expanded': String(!!aiPanelOpen),
           'data-ai-item': a.id,
           disabled: (aiPending?.streaming ? true : undefined) ?? undefined,
-          onClick: (e: MouseEvent) => { setAnchor(e.currentTarget as HTMLElement); runAiAction(a, aiOpts) },
+          onClick: (e: MouseEvent)=> { setAnchor(e.currentTarget as HTMLElement); runAiAction(a, aiOpts) },
         }, a.label)),
       ])
       if (aiPanelOpen && aiPending) {
@@ -1004,17 +1004,17 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
           h('div', { class: 'wf-editor-ai-panel-actions' }, [
             h('button', {
               class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button',
-              onClick: () => { aiPanelOpen = false; aiPending = null; ctx.render() },
+              onClick: ()=> { aiPanelOpen = false; aiPending = null; ctx.render() },
             }, editorText('reject', '拒绝')),
             p.error
               ? h('button', {
                 class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button',
-                onClick: () => runAiAction(p.action, aiOpts),
+                onClick: ()=> runAiAction(p.action, aiOpts),
               }, editorText('retry', '重试'))
               : h('button', {
                 class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button',
                 disabled: (p.streaming || !p.revised.trim()) ? true : undefined,
-                onClick: () => acceptAi(aiOpts),
+                onClick: ()=> acceptAi(aiOpts),
               }, editorText('accept', '接受')),
           ]),
         ])

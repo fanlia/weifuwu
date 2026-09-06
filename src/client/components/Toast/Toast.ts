@@ -19,12 +19,12 @@ export interface ToastItem {
   /** 此条目的自动消失时间（ms），覆盖 Toast 的默认 duration */
   duration?: number
   /** 操作按钮（如"撤销"）：点击不自动关闭，由回调自行移除 */
-  action?: { label: string; onClick: () => void }
+  action?: { label: string; onClick: ()=> void }
 }
 
 export interface ToastProps {
   toasts?: ToastItem[]
-  onRemove?: (id: string) => void
+  onRemove?: (id: string)=> void
   /** 容器位置，默认 top-right */
   position?: ToastPosition
   /** 全局默认自动消失时间（ms），0 = 不自动消失，默认 0 */
@@ -53,12 +53,12 @@ function positionClass(pos: ToastPosition): string {
   return map[pos] ?? 'wf-toast--tr'
 }
 
-export const Toast: Component<ToastProps> = (_init, ctx) => {
+export const Toast: Component<ToastProps> = (_init, ctx)=> {
   // 命令式弹窗（唯一形态 openPopup）：常驻容器（positioning 'none'——CSS 角落定位）
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
-  return (props) => {
+  return (props)=> {
   const { toasts = [], onRemove, position = 'top-right', duration = 0, max = 0 } = props
 
   // 限制最大显示条数
@@ -71,7 +71,7 @@ export const Toast: Component<ToastProps> = (_init, ctx) => {
       'aria-live': t.type === 'error' ? 'assertive' : 'polite',
       'data-id': t.id,
       'data-duration': (t.duration ?? duration) || undefined,
-      onClick: onRemove ? () => onRemove(t.id) : undefined,
+      onClick: onRemove ? ()=> onRemove(t.id) : undefined,
     }, [
       h('span', { class: 'wf-toast-icon' }, h(Icon, { name: iconFor(t.type) })),
       h('span', { class: 'wf-toast-msg' }, t.message),
@@ -79,7 +79,7 @@ export const Toast: Component<ToastProps> = (_init, ctx) => {
         ? h('button', {
             class: `wf-toast-action wf-toast-action--${t.type}`,
             type: 'button',
-            onClick: (e: Event) => { e.stopPropagation(); t.action!.onClick() },
+            onClick: (e: Event)=> { e.stopPropagation(); t.action!.onClick() },
           }, t.action.label)
         : null,
     ].filter(Boolean))
@@ -96,8 +96,8 @@ export const Toast: Component<ToastProps> = (_init, ctx) => {
       key: 'toast',
       positioning: 'none',
       closeOnOutside: false, closeOnEscape: false,
-      content: () => container,
-      onClose: () => { handle = null },
+      content: ()=> container,
+      onClose: ()=> { handle = null },
     })
   else if (visible.length === 0 && handle) { handle.close(); handle = null }
   else if (handle) handle.update(container)
@@ -122,6 +122,6 @@ function iconFor(type?: ToastType): IconName {
 
 /** 命令式 ctx.toast 的注入类型（AppMiddleware<{}, ToastInjected>） */
 export interface ToastInjected {
-  toast: (message: string, type?: ToastType, duration?: number, action?: { label: string; onClick: () => void }) => void
+  toast: (message: string, type?: ToastType, duration?: number, action?: { label: string; onClick: ()=> void }) => void
 }
 

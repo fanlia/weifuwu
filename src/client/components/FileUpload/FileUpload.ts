@@ -3,7 +3,7 @@
  * weifuwu/components — FileUpload
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -16,13 +16,12 @@ export interface FileUploadProps {
   error?: string
   hint?: string
   value?: File[]
-  onChange?: (files: File[]) => void
+  onChange?: (files: File[])=> void
   /** 上传中状态（父层驱动——组件不做 xhr，诚实裁剪） */
   uploading?: boolean
   /** 上传进度 0-100（父层驱动） */
   progress?: number
-  children?: any
-}
+  children?: VNodeChild}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`
@@ -30,14 +29,14 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 }
 
-export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
+export const FileUpload: Component<FileUploadProps> = (_init, ctx)=> {
   const FL = ctx?.i18n?.components?.FileUpload ?? {}
   let fileInput: HTMLInputElement | null = null
-  const fileInputRef = (el: HTMLInputElement | null) => { if (el) fileInput = el }
+  const fileInputRef = (el: HTMLInputElement | null)=> { if (el) fileInput = el }
 
   // 图片缩略图 objectURL 缓存（同名同尺寸复用）+ 卸载 revoke（资源生命周期）
   const objectUrls = new Map<string, string>()
-  const urlKey = (f: File) => `${f.name}:${f.size}`
+  const urlKey = (f: File)=> `${f.name}:${f.size}`
   const getThumb = (f: File): string | undefined => {
     if (!f.type.startsWith('image/')) return undefined
     const key = urlKey(f)
@@ -49,7 +48,7 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
     return url
   }
   // 稳定 ref：卸载时 revoke（仅卸载路径，见 ref 纪律）
-  const revokeRef = (el: HTMLElement | null) => {
+  const revokeRef = (el: HTMLElement | null)=> {
     if (el) return
     for (const url of objectUrls.values()) URL.revokeObjectURL?.(url)
     objectUrls.clear()
@@ -63,26 +62,26 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
   const propsRef: any = { ..._init }
   let isDragging = false
   const { dropProps } = ctx.ui.useDragDrop({
-    onDrop: (e) => {
+    onDrop: (e)=> {
       isDragging = false
       ctx.render()
       if (propsRef.disabled) return
       const dropped = Array.from(e.dataTransfer?.files ?? [])
       if (propsRef.maxSize) {
-        const oversized = dropped.filter((f: File) => f.size > propsRef.maxSize)
+        const oversized = dropped.filter((f: File)=> f.size > propsRef.maxSize)
         if (oversized.length > 0) return
       }
       propsRef.onChange?.(dropped)
     },
-    onDragOver: () => {
+    onDragOver: ()=> {
       if (!isDragging) { isDragging = true; ctx.render() }
     },
-    onDragLeave: () => {
+    onDragLeave: ()=> {
       if (isDragging) { isDragging = false; ctx.render() }
     },
   })
 
-  return (props: FileUploadProps) => {
+  return (props: FileUploadProps)=> {
     Object.assign(propsRef, props)
     const { accept, multiple, maxSize, disabled, error, hint, value, onChange, children, uploading, progress } = props
     const files = value ?? []
@@ -92,7 +91,7 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
       console.warn('[weifuwu/FileUpload] value 已传（受控）但未提供 onChange——选择/删除无法生效。\n传 onChange 或省略 value 使用非受控模式。')
     }
 
-    const handleChange = (e: Event) => {
+    const handleChange = (e: Event)=> {
       const input = e.target as HTMLInputElement
       const selected = Array.from(input.files ?? [])
       if (maxSize) {
@@ -103,8 +102,8 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
       input.value = ''
     }
 
-    const handleRemove = (i: number) => {
-      const updated = files.filter((_, idx) => idx !== i)
+    const handleRemove = (i: number)=> {
+      const updated = files.filter((_, idx)=> idx !== i)
       onChange?.(updated)
     }
 
@@ -121,11 +120,11 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
 
     const dropZone = h('div', {
       class: `wf-upload-zone${disabled ? ' wf-upload-zone--disabled' : ''}${error ? ' wf-upload-zone--err' : ''}${isDragging ? ' wf-upload-zone--drag' : ''}`,
-      onClick: disabled ? undefined : () => fileInput?.click(),
+      onClick: disabled ? undefined : ()=> fileInput?.click(),
       // input[type=file] display:none 不可聚焦——zone 即键盘可达面（Enter/Space 触发选择文件）
       role: disabled ? undefined : 'button',
       tabIndex: disabled ? undefined : 0,
-      onKeyDown: disabled ? undefined : (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput?.click() } },
+      onKeyDown: disabled ? undefined : (e: KeyboardEvent)=> { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput?.click() } },
       ...dropProps, // useDragDrop：drop/dragover/dragleave（VNode props，渲染器绑定/清理）
     }, children ?? h('div', { class: 'wf-upload-placeholder' }, [
       h('span', { class: 'wf-upload-icon' }, '📁'),
@@ -136,7 +135,7 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
 
     const fileList = files.length > 0
       ? h('ul', { class: 'wf-upload-list' },
-          files.map((f, i) => {
+          files.map((f, i)=> {
             const thumb = getThumb(f)
             const itemChildren: any[] = [
               thumb ? h('img', { class: 'wf-upload-thumb', src: thumb, alt: f.name }) : null,
@@ -147,7 +146,7 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
               h('button', {
                 class: 'wf-upload-item-remove',
                 'aria-label': `${FL.remove ?? '删除'} ${f.name}`,
-                onClick: () => handleRemove(i),
+                onClick: ()=> handleRemove(i),
               }, h(Icon, { name: 'trash' }))
             ]
             return h('li', { class: 'wf-upload-item', key: f.name + f.size }, itemChildren.filter(Boolean))

@@ -7,7 +7,7 @@
  * + 定位/视口 clamp + Escape。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
@@ -16,22 +16,21 @@ import type { Placement } from '../../vdom/hooks/popup.ts'
 export type PopoverPosition = Placement
 
 export interface PopoverProps {
-  content?: any
+  content?: VNodeChild
   trigger?: 'click' | 'hover'
   position?: PopoverPosition
   open?: boolean
-  onOpenChange?: (open: boolean) => void
+  onOpenChange?: (open: boolean)=> void
   disabled?: boolean
-  children?: any
-}
+  children?: VNodeChild}
 
-export const Popover: Component<PopoverProps> = (_init, ctx) => {
+export const Popover: Component<PopoverProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let latestPosition: PopoverPosition = 'bottom'
   let latestTrigger: 'click' | 'hover' = 'click'
   let disabled = false
   let wrapEl: HTMLElement | null = null
-  const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
+  const wrapRef = (el: HTMLElement | null)=> { if (el) wrapEl = el }
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: PopupHandle | null = null
 
@@ -46,23 +45,23 @@ export const Popover: Component<PopoverProps> = (_init, ctx) => {
   const hoverOpen = (): void => {
     clearHover()
     if (disabled) return
-    hoverTimer = setTimeout(() => {
+    hoverTimer = setTimeout(()=> {
       hoverTimer = null
       if (!openCtrl?.open) openCtrl?.setOpen(true)
     }, 0)
   }
   const hoverClose = (): void => {
     clearHover()
-    hoverTimer = setTimeout(() => {
+    hoverTimer = setTimeout(()=> {
       hoverTimer = null
       if (openCtrl?.open) openCtrl?.setOpen(false)
     }, 0)
   }
   ctx.ui.onUnmount?.(clearHover)
-  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
+  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
 
   // ── render（每次 dirty/props 变化）──
-  return (props: PopoverProps) => {
+  return (props: PopoverProps)=> {
     const { content, position = 'bottom', trigger = 'click', children } = props
     latestPosition = position
     latestTrigger = trigger
@@ -80,11 +79,11 @@ export const Popover: Component<PopoverProps> = (_init, ctx) => {
     // 命令式同步（受控 + 内容更新——每次渲染恒调用）
     if (openCtrl?.open && !handle)
       handle = ctx.ui.openPopup({
-        anchor: () => wrapEl,
-        placement: () => latestPosition,
+        anchor: ()=> wrapEl,
+        placement: ()=> latestPosition,
         gap: 6,
-        content: () => popover,
-        onClose: () => { handle = null; openCtrl?.setOpen(false) },
+        content: ()=> popover,
+        onClose: ()=> { handle = null; openCtrl?.setOpen(false) },
       })
     else if (!openCtrl?.open && handle) { handle.close(); handle = null }
     else if (handle) handle.update(popover)
@@ -96,8 +95,8 @@ export const Popover: Component<PopoverProps> = (_init, ctx) => {
       'aria-expanded': String(!!openCtrl?.open),
       role: 'button',
       tabIndex: 0,
-      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCtrl?.setOpen(!openCtrl.open) } },
-      onClick: (e: Event) => { e.stopPropagation?.(); openCtrl?.setOpen(!openCtrl.open) }, // click 触发（hover 触屏降级 tap）
+      onKeyDown: (e: KeyboardEvent)=> { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCtrl?.setOpen(!openCtrl.open) } },
+      onClick: (e: Event)=> { e.stopPropagation?.(); openCtrl?.setOpen(!openCtrl.open) }, // click 触发（hover 触屏降级 tap）
       ...(latestTrigger === 'hover'
         ? { onMouseEnter: hoverOpen, onMouseLeave: hoverClose }
         : {}),

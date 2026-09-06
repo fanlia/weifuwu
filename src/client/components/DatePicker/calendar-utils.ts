@@ -103,12 +103,12 @@ export function formatDateTime(year: number, month: number, day: number, hour: n
 
 /** 小时选项（00-23） */
 export function hourOptions(): number[] {
-  return Array.from({ length: 24 }, (_, i) => i)
+  return Array.from({ length: 24 }, (_, i)=> i)
 }
 
 /** 分钟选项（00-59，步长 5） */
 export function minuteOptions(): number[] {
-  return Array.from({ length: 12 }, (_, i) => i * 5)
+  return Array.from({ length: 12 }, (_, i)=> i * 5)
 }
 
 /** 日期比较：a 是否在 b 之前 */

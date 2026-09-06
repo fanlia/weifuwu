@@ -18,12 +18,12 @@ export interface ImageCropperProps {
   src: string
   /** 裁剪比例（宽/高——默认 1） */
   aspect?: number
-  onCrop?: (dataUrl: string) => void
-  onError?: (err: Error) => void
+  onCrop?: (dataUrl: string)=> void
+  onError?: (err: Error)=> void
   className?: string
 }
 
-export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
+export const ImageCropper: Component<ImageCropperProps> = (_init, ctx)=> {
   let canvasEl: HTMLCanvasElement | null = null
   let img: HTMLImageElement | null = null
   let box = { x: 0, y: 0, w: 100, h: 100 } // 裁剪框（相对显示区）
@@ -32,10 +32,10 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
   let dragging: 'move' | 'se' | null = null
   let last = { x: 0, y: 0 } // 上一 pointer 位置（逻辑坐标）
 
-  const loadImage = () => {
+  const loadImage = ()=> {
     const browser = ctx.browser ?? createClientBrowser()
     const image = browser.createElement('img') as HTMLImageElement
-    image.onload = () => {
+    image.onload = ()=> {
       img = image
       // 初始裁剪框（居中 80%）
       viewW = Math.min(image.naturalWidth, 480)
@@ -44,12 +44,12 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
       draw()
       ctx.render()
     }
-    image.onerror = () => ctx2.onError?.(new Error('图片加载失败'))
+    image.onerror = ()=> ctx2.onError?.(new Error('图片加载失败'))
     image.src = ctx2.src
   }
   const ctx2: any = { aspect: 1, src: '', onError: undefined }
 
-  const draw = () => {
+  const draw = ()=> {
     if (!canvasEl || !img) return
     const c = canvasEl
     const g = c.getContext('2d')
@@ -69,7 +69,7 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
     g.fillRect(box.x + box.w - 6, box.y + box.h - 6, 12, 12)
   }
 
-  const crop = () => {
+  const crop = ()=> {
     if (!canvasEl || !img) return
     const g = canvasEl.getContext('2d')
     if (!g) return
@@ -83,7 +83,7 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
     ctx2.onCrop?.(out.toDataURL('image/png'))
   }
 
-  return (props) => {
+  return (props)=> {
     ctx2.aspect = props.aspect ?? 1
     ctx2.src = props.src
     ctx2.onError = props.onError
@@ -92,12 +92,12 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
     // 原 onCrop 只解构为局部变量从未写入 ctx2——裁剪按钮点击 onCrop 永不触发（onError 有赋值 onCrop 断链）
     ctx2.onCrop = onCrop
 
-    const move = (dx: number, dy: number) => {
+    const move = (dx: number, dy: number)=> {
       box.x = Math.max(0, Math.min(viewW - box.w, box.x + dx))
       box.y = Math.max(0, Math.min(viewH - box.h, box.y + dy))
       draw()
     }
-    const resize = (dx: number, dy: number) => {
+    const resize = (dx: number, dy: number)=> {
       box.w = Math.max(30, Math.min(viewW - box.x, box.w + dx))
       box.h = box.w / ctx2.aspect
       draw()
@@ -106,11 +106,11 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
     // 拖拽接线（2027-09 死交互修复）：pointerdown 命中判定（框内 = move /
     // 右下柄 = se）→ setPointerCapture 拖出 canvas 仍持续 → move/resize + draw。
     // 坐标映射：canvas 有 maxWidth:100% 缩放——逻辑坐标 = (client - rect) × (逻辑/显示)。
-    const pointerPos = (e: PointerEvent) => {
+    const pointerPos = (e: PointerEvent)=> {
       const r = canvasEl!.getBoundingClientRect()
       return { x: (e.clientX - r.left) * (canvasEl!.width / r.width), y: (e.clientY - r.top) * (canvasEl!.height / r.height) }
     }
-    const onPointerDown = (e: PointerEvent) => {
+    const onPointerDown = (e: PointerEvent)=> {
       if (!canvasEl) return
       const p = pointerPos(e)
       const handleHit = p.x >= box.x + box.w - 8 && p.y >= box.y + box.h - 8
@@ -121,19 +121,19 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
       canvasEl.setPointerCapture(e.pointerId)
       canvasEl.style.cursor = handleHit ? 'nwse-resize' : 'move'
     }
-    const onPointerMove = (e: PointerEvent) => {
+    const onPointerMove = (e: PointerEvent)=> {
       if (!dragging || !canvasEl) return
       const p = pointerPos(e)
       if (dragging === 'move') move(p.x - last.x, p.y - last.y)
       else resize(p.x - last.x, p.y - last.y)
       last = p
     }
-    const onPointerUp = () => {
+    const onPointerUp = ()=> {
       dragging = null
       if (canvasEl) canvasEl.style.cursor = 'crosshair'
     }
 
-    const wrapRef = (el: HTMLElement | null) => {
+    const wrapRef = (el: HTMLElement | null)=> {
       if (el && !canvasEl) {
         canvasEl = el.querySelector('canvas')
         loadImage()
@@ -147,9 +147,9 @@ export const ImageCropper: Component<ImageCropperProps> = (_init, ctx) => {
       ]),
       h('div', { class: 'wf-row wf-gap-xs' },
         h('button', { type: 'button', class: 'wf-btn wf-btn--sm wf-btn--primary', disabled: !img,
-          onClick: () => crop() }, '裁剪'),
+          onClick: ()=> crop() }, '裁剪'),
         h('button', { type: 'button', class: 'wf-btn wf-btn--sm', disabled: !img,
-          onClick: () => { box = { x: viewW * 0.1, y: viewH * 0.1, w: viewW * 0.8, h: viewH * 0.8 }; draw(); ctx.render() } }, '重置'),
+          onClick: ()=> { box = { x: viewW * 0.1, y: viewH * 0.1, w: viewW * 0.8, h: viewH * 0.8 }; draw(); ctx.render() } }, '重置'),
       ),
     ])
   }

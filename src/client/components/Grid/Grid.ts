@@ -15,7 +15,7 @@
  * gutter 仅水平（垂直 gutter 低频）。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { keyOf } from '../../vdom/core/node/keyed.ts'
@@ -26,15 +26,13 @@ export interface GridProps {
   gap?: number
   direction?: 'row' | 'column'
   align?: 'start' | 'center' | 'end' | 'stretch'
-  children?: any
-}
+  children?: VNodeChild}
 
 export interface ColProps {
   /** 0-24 栅格跨度；0 = flex:1 占剩余 */
   span?: number
   gutter?: number
-  children?: any
-}
+  children?: VNodeChild}
 
 /** 栅格跨度 → 宽度（纯函数——可单测/SSR） */
 export function gridColumns(span: number): string {
@@ -42,8 +40,8 @@ export function gridColumns(span: number): string {
   return `${(span / 24) * 100}%`
 }
 
-export const Grid: Component<GridProps> = (_init, _ctx: UIContext) =>
-  (props) => {
+export const Grid: Component<GridProps> = (_init, _ctx: UIContext)=>
+  (props)=> {
     const { gutter, flex, gap, direction = 'row', align, children } = props
     const half = gutter ? gutter / 2 : 0
     // gutter 通过 style 传递——子 Col 从 Grid 拿（简化：注入 gutter 到 children props）
@@ -51,7 +49,7 @@ export const Grid: Component<GridProps> = (_init, _ctx: UIContext) =>
     // vnode.key——`{ ...c.props, gutter }` 拿不到 key——用户声明的 Col 身份
     // 丢失（动态 Col 列表按位置继承——Grid 状态错位）——显式回填 keyOf(c)
     const kids = Array.isArray(children)
-      ? children.map((c: any) =>
+      ? children.map((c: any)=>
           c && typeof c === 'object' && c.type === Col
             ? h(Col, { ...c.props, key: keyOf(c), gutter }, c.props?.children)
             : c)
@@ -67,8 +65,8 @@ export const Grid: Component<GridProps> = (_init, _ctx: UIContext) =>
     }, kids)
   }
 
-export const Col: Component<ColProps> = (_init, _ctx: UIContext) =>
-  (props) => {
+export const Col: Component<ColProps> = (_init, _ctx: UIContext)=>
+  (props)=> {
     const { span = 24, gutter, children } = props
     const half = gutter ? gutter / 2 : 0
     return h('div', {

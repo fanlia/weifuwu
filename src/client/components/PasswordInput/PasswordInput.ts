@@ -12,8 +12,8 @@ import { Icon } from '../Icon/Icon.ts'
 
 export interface PasswordInputProps {
   value?: string
-  onInput?: (e: Event) => void
-  onChange?: (e: Event) => void
+  onInput?: (e: Event)=> void
+  onChange?: (e: Event)=> void
   label?: string
   name?: string
   placeholder?: string
@@ -25,16 +25,16 @@ export interface PasswordInputProps {
   className?: string
 }
 
-export const PasswordInput: Component<PasswordInputProps> = (_init, ctx) => {
+export const PasswordInput: Component<PasswordInputProps> = (_init, ctx)=> {
   let show = false
 
-  return (props: PasswordInputProps) => {
+  return (props: PasswordInputProps)=> {
     const {
       value, onInput, onChange, label, name, placeholder,
       disabled, error, hint, required, autoComplete, className,
     } = props
 
-    const toggle = () => {
+    const toggle = ()=> {
       if (disabled) return
       show = !show
       ctx.render()

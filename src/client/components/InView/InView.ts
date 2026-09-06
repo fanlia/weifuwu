@@ -6,7 +6,7 @@
  * 实现：ctx.ui.useInView（IO 封装）——滚动/尺寸变化由合成器线程评估，无 scroll 监听。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -14,12 +14,11 @@ export interface InViewProps {
   once?: boolean
   threshold?: number
   rootMargin?: string
-  placeholder?: any
-  onEnter?: () => void
-  children?: any
-}
+  placeholder?: VNodeChild
+  onEnter?: ()=> void
+  children?: VNodeChild}
 
-export const InView: Component<InViewProps> = (_props, ctx) => {
+export const InView: Component<InViewProps> = (_props, ctx)=> {
   // ── mount（只一次）──
   let entered = false
 
@@ -27,16 +26,16 @@ export const InView: Component<InViewProps> = (_props, ctx) => {
   const propsRef: any = { once: true }
 
   const inViewHandle = ctx.ui.useInView({
-    rootMargin: () => propsRef.rootMargin ?? '0px',
-    threshold: () => propsRef.threshold ?? 0,
+    rootMargin: ()=> propsRef.rootMargin ?? '0px',
+    threshold: ()=> propsRef.threshold ?? 0,
   })
 
-  const sentinelRef = (el: HTMLElement | null) => {
+  const sentinelRef = (el: HTMLElement | null)=> {
     if (el) inViewHandle.observe(el)
     else inViewHandle.disconnect()
   }
 
-  return (props: InViewProps) => {
+  return (props: InViewProps)=> {
     Object.assign(propsRef, props)
 
     if (inViewHandle.isIn) {

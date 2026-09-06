@@ -7,7 +7,7 @@
  * 移动端友好由构造保证——tap 可显、44px 命中区走 base coarse 清单。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
 import type { Placement } from '../../vdom/hooks/popup.ts'
@@ -17,17 +17,17 @@ export type TooltipPosition = Placement
 export interface TooltipProps {
   content: string
   position?: TooltipPosition
-  children: any
+  children?: VNodeChild
   disabled?: boolean
 }
 
-export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
+export const Tooltip: Component<TooltipProps> = (_props, ctx)=> {
   // ── mount（只一次）──
   let show = false
   let latestPosition: TooltipPosition = 'top'
   let disabled = false
   let wrapEl: HTMLElement | null = null
-  const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
+  const wrapRef = (el: HTMLElement | null)=> { if (el) wrapEl = el }
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: PopupHandle | null = null
 
@@ -39,17 +39,17 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
   const hoverOpen = (): void => {
     clearHover()
     if (disabled) return
-    hoverTimer = setTimeout(() => { hoverTimer = null; if (!show) { show = true; ctx.render() } }, 0)
+    hoverTimer = setTimeout(()=> { hoverTimer = null; if (!show) { show = true; ctx.render() } }, 0)
   }
   const hoverClose = (): void => {
     clearHover()
-    hoverTimer = setTimeout(() => { hoverTimer = null; if (show) { show = false; ctx.render() } }, 0)
+    hoverTimer = setTimeout(()=> { hoverTimer = null; if (show) { show = false; ctx.render() } }, 0)
   }
   ctx.ui.onUnmount?.(clearHover)
-  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
+  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
 
   // ── render（每次 dirty/props 变化）──
-  return (props: TooltipProps) => {
+  return (props: TooltipProps)=> {
     const { content, position = 'top', children } = props
     latestPosition = position
     disabled = !!props.disabled
@@ -62,11 +62,11 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
     // 命令式同步（受控 + 内容更新——每次渲染恒调用）
     if (show && !handle)
       handle = ctx.ui.openPopup({
-        anchor: () => wrapEl,
-        placement: () => latestPosition,
+        anchor: ()=> wrapEl,
+        placement: ()=> latestPosition,
         gap: 6,
-        content: () => tip,
-        onClose: () => { handle = null; if (show) { show = false; ctx.render() } },
+        content: ()=> tip,
+        onClose: ()=> { handle = null; if (show) { show = false; ctx.render() } },
       })
     else if (!show && handle) { handle.close(); handle = null }
     else if (handle) handle.update(tip)
@@ -78,7 +78,7 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
       onMouseEnter: hoverOpen,
       onMouseLeave: hoverClose,
       onFocusIn: hoverOpen, onFocusOut: hoverClose, // 键盘可达（focusin 冒泡——子元素聚焦触发显示）
-      onClick: () => { show = !show; ctx.render() }, // 触屏降级 tap
+      onClick: ()=> { show = !show; ctx.render() }, // 触屏降级 tap
     }, children)
   }
 }

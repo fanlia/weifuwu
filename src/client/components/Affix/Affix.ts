@@ -1,5 +1,5 @@
 /** Affix：回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）（showcase /components/affix） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -7,8 +7,8 @@ export interface AffixProps {
   /** 距视口顶部偏移，滚动超过该值后固定（px），默认 0 */
   offsetTop?: number
   /** 滚动容器（默认 window） */
-  target?: () => HTMLElement | Window
-  children?: any
+  target?: ()=> HTMLElement | Window
+  children?: VNodeChild
   className?: string
   [key: string]: any
 }
@@ -18,7 +18,7 @@ export interface AffixProps {
  * mount 时算一次阈值（sentinel 文档位置 - offsetTop），滚动位置响应式驱动 fixed 判定。
  * 不用 IO：IO 只在交叉状态变化时回调，瞬间滚动后 sentinel 从视口外下方到视口外上方
  * isIntersecting 都是 false → 不回调（Affix 需要连续位置跟踪，IO 语义不匹配）。 */
-export const Affix: Component<AffixProps> = (_init, ctx) => {
+export const Affix: Component<AffixProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let wrapEl: HTMLElement | null = null
   let wrapWidth = 0
@@ -28,15 +28,15 @@ export const Affix: Component<AffixProps> = (_init, ctx) => {
 
   const propsRef: any = { ..._init }
 
-  const getScroller = () => propsRef.target ? propsRef.target() : window
+  const getScroller = ()=> propsRef.target ? propsRef.target() : window
   const scroll = ctx.ui.useScrollPosition({ getScroller })
 
   // 阈值/宽度重算经 usePopupPosition 的 compute（scroll/resize 全局监听 + rAF 节流驱动，
   // 不再自建 window resize 监听）。rect 视口位置 + 当前滚动 = 文档位置；fixed = scrollY >= 文档位置 - offsetTop
   const pos = ctx.ui.usePopupPosition({
-    el: () => wrapEl,
-    isOpen: () => true,
-    compute: (r) => {
+    el: ()=> wrapEl,
+    isOpen: ()=> true,
+    compute: (r)=> {
       const scroller = getScroller()
       // 滚动量经 ctx.browser 统一（scrollingElement 优先——window.scrollY 在
       // 部分环境恒 0 会导致 threshold 漂移）；非 window 容器直接读 scrollTop
@@ -49,11 +49,11 @@ export const Affix: Component<AffixProps> = (_init, ctx) => {
     },
   })
 
-  const stableRef = (node: HTMLElement | null) => {
+  const stableRef = (node: HTMLElement | null)=> {
     if (node) {
       wrapEl = node
       // ref 在 appendChild 之前触发（元素未连接文档，rect 无效）→ 微任务里等连接后重算
-      queueMicrotask(() => {
+      queueMicrotask(()=> {
         pos.refresh()
         scroll.refresh()
       })
@@ -62,7 +62,7 @@ export const Affix: Component<AffixProps> = (_init, ctx) => {
     }
   }
 
-  return (props) => {
+  return (props)=> {
     Object.assign(propsRef, props)
     const { offsetTop = 0, children, className, ...rest } = props
 

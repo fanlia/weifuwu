@@ -33,13 +33,13 @@ export interface ScaleLinear {
 }
 
 export function scaleLinear(domain: [number, number], range: [number, number]): ScaleLinear {
-  const fn = ((v: number) => {
+  const fn = ((v: number)=> {
     const t = (v - domain[0]) / (domain[1] - domain[0])
     return range[0] + t * (range[1] - range[0])
   }) as ScaleLinear
   fn.domain = domain
   fn.range = range
-  fn.invert = (v: number) => {
+  fn.invert = (v: number)=> {
     const t = (v - range[0]) / (range[1] - range[0])
     return domain[0] + t * (domain[1] - domain[0])
   }
@@ -50,7 +50,7 @@ export function scaleLinear(domain: [number, number], range: [number, number]): 
 
 export function linePath(data: DataPoint[], xScale: ScaleLinear, yScale: ScaleLinear): string {
   if (data.length === 0) return ''
-  return data.map((d, i) => {
+  return data.map((d, i)=> {
     const x = xScale(i)
     const y = yScale(d.value)
     return i === 0 ? `M${x},${y}` : `L${x},${y}`
@@ -61,7 +61,7 @@ export function linePath(data: DataPoint[], xScale: ScaleLinear, yScale: ScaleLi
 
 export function areaPath(data: DataPoint[], xScale: ScaleLinear, yScale: ScaleLinear, yBase: number): string {
   if (data.length === 0) return ''
-  const pts = data.map((d, i) => {
+  const pts = data.map((d, i)=> {
     const x = xScale(i)
     const y = yScale(d.value)
     return `${x},${y}`
@@ -85,7 +85,7 @@ export interface BarRect {
 
 export function barRects(data: DataPoint[], xScale: ScaleLinear, yScale: ScaleLinear, barWidth?: number): BarRect[] {
   const bw = barWidth ?? Math.max(4, (xScale.range[1] - xScale.range[0]) / data.length * 0.6)
-  return data.map((d, i) => ({
+  return data.map((d, i)=> ({
     x: xScale(i) - bw / 2,
     y: yScale(Math.max(0, d.value)),
     width: bw,
@@ -107,10 +107,10 @@ export interface Arc {
 }
 
 export function pieArcs(data: DataPoint[], cx: number, cy: number, radius: number): Arc[] {
-  const total = data.reduce((s, d) => s + Math.abs(d.value), 0)
+  const total = data.reduce((s, d)=> s + Math.abs(d.value), 0)
   if (total === 0) return []
   let startAngle = -Math.PI / 2
-  return data.map((d, i) => {
+  return data.map((d, i)=> {
     const angle = (Math.abs(d.value) / total) * Math.PI * 2
     const endAngle = startAngle + angle
     const arc = createArc(cx, cy, radius, startAngle, endAngle)

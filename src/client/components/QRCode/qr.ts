@@ -76,7 +76,7 @@ function rsEncode(data: number[], ecCount: number): number[] {
 // ── 数据编码（字节模式）──
 function encodeData(bytes: Uint8Array, dataCapacity: number): number[] {
   const bits: number[] = []
-  const pushBits = (val: number, len: number) => {
+  const pushBits = (val: number, len: number)=> {
     for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1)
   }
   pushBits(0b0100, 4)          // 字节模式
@@ -106,12 +106,12 @@ const ALIGNMENT: Record<number, number[]> = {
 
 function buildMatrix(version: number, dataCodewords: number[], ecCodewords: number[], mask: number): boolean[][] {
   const n = 17 + 4 * version
-  const matrix: boolean[][] = Array.from({ length: n }, () => new Array(n).fill(false))
+  const matrix: boolean[][] = Array.from({ length: n }, ()=> new Array(n).fill(false))
 
-  const set = (r: number, c: number, v: boolean) => { if (r >= 0 && r < n && c >= 0 && c < n) matrix[r][c] = v }
+  const set = (r: number, c: number, v: boolean)=> { if (r >= 0 && r < n && c >= 0 && c < n) matrix[r][c] = v }
 
   // 功能模块
-  const drawFinder = (row: number, col: number) => {
+  const drawFinder = (row: number, col: number)=> {
     for (let r = -1; r <= 7; r++) {
       for (let c = -1; c <= 7; c++) {
         const rr = row + r, cc = col + c
@@ -234,26 +234,26 @@ function formatBits(level: number, mask: number): number {
 function placeFormat(matrix: boolean[][], level: number, mask: number): void {
   const n = matrix.length
   const bits = formatBits(level, mask)
-  const bit = (i: number) => ((bits >> (14 - i)) & 1) === 1
+  const bit = (i: number)=> ((bits >> (14 - i)) & 1) === 1
   // 位置 1（左上）
   const positions1: [number, number][] = [
     [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8],
     [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
   ]
-  positions1.forEach(([r, c], i) => { matrix[r][c] = bit(i) })
+  positions1.forEach(([r, c], i)=> { matrix[r][c] = bit(i) })
   // 位置 2（右上 + 左下副本）
   const positions2: [number, number][] = [
     [8, n - 8], [8, n - 7], [7, n - 8], [5, n - 8], [4, n - 8], [3, n - 8], [2, n - 8], [1, n - 8], [0, n - 8],
     [n - 1, 8], [n - 2, 8], [n - 3, 8], [n - 4, 8], [n - 5, 8], [n - 6, 8], [n - 7, 8],
   ]
-  positions2.forEach(([r, c], i) => { matrix[r][c] = bit(i) })
+  positions2.forEach(([r, c], i)=> { matrix[r][c] = bit(i) })
 }
 
 // ── 惩罚分（4 规则）──
 function penalty(matrix: boolean[][]): number {
   const n = matrix.length
   let score = 0
-  const runPenalty = (arr: boolean[]) => {
+  const runPenalty = (arr: boolean[])=> {
     let run = 1
     for (let i = 1; i <= arr.length; i++) {
       if (i < arr.length && arr[i] === arr[i - 1]) { run++; continue }

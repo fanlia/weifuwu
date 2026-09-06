@@ -41,7 +41,7 @@ export interface WordCloudProps {
   /** 色板（默认 token 色阶——逐词取模） */
   colors?: string[]
   /** 点击词回调（提供后词可交互：hover 高亮 + 键盘 Enter/Space 可达） */
-  onWordClick?: (word: string, weight: number) => void
+  onWordClick?: (word: string, weight: number)=> void
   className?: string
 }
 
@@ -114,22 +114,22 @@ export function layoutWords(
   opts: { maxFontSize: number; minFontSize: number; padding: number },
 ): WordCloudLayout {
   const { maxFontSize, minFontSize, padding } = opts
-  const active = words.filter((w) => w.weight > 0)
+  const active = words.filter((w)=> w.weight > 0)
   if (!active.length) return { placed: [], width: 0, height: 0 }
-  const wMax = Math.max(...active.map((w) => w.weight))
-  const wMin = Math.min(...active.map((w) => w.weight))
+  const wMax = Math.max(...active.map((w)=> w.weight))
+  const wMin = Math.min(...active.map((w)=> w.weight))
   const sizeFor = (wt: number): number => {
     if (wMax === wMin) return maxFontSize // 全等权重 → 同尺寸（Wordle 语义）
     const f = (wt - wMin) / (wMax - wMin)
     return minFontSize + (maxFontSize - minFontSize) * f
   }
-  const sorted = [...active].sort((a, b) => b.weight - a.weight)
+  const sorted = [...active].sort((a, b)=> b.weight - a.weight)
   // 降序放置：环 0 = 平面中心（最大词中央）——逐外环扫描——环宽 = 当前词高
   // （相邻环 rect 相接不重叠——环形约束）；环内候选点间距 = max(词宽, MIN_ARC),
   // 奇数环错相 π/n——候选点均匀（无隙漏）——首个无碰撞点即放置。
   const placed: PlacedWord[] = []
   const collision = (rect: { l: number; t: number; r: number; b: number }): boolean =>
-    placed.some((p) => rectsOverlap(p.rect, rect))
+    placed.some((p)=> rectsOverlap(p.rect, rect))
   for (const d of sorted) {
     const size = sizeFor(d.weight)
     const tw = estimateWordWidth(d.word, size) + padding * 2
@@ -177,7 +177,7 @@ export function layoutWords(
   return { placed, width: W, height: H }
 }
 
-export const WordCloud: Component<WordCloudProps> = (_init, ctx) => {
+export const WordCloud: Component<WordCloudProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   // §5.4 弹窗纪律：浮层一律命令式弹窗（唯一形态——openPopup——Chart tooltip 同款）
   let tooltip: { word: string; weight: number } | null = null
@@ -186,7 +186,7 @@ export const WordCloud: Component<WordCloudProps> = (_init, ctx) => {
   // 布局 memo（hover 只触发 render——布局不变时零重算——100 词 5ms 冷路径）
   let layoutCache: { words: unknown; opts: string; result: WordCloudLayout } | null = null
 
-  return (props: WordCloudProps) => {
+  return (props: WordCloudProps)=> {
     const {
       words, height, maxFontSize = 32, minFontSize = 12,
       padding = 4, colors = DEFAULT_COLORS, onWordClick, className,
@@ -200,16 +200,16 @@ export const WordCloud: Component<WordCloudProps> = (_init, ctx) => {
       return h('div', { class: `wf-wordcloud wf-wordcloud-empty ${className ?? ''}`.trim() }, '暂无词云数据')
     }
     const interactive = typeof onWordClick === 'function'
-    const fire = (w: PlacedWord) => (_e: Event) => onWordClick?.(w.word, w.weight)
-    const keyAct = (w: PlacedWord) => (e: KeyboardEvent) => {
+    const fire = (w: PlacedWord)=> (_e: Event)=> onWordClick?.(w.word, w.weight)
+    const keyAct = (w: PlacedWord)=> (e: KeyboardEvent)=> {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onWordClick?.(w.word, w.weight) }
     }
-    const enter = (w: PlacedWord) => (e: Event) => {
+    const enter = (w: PlacedWord)=> (e: Event)=> {
       tooltip = { word: w.word, weight: w.weight }
       tooltipEl = e.target as Element
       ctx.render()
     }
-    const leave = () => { tooltip = null; tooltipEl = null; ctx.render() }
+    const leave = ()=> { tooltip = null; tooltipEl = null; ctx.render() }
     const tip = tooltip
       ? h('div', { class: 'wf-wordcloud-tooltip' }, [
         h('span', { class: 'wf-wordcloud-tooltip-word' }, tooltip.word),
@@ -220,11 +220,11 @@ export const WordCloud: Component<WordCloudProps> = (_init, ctx) => {
     if (tooltip && !handle) {
       handle = ctx.ui.openPopup({
         key: 'wordcloud-tooltip',
-        anchor: () => tooltipEl as HTMLElement | null,
+        anchor: ()=> tooltipEl as HTMLElement | null,
         placement: 'top',
         gap: 8,
-        content: () => tip,
-        onClose: () => { handle = null; if (tooltip) { tooltip = null; tooltipEl = null; ctx.render() } },
+        content: ()=> tip,
+        onClose: ()=> { handle = null; if (tooltip) { tooltip = null; tooltipEl = null; ctx.render() } },
       })
     } else if (!tooltip && handle) {
       handle.close(); handle = null
@@ -237,7 +237,7 @@ export const WordCloud: Component<WordCloudProps> = (_init, ctx) => {
         viewBox: `0 0 ${layoutW} ${layoutH}`,
         preserveAspectRatio: 'xMidYMid meet',
         role: 'img', 'aria-label': '词云',
-      }, placed.map((w, i) =>
+      }, placed.map((w, i)=>
         h('text', {
           key: w.word,
           x: w.x, y: w.y,

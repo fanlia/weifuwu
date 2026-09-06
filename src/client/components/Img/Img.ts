@@ -29,7 +29,7 @@ export interface ImgProps {
   errorText?: string
 }
 
-export const Img: Component<ImgProps> = (_init, ctx) => {
+export const Img: Component<ImgProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let previewOpen = false
   let scale = 1
@@ -49,16 +49,16 @@ export const Img: Component<ImgProps> = (_init, ctx) => {
         key: 'img-preview',
         mask: true, // 全屏遮罩：模态预览（点击遮罩关闭，maskClosable 默认 true）
         maskCentered: true, // 图片预览居中显示
-        content: () => previewLayer,
-        onClose: () => { handle = null; if (previewOpen) { previewOpen = false; scale = 1; ctx.render() } },
+        content: ()=> previewLayer,
+        onClose: ()=> { handle = null; if (previewOpen) { previewOpen = false; scale = 1; ctx.render() } },
       })
     else if (!previewOpen && handle) { handle.close(); handle = null }
     else if (handle) handle.update(previewLayer)
   }
 
-  const triggerRef = (el: any) => { triggerEl = el as HTMLElement | null }
+  const triggerRef = (el: any)=> { triggerEl = el as HTMLElement | null }
 
-  return (props) => {
+  return (props)=> {
     const {
       alt = '', fallback, loading, width, height, className, style,
       preview, previewScale = 1,
@@ -74,7 +74,7 @@ export const Img: Component<ImgProps> = (_init, ctx) => {
     const errText = errorText ?? '图片加载失败'
 
     /** 占位块（未就绪/失败——与最终 img 同尺寸（width/height 已知）——布局恒定） */
-    const placeholderVNode = () => h('div', {
+    const placeholderVNode = ()=> h('div', {
       class: phCls,
       style: { width, height, ...(style ?? {}) },
     }, [
@@ -83,14 +83,14 @@ export const Img: Component<ImgProps> = (_init, ctx) => {
     ])
 
     /** img（加载完成）——onLoad/onError 驱动状态翻转 → 占位/图片替换 */
-    const imgVNode = (withPreview: boolean) => {
+    const imgVNode = (withPreview: boolean)=> {
       const imgProps: Record<string, any> = {
         class: ['wf-image', className].filter(Boolean).join(' '),
         src: src ?? fallback ?? '',
         alt,
         loading: loading ?? 'lazy',
-        onLoad: () => { if (!loaded) { loaded = true; failed = false; ctx.render() } },
-        onError: (e: Event) => {
+        onLoad: ()=> { if (!loaded) { loaded = true; failed = false; ctx.render() } },
+        onError: (e: Event)=> {
           const el = e.currentTarget as HTMLImageElement
           // fallback 语义（保留）：src 失败换 fallback（一次性——DOM 换 src）
           if (fallback && el.src !== fallback) { el.src = fallback; return }
@@ -110,8 +110,8 @@ export const Img: Component<ImgProps> = (_init, ctx) => {
       // （不渲染 img 则永远占位——死锁——实测 2026-09）
       const preload = src && !loaded
         ? h('img', { src, style: { display: 'none', width: 0, height: 0 },
-            onLoad: () => { loaded = true; failed = false; ctx.render() },
-            onError: () => { failed = true; ctx.render() } })
+            onLoad: ()=> { loaded = true; failed = false; ctx.render() },
+            onError: ()=> { failed = true; ctx.render() } })
         : null
       return h('div', { style: { display: 'contents' } }, [placeholderVNode(), preload])
     }
@@ -124,7 +124,7 @@ export const Img: Component<ImgProps> = (_init, ctx) => {
       src,
       alt,
       style: { transform: `scale(${scale * previewScale})`, maxWidth: '90vw', maxHeight: '90vh' },
-      onClick: (e: Event) => { e.stopPropagation(); scale = scale === 1 ? 2 : 1; ctx.render() },
+      onClick: (e: Event)=> { e.stopPropagation(); scale = scale === 1 ? 2 : 1; ctx.render() },
     })
     syncPreview(previewLayer)
 
@@ -136,7 +136,7 @@ export const Img: Component<ImgProps> = (_init, ctx) => {
         class: 'wf-img-preview-trigger',
         'aria-label': '放大预览',
         ref: triggerRef,
-        onClick: () => { previewOpen = true; ctx.render() },
+        onClick: ()=> { previewOpen = true; ctx.render() },
       }, h('img', imgVNode(true))),
     ])
   }

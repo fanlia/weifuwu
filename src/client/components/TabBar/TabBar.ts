@@ -33,17 +33,17 @@ export interface TabBarProps {
   items: TabBarItem[]
   /** 受控激活 key（不传 = 非受控自管理） */
   activeKey?: string
-  onChange?: (key: string) => void
+  onChange?: (key: string)=> void
   /** 底部固定（position:fixed + safe-area 避让）——移动端 App 主导航 */
   fixed?: boolean
   className?: string
 }
 
-export const TabBar: Component<TabBarProps> = (_init, ctx: UIContext) => {
+export const TabBar: Component<TabBarProps> = (_init, ctx: UIContext)=> {
   // ── mount（只一次）：非受控自管理激活态 ──
   let internalActive: string | null = null
 
-  return (props: TabBarProps) => {
+  return (props: TabBarProps)=> {
     const { items, activeKey, onChange, fixed, className } = props
     const controlled = activeKey !== undefined
     if (controlled && !onChange) {
@@ -52,8 +52,8 @@ export const TabBar: Component<TabBarProps> = (_init, ctx: UIContext) => {
     }
     const active = controlled ? activeKey : internalActive ?? items[0]?.key ?? null
 
-    const onKeyDown = (e: KeyboardEvent) => {
-      const idx = items.findIndex((t) => t.key === active)
+    const onKeyDown = (e: KeyboardEvent)=> {
+      const idx = items.findIndex((t)=> t.key === active)
       const dir = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
       if (dir === 0) return
       e.preventDefault()
@@ -73,7 +73,7 @@ export const TabBar: Component<TabBarProps> = (_init, ctx: UIContext) => {
       el?.focus()
     }
 
-    const tabs = items.map((t) => {
+    const tabs = items.map((t)=> {
       const selected = t.key === active
       const icon = typeof t.icon === 'string'
         ? h(Icon, { name: t.icon as IconName, size: 20, className: 'wf-tab-bar-icon' })
@@ -91,7 +91,7 @@ export const TabBar: Component<TabBarProps> = (_init, ctx: UIContext) => {
         tabindex: selected ? 0 : -1,
         'aria-selected': selected ? 'true' : 'false',
         disabled: t.disabled || undefined,
-        onClick: t.disabled ? undefined : () => {
+        onClick: t.disabled ? undefined : ()=> {
           if (!controlled) internalActive = t.key
           onChange?.(t.key)
           ctx.render()

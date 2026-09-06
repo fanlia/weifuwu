@@ -27,7 +27,7 @@ export interface PromptTemplateVariable {
 export interface PromptTemplateProps {
   /** 模板文本（受控） */
   value?: string
-  onChange?: (value: string) => void
+  onChange?: (value: string)=> void
   /** 变量定义（chips 行——点击插入） */
   variables?: PromptTemplateVariable[]
   /** 变量值（预览填充用——缺失的变量保持占位） */
@@ -40,19 +40,19 @@ export interface PromptTemplateProps {
   className?: string
 }
 
-export const PromptTemplate: Component<PromptTemplateProps> = (_init, ctx: UIContext) => {
+export const PromptTemplate: Component<PromptTemplateProps> = (_init, ctx: UIContext)=> {
   // ── mount（只一次）：textarea DOM 引用（光标插入需要） ──
   let taEl: HTMLTextAreaElement | null = null
-  const taRef = (el: HTMLTextAreaElement | null) => { taEl = el }
+  const taRef = (el: HTMLTextAreaElement | null)=> { taEl = el }
 
-  return (props: PromptTemplateProps) => {
+  return (props: PromptTemplateProps)=> {
     const {
       value = '', onChange, variables = [], values = {}, readOnly,
       label, showPreview = true, className,
     } = props
 
     // 插入变量到光标处（无光标/未聚焦 → 末尾追加）
-    const insertVar = (name: string) => {
+    const insertVar = (name: string)=> {
       const token = `{{${name}}}`
       if (!onChange) return
       const el = taEl
@@ -66,7 +66,7 @@ export const PromptTemplate: Component<PromptTemplateProps> = (_init, ctx: UICon
       const next = value.slice(0, start) + token + value.slice(end)
       onChange(next)
       // 光标移到插入后（受控回流后组件不持 DOM 态——经微任务恢复焦点/光标）
-      queueMicrotask(() => {
+      queueMicrotask(()=> {
         el.focus()
         const pos = start + token.length
         el.setSelectionRange(pos, pos)
@@ -74,19 +74,19 @@ export const PromptTemplate: Component<PromptTemplateProps> = (_init, ctx: UICon
     }
 
     // 预览：精确替换 {{name}} → values[name]（缺失保持占位——诚实可见）
-    const preview = value.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (m, name: string) => values[name] ?? m)
+    const preview = value.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (m, name: string)=> values[name] ?? m)
 
     const chips = variables.length > 0
       ? h('div', { class: 'wf-prompt-chips' }, [
           h('span', { class: 'wf-prompt-chips-hint' }, '插入变量：'),
-          ...variables.map((v) =>
+          ...variables.map((v)=>
             h('button', {
               key: v.name,
               type: 'button',
               class: 'wf-prompt-chip',
               title: v.description ?? `{{${v.name}}}`,
               disabled: readOnly || undefined,
-              onClick: () => insertVar(v.name),
+              onClick: ()=> insertVar(v.name),
             }, `{{${v.name}}}`)),
         ])
       : null
@@ -98,7 +98,7 @@ export const PromptTemplate: Component<PromptTemplateProps> = (_init, ctx: UICon
       readOnly: readOnly || undefined,
       placeholder: '输入提示词模板…（点击上方变量插入占位）',
       'aria-label': label ?? '提示词模板',
-      onInput: onChange ? (e: Event) => onChange((e.target as HTMLTextAreaElement).value) : undefined,
+      onInput: onChange ? (e: Event)=> onChange((e.target as HTMLTextAreaElement).value) : undefined,
     })
 
     const previewEl = showPreview && !readOnly

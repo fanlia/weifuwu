@@ -7,7 +7,7 @@
  * 对应 shadcn HoverCard。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
@@ -17,9 +17,9 @@ export type HoverCardPosition = Placement
 
 export interface HoverCardProps {
   /** 富内容（任意 VNode，区别于 Tooltip 的 string） */
-  content: any
+  content?: VNodeChild
   position?: HoverCardPosition
-  children: any
+  children?: VNodeChild
   disabled?: boolean
   /** 悬停打开延迟（ms），默认 150 */
   openDelay?: number
@@ -28,13 +28,13 @@ export interface HoverCardProps {
 }
 
 /** 悬停富内容卡：hover 延迟显隐，支持任意 VNode 内容（移动端 tap 降级） */
-export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
+export const HoverCard: Component<HoverCardProps> = (_props, ctx)=> {
   // ── mount（只一次）──
   let latestPosition: HoverCardPosition = 'top'
   let disabled = false
   let latestDelay = { open: 150, close: 0 }
   let wrapEl: HTMLElement | null = null
-  const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
+  const wrapRef = (el: HTMLElement | null)=> { if (el) wrapEl = el }
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: PopupHandle | null = null
 
@@ -49,22 +49,22 @@ export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
   const hoverOpen = (): void => {
     clearHover()
     if (disabled) return
-    hoverTimer = setTimeout(() => {
+    hoverTimer = setTimeout(()=> {
       hoverTimer = null
       if (!openCtrl?.open) openCtrl?.setOpen(true)
     }, latestDelay.open)
   }
   const hoverClose = (): void => {
     clearHover()
-    hoverTimer = setTimeout(() => {
+    hoverTimer = setTimeout(()=> {
       hoverTimer = null
       if (openCtrl?.open) openCtrl?.setOpen(false)
     }, latestDelay.close)
   }
   ctx.ui.onUnmount?.(clearHover)
-  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
+  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
 
-  return (props: HoverCardProps) => {
+  return (props: HoverCardProps)=> {
     const { content, position = 'top', children } = props
     // HoverCard 非受控（hover 显隐由 hover 触发驱动——无 open prop）
     openCtrl = ctx.ui.useOpen({ name: 'HoverCard' })
@@ -80,11 +80,11 @@ export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
     // 命令式同步（受控 + 内容更新——每次渲染恒调用）
     if (openCtrl?.open && !handle)
       handle = ctx.ui.openPopup({
-        anchor: () => wrapEl,
-        placement: () => latestPosition,
+        anchor: ()=> wrapEl,
+        placement: ()=> latestPosition,
         gap: 8,
-        content: () => card,
-        onClose: () => { handle = null; openCtrl?.setOpen(false) },
+        content: ()=> card,
+        onClose: ()=> { handle = null; openCtrl?.setOpen(false) },
       })
     else if (!openCtrl?.open && handle) { handle.close(); handle = null }
     else if (handle) handle.update(card)
@@ -96,7 +96,7 @@ export const HoverCard: Component<HoverCardProps> = (_props, ctx) => {
       'aria-expanded': String(!!openCtrl?.open),
       onMouseEnter: hoverOpen,
       onMouseLeave: hoverClose,
-      onClick: () => { openCtrl?.setOpen(!openCtrl.open) }, // 触屏降级 tap
+      onClick: ()=> { openCtrl?.setOpen(!openCtrl.open) }, // 触屏降级 tap
     }, children)
   }
 }

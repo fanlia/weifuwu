@@ -7,7 +7,7 @@
  * 裁剪（CS-05，见 docs/client.md）：水平菜单栏（Menubar，独立组件）、子菜单自动互斥。折叠态子菜单浮层已实现（openPopup 内核基座）。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
@@ -15,32 +15,32 @@ import { Icon } from '../Icon/Icon.ts'
 
 export interface MenuItem {
   key: string
-  label: any
-  icon?: any
+  label?: VNodeChild
+  icon?: VNodeChild
   /** 分组标题（相邻同组项之间插分组头） */
   group?: string
   active?: boolean
   danger?: boolean
-  onClick?: () => void
+  onClick?: ()=> void
   /** 子菜单项（有 children 即渲染为可展开子菜单） */
   children?: MenuItem[]
 }
 
 export interface MenuProps {
   items: MenuItem[]
-  onSelect?: (key: string) => void
+  onSelect?: (key: string)=> void
   activeKey?: string
   className?: string
   /** 受控展开 key 列表（子菜单） */
   openKeys?: string[]
-  onOpenChange?: (keys: string[]) => void
+  onOpenChange?: (keys: string[])=> void
   /** 可折叠侧栏（宽度收窄 + label 隐藏） */
   collapsible?: boolean
   collapsed?: boolean
-  onCollapseChange?: (collapsed: boolean) => void
+  onCollapseChange?: (collapsed: boolean)=> void
 }
 
-export const Menu: Component<MenuProps> = (_init, ctx) => {
+export const Menu: Component<MenuProps> = (_init, ctx)=> {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
@@ -54,23 +54,23 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
   let popupAnchor: HTMLElement | null = null
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
-  const syncCollapsedPopup = (item: any, popupOpen: boolean, content: () => import('../../vdom/index.ts').VNode): void => {
+  const syncCollapsedPopup = (item: MenuItem, popupOpen: boolean, content: ()=> import('../../vdom/index.ts').VNode): void => {
     // 只对打开项生效（多折叠项共享 handle——非打开项调 else-if 会误关）
     if (popupOpen && !handle)
       handle = ctx.ui.openPopup({
         key: 'menu-popup',
-        anchor: () => popupAnchor,
+        anchor: ()=> popupAnchor,
         placement: 'right',
         gap: 6,
         content,
-        onClose: () => { handle = null; if (collapsedPopupKey) { collapsedPopupKey = null; ctx.render() } },
+        onClose: ()=> { handle = null; if (collapsedPopupKey) { collapsedPopupKey = null; ctx.render() } },
       })
     else if (handle && popupOpen) handle.update(content())
   }
   // 稳定 ref（mount 作用域）：仅保存容器，避免内联 ref 每渲染重建
-  const navRef = (el: any) => { if (el) navEl = el }
+  const navRef = (el: any)=> { if (el) navEl = el }
 
-  const onKeyDown = (e: KeyboardEvent) => {
+  const onKeyDown = (e: KeyboardEvent)=> {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
     const items = navEl
       ? Array.from(navEl.querySelectorAll<HTMLElement>('.wf-menu-item, .wf-menu-submenu-title'))
@@ -86,7 +86,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
     items[next].focus()
   }
 
-  return (props: MenuProps) => {
+  return (props: MenuProps)=> {
     const {
       items, onSelect, activeKey, className,
       openKeys, onOpenChange, collapsible, collapsed, onCollapseChange,
@@ -97,18 +97,18 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
     const openSet = new Set(isOpenControlled ? openKeys : internalOpen)
     const isCollapsed = isCollapsedControlled ? !!collapsed : internalCollapsed
 
-    const setOpen = (keys: string[]) => {
+    const setOpen = (keys: string[])=> {
       if (isOpenControlled) onOpenChange?.(keys)
       else { internalOpen = keys; ctx.render() }
     }
-    const toggleOpen = (key: string, force?: boolean) => {
+    const toggleOpen = (key: string, force?: boolean)=> {
       const next = force != null
         ? (force ? [...openSet, key] : [...openSet].filter(k => k !== key))
         : (openSet.has(key) ? [...openSet].filter(k => k !== key) : [...openSet, key])
       // 去重（子菜单只允许一个 key 出现在 openSet）
       setOpen([...new Set(next)])
     }
-    const toggleCollapse = () => {
+    const toggleCollapse = ()=> {
       const next = !isCollapsed
       if (isCollapsedControlled) onCollapseChange?.(next)
       else { internalCollapsed = next; ctx.render() }
@@ -129,7 +129,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
           tabIndex: isActive ? 0 : -1,
           'aria-haspopup': 'menu',
           'aria-expanded': popupOpen ? 'true' : 'false',
-          onClick: (e: MouseEvent) => {
+          onClick: (e: MouseEvent)=> {
             if (popupOpen) { collapsedPopupKey = null; ctx.render() }
             else {
               popupAnchor = e.currentTarget as HTMLElement
@@ -137,7 +137,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
               ctx.render()
             }
           },
-          onKeyDown: (e: KeyboardEvent) => {
+          onKeyDown: (e: KeyboardEvent)=> {
             if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); if (!popupOpen) { popupAnchor = e.currentTarget as HTMLElement; collapsedPopupKey = item.key; ctx.render() } }
             else if (e.key === 'Escape') { e.preventDefault(); collapsedPopupKey = null; ctx.render() }
           },
@@ -145,7 +145,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
           item.icon ? h('span', { class: 'wf-menu-icon' }, item.icon) : null,
         ].filter(Boolean))
         // 浮层：命令式弹窗（openPopup——定位/外部点击/Escape 内置——只打开项调）
-        if (popupOpen) syncCollapsedPopup(item, popupOpen, () => h('div', {
+        if (popupOpen) syncCollapsedPopup(item, popupOpen, ()=> h('div', {
           class: 'wf-menu-popup',
         }, (item.children ?? []).map(child => renderItem(child, true, true))))
         return h('div', { key: item.key, 'data-key': item.key, class: 'wf-menu-submenu wf-menu-submenu--collapsed' }, [titleEl])
@@ -162,8 +162,8 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
         role: 'menuitem',
         tabIndex: isActive ? 0 : -1,
         'aria-expanded': open ? 'true' : 'false',
-        onClick: () => toggleOpen(item.key),
-        onKeyDown: (e: KeyboardEvent) => {
+        onClick: ()=> toggleOpen(item.key),
+        onKeyDown: (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
             e.preventDefault()
             if (!open) toggleOpen(item.key, true)
@@ -195,8 +195,8 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
         role: 'menuitem',
         tabIndex: isActive ? 0 : -1,
         'aria-current': isActive ? 'page' : undefined,
-        onClick: () => { if (item.onClick) item.onClick(); else onSelect?.(item.key) },
-        onKeyDown: (e: KeyboardEvent) => {
+        onClick: ()=> { if (item.onClick) item.onClick(); else onSelect?.(item.key) },
+        onKeyDown: (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (item.onClick) item.onClick(); else onSelect?.(item.key) }
           else if (e.key === 'ArrowLeft' || e.key === 'Escape') {
             // 子级：收回父级（焦点回父标题）
@@ -225,7 +225,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
         const sub = renderSubmenu(item)
         // 递归注入 _parentKey（浅处理一层——裁剪：多级子菜单）；仅非折叠分支有 content
         if (!isCollapsed && sub.props.children[1]) {
-          sub.props.children[1].props.children = sub.props.children[1].props.children.map((c: any) =>
+          sub.props.children[1].props.children = sub.props.children[1].props.children.map((c: any)=>
             c?.props ? { ...c, props: { ...c.props, _parentKey: item.key } } : c)
         }
         nodes.push(sub)
@@ -248,7 +248,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
         tabIndex: 0,
         'aria-label': isCollapsed ? '展开菜单' : '折叠菜单',
         onClick: toggleCollapse,
-        onKeyDown: (e: KeyboardEvent) => {
+        onKeyDown: (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCollapse() }
         },
       }, isCollapsed ? h(Icon, { name: 'chevron-right', size: 14 }) : h(Icon, { name: 'chevron-left', size: 14 })) : null,

@@ -6,13 +6,13 @@
  * 用于 Agent 配置展示、实体详情、订单信息等只读字段场景。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
 export interface DescriptionItem {
-  label: any
-  value: any
+  label?: VNodeChild
+  value?: VNodeChild
   /** 跨列数（栅格列，默认 1） */
   span?: number
 }
@@ -25,11 +25,11 @@ export interface DescriptionsProps {
   className?: string
 }
 
-export const Descriptions: Component<DescriptionsProps> = (_init, _ctx) =>
-  (props) => {
+export const Descriptions: Component<DescriptionsProps> = (_init, _ctx)=>
+  (props)=> {
     const { items, column = 1, bordered, size = 'md', className } = props
 
-    const rows = items.map((it, i) =>
+    const rows = items.map((it, i)=>
       h('div', {
         key: i,
         class: 'wf-descriptions-item',

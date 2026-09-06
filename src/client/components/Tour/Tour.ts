@@ -19,13 +19,13 @@ export interface TourProps {
   /** 受控：是否打开 */
   open?: boolean
   /** 受控回调（关闭时 onChange(false)） */
-  onChange?: (open: boolean) => void
+  onChange?: (open: boolean)=> void
   /** 受控：当前步骤索引 */
   current?: number
   /** 步骤变化回调 */
-  onStepChange?: (step: number) => void
+  onStepChange?: (step: number)=> void
   /** 完成/跳过回调 */
-  onFinish?: () => void
+  onFinish?: ()=> void
   /** 遮罩（默认 true） */
   mask?: boolean
 }
@@ -45,7 +45,7 @@ interface Rect {
  * - 步骤索引闭包 let + render()（手动模式——避免 $ 内置类型问题）
  * - open 受控（props.open + onChange）
  */
-export const Tour: Component<TourProps> = (_init, ctx) => {
+export const Tour: Component<TourProps> = (_init, ctx)=> {
   let step = 0 // 非受控内部步骤（受控 current 时忽略）
   let targetEl: HTMLElement | null = null
   let rect: Rect = { top: 0, left: 0, width: 0, height: 0 }
@@ -59,14 +59,14 @@ export const Tour: Component<TourProps> = (_init, ctx) => {
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
-  const open = () => latestOpen
+  const open = ()=> latestOpen
 
   // 全局 Escape（不依赖焦点在 overlay 内——真实用户可能焦点在其他处）
-  ctx.ui.useGlobalKey?.((e: KeyboardEvent) => {
+  ctx.ui.useGlobalKey?.((e: KeyboardEvent)=> {
     if (e.key === 'Escape' && open()) close()
   })
 
-  const goTo = (s: number) => {
+  const goTo = (s: number)=> {
     latestProps.onStepChange?.(s)
     // 非受控 current 时内部推进
     if (latestProps.current === undefined) {
@@ -75,7 +75,7 @@ export const Tour: Component<TourProps> = (_init, ctx) => {
     }
   }
 
-  const close = () => {
+  const close = ()=> {
     latestProps.onChange?.(false)
     if (latestProps.open === undefined) {
       latestOpen = false
@@ -85,7 +85,7 @@ export const Tour: Component<TourProps> = (_init, ctx) => {
 
   /** 完成/跳过：onFinish 回调 + 自行关闭兜底（真实 bug：受控模式缺 onFinish
    *  回调 → 点完成 no-op → 弹窗永不消失） */
-  const finish = () => {
+  const finish = ()=> {
     const controlled = latestProps.open !== undefined
     latestProps.onFinish?.()
     if (!controlled || !latestProps.onFinish) {
@@ -96,7 +96,7 @@ export const Tour: Component<TourProps> = (_init, ctx) => {
     }
   }
 
-  const refresh = () => {
+  const refresh = ()=> {
     targetEl = latestProps.steps[step]?.target
       ? (ctx.browser?.query(latestProps.steps[step].target) as HTMLElement | null)
       : null
@@ -104,7 +104,7 @@ export const Tour: Component<TourProps> = (_init, ctx) => {
     ctx.render()
   }
 
-  return (props) => {
+  return (props)=> {
     latestProps = props
     latestOpen = !!props.open
     const isControlledOpen = props.open !== undefined
@@ -167,15 +167,15 @@ export const Tour: Component<TourProps> = (_init, ctx) => {
       h('div', { class: 'wf-tour-actions' }, [
         h('button', {
           class: 'wf-tour-btn wf-tour-btn--ghost',
-          onClick: () => finish(),
+          onClick: ()=> finish(),
         }, '跳过'),
         current > 0 && h('button', {
           class: 'wf-tour-btn wf-tour-btn--ghost',
-          onClick: () => goTo(current - 1),
+          onClick: ()=> goTo(current - 1),
         }, '上一步'),
         h('button', {
           class: 'wf-tour-btn wf-tour-btn--primary',
-          onClick: () => isLast ? finish() : goTo(current + 1),
+          onClick: ()=> isLast ? finish() : goTo(current + 1),
         }, isLast ? '完成' : '下一步'),
       ].filter(Boolean)),
     ])
@@ -200,14 +200,14 @@ export const Tour: Component<TourProps> = (_init, ctx) => {
         maskClosable: false,       // 遮罩点击不关（步骤由按钮控制）
         positioning: 'none',       // panel（highlight+bubble）自定位（fixed 视口坐标）
         closeOnOutside: false, closeOnEscape: false,
-        content: () => layer,
-        position: () => {
+        content: ()=> layer,
+        position: ()=> {
           const r = targetEl?.getBoundingClientRect()
           if (r) rect = { top: r.top, left: r.left, width: r.width, height: r.height }
           const p = bubblePos(rect, latestPlacement)
           return { x: p.left, y: p.top, width: p.width }
         },
-        onClose: () => { handle = null; if (latestOpen) close() },
+        onClose: ()=> { handle = null; if (latestOpen) close() },
       })
     else if (!latestOpen && handle) { handle.close(); handle = null }
     else if (handle) handle.update(layer)

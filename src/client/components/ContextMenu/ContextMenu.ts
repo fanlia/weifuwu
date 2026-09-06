@@ -1,20 +1,20 @@
 /** ContextMenu：右键菜单：光标定位 + 方向键 + danger 变体（shadcn）（showcase /components/contextmenu） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
 export interface ContextMenuItem {
   key: string
   label: string
-  icon?: any
+  icon?: VNodeChild
   variant?: 'default' | 'danger'
   disabled?: boolean
-  onClick?: () => void
+  onClick?: ()=> void
 }
 
 export interface ContextMenuProps {
   items?: ContextMenuItem[]
-  children: any
+  children?: VNodeChild
   'aria-label'?: string
   className?: string
 }
@@ -22,7 +22,7 @@ export interface ContextMenuProps {
 /** 右键菜单（对应 shadcn ContextMenu）：桌面右键 / 触屏长按 在光标处弹出，点外部/Escape 关闭，方向键导航。
  * 实现：openPopup 内核（longpress 触发 + 外部点击/Escape 关闭 + 自由定位光标处 + portal 视口 clamp）——
  * 不再自建 document 监听；onTrigger 记录光标坐标，position getter 供定位。 */
-export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
+export const ContextMenu: Component<ContextMenuProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let show = false
   let highlight = 0
@@ -35,12 +35,12 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
-  const close = () => { show = false; ctx.render() }
-  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
+  const close = ()=> { show = false; ctx.render() }
+  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
 
-  const wrapRef = (el: HTMLElement | null) => { wrapEl = el }
+  const wrapRef = (el: HTMLElement | null)=> { wrapEl = el }
 
-  const menuKeyDown = (e: any) => {
+  const menuKeyDown = (e: any)=> {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       for (let i = 1; i <= items.length; i++) {
@@ -65,11 +65,11 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
     }
   }
 
-  return (props) => {
+  return (props)=> {
     const { items: propItems = [], children, 'aria-label': ariaLabel, className } = props
     items = propItems
 
-    const menuItems = items.map((item, i) =>
+    const menuItems = items.map((item, i)=>
       h('button', {
         type: 'button',
         class: [
@@ -81,8 +81,8 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
         key: item.key,
         role: 'menuitem',
         disabled: item.disabled || undefined,
-        onClick: item.disabled ? undefined : () => { item.onClick?.(); close() },
-        onMouseEnter: () => { if (!item.disabled) { highlight = i } },
+        onClick: item.disabled ? undefined : ()=> { item.onClick?.(); close() },
+        onMouseEnter: ()=> { if (!item.disabled) { highlight = i } },
       }, item.icon ? [item.icon, h('span', {}, item.label)] : item.label)
     )
 
@@ -97,15 +97,15 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
     // 命令式同步（受控 + 内容更新——每次渲染恒调用）
     if (show && !handle)
       handle = ctx.ui.openPopup({
-        position: () => ({ x: cursorX, y: cursorY }),
-        content: () => menu,
+        position: ()=> ({ x: cursorX, y: cursorY }),
+        content: ()=> menu,
         closeOnOutside: true, // document mousedown（含右键别处——mousedown 先于 contextmenu 触发）
         closeOnEscape: true,
         // **键盘导航 focus 管理（2027-09 交互完整性审计修复）**：onKeyDown 绑定在
         // 菜单容器——不聚焦则 ArrowDown/Enter 收不到（键盘导航死路）。ref 回调在
         // mini-root 渲染链不触发（实证）——聚焦由内核 autoFocus 承担。
         autoFocus: true,
-        onClose: () => { handle = null; if (show) { show = false; ctx.render() } },
+        onClose: ()=> { handle = null; if (show) { show = false; ctx.render() } },
       })
     else if (!show && handle) { handle.close(); handle = null }
     else if (handle) handle.update(menu)
@@ -113,7 +113,7 @@ export const ContextMenu: Component<ContextMenuProps> = (_init, ctx) => {
     return h('div', {
       class: ['wf-context-menu-trigger', className].filter(Boolean).join(' '),
       ref: wrapRef,
-      onContextMenu: (e: MouseEvent) => {
+      onContextMenu: (e: MouseEvent)=> {
         e.preventDefault()
         cursorX = e.clientX
         cursorY = e.clientY

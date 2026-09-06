@@ -19,14 +19,14 @@ export interface VideoPlayerProps {
   loop?: boolean
   muted?: boolean
   /** 事件回调 */
-  onPlay?: () => void
-  onPause?: () => void
-  onEnded?: () => void
-  onError?: (err: Error) => void
+  onPlay?: ()=> void
+  onPause?: ()=> void
+  onEnded?: ()=> void
+  onError?: (err: Error)=> void
   className?: string
 }
 
-export const VideoPlayer: Component<VideoPlayerProps> = (_init, ctx) => {
+export const VideoPlayer: Component<VideoPlayerProps> = (_init, ctx)=> {
   let el: HTMLVideoElement | null = null
   let latest: VideoPlayerProps = { src: '' }
   // **video 元素自身 ref（mount 定义——稳定——§5.1 纪律）**：
@@ -36,24 +36,24 @@ export const VideoPlayer: Component<VideoPlayerProps> = (_init, ctx) => {
   // 真实 bug 2：muted 属性经 setAttribute 渲染——Chrome 对 video.muted
   // 的 setAttribute 不生效（IDL 恒 false——实测）→ muted autoplay 被阻止
   // ——IDL 直接设置（v.muted = true）
-  const videoRef = (node: HTMLVideoElement | null) => {
+  const videoRef = (node: HTMLVideoElement | null)=> {
     el = node
     if (node) {
-      node.onplay = () => latest.onPlay?.()
-      node.onpause = () => latest.onPause?.()
-      node.onended = () => latest.onEnded?.()
-      node.onerror = () => latest.onError?.(new Error('视频加载失败'))
+      node.onplay = ()=> latest.onPlay?.()
+      node.onpause = ()=> latest.onPause?.()
+      node.onended = ()=> latest.onEnded?.()
+      node.onerror = ()=> latest.onError?.(new Error('视频加载失败'))
       // IDL 同步（Chrome setAttribute 对 muted/loop/autoplay 不生效）
       if (latest.muted !== undefined) node.muted = latest.muted
       if (latest.loop !== undefined) node.loop = latest.loop
       if (latest.autoPlay !== undefined) node.autoplay = latest.autoPlay
     }
   }
-  return (props) => {
+  return (props)=> {
     latest = props
     const { src, poster, aspect = 16 / 9, controls = true, autoPlay, loop, muted, className = '' } = props
     // 渲染后 IDL 同步（props 动态变化——ref 稳定不重触发——afterRender 幂等）
-    ctx.afterRender?.(() => {
+    ctx.afterRender?.(()=> {
       if (el && latest.muted !== undefined) el.muted = latest.muted
       if (el && latest.loop !== undefined) el.loop = latest.loop
       if (el && latest.autoPlay !== undefined) el.autoplay = latest.autoPlay

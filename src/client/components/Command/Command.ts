@@ -1,5 +1,5 @@
 /** Command：命令面板：⌘K 全局快捷键 + 键盘流（shadcn Command）（showcase /components/command） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -7,17 +7,17 @@ import { Icon } from '../Icon/Icon.ts'
 export interface CommandItem {
   key: string
   label: string
-  icon?: any
+  icon?: VNodeChild
   /** 显示快捷键（如 'G S'） */
   shortcut?: string
   group?: string
   keywords?: string[]
-  onSelect?: () => void
+  onSelect?: ()=> void
 }
 
 export interface CommandProps {
   open?: boolean
-  onOpenChange?: (open: boolean) => void
+  onOpenChange?: (open: boolean)=> void
   items?: CommandItem[]
   placeholder?: string
   emptyText?: string
@@ -26,18 +26,18 @@ export interface CommandProps {
 }
 
 /** 命令面板（对应 shadcn Command）：openPopup mask 全屏遮罩 + 搜索 + 键盘流（↑↓ Enter Escape）+ Cmd+K 全局快捷键 */
-export const Command: Component<CommandProps> = (_init, ctx) => {
+export const Command: Component<CommandProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let query = ''
   let highlight = 0
-  let latest: { open?: boolean; onOpenChange?: (open: boolean) => void; shortcut?: string | null } = {}
+  let latest: { open?: boolean; onOpenChange?: (open: boolean)=> void; shortcut?: string | null } = {}
 
   // 稳定 ref：每次打开时 input 重新挂载 → focus；输入变化 render 复用 DOM，不重复 focus
   // （内联 ref 每次渲染换引用，输入时会反复重新 focus 导致光标异常）
-  const inputRef = (el: HTMLInputElement | null) => { if (el) queueMicrotask(() => el.focus()) }
+  const inputRef = (el: HTMLInputElement | null)=> { if (el) queueMicrotask(()=> el.focus()) }
 
   // 全局快捷键经 ctx.ui.useGlobalKey（window keydown：mount 注册 + 卸载清理）
-  ctx.ui.useGlobalKey((e: KeyboardEvent) => {
+  ctx.ui.useGlobalKey((e: KeyboardEvent)=> {
     const sc = latest.shortcut
     if (!sc) return
     const parts = sc.split('+')
@@ -60,15 +60,15 @@ export const Command: Component<CommandProps> = (_init, ctx) => {
         key: 'command',
         mask: true,
         maskCentered: true,
-        content: () => panel,
-        onClose: () => { handle = null; if (latest.open) latest.onOpenChange?.(false) },
+        content: ()=> panel,
+        onClose: ()=> { handle = null; if (latest.open) latest.onOpenChange?.(false) },
       })
     else if (!latest.open && handle) { handle.close(); handle = null }
     else if (handle) handle.update(panel)
   }
-  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
+  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
 
-  return (props) => {
+  return (props)=> {
     const {
       open, onOpenChange, items = [], placeholder = '输入命令或搜索...',
       emptyText = '无匹配结果', globalShortcut = 'mod+k',
@@ -91,9 +91,9 @@ export const Command: Component<CommandProps> = (_init, ctx) => {
 
     if (highlight >= filtered.length) highlight = Math.max(0, filtered.length - 1)
 
-    const close = () => onOpenChange?.(false)
+    const close = ()=> onOpenChange?.(false)
 
-    const inputKeyDown = (e: any) => {
+    const inputKeyDown = (e: any)=> {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         highlight = Math.min(highlight + 1, Math.max(filtered.length - 1, 0))
@@ -112,13 +112,13 @@ export const Command: Component<CommandProps> = (_init, ctx) => {
     }
 
     const list = filtered.length > 0
-      ? filtered.map((item, i) =>
+      ? filtered.map((item, i)=>
           h('button', {
             type: 'button',
             class: `wf-command-item${highlight === i ? ' wf-command-item--hl' : ''}`,
             key: item.key,
-            onClick: () => { item.onSelect?.(); close() },
-            onMouseEnter: () => { highlight = i },
+            onClick: ()=> { item.onSelect?.(); close() },
+            onMouseEnter: ()=> { highlight = i },
           }, [
             item.icon ?? h(Icon, { name: 'search', size: 14 }),
             h('span', { class: 'wf-command-item-label' }, item.label),
@@ -139,7 +139,7 @@ export const Command: Component<CommandProps> = (_init, ctx) => {
           type: 'text',
           placeholder,
           value: query,
-          onInput: (e: any) => { query = e.target.value; highlight = 0; ctx.render() },
+          onInput: (e: any)=> { query = e.target.value; highlight = 0; ctx.render() },
           onKeyDown: inputKeyDown,
           ref: inputRef,
         }),

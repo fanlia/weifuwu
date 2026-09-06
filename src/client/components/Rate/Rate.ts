@@ -6,7 +6,7 @@ import { Icon } from '../Icon/Icon.ts'
 export interface RateProps {
   /** 当前评分值（0..count） */
   value?: number
-  onChange?: (value: number) => void
+  onChange?: (value: number)=> void
   /** 星星总数，默认 5 */
   count?: number
   size?: 'sm' | 'md' | 'lg'
@@ -20,18 +20,18 @@ export interface RateProps {
   'aria-label'?: string
 }
 
-export const Rate: Component<RateProps> = (_init, ctx) => {
+export const Rate: Component<RateProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let hover = -1 // -1 = 未悬停；键盘悬停态复用（聚焦跟随）
   // 手动状态纪律（§4.1）：hover 是手动 UI 状态——变更必须显式 render，
   // 否则 effective = hover + 1 的预览是死代码（hover/focus 预览不落地）
-  const setHover = (v: number) => {
+  const setHover = (v: number)=> {
     if (hover === v) return
     hover = v
     ctx.render()
   }
 
-  return (props) => {
+  return (props)=> {
     const {
       count = 5, size = 'md',
       readOnly, disabled, allowClear, allowHalf, 'aria-label': ariaLabel,
@@ -43,7 +43,7 @@ export const Rate: Component<RateProps> = (_init, ctx) => {
     const inert = readOnly || disabled
     const ctrl = ctx?.ui?.useControlled<number>({ value: props.value, onChange: props.onChange, name: inert ? undefined : 'Rate' })
     const value = ctrl?.value ?? 0
-    const setRate = (v: number) => {
+    const setRate = (v: number)=> {
       const wasControlled = ctrl?.controlled?.value !== undefined
       ctrl?.setValue(v)
       // onChange 通知语义（非受控也调）；受控时 setValue 已调
@@ -54,7 +54,7 @@ export const Rate: Component<RateProps> = (_init, ctx) => {
     const effective = hover >= 0 ? hover + 1 : value
     const step = allowHalf ? 0.5 : 1
 
-    const handleKeyDown = (e: any) => {
+    const handleKeyDown = (e: any)=> {
       if (!interactive) return
       const key = e.key
       if (key === 'ArrowRight') { e.preventDefault(); setRate(Math.min(value + step, count)) }
@@ -75,7 +75,7 @@ export const Rate: Component<RateProps> = (_init, ctx) => {
       }
       if (interactive) {
         starProps.type = 'button'
-        starProps.onClick = (e: MouseEvent) => {
+        starProps.onClick = (e: MouseEvent)=> {
           if (allowHalf) {
             // 左半=半星，右半=整星（按点击位置相对元素宽）
             const el = e.currentTarget as HTMLElement
@@ -88,22 +88,22 @@ export const Rate: Component<RateProps> = (_init, ctx) => {
           }
         }
         starProps.onMouseEnter = allowHalf
-          ? (e: MouseEvent) => {
+          ? (e: MouseEvent)=> {
               const el = e.currentTarget as HTMLElement
               const rect = el.getBoundingClientRect()
               setHover((e.clientX - rect.left) < rect.width / 2 ? i + 0.5 - 1 : i)
             }
-          : () => setHover(i)
+          : ()=> setHover(i)
         starProps.onMouseMove = allowHalf
-          ? (e: MouseEvent) => {
+          ? (e: MouseEvent)=> {
               const el = e.currentTarget as HTMLElement
               const rect = el.getBoundingClientRect()
               setHover((e.clientX - rect.left) < rect.width / 2 ? i + 0.5 - 1 : i)
             }
           : undefined
-        starProps.onMouseLeave = () => setHover(-1)
-        starProps.onFocus = () => setHover(i)
-        starProps.onBlur = () => setHover(-1)
+        starProps.onMouseLeave = ()=> setHover(-1)
+        starProps.onFocus = ()=> setHover(i)
+        starProps.onBlur = ()=> setHover(-1)
       }
       const icon = h(Icon, { name: 'star', className: 'wf-rate-star-icon' })
       // 半星：底层空星轮廓 + 上层满星裁剪左半（0.5em 精确裁剪）

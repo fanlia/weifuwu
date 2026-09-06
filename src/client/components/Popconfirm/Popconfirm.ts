@@ -15,7 +15,7 @@
  * - 裁剪（CS-05，见 docs/client.md）：不做气泡内表单/自定义箭头
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -23,39 +23,38 @@ import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
 import type { Placement } from '../../vdom/hooks/popup.ts'
 
 export interface PopconfirmProps {
-  title?: any
+  title?: VNodeChild
   okText?: string
   cancelText?: string
   okType?: 'primary' | 'danger'
   /** 危险确认（默认图标换 warning 色 + 确认按钮 danger） */
   danger?: boolean
-  onConfirm?: () => void
-  onCancel?: () => void
+  onConfirm?: ()=> void
+  onCancel?: ()=> void
   position?: Placement
   open?: boolean
-  onOpenChange?: (open: boolean) => void
+  onOpenChange?: (open: boolean)=> void
   disabled?: boolean
-  icon?: any
-  children?: any
-}
+  icon?: VNodeChild
+  children?: VNodeChild}
 
-export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: UIContext) => {
+export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: UIContext)=> {
   // ── mount（只一次）──
   let latestPosition: Placement = 'top'
-  let latestOnConfirm: (() => void) | undefined
+  let latestOnConfirm: (()=> void) | undefined
   let disabled = false
   let wrapEl: HTMLElement | null = null
-  const wrapRef = (el: HTMLElement | null) => { if (el) wrapEl = el }
+  const wrapRef = (el: HTMLElement | null)=> { if (el) wrapEl = el }
 
   // useOpen：受控/非受控 open 统一（close 走 setOpen——受控通知父组件）
   let openCtrl: ReturnType<UIContext['ui']['useOpen']> | null = null
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: PopupHandle | null = null
 
-  const close = () => { openCtrl?.setOpen(false) }
+  const close = ()=> { openCtrl?.setOpen(false) }
 
   // ── render（每次 dirty/props 变化）──
-  return (props: PopconfirmProps) => {
+  return (props: PopconfirmProps)=> {
     const {
       title, okText = '确定', cancelText = '取消', danger,
       onConfirm, onCancel, position = 'top', icon,
@@ -80,7 +79,7 @@ export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: UIContext) =>
       h('div', { class: 'wf-popconfirm-actions' }, [
         h('button', {
           class: 'wf-popconfirm-cancel wf-btn wf-btn--secondary',
-          onClick: (e: Event) => {
+          onClick: (e: Event)=> {
             e.stopPropagation()
             onCancel?.()
             close()
@@ -88,7 +87,7 @@ export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: UIContext) =>
         }, cancelText),
         h('button', {
           class: `wf-popconfirm-ok wf-btn${danger ? ' wf-btn--danger' : ' wf-btn--primary'}`,
-          onClick: (e: Event) => {
+          onClick: (e: Event)=> {
             e.stopPropagation()
             onConfirm?.()
             close()
@@ -100,11 +99,11 @@ export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: UIContext) =>
     // 命令式同步（受控 + 内容更新——每次渲染恒调用）
     if (isOpen && !handle)
       handle = ctx.ui.openPopup({
-        anchor: () => wrapEl,
-        placement: () => latestPosition,
+        anchor: ()=> wrapEl,
+        placement: ()=> latestPosition,
         gap: 8,
-        content: () => bubble,
-        onClose: () => { handle = null; openCtrl?.setOpen(false) },
+        content: ()=> bubble,
+        onClose: ()=> { handle = null; openCtrl?.setOpen(false) },
       })
     else if (!isOpen && handle) { handle.close(); handle = null }
     else if (handle) handle.update(bubble)
@@ -113,8 +112,8 @@ export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: UIContext) =>
       class: 'wf-popconfirm-wrap', ref: wrapRef,
       'aria-haspopup': 'dialog', 'aria-expanded': String(isOpen),
       role: 'button', tabIndex: disabled ? -1 : 0, // 键盘可达（Card clickable 同模式——Enter/Space 触发）
-      onKeyDown: (e: KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && !disabled) { e.preventDefault(); openCtrl?.setOpen(!openCtrl.open) } },
-      onClick: (e: Event) => { e.stopPropagation?.(); if (!disabled) openCtrl?.setOpen(!openCtrl.open) }, // click 触发
+      onKeyDown: (e: KeyboardEvent)=> { if ((e.key === 'Enter' || e.key === ' ') && !disabled) { e.preventDefault(); openCtrl?.setOpen(!openCtrl.open) } },
+      onClick: (e: Event)=> { e.stopPropagation?.(); if (!disabled) openCtrl?.setOpen(!openCtrl.open) }, // click 触发
     }, props.children)
   }
 }

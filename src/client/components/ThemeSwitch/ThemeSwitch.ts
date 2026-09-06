@@ -34,13 +34,13 @@ export interface ThemeSwitchProps {
   /** 初始模式（默认从 localStorage 读取，无记录时为 auto） */
   mode?: ThemeMode
   /** 切换回调 */
-  onChange?: (mode: ThemeMode) => void
+  onChange?: (mode: ThemeMode)=> void
   /** localStorage 存储 key */
   storageKey?: string
   /** 预设主题（可选——传了才渲染预设行；对应 layout `data-preset`） */
   preset?: PresetName
   /** 预设切换回调 */
-  onPresetChange?: (preset: PresetName) => void
+  onPresetChange?: (preset: PresetName)=> void
 }
 
 const DEFAULT_KEY = 'wf_theme'
@@ -83,7 +83,7 @@ export function getTheme(): ThemeMode {
   return 'auto'
 }
 
-export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx) => {
+export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx)=> {
   const storageKey = initProps.storageKey ?? DEFAULT_KEY
   const presetKey = initProps.storageKey ? `${initProps.storageKey}_preset` : DEFAULT_PRESET_KEY
   // ── mount（只一次）：读取持久化设置并立即应用 ──
@@ -93,7 +93,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx) => {
   applyPreset(preset)
 
   // ── render ──
-  return (props) => {
+  return (props)=> {
     const SL = ctx?.i18n?.components?.ThemeSwitch ?? {}
     const modes: Array<{ value: ThemeMode; label: string }> = [
       { value: 'auto', label: SL.auto ?? '自动' },
@@ -108,7 +108,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx) => {
         role: 'radio',
         'aria-checked': String(mode === m.value),
         'aria-label': m.label,
-        onClick: () => {
+        onClick: ()=> {
           if (mode === m.value) return
           mode = m.value
           applyTheme(mode)
@@ -127,7 +127,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx) => {
         role: 'radio',
         'aria-checked': String(preset === p.value),
         'aria-label': SL[`preset-${p.value}`] ?? p.label,
-        onClick: () => {
+        onClick: ()=> {
           if (preset === p.value) return
           preset = p.value
           applyPreset(preset)

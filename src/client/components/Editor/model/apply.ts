@@ -48,24 +48,24 @@ export function blockPropAt(doc: DocState, pos: number): BlockProp | null {
 
 function shiftMarks(marks: MarkSpan[], at: number, delta: number): MarkSpan[] {
   return marks
-    .map((m) => {
+    .map((m)=> {
       if (m.end <= at) return m
       if (m.start >= at) return { ...m, start: m.start + delta, end: m.end + delta }
       return { ...m, end: m.end + delta } // 区间跨插入点——只延展 end
     })
-    .sort((a, b) => a.start - b.start || a.end - b.end)
+    .sort((a, b)=> a.start - b.start || a.end - b.end)
 }
 
 function shiftBlockProps(props: BlockProp[], at: number, delta: number): BlockProp[] {
   return props
-    .map((b) => (b.start >= at ? { ...b, start: b.start + delta } : b))
-    .sort((a, b) => a.start - b.start)
+    .map((b)=> (b.start >= at ? { ...b, start: b.start + delta } : b))
+    .sort((a, b)=> a.start - b.start)
 }
 
 function shiftEmbeds(embeds: EmbedSpan[], at: number, delta: number): EmbedSpan[] {
   return embeds
-    .map((e) => (e.at >= at ? { ...e, at: e.at + delta } : e))
-    .sort((a, b) => a.at - b.at)
+    .map((e)=> (e.at >= at ? { ...e, at: e.at + delta } : e))
+    .sort((a, b)=> a.at - b.at)
 }
 
 /** 复制文档（数组复制——不可变更新基元） */
@@ -86,7 +86,7 @@ function rederiveBlockProps(
   newText: string, at: number, insertedLen: number,
 ): BlockProp[] {
   const oldStarts = segmentStarts(oldText)
-  const oldPropsByStart = new Map(oldProps.map((b) => [b.start, b]))
+  const oldPropsByStart = new Map(oldProps.map((b)=> [b.start, b]))
   const out: BlockProp[] = []
   for (const s of segmentStarts(newText)) {
     let ref: number
@@ -97,7 +97,7 @@ function rederiveBlockProps(
     const p = oldPropsByStart.get(seg)
     if (p) out.push({ ...p, start: s })
   }
-  return out.sort((a, b) => a.start - b.start)
+  return out.sort((a, b)=> a.start - b.start)
 }
 
 // ── 事件应用 ───────────────────────────────────────────────────────────
@@ -116,9 +116,9 @@ export function applyEdit(doc: DocState, ev: EditEvent): DocState {
       if (doc.text.slice(ev.start, ev.end) !== ev.original) {
         throw new Error(`[editor/model] ai-apply original 与文档不符 (${ev.start},${ev.end})`)
       }
-      const actual = doc.embeds.filter((e) => e.at >= ev.start && e.at < ev.end)
+      const actual = doc.embeds.filter((e)=> e.at >= ev.start && e.at < ev.end)
       if (actual.length !== ev.removedEmbeds.length ||
-          actual.some((e, i) => e.id !== ev.removedEmbeds[i]?.id)) {
+          actual.some((e, i)=> e.id !== ev.removedEmbeds[i]?.id)) {
         throw new Error('[editor/model] ai-apply removedEmbeds 与文档不符')
       }
       const next = insertText(
@@ -140,7 +140,7 @@ function restoreRemovedBlocks(doc: DocState, blocks: BlockProp[], from: number, 
   let next = doc
   for (const s of segmentStarts(doc.text)) {
     if (s < from || s >= to) continue
-    const b = blocks.find((x) => x.start === s)
+    const b = blocks.find((x)=> x.start === s)
     if (b) next = setBlock(next, s, b.kind, b.align ?? null)
   }
   return next
@@ -154,7 +154,7 @@ export function applyEditChecked(doc: DocState, ev: EditEvent): { doc: DocState;
 /** 删除区间内/边界段起点被覆盖的段属性（含边界——段起点恰在 at+len 时合并吞属性；
  *  逆操作按原段起点恢复——文本恢复后起点仍有效，幂等安全） */
 export function removedBlocksOf(doc: DocState, at: number, end: number): BlockProp[] {
-  return doc.blockProps.filter((b) => b.start >= at && b.start <= end)
+  return doc.blockProps.filter((b)=> b.start >= at && b.start <= end)
 }
 
 function insertText(doc: DocState, at: number, text: string): DocState {
@@ -176,14 +176,14 @@ function insertText(doc: DocState, at: number, text: string): DocState {
 function deleteText(doc: DocState, at: number, len: number, removedEmbeds: EmbedSpan[] = [], removedBlocks: BlockProp[] = []): DocState {
   if (len <= 0 || at < 0 || at + len > doc.text.length) return doc
   // 一致性校验：事件声明的被删 embeds 必须与文档实际一致（诚实失败）
-  const actual = doc.embeds.filter((e) => e.at >= at && e.at < at + len)
+  const actual = doc.embeds.filter((e)=> e.at >= at && e.at < at + len)
   if (actual.length !== removedEmbeds.length ||
-      actual.some((e, i) => e.id !== removedEmbeds[i]?.id)) {
+      actual.some((e, i)=> e.id !== removedEmbeds[i]?.id)) {
     throw new Error('[editor/model] text-delete removedEmbeds 与文档不符')
   }
-  const actualBlocks = doc.blockProps.filter((b) => b.start >= at && b.start <= at + len)
+  const actualBlocks = doc.blockProps.filter((b)=> b.start >= at && b.start <= at + len)
   if (actualBlocks.length !== removedBlocks.length ||
-      actualBlocks.some((b, i) => b.start !== removedBlocks[i]?.start)) {
+      actualBlocks.some((b, i)=> b.start !== removedBlocks[i]?.start)) {
     throw new Error('[editor/model] text-delete removedBlocks 与文档不符')
   }
   const next = copyDoc(doc)
@@ -197,13 +197,13 @@ function deleteText(doc: DocState, at: number, len: number, removedEmbeds: Embed
       if (m.start < at) return [{ ...m, end: at }] // 左相交（end 在区间内）
       return [{ ...m, start: at, end: Math.max(at, m.end - len) }] // 右相交/完全在内（filter 收尾）
     })
-    .filter((m) => m.end > m.start)
-    .sort((a, b) => a.start - b.start || a.end - b.end)
+    .filter((m)=> m.end > m.start)
+    .sort((a, b)=> a.start - b.start || a.end - b.end)
   // embeds：占位符在删除区间内的移除
   next.embeds = doc.embeds
-    .filter((e) => e.at < at || e.at >= at + len)
-    .map((e) => (e.at >= at + len ? { ...e, at: e.at - len } : e))
-    .sort((a, b) => a.at - b.at)
+    .filter((e)=> e.at < at || e.at >= at + len)
+    .map((e)=> (e.at >= at + len ? { ...e, at: e.at - len } : e))
+    .sort((a, b)=> a.at - b.at)
   next.blockProps = rederiveBlockProps(doc.text, doc.blockProps, next.text, at, -len)
   return next
 }
@@ -212,14 +212,14 @@ function applyMark(doc: DocState, ev: Extract<EditEvent, { type: 'mark-apply' }>
   const { start, end, mark, on, href } = ev
   if (start >= end) return doc
   // prev 一致性校验（创建者从操作前 doc 提取——诚实失败）
-  const prevSame = doc.marks.filter((m) => m.type === mark)
-  if (prevSame.length !== ev.prev.length || prevSame.some((m, i) => m.start !== ev.prev[i]?.start || m.end !== ev.prev[i]?.end)) {
+  const prevSame = doc.marks.filter((m)=> m.type === mark)
+  if (prevSame.length !== ev.prev.length || prevSame.some((m, i)=> m.start !== ev.prev[i]?.start || m.end !== ev.prev[i]?.end)) {
     throw new Error('[editor/model] mark-apply prev 与文档不符')
   }
   // 移除 [start,end) 内该类型相交区间（收缩/删除）——on=true 时再追加新区间
-  const others = doc.marks.filter((m) => m.type !== mark)
+  const others = doc.marks.filter((m)=> m.type !== mark)
   const same = doc.marks
-    .filter((m) => m.type === mark)
+    .filter((m)=> m.type === mark)
     .flatMap((m): MarkSpan[] => {
       if (m.end <= start || m.start >= end) return [m]
       const out: MarkSpan[] = []
@@ -230,25 +230,25 @@ function applyMark(doc: DocState, ev: Extract<EditEvent, { type: 'mark-apply' }>
   const merged: MarkSpan[] = on
     ? [...same, { start, end, type: mark, ...(href ? { href } : {}) }]
     : same
-  return { ...doc, marks: [...others, ...merged].sort((a, b) => a.start - b.start || a.end - b.end) }
+  return { ...doc, marks: [...others, ...merged].sort((a, b)=> a.start - b.start || a.end - b.end) }
 }
 
 /** mark 绝对恢复（快照替换——undo 精确；区间独立不合并——可逆性保证） */
 function restoreMark(doc: DocState, mark: MarkType, spans: MarkSpan[]): DocState {
-  const others = doc.marks.filter((m) => m.type !== mark)
-  return { ...doc, marks: [...others, ...spans].sort((a, b) => a.start - b.start || a.end - b.end) }
+  const others = doc.marks.filter((m)=> m.type !== mark)
+  return { ...doc, marks: [...others, ...spans].sort((a, b)=> a.start - b.start || a.end - b.end) }
 }
 
 function setBlock(doc: DocState, start: number, kind: BlockKind, align: Align | null): DocState {
   // 只认段起点（非段起点忽略——调用方负责对齐）
   const seg = segmentStartAt(doc.text, start)
   if (seg !== start) return doc
-  const rest = doc.blockProps.filter((b) => b.start !== start)
+  const rest = doc.blockProps.filter((b)=> b.start !== start)
   const isDefault = kind === 'p' && !align
   const next: BlockProp[] = isDefault
     ? rest
     : [...rest, { start, kind, ...(align ? { align } : {}) }]
-  return { ...doc, blockProps: next.sort((a, b) => a.start - b.start) }
+  return { ...doc, blockProps: next.sort((a, b)=> a.start - b.start) }
 }
 
 function insertEmbed(doc: DocState, at: number, embed: EmbedSpan): DocState {
@@ -256,7 +256,7 @@ function insertEmbed(doc: DocState, at: number, embed: EmbedSpan): DocState {
   const next = copyDoc(doc)
   next.text = doc.text.slice(0, at) + EMBED_CHAR + doc.text.slice(at)
   next.marks = shiftMarks(doc.marks, at, 1)
-  next.embeds = [...shiftEmbeds(doc.embeds, at, 1), { ...embed, at }].sort((a, b) => a.at - b.at)
+  next.embeds = [...shiftEmbeds(doc.embeds, at, 1), { ...embed, at }].sort((a, b)=> a.at - b.at)
   next.blockProps = rederiveBlockProps(doc.text, doc.blockProps, next.text, at, 1)
   return next
 }
@@ -264,6 +264,6 @@ function insertEmbed(doc: DocState, at: number, embed: EmbedSpan): DocState {
 function deleteEmbed(doc: DocState, at: number, embed: EmbedSpan): DocState {
   if (doc.text[at] !== EMBED_CHAR) return doc
   const next = deleteText(doc, at, 1, [embed], removedBlocksOf(doc, at, at + 1))
-  next.embeds = next.embeds.filter((e) => e.id !== embed.id)
+  next.embeds = next.embeds.filter((e)=> e.id !== embed.id)
   return next
 }

@@ -7,11 +7,11 @@ export interface SwitchProps {
   label?: string
   checked?: boolean
   disabled?: boolean
-  onChange?: (checked: boolean) => void
+  onChange?: (checked: boolean)=> void
 }
 
-export const Switch: Component<SwitchProps> = (_init, ctx) =>
-  (props) => {
+export const Switch: Component<SwitchProps> = (_init, ctx)=>
+  (props)=> {
   const { label, checked, disabled, onChange } = props
 
   const input = h('input', {
@@ -21,7 +21,7 @@ export const Switch: Component<SwitchProps> = (_init, ctx) =>
     disabled: disabled || undefined,
     role: 'switch',
     'aria-checked': String(!!checked),
-    onChange: onChange ? (e: Event) => onChange((e.target as HTMLInputElement).checked) : undefined,
+    onChange: onChange ? (e: Event)=> onChange((e.target as HTMLInputElement).checked) : undefined,
   })
 
   const track = h('span', { class: 'wf-switch-track' })

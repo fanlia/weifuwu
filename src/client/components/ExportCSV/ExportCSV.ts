@@ -6,7 +6,7 @@
  *   exportCSV({ data: rows, filename: 'orders.csv', columns: [{ key, label }] })
  *   <ExportCSV data={rows} filename="orders.csv">导出</ExportCSV>
  */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
 export interface CsvColumn {
@@ -19,24 +19,24 @@ export interface ExportCsvOptions {
   filename?: string
   columns?: CsvColumn[]
   /** 值格式化（默认 String；null/undefined → 空） */
-  format?: (value: any, key: string) => string
+  format?: (value: VNodeChild, key: string)=> string
 }
 
 /** 纯函数：data → CSV 字符串（RFC 4180：引号转义 + BOM 防 Excel 乱码） */
 export function toCsv({ data, columns, format }: ExportCsvOptions): string {
-  const keys = columns ? columns.map((c) => c.key) : data.length ? Object.keys(data[0]) : []
-  const labels = columns ? columns.map((c) => c.label ?? c.key) : keys
-  const escape = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
-  const rows = [labels, ...data.map((row) => keys.map((k) => {
+  const keys = columns ? columns.map((c)=> c.key) : data.length ? Object.keys(data[0]) : []
+  const labels = columns ? columns.map((c)=> c.label ?? c.key) : keys
+  const escape = (v: string)=> (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
+  const rows = [labels, ...data.map((row)=> keys.map((k)=> {
     const v = row[k]
     if (v == null) return ''
     return escape(String(format ? format(v, k) : v))
   }))]
-  return '\uFEFF' + rows.map((r) => r.join(',')).join('\n')
+  return '\uFEFF' + rows.map((r)=> r.join(',')).join('\n')
 }
 
 export interface ExportCSVProps extends ExportCsvOptions {
-  children?: any
+  children?: VNodeChild
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
@@ -44,10 +44,10 @@ export interface ExportCSVProps extends ExportCsvOptions {
 }
 
 /** 导出按钮组件（点击 → 下载 CSV——browser.downloadFile 安全适配） */
-export const ExportCSV: Component<ExportCSVProps> = (_init, ctx) =>
-  (props) => {
+export const ExportCSV: Component<ExportCSVProps> = (_init, ctx)=>
+  (props)=> {
     const { data, filename = 'export.csv', columns, format, children, variant, size, disabled, className = '' } = props
-    const doExport = () => {
+    const doExport = ()=> {
       const csv = toCsv({ data, columns, format })
       ;(ctx.browser ?? (typeof window !== 'undefined' ? (window as unknown as { __wfBrowser?: unknown }).__wfBrowser : null))?.downloadFile(filename, csv, 'text/csv;charset=utf-8')
     }
@@ -55,6 +55,6 @@ export const ExportCSV: Component<ExportCSVProps> = (_init, ctx) =>
       type: 'button',
       class: `wf-btn wf-btn--${variant ?? 'secondary'} wf-btn--${size ?? 'md'}${className ? ` ${className}` : ''}`,
       disabled,
-      onClick: () => doExport(),
+      onClick: ()=> doExport(),
     }, children ?? '导出 CSV')
   }

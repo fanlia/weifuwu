@@ -10,7 +10,7 @@
  * 裁剪（CS-05，见 docs/client.md）：不做虚拟滚动/拖动滚动条 thumb（VirtualList 覆盖虚拟化）。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -20,12 +20,12 @@ export interface ScrollbarProps {
   orientation?: 'vertical' | 'horizontal'
   /** 常显滚动条（默认 hover 显示） */
   always?: boolean
-  children?: any
+  children?: VNodeChild
   style?: any
 }
 
-export const Scrollbar: Component<ScrollbarProps> = (_init, _ctx: UIContext) =>
-  (props) => {
+export const Scrollbar: Component<ScrollbarProps> = (_init, _ctx: UIContext)=>
+  (props)=> {
     const { maxHeight, height, orientation = 'vertical', always, children, style } = props
     const hAxis = orientation === 'horizontal'
     return h('div', {

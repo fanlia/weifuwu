@@ -1,5 +1,5 @@
 /** Table：可排序 + 自定义 render + 空状态（showcase /components/table） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -11,9 +11,9 @@ export interface TableColumn {
   /** 是否可排序 */
   sortable?: boolean
   /** 自定义排序函数，默认按字符串比较 */
-  sorter?: (a: any, b: any) => number
+  sorter?: (a: any, b: any)=> number
   /** 自定义渲染 */
-  render?: (value: any, row: any, index: number) => any
+  render?: (value: VNodeChild, row: any, index: number)=> any
   /** 行内编辑（点击单元格 → input → Enter/失焦提交）——需配合 TableProps.onCellEdit */
   editable?: boolean
   /** 固定列（横向滚动时保持可见）——fixed='left'/'right' 必须显式 width */
@@ -32,13 +32,13 @@ export interface TableRowSelection {
 export interface TableProps {
   data?: any[]
   columns: TableColumn[]
-  onRowClick?: (row: any, index: number) => void
+  onRowClick?: (row: any, index: number)=> void
   /** 当前排序列的 key */
   sortKey?: string
   /** 当前排序方向 */
   sortOrder?: 'asc' | 'desc'
   /** 排序变化回调 */
-  onSort?: (key: string, order: 'asc' | 'desc') => void
+  onSort?: (key: string, order: 'asc' | 'desc')=> void
   /** 行选择（受控） */
   rowSelection?: TableRowSelection
   /** 数据为空时显示的文本 */
@@ -46,7 +46,7 @@ export interface TableProps {
   /** 表格最小宽度（窄屏横向滚动，如 '720px'） */
   minWidth?: string
   /** 行内编辑提交回调（editable 列必配——受控纪律） */
-  onCellEdit?: (key: string, rowIndex: number, value: string, row: any) => void
+  onCellEdit?: (key: string, rowIndex: number, value: string, row: any)=> void
   /** 加载中：保留表头，渲染骨架行 */
   loading?: boolean
   /** 骨架行数，默认 3 */
@@ -59,7 +59,7 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
   if (!col || !col.sortable) return data
 
   const sorted = [...data]
-  sorted.sort((a, b) => {
+  sorted.sort((a, b)=> {
     const va = a[sortKey]
     const vb = b[sortKey]
     const result = col.sorter ? col.sorter(va, vb) : String(va ?? '').localeCompare(String(vb ?? ''))
@@ -68,15 +68,15 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
   return sorted
 }
 
-export const Table: Component<TableProps> = (_init, ctx) => {
+export const Table: Component<TableProps> = (_init, ctx)=> {
   // ── 行内编辑态（render-only：editing 位置 + 输入值——工厂闭包跨渲染保持） ──
   let editing: { row: number; col: string; value: string } | null = null
   const propsRef: { onCellEdit?: TableProps['onCellEdit']; data?: any[] } = {}
-  const beginEdit = (row: number, col: string, val: unknown) => {
+  const beginEdit = (row: number, col: string, val: unknown)=> {
     editing = { row, col, value: String(val ?? '') }
     ctx.render()
   }
-  const commitEdit = () => {
+  const commitEdit = ()=> {
     if (editing) {
       const { row, col, value } = editing
       editing = null
@@ -84,7 +84,7 @@ export const Table: Component<TableProps> = (_init, ctx) => {
       propsRef.onCellEdit?.(col, row, value, propsRef.data?.[row])
     }
   }
-  return (props) => {
+  return (props)=> {
   const { data = [], columns, onRowClick, sortKey, sortOrder, onSort, emptyText, rowSelection } = props
   propsRef.data = data
   propsRef.onCellEdit = props.onCellEdit
@@ -118,29 +118,29 @@ export const Table: Component<TableProps> = (_init, ctx) => {
     return undefined
   }
 
-  const rowKeyOf = (row: any, i: number) => row[rowSelection?.rowKey ?? 'id'] ?? i
+  const rowKeyOf = (row: any, i: number)=> row[rowSelection?.rowKey ?? 'id'] ?? i
 
   // 行选择：全选态（全部选中 / 部分选中 indeterminate）
   const selKeys = rowSelection?.selectedRowKeys ?? []
   const selKeysSet = new Set(selKeys.map(String))
-  const allRowKeys = sortedData.map((r, i) => String(rowKeyOf(r, i)))
+  const allRowKeys = sortedData.map((r, i)=> String(rowKeyOf(r, i)))
   const allSelected = allRowKeys.length > 0 && allRowKeys.every(k => selKeysSet.has(k))
   const someSelected = allRowKeys.some(k => selKeysSet.has(k))
 
-  const toggleAll = () => {
+  const toggleAll = ()=> {
     if (!rowSelection?.onChange) return
-    const next = allSelected ? [] : allRowKeys.map(k => sortedData.find((r, i) => String(rowKeyOf(r, i)) === k)!)
+    const next = allSelected ? [] : allRowKeys.map(k => sortedData.find((r, i)=> String(rowKeyOf(r, i)) === k)!)
     rowSelection.onChange(allSelected ? [] : allRowKeys, allSelected ? [] : next)
   }
 
 
-  const toggleRow = (row: any, i: number) => {
+  const toggleRow = (row: any, i: number)=> {
     if (!rowSelection?.onChange) return
     const key = String(rowKeyOf(row, i))
     const next = selKeysSet.has(key)
       ? selKeys.filter(k => String(k) !== key)
       : [...selKeys, key]
-    const rows = next.map(k => sortedData.find((r, j) => String(rowKeyOf(r, j)) === String(k))!).filter(Boolean)
+    const rows = next.map(k => sortedData.find((r, j)=> String(rowKeyOf(r, j)) === String(k))!).filter(Boolean)
     rowSelection.onChange(next, rows)
   }
 
@@ -157,15 +157,15 @@ export const Table: Component<TableProps> = (_init, ctx) => {
         }))
     : null
 
-  const selCell = (row: any, i: number) => rowSelection
+  const selCell = (row: any, i: number)=> rowSelection
     ? h('td', { class: 'wf-table-td wf-table-td--selection' },
         h('input', {
           type: 'checkbox',
           class: 'wf-table-checkbox',
           checked: selKeysSet.has(String(rowKeyOf(row, i))) || undefined,
           'aria-label': '选择行',
-          onClick: (e: Event) => e.stopPropagation(),
-          onChange: () => toggleRow(row, i),
+          onClick: (e: Event)=> e.stopPropagation(),
+          onChange: ()=> toggleRow(row, i),
         }))
     : null
 
@@ -182,7 +182,7 @@ export const Table: Component<TableProps> = (_init, ctx) => {
       : null
     // 排序触发：click 与键盘（Enter/Space）共用，防双触发（th 非 button，无原生 click 合成）
     const sortFn = col.sortable && onSort
-      ? () => onSort(col.key, isSorted && isAsc ? 'desc' : 'asc')
+      ? ()=> onSort(col.key, isSorted && isAsc ? 'desc' : 'asc')
       : undefined
 
     return h('th', {
@@ -192,7 +192,7 @@ export const Table: Component<TableProps> = (_init, ctx) => {
       style: { ...(col.width ? { width: col.width } : {}), ...(fixedStyle(col) ?? {}) },
       onClick: sortFn,
       onKeyDown: sortFn
-        ? (e: KeyboardEvent) => {
+        ? (e: KeyboardEvent)=> {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault() // Space 默认滚动页面
               sortFn()
@@ -209,9 +209,9 @@ export const Table: Component<TableProps> = (_init, ctx) => {
   if (props.loading) {
     // 加载中：表头保留，渲染骨架行（数据宽度不明，无 minWidth 时按列数撑满）
     const rows = props.loadingRows ?? 3
-    bodyRows = Array.from({ length: rows }, (_, ri) =>
+    bodyRows = Array.from({ length: rows }, (_, ri)=>
       h('tr', { class: 'wf-table-tr wf-table-tr--loading', key: `loading-${ri}` },
-        columns.map((col, ci) =>
+        columns.map((col, ci)=>
           h('td', { class: 'wf-table-td', key: `${ri}-${ci}` },
             h('span', { class: 'wf-skeleton wf-skeleton--text' })))))
   } else if (sortedData.length === 0 && emptyText) {
@@ -222,7 +222,7 @@ export const Table: Component<TableProps> = (_init, ctx) => {
       ),
     ]
   } else {
-    bodyRows = sortedData.map((row, i) => {
+    bodyRows = sortedData.map((row, i)=> {
       const cells = columns.map(col => {
         const val = row[col.key]
         // 行内编辑：editable 列 → 点击进入 input（Enter/失焦提交——受控纪律）
@@ -233,17 +233,17 @@ export const Table: Component<TableProps> = (_init, ctx) => {
                 class: 'wf-input wf-input--table-edit',
                 value: editing.value,
                 'data-wf-edit': `${i}:${col.key}`,
-                onInput: (e: any) => { editing!.value = (e.target as HTMLInputElement).value },
-                onKeyDown: (e: KeyboardEvent) => {
+                onInput: (e: any)=> { editing!.value = (e.target as HTMLInputElement).value },
+                onKeyDown: (e: KeyboardEvent)=> {
                   if (e.key === 'Enter') commitEdit()
                   if (e.key === 'Escape') { editing = null; ctx.render() }
                 },
-                onBlur: () => commitEdit(),
+                onBlur: ()=> commitEdit(),
               }))
           }
           return h('td', { class: 'wf-table-td wf-table-td--editable', key: `${i}-${col.key}`,
             style: { cursor: 'text', ...(fixedStyle(col) ?? {}) },
-            onClick: () => beginEdit(i, col.key, val) },
+            onClick: ()=> beginEdit(i, col.key, val) },
             col.render ? col.render(val, row, i) : String(val ?? ''))
         }
         const content = col.render ? col.render(val, row, i) : String(val ?? '')
@@ -259,7 +259,7 @@ export const Table: Component<TableProps> = (_init, ctx) => {
         // 统计页 ?c= 视角 52 行残留实证——tr key 缺失根因）
         key: String(rowKeyOf(row, i)),
         class: 'wf-table-tr',
-        onClick: onRowClick ? () => onRowClick(row, i) : undefined,
+        onClick: onRowClick ? ()=> onRowClick(row, i) : undefined,
         style: onRowClick ? { cursor: 'pointer' } : undefined,
       }, [rowSelCell, ...cells].filter(Boolean))
     })

@@ -14,14 +14,14 @@
  * 折叠态交还 useBreakpoint 由用户驱动。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface NavMenuItem {
   key: string
-  label?: any
+  label?: VNodeChild
   children?: NavMenuItem[]
   disabled?: boolean
 }
@@ -29,14 +29,14 @@ export interface NavMenuItem {
 export interface NavMenuProps {
   items: NavMenuItem[]
   activeKey?: string
-  onSelect?: (key: string) => void
+  onSelect?: (key: string)=> void
 }
 
 /** hover 关闭延迟：覆盖 pointer 穿越 trigger→面板 间隙（fixed 面板与触发项间 gap
  * 区域不属于面板——mouseout relatedTarget 是页面元素——进入面板前不误关） */
 const HOVER_CLOSE_DELAY = 120
 
-export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
+export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext)=> {
   // ── mount（只一次）──
   let openKey: string | null = null
   let nestedKey: string | null = null
@@ -44,20 +44,20 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
   const nestedEls = new Map<string, HTMLElement>()
   // 稳定 ref 缓存：ref 函数必须持久（内联 ref 每次渲染新引用 → ref 回调重复执行，
   // 违反 ref 纪律）——按 key 缓存同一函数实例
-  const itemRefCache = new Map<string, (el: HTMLElement | null) => void>()
-  const itemRef = (key: string) => {
+  const itemRefCache = new Map<string, (el: HTMLElement | null)=> void>()
+  const itemRef = (key: string)=> {
     let fn = itemRefCache.get(key)
     if (!fn) {
-      fn = (el) => { if (el) itemEls.set(key, el) }
+      fn = (el)=> { if (el) itemEls.set(key, el) }
       itemRefCache.set(key, fn)
     }
     return fn
   }
-  const nestedRefCache = new Map<string, (el: HTMLElement | null) => void>()
-  const nestedRef = (key: string) => {
+  const nestedRefCache = new Map<string, (el: HTMLElement | null)=> void>()
+  const nestedRef = (key: string)=> {
     let fn = nestedRefCache.get(key)
     if (!fn) {
-      fn = (el) => { if (el) nestedEls.set(key, el) }
+      fn = (el)=> { if (el) nestedEls.set(key, el) }
       nestedRefCache.set(key, fn)
     }
     return fn
@@ -72,9 +72,9 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
   let subPanelEl: HTMLElement | null = null
   let nestedPanelEl: HTMLElement | null = null
   let closeTimer: ReturnType<typeof setTimeout> | undefined
-  const navRef = (el: HTMLElement | null) => { navEl = el }
-  const subPanelRef = (el: HTMLElement | null) => { subPanelEl = el }
-  const nestedPanelRef = (el: HTMLElement | null) => { nestedPanelEl = el }
+  const navRef = (el: HTMLElement | null)=> { navEl = el }
+  const subPanelRef = (el: HTMLElement | null)=> { subPanelEl = el }
+  const nestedPanelRef = (el: HTMLElement | null)=> { nestedPanelEl = el }
   const inMenuDomain = (rt: unknown): boolean => {
     if (!rt || typeof rt !== 'object') return false
     const node = rt as Node
@@ -84,10 +84,10 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
       (nestedPanelEl && nestedPanelEl.contains(node))
     )
   }
-  const cancelClose = () => { clearTimeout(closeTimer); closeTimer = undefined }
-  const scheduleClose = () => {
+  const cancelClose = ()=> { clearTimeout(closeTimer); closeTimer = undefined }
+  const scheduleClose = ()=> {
     if (closeTimer) return
-    closeTimer = setTimeout(() => {
+    closeTimer = setTimeout(()=> {
       closeTimer = undefined
       if (openKey !== null || nestedKey !== null) {
         openKey = null; nestedKey = null
@@ -95,9 +95,9 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
       }
     }, HOVER_CLOSE_DELAY)
   }
-  const onDomainLeave = (e: any) => { if (!inMenuDomain(e?.relatedTarget ?? null)) scheduleClose() }
-  const onDomainEnter = () => cancelClose()
-  ctx.ui.onUnmount?.(() => { clearTimeout(closeTimer) })
+  const onDomainLeave = (e: any)=> { if (!inMenuDomain(e?.relatedTarget ?? null)) scheduleClose() }
+  const onDomainEnter = ()=> cancelClose()
+  ctx.ui.onUnmount?.(()=> { clearTimeout(closeTimer) })
 
   // 命令式弹窗（唯一形态 openPopup——多候选项共享 handle：匹配项调用 sync +
   // 渲染末尾兜底关闭——NavMenu 特殊模式）
@@ -107,12 +107,12 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
     if (openKey && !subHandle)
       subHandle = ctx.ui.openPopup({
         key: 'wf-navmenu-sub',
-        anchor: () => (openKey ? itemEls.get(openKey) ?? null : null),
+        anchor: ()=> (openKey ? itemEls.get(openKey) ?? null : null),
         placement: 'bottom',
         center: false, // 子菜单左对齐触发项
         gap: 4,
-        content: () => content,
-        onClose: () => { subHandle = null; if (openKey) { openKey = null; nestedKey = null; ctx.render() } },
+        content: ()=> content,
+        onClose: ()=> { subHandle = null; if (openKey) { openKey = null; nestedKey = null; ctx.render() } },
       })
     else if (subHandle) subHandle.update(content)
   }
@@ -122,12 +122,12 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
     if (nestedKey && !nestedHandle)
       nestedHandle = ctx.ui.openPopup({
         key: 'wf-navmenu-nested',
-        anchor: () => (nestedKey ? nestedEls.get(nestedKey) ?? null : null),
+        anchor: ()=> (nestedKey ? nestedEls.get(nestedKey) ?? null : null),
         placement: 'right',
         center: false,
         gap: 4,
-        content: () => content,
-        onClose: () => { nestedHandle = null; if (nestedKey) { nestedKey = null; ctx.render() } },
+        content: ()=> content,
+        onClose: ()=> { nestedHandle = null; if (nestedKey) { nestedKey = null; ctx.render() } },
       })
     else if (nestedHandle) nestedHandle.update(content)
   }
@@ -141,12 +141,12 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
   const renderSub = (
     items: NavMenuItem[],
     activeKey: string | undefined,
-    onSelect: ((key: string) => void) | undefined,
+    onSelect: ((key: string)=> void) | undefined,
     depth: number,
   ): any[] =>
     items.map(item => {
       const hasNested = !!item.children?.length
-      const activate = () => {
+      const activate = ()=> {
         if (item.disabled) return
         if (hasNested) {
           // 嵌套 hover 已展开——点击收起（或直接选中）
@@ -171,7 +171,7 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
           class: 'wf-navmenu-sub wf-navmenu-sub--nested wf-navmenu-sub--open',
           role: 'menu',
           ref: nestedPanelRef,
-          onMouseEnter: () => { cancelClose(); if (nestedKey !== item.key) { nestedKey = item.key; ctx.render() } },
+          onMouseEnter: ()=> { cancelClose(); if (nestedKey !== item.key) { nestedKey = item.key; ctx.render() } },
           onMouseLeave: onDomainLeave,
         }, renderSub(item.children || [], activeKey, onSelect, depth + 1)))
       }
@@ -185,10 +185,10 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
         'aria-disabled': item.disabled ? 'true' : undefined,
         ref: nestedRef(item.key),
         onClick: activate,
-        onKeyDown: (e: any) => {
+        onKeyDown: (e: any)=> {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); activate() }
         },
-        onMouseEnter: () => {
+        onMouseEnter: ()=> {
           cancelClose() // 移回菜单域——取消延迟关闭
           if (item.disabled) return
           if (hasNested) {
@@ -203,7 +203,7 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
     })
 
   // ── render（每次 dirty/props 变化）──
-  return (props: NavMenuProps) => {
+  return (props: NavMenuProps)=> {
     const { items, activeKey, onSelect } = props
 
     const navVn = h('nav', {
@@ -238,7 +238,7 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
         'aria-expanded': hasChildren && isOpen ? 'true' : undefined,
         ref: itemRef(item.key),
         tabIndex: item.disabled ? undefined : 0, // P1：可聚焦才可操作
-        onClick: () => {
+        onClick: ()=> {
           if (item.disabled) return
           if (hasChildren) {
             openKey = isOpen ? null : item.key
@@ -252,7 +252,7 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
             ctx.render()
           }
         },
-        onMouseEnter: () => {
+        onMouseEnter: ()=> {
           cancelClose() // 移回菜单域——取消延迟关闭
           // hover 打开子菜单（桌面主通道；移动端点击切换）
           if (item.disabled) return
@@ -264,7 +264,7 @@ export const NavMenu: Component<NavMenuProps> = (_init, ctx: UIContext) => {
             ctx.render()
           }
         },
-        onKeyDown: (e: any) => {
+        onKeyDown: (e: any)=> {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault?.()
             if (item.disabled) return

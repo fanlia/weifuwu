@@ -7,11 +7,11 @@ export interface CheckboxProps {
   label?: string
   checked?: boolean
   disabled?: boolean
-  onChange?: (checked: boolean) => void
+  onChange?: (checked: boolean)=> void
 }
 
-export const Checkbox: Component<CheckboxProps> = (_init, _ctx) =>
-  (props) => {
+export const Checkbox: Component<CheckboxProps> = (_init, _ctx)=>
+  (props)=> {
   const { label, checked, disabled, onChange } = props
 
   const input = h('input', {
@@ -19,7 +19,7 @@ export const Checkbox: Component<CheckboxProps> = (_init, _ctx) =>
     class: 'wf-checkbox-input',
     checked: checked || undefined,
     disabled: disabled || undefined,
-    onChange: onChange ? (e: Event) => onChange((e.target as HTMLInputElement).checked) : undefined,
+    onChange: onChange ? (e: Event)=> onChange((e.target as HTMLInputElement).checked) : undefined,
   })
 
   const visual = h('span', { class: 'wf-checkbox-visual' })

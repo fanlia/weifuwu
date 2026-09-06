@@ -27,12 +27,12 @@ export interface ReasoningBlockProps {
   streaming?: boolean
 }
 
-export const ReasoningBlock: Component<ReasoningBlockProps, UIContext> = (initProps, ctx) => {
+export const ReasoningBlock: Component<ReasoningBlockProps, UIContext> = (initProps, ctx)=> {
   let expanded = !!initProps.defaultExpanded
 
-  return (props) => {
+  return (props)=> {
     const { content, streaming, label = '已思考' } = props
-    const toggle = () => { expanded = !expanded; ctx.render() }
+    const toggle = ()=> { expanded = !expanded; ctx.render() }
 
     return h('div', {
       class: `wf-reasoning${streaming ? ' wf-reasoning--streaming' : ''}`,
@@ -42,7 +42,7 @@ export const ReasoningBlock: Component<ReasoningBlockProps, UIContext> = (initPr
         class: 'wf-reasoning-toggle',
         'aria-expanded': expanded,
         onClick: toggle,
-        onKeyDown: (e: any) => {
+        onKeyDown: (e: any)=> {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
         },
       }, [

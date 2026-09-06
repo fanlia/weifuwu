@@ -6,7 +6,7 @@
  * size/direction/wrap/align + split 分隔符。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -16,8 +16,7 @@ export interface SpaceProps {
   wrap?: boolean
   align?: 'start' | 'center' | 'end' | 'baseline'
   split?: any
-  children?: any
-}
+  children?: VNodeChild}
 
 const SIZE_MAP: Record<string, string> = {
   sm: 'var(--wf-space-sm, 8px)',
@@ -25,8 +24,8 @@ const SIZE_MAP: Record<string, string> = {
   lg: 'var(--wf-space-lg, 24px)',
 }
 
-export const Space: Component<SpaceProps> = (_init, _ctx: UIContext) =>
-  (props) => {
+export const Space: Component<SpaceProps> = (_init, _ctx: UIContext)=>
+  (props)=> {
     const { size = 'md', direction = 'horizontal', wrap, align, split, children } = props
     const gap = typeof size === 'number' ? `${size}px` : (SIZE_MAP[size] ?? 'var(--wf-space-md, 16px)')
 
@@ -35,7 +34,7 @@ export const Space: Component<SpaceProps> = (_init, _ctx: UIContext) =>
       kids = children
       if (split !== undefined) {
         const withSplit: any[] = []
-        children.forEach((c, i) => {
+        children.forEach((c, i)=> {
           if (i > 0) withSplit.push(h('span', { class: 'wf-space-split', key: `s${i}` }, split))
           withSplit.push(c)
         })

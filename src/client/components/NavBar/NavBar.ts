@@ -33,7 +33,7 @@ export interface NavBarProps {
   className?: string
 }
 
-export const NavBar: Component<NavBarProps> = (_init, _ctx) => (props) => {
+export const NavBar: Component<NavBarProps> = (_init, _ctx)=> (props)=> {
   const { title, left, right, align = 'center', fixed, className } = props
   return h('header', {
     class: ['wf-nav-bar', fixed ? 'wf-nav-bar--fixed' : '', className ?? ''].filter(Boolean).join(' '),

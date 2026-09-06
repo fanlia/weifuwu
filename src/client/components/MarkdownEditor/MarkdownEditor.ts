@@ -11,7 +11,7 @@ import { Markdown } from '../Markdown/Markdown.ts'
 
 export interface MarkdownEditorProps {
   value: string
-  onChange?: (value: string) => void
+  onChange?: (value: string)=> void
   placeholder?: string
   /** 初始模式：'write' | 'preview' | 'split'（默认 split） */
   mode?: 'write' | 'preview' | 'split'
@@ -20,15 +20,15 @@ export interface MarkdownEditorProps {
   className?: string
 }
 
-export const MarkdownEditor: Component<MarkdownEditorProps> = (_init, ctx) => {
+export const MarkdownEditor: Component<MarkdownEditorProps> = (_init, ctx)=> {
   let mode: 'write' | 'preview' | 'split' = 'split'
-  return (props) => {
+  return (props)=> {
     const { value, onChange, placeholder = '输入 Markdown…', rows = 12, disabled, className = '' } = props
     mode = props.mode ?? mode
     if (onChange === undefined && !disabled) {
       console.warn('[weifuwu] MarkdownEditor: 传入了受控 value 但缺少 onChange 回调——编辑将静默失效')
     }
-    const onInput = (e: any) => { onChange?.((e.target as HTMLTextAreaElement).value) }
+    const onInput = (e: any)=> { onChange?.((e.target as HTMLTextAreaElement).value) }
     const editor = h('textarea', {
       class: 'wf-md-editor-textarea wf-input',
       value,
@@ -37,7 +37,7 @@ export const MarkdownEditor: Component<MarkdownEditorProps> = (_init, ctx) => {
       disabled,
       'data-wf-role': 'md-editor',
       onInput,
-      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Tab') { e.preventDefault(); onChange?.(value + '  ') } },
+      onKeyDown: (e: KeyboardEvent)=> { if (e.key === 'Tab') { e.preventDefault(); onChange?.(value + '  ') } },
       style: { fontFamily: 'var(--wf-font-mono)', fontSize: 13, lineHeight: 1.7, resize: 'vertical', minHeight: 80 },
     })
     const preview = h('div', { class: 'wf-md-editor-preview wf-surface wf-border wf-radius-sm', style: { padding: '10px 14px', minHeight: 80, overflow: 'auto' } },
@@ -45,12 +45,12 @@ export const MarkdownEditor: Component<MarkdownEditorProps> = (_init, ctx) => {
     return h('div', { class: `wf-md-editor wf-stack wf-gap-xs${className ? ` ${className}` : ''}` }, [
       h('div', { class: 'wf-row wf-gap-xs' }, [
         ['write', '编辑'], ['preview', '预览'], ['split', '分屏'],
-      ].map(([k, label]) =>
+      ].map(([k, label])=>
         h('button', {
           key: k,
           type: 'button',
           class: `wf-btn wf-btn--sm${mode === k ? ' wf-btn--primary' : ''}`,
-          onClick: () => { mode = k as 'write' | 'preview' | 'split'; ctx.render() },
+          onClick: ()=> { mode = k as 'write' | 'preview' | 'split'; ctx.render() },
         }, label))),
       mode === 'preview' ? preview
         : mode === 'write' ? editor

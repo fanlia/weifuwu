@@ -16,11 +16,11 @@ export interface TextareaProps {
   maxLength?: number
   /** 显示字数统计（右下角；配合受控 value 实时更新） */
   showCount?: boolean
-  onInput?: (e: Event) => void
+  onInput?: (e: Event)=> void
 }
 
-export const Textarea: Component<TextareaProps> = (_init, _ctx) =>
-  (props) => {
+export const Textarea: Component<TextareaProps> = (_init, _ctx)=>
+  (props)=> {
   const { label, value, placeholder, required, disabled, error, hint, rows = 3, maxLength, showCount, onInput } = props
 
   const textareaEl = h('textarea', {

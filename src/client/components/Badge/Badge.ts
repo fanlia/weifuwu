@@ -1,5 +1,5 @@
 /** Badge：状态标签 + 圆点，6 种 variant（showcase /components/badge） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -8,7 +8,7 @@ export type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'dang
 export interface BadgeProps {
   variant?: BadgeVariant
   dot?: boolean
-  children?: any
+  children?: VNodeChild
   /** 数值角标（与 children 互斥；超出 overflowCount 显示 N+） */
   count?: number
   /** 数值溢出阈值，默认 99（count > 阈值 → 阈值+） */
@@ -17,8 +17,8 @@ export interface BadgeProps {
   showZero?: boolean
 }
 
-export const Badge: Component<BadgeProps> = (_init, _ctx) =>
-  (props) => {
+export const Badge: Component<BadgeProps> = (_init, _ctx)=>
+  (props)=> {
   const { variant = 'default', dot, children, count, overflowCount = 99, showZero = false, ...rest } = props
 
   // rest 透传（data-*/aria 自定义属性——测试定位/埋点基线，2027-XX 补齐）

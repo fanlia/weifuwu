@@ -1,18 +1,17 @@
 /** Tag：标签，支持 closable/onClose（showcase /components/tag） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface TagProps {
   closable?: boolean
-  onClose?: () => void
+  onClose?: ()=> void
   variant?: 'default' | 'primary' | 'success' | 'danger'
-  children?: any
-}
+  children?: VNodeChild}
 
-export const Tag: Component<TagProps> = (_init, _ctx) =>
-  (props) => {
+export const Tag: Component<TagProps> = (_init, _ctx)=>
+  (props)=> {
   const { closable, onClose, variant = 'default', children } = props
 
   const closeBtn = closable

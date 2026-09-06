@@ -1,5 +1,5 @@
 /** Form：内置验证规则：required/pattern/minLength/自定义（showcase /components/form） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -10,18 +10,17 @@ export interface ValidationRule {
   maxLength?: number
   message: string
   /** 自定义验证函数，返回 true = 通过，false/string = 失败（string 会覆盖 message） */
-  validator?: (value: any) => boolean | string | Promise<boolean | string>
+  validator?: (value: any)=> boolean | string | Promise<boolean | string>
 }
 
 export interface FormProps {
   /** 提交回调，接收字段名→值的对象 */
-  onSubmit?: (values: Record<string, any>) => void | Promise<void>
+  onSubmit?: (values: Record<string, any>)=> void | Promise<void>
   /** 验证规则：字段名 → 规则数组 */
   validation?: Record<string, ValidationRule[]>
   /** 验证失败时回调，接收字段名→错误消息的对象 */
-  onError?: (errors: Record<string, string>) => void
-  children?: any
-}
+  onError?: (errors: Record<string, string>)=> void
+  children?: VNodeChild}
 
 /** 验证函数：字段值 → 验证规则 → 错误消息 */
 export async function validateValues(
@@ -65,11 +64,11 @@ export async function validateValues(
   return errors
 }
 
-export const Form: Component<FormProps> = (_init, _ctx) =>
-  (props) => {
+export const Form: Component<FormProps> = (_init, _ctx)=>
+  (props)=> {
   const { validation, onSubmit, onError, children } = props
 
-  const handleSubmit = async (e: Event) => {
+  const handleSubmit = async (e: Event)=> {
     e.preventDefault()
     const form = e.target as HTMLFormElement
     const data = new FormData(form)

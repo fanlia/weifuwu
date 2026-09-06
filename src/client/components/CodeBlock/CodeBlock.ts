@@ -19,23 +19,23 @@ export interface CodeBlockProps {
   title?: string
 }
 
-export const CodeBlock: Component<CodeBlockProps> = (_init, ctx) => {
+export const CodeBlock: Component<CodeBlockProps> = (_init, ctx)=> {
   let copied = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let latestCode = ''
   // 定时器纪律（AGENTS.md #12）：创建在事件回调内（合法窗口）——卸载时
   // 未触发的复位定时器必清（否则卸载后 ctx.render 违例报错）
-  ctx.ui.hold(() => { if (timer) clearTimeout(timer) })
+  ctx.ui.hold(()=> { if (timer) clearTimeout(timer) })
 
-  const copy = async () => {
+  const copy = async ()=> {
     await ctx.browser?.copyText(latestCode)
     copied = true
     ctx.render()
     clearTimeout(timer)
-    timer = setTimeout(() => { copied = false; ctx.render() }, 1600)
+    timer = setTimeout(()=> { copied = false; ctx.render() }, 1600)
   }
 
-  return (props: CodeBlockProps) => {
+  return (props: CodeBlockProps)=> {
     const { code, lang, title } = props
     latestCode = code
 
@@ -58,7 +58,7 @@ export const CodeBlock: Component<CodeBlockProps> = (_init, ctx) => {
 
     // 语法高亮：tokenize → span（text 类型不包 span——保持 DOM 轻量）
     const highlighted = code
-      ? tokenize(code, lang).map((t, i) =>
+      ? tokenize(code, lang).map((t, i)=>
           t.type === 'text'
             ? t.text
             : h('span', { class: `wf-hl-${t.type}` }, t.text))

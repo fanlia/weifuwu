@@ -1,5 +1,5 @@
 /** JsonSchemaForm：JSON Schema → 参数输入表单：类型映射 + 必填/范围校验 + 嵌套/数组（AI 工具参数输入面）（showcase /components/jsonschemaform） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Field } from '../Field/Field.ts'
@@ -50,9 +50,9 @@ export interface JsonSchemaFormProps {
   /** 初始值（非受控语义）；内部状态由编辑驱动 */
   value?: Record<string, any>
   /** 每次编辑通知（父层可读最新值；不回流控制） */
-  onChange?: (values: Record<string, any>) => void
+  onChange?: (values: Record<string, any>)=> void
   /** 提交（校验通过才触发）；不传则不渲染提交按钮 */
-  onSubmit?: (values: Record<string, any>) => void
+  onSubmit?: (values: Record<string, any>)=> void
   submitLabel?: string
 }
 
@@ -113,7 +113,7 @@ function validateField(s: JsonSchema, val: any, required = false): string | unde
   return undefined
 }
 
-export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initProps, ctx) => {
+export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initProps, ctx)=> {
   // ── 手动状态（组件库纪律：let + render()；value 仅初始值）──
   let values: Record<string, any> = cloneValues(initProps.value)
 
@@ -124,19 +124,19 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initPr
 
   // ── 字段渲染 ──────────────────────────────────────────
 
-  function renderField(key: string, s: JsonSchema, path: string[], value: any, errors: Record<string, string>, required = false): any {
+  function renderField(key: string, s: JsonSchema, path: string[], value: VNodeChild, errors: Record<string, string>, required = false): any {
     const err = errors[path.join('.')]
     const label = s.title ?? key
 
     // enum（string/number）→ Select
     if (s.enum?.length) {
-      const options = s.enum.map((v) => ({ value: String(v), label: String(v) }))
+      const options = s.enum.map((v)=> ({ value: String(v), label: String(v) }))
       return h(Field, { key, label, required, error: err, hint: s.description }, h(Select, {
         value: value == null ? undefined : String(value),
         options,
         error: err,
-        onChange: (v2: any) => {
-          setPath(values, path, v2 == null ? undefined : s.enum?.find((e) => String(e) === v2))
+        onChange: (v2: any)=> {
+          setPath(values, path, v2 == null ? undefined : s.enum?.find((e)=> String(e) === v2))
           emit()
         },
       }))
@@ -150,26 +150,26 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initPr
           min: s.minimum,
           max: s.maximum,
           error: err,
-          onChange: (v2: number | null) => { setPath(values, path, v2 ?? undefined); emit() },
+          onChange: (v2: number | null)=> { setPath(values, path, v2 ?? undefined); emit() },
         }))
       }
       case 'boolean': {
         return h(Field, { key, label, required, error: err, hint: s.description }, h(Switch, {
           checked: !!value,
-          onChange: (v2: boolean) => { setPath(values, path, v2); emit() },
+          onChange: (v2: boolean)=> { setPath(values, path, v2); emit() },
         }))
       }
       case 'object': {
         // 嵌套对象：折叠区容器（递归渲染 properties）
         return h('div', { key, class: 'wf-jsf-obj' }, [
           h('div', { class: 'wf-jsf-obj-title' }, [label, required ? h('span', { class: 'wf-field-req' }, '*') : null]),
-          ...Object.entries(s.properties ?? {}).map(([k, sub]) =>
+          ...Object.entries(s.properties ?? {}).map(([k, sub])=>
             renderField(k, sub, [...path, k], getPath(values, [...path, k]), errors, s.required?.includes(k))),
         ])
       }
       case 'array': {
         const arr = Array.isArray(value) ? value : []
-        const items = arr.map((_it: unknown, i: number) => {
+        const items = arr.map((_it: unknown, i: number)=> {
           const itemPath = [...path, String(i)]
           return h('div', { key: i, class: 'wf-jsf-arr-item' }, [
             renderArrayItem(String(i), s.items ?? {}, itemPath, arr[i], errors),
@@ -177,7 +177,7 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initPr
               type: 'button',
               class: 'wf-jsf-arr-del',
               'aria-label': `删除 ${label} 第 ${i + 1} 项`,
-              onClick: () => {
+              onClick: ()=> {
                 const cur = Array.isArray(getPath(values, path)) ? [...getPath(values, path)] : []
                 cur.splice(i, 1)
                 setPath(values, path, cur)
@@ -187,12 +187,12 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initPr
           ])
         })
         return h('div', { key, class: 'wf-jsf-arr' }, [
-          h('div', { class: 'wf-jsf-obj-title' }, [label, h('span', { class: 'wf-jsf-arr-add', role: 'button', tabindex: 0, 'aria-label': `添加 ${label} 项`, onClick: () => {
+          h('div', { class: 'wf-jsf-obj-title' }, [label, h('span', { class: 'wf-jsf-arr-add', role: 'button', tabindex: 0, 'aria-label': `添加 ${label} 项`, onClick: ()=> {
             const cur = Array.isArray(getPath(values, path)) ? [...getPath(values, path)] : []
             cur.push(undefined)
             setPath(values, path, cur)
             emit()
-          }, onKeyDown: (e: any) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (e.target as HTMLElement).click() } } }, h(Icon, { name: 'plus' }))]),
+          }, onKeyDown: (e: any)=> { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (e.target as HTMLElement).click() } } }, h(Icon, { name: 'plus' }))]),
           ...items,
         ])
       }
@@ -202,7 +202,7 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initPr
         if (s.$ref) unsupported(key, `$ref 引用（${s.$ref}）`)
         return h(Field, { key, label, required, error: err, hint: s.description }, h(Input, {
           value: value == null ? '' : String(value),
-          onInput: (e: Event) => {
+          onInput: (e: Event)=> {
             setPath(values, path, (e.target as HTMLInputElement).value)
             emit()
           },
@@ -212,13 +212,13 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initPr
   }
 
   /** 数组项控件（标量 items；对象 items 裁剪——诚实登记 docs/client.md#能力裁剪登记） */
-  function renderArrayItem(k: string, s: JsonSchema, path: string[], value: any, errors: Record<string, string>): any {
+  function renderArrayItem(k: string, s: JsonSchema, path: string[], value: VNodeChild, errors: Record<string, string>): any {
     if (s.enum?.length) {
-      const options = s.enum.map((v) => ({ value: String(v), label: String(v) }))
+      const options = s.enum.map((v)=> ({ value: String(v), label: String(v) }))
       return h(Select, {
         value: value == null ? undefined : String(value),
         options,
-        onChange: (v2: any) => { setDeep(values, path, s.enum?.find((e) => String(e) === v2)); emit() },
+        onChange: (v2: any)=> { setDeep(values, path, s.enum?.find((e)=> String(e) === v2)); emit() },
       })
     }
     switch (s.type) {
@@ -226,12 +226,12 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initPr
       case 'integer':
         return h(InputNumber, {
           value: value == null ? null : Number(value),
-          onChange: (v2: number | null) => { setDeep(values, path, v2 ?? undefined); emit() },
+          onChange: (v2: number | null)=> { setDeep(values, path, v2 ?? undefined); emit() },
         })
       case 'boolean':
         return h(Switch, {
           checked: !!value,
-          onChange: (v2: boolean) => { setDeep(values, path, v2); emit() },
+          onChange: (v2: boolean)=> { setDeep(values, path, v2); emit() },
         })
       case 'object':
         unsupported(path.join('.'), '数组对象 items（对象数组）')
@@ -239,13 +239,13 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initPr
       default:
         return h(Input, {
           value: value == null ? '' : String(value),
-          onInput: (e: Event) => { setDeep(values, path, (e.target as HTMLInputElement).value); emit() },
+          onInput: (e: Event)=> { setDeep(values, path, (e.target as HTMLInputElement).value); emit() },
         })
     }
   }
 
   // ── render（每次 render()/props 变化）──
-  return (props) => {
+  return (props)=> {
     // 初始值只取一次（mount 时 value 是 initProps）；render 期 props.value 变化不回流
     // （非受控语义，文档注明）
     const schema = props.schema
@@ -264,14 +264,14 @@ export const JsonSchemaForm: Component<JsonSchemaFormProps, UIContext> = (initPr
       collectErrors(sub, [k], schema.required?.includes(k))
     }
 
-    const fields = Object.entries(schema.properties ?? {}).map(([k, sub]) =>
+    const fields = Object.entries(schema.properties ?? {}).map(([k, sub])=>
       renderField(k, sub, [k], getPath(values, [k]), errors, schema.required?.includes(k)))
 
     const submitBtn = props.onSubmit
       ? h('button', {
           type: 'button',
           class: 'wf-btn wf-btn--primary wf-jsf-submit',
-          onClick: () => {
+          onClick: ()=> {
             // 提交时重新校验（errors 已在 render 期计算，此处直接判定）
             if (Object.keys(errors).length > 0) return
             props.onSubmit?.(values)

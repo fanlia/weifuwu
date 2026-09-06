@@ -116,11 +116,11 @@ const renderToken = (t: Token): any => {
 }
 
 function renderInline(tokens: Token[]): any[] {
-  return tokens.map((t, i) => h('span', { key: i, class: 'wf-math-token' }, renderToken(t)))
+  return tokens.map((t, i)=> h('span', { key: i, class: 'wf-math-token' }, renderToken(t)))
 }
 
-export const Math: Component<MathProps> = (_init: any) =>
-  (props) => {
+export const Math: Component<MathProps> = (_init: any)=>
+  (props)=> {
     const { tex, className = '' } = props
     return h('span', { class: `wf-math${className ? ` ${className}` : ''}`, style: { fontFamily: 'var(--wf-font-mono)', whiteSpace: 'nowrap' } }, renderInline(parse(tex)))
   }

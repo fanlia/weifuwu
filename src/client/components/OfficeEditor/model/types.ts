@@ -130,7 +130,7 @@ export interface OfficeAiOptions {
   /** 上下文模式（docType 感知默认：docx→text / xlsx→formula / pptx→shape） */
   mode: 'text' | 'formula' | 'shape'
   /** 自定义解析（默认按 mode：公式/值/文本 → OfficeOp[]） */
-  parse?: (text: string, ctx: AiContext) => OfficeOp[]
+  parse?: (text: string, ctx: AiContext)=> OfficeOp[]
 }
 
 export interface AiContext {

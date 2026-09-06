@@ -16,7 +16,7 @@
  *
  * ```tsx
  * const $ = ctx.ui.useChat({ url: '/api/chat', approveUrl: '/api/approve' })  // audit-exempt: 用法示例文档（组件契约 = 接收 useChat handle）
- * return () => h(AiChat, { chat: $ })
+ * return ()=> h(AiChat, { chat: $ })
  * ```
  */
 
@@ -38,9 +38,9 @@ export interface AiChatLabels {
   stop: string
   retry: string
   thinking: string
-  runningTool: (name?: string) => string
-  tokens: (u: WfUsage) => string
-  error: (e: WfError) => string
+  runningTool: (name?: string)=> string
+  tokens: (u: WfUsage)=> string
+  error: (e: WfError)=> string
   placeholder: string
   empty: string
 }
@@ -53,12 +53,12 @@ export interface AiChatProps {
   /** 界面文案覆盖 */
   labels?: Partial<AiChatLabels>
   /** 自定义气泡渲染逃生舱（默认纯文本） */
-  renderMessage?: (msg: UiMessage) => any
+  renderMessage?: (msg: UiMessage)=> any
   /** 工具参数渲染（透传 ToolCallCard） */
-  renderToolArgs?: (args: Record<string, unknown>) => any
+  renderToolArgs?: (args: Record<string, unknown>)=> any
   /** 审批修改参数：按审批请求返回工具参数 schema（返回 undefined 则审批卡无修改入口；
    *  提交修改后参数 → chat.approve('modified', …)——后端按 modifiedArgs 执行） */
-  approveSchema?: (request: WfApprovalRequest) => JsonSchema | undefined
+  approveSchema?: (request: WfApprovalRequest)=> JsonSchema | undefined
   /** 键盘弹起时输入区 fixed 抬升（全屏 chat 布局用；内联卡片默认 false——原生聚焦滚动已够） */
   raiseOnKeyboard?: boolean
 }
@@ -68,16 +68,16 @@ const defaultLabels: AiChatLabels = {
   stop: '停止',
   retry: '重试',
   thinking: '🤔 思考中…',
-  runningTool: (name) => (name ? `执行工具 ${name}` : '执行工具…'),
-  tokens: (u) => `tokens: ${u.prompt_tokens}→${u.completion_tokens}`,
-  error: (e) => `${e.code}: ${e.message}`,
+  runningTool: (name)=> (name ? `执行工具 ${name}` : '执行工具…'),
+  tokens: (u)=> `tokens: ${u.prompt_tokens}→${u.completion_tokens}`,
+  error: (e)=> `${e.code}: ${e.message}`,
   placeholder: '输入消息，回车发送…',
   empty: '输入消息开始对话。',
 }
 
 // ── 组件 ─────────────────────────────────────────────────
 
-export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
+export const AiChat: Component<AiChatProps> = (initProps, ctx)=> {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── 手动状态（组件库约定：let + 事件，不依赖 $）──
   let listEl: HTMLElement | undefined
@@ -88,31 +88,31 @@ export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
   // 订阅：任何会话状态变化 → 自身重渲染。**跟随最新 chat**（父换 handle → 重新订阅——
   // 防“订阅旧 handle：新会话流式更新但界面无输出”——真实事故：父组件违反稳定契约传新 handle）
   let currentChat: UseChatHandle = initProps.chat
-  let unsubChat: (() => void) | undefined
-  const resubscribe = () => {
+  let unsubChat: (()=> void) | undefined
+  const resubscribe = ()=> {
     unsubChat?.()
-    const c = currentChat as UseChatHandle & { subscribe?: (cb: () => void) => () => void }
-    unsubChat = c?.subscribe ? c.subscribe(() => ctx.render()) : undefined
+    const c = currentChat as UseChatHandle & { subscribe?: (cb: ()=> void) => ()=> void }
+    unsubChat = c?.subscribe ? c.subscribe(()=> ctx.render()) : undefined
   }
   resubscribe()
   // 卸载退订（ref 纪律：稳定 ref + null 分支只在真卸载触发）
-  const rootRef = (el: any) => { if (!el) { unsubChat?.(); unsubChat = undefined } }
+  const rootRef = (el: any)=> { if (!el) { unsubChat?.(); unsubChat = undefined } }
 
   // 可视视口跟踪：虚拟键盘弹起时输入区抬升到键盘上方（fixed 底部栏场景）
   const vv = ctx.ui.useVisualViewport()
 
-  const scrollToBottom = () => {
+  const scrollToBottom = ()=> {
     if (listEl) listEl.scrollTop = listEl.scrollHeight
   }
 
   // 滚动位置跟踪（useScrollPosition：全局 scroll 监听 + rAF 节流，替代自建 listEl scroll 监听）。
   // y 响应式变化自动 dirty → render 里重算 stickToBottom（贴底判定，距底 <48px 视为贴底）。
-  const scroll = ctx.ui.useScrollPosition({ getScroller: () => listEl ?? null })
+  const scroll = ctx.ui.useScrollPosition({ getScroller: ()=> listEl ?? null })
 
   // 稳定 ref 函数：跨渲染保持同一引用。
   // weifuwu 的 ref-diff 在 ref 函数引用变化时调用旧 ref(null)——若 ref 内联在 render 里，
   // 每次重渲染都会触发 null 分支（退订 watcher / 移除监听），必须把 ref 定义在 mount 作用域。
-  const listRef = (el: any) => {
+  const listRef = (el: any)=> {
     if (el && !listEl) {
       listEl = el
       scroll.refresh() // 初始 y
@@ -123,7 +123,7 @@ export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
   }
 
   // ── render（每次 dirty/props 变化）──
-  return (props) => {
+  return (props)=> {
     const { chat, raiseOnKeyboard = false } = props
     const labels: AiChatLabels = { ...defaultLabels, ...props.labels }
 
@@ -178,15 +178,15 @@ export const AiChat: Component<AiChatProps> = (initProps, ctx) => {
       }, [
         h(ChatInput, {
           value: chat.input ?? '',
-          onChange: (v: string) => { chat.setInput(v) }, // 输入期每键同步共享 handle（发送读 state.input）
-          onSend: (text: string) => {
+          onChange: (v: string)=> { chat.setInput(v) }, // 输入期每键同步共享 handle（发送读 state.input）
+          onSend: (text: string)=> {
             chat.setInput(text) // 写入共享 handle（send 读 state.input）
             chat.send()
           },
           streaming: chat.streaming,
-          onStop: () => chat.stop(),
+          onStop: ()=> chat.stop(),
           error: chat.error ? chat.error.message : null,
-          onRetry: () => chat.retry(),
+          onRetry: ()=> chat.retry(),
           labels: { send: labels.send, stop: labels.stop, retry: labels.retry, placeholder: labels.placeholder },
         }),
       ]),
@@ -200,7 +200,7 @@ function renderMessage(m: UiMessage, props: AiChatProps, _labels: AiChatLabels):
   const nodes: any[] = []
 
   if (m.toolCalls?.length) {
-    const cards = m.toolCalls.map((tc, i) =>
+    const cards = m.toolCalls.map((tc, i)=>
       h(ToolCallCard, {
         key: `${m.id}-tool-${i}`,
         call: tc.call,
@@ -215,8 +215,8 @@ function renderMessage(m: UiMessage, props: AiChatProps, _labels: AiChatLabels):
     const card = h(ApprovalCard, {
       request: m.approval,
       argsSchema: props.approveSchema?.(m.approval),
-      onApprove: (modifiedArgs?: Record<string, unknown>) => props.chat.approve(modifiedArgs ? 'modified' : 'approved', undefined, modifiedArgs),
-      onReject: (note?: string) => props.chat.approve('rejected', note ?? '用户拒绝'),
+      onApprove: (modifiedArgs?: Record<string, unknown>)=> props.chat.approve(modifiedArgs ? 'modified' : 'approved', undefined, modifiedArgs),
+      onReject: (note?: string)=> props.chat.approve('rejected', note ?? '用户拒绝'),
     })
     nodes.push(h('div', { class: 'wf-aichat-approval' }, card))
   }

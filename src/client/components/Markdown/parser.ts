@@ -49,7 +49,7 @@ export function parseInline(src: string): MdInline[] {
   let i = 0
   let buf = ''
 
-  const flush = () => {
+  const flush = ()=> {
     if (buf) { out.push({ type: 'text', text: buf }); buf = '' }
   }
 
@@ -135,7 +135,7 @@ export function parseMarkdown(content: string): MdBlock[] {
   const blocks: MdBlock[] = []
   let i = 0
 
-  const push = (b: MdBlock) => {
+  const push = (b: MdBlock)=> {
     // 连续空行合并
     if (b.type === 'paragraph' && b.inline!.length === 0) return
     blocks.push(b)
@@ -189,7 +189,7 @@ export function parseMarkdown(content: string): MdBlock[] {
     // GFM 表格：| a | b | 后跟 | --- | :---: | 分隔行
     const tableHdr = line.match(/^\|(.+)\|\s*$/)
     if (tableHdr && i + 1 < lines.length && /^\|?[\s:|-]+\|?[\s:|-]*$/.test(lines[i + 1]) && lines[i + 1].includes('-')) {
-      const splitRow = (r: string) => r.replace(/^\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim())
+      const splitRow = (r: string)=> r.replace(/^\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim())
       const headers = splitRow(line)
       // 对齐行
       const aligns = splitRow(lines[i + 1]).map(c => {
@@ -216,7 +216,7 @@ export function parseMarkdown(content: string): MdBlock[] {
     if (taskM || ul) {
       const items: MdInline[][] = []
       const checks: (boolean | null)[] = []
-      const add = (raw: string) => {
+      const add = (raw: string)=> {
         const tm = raw.match(taskRe)
         if (tm) { items.push(parseInline(tm[2])); checks.push(tm[1].toLowerCase() === 'x') }
         else { const m = raw.match(/^\s*[-*+]\s+(.+)$/); items.push(parseInline(m ? m[1] : raw)); checks.push(null) }

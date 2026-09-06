@@ -12,11 +12,11 @@ export interface BreadcrumbProps {
   items: BreadcrumbItem[]
 }
 
-export const Breadcrumb: Component<BreadcrumbProps> = (_init, _ctx) =>
-  (props) => {
+export const Breadcrumb: Component<BreadcrumbProps> = (_init, _ctx)=>
+  (props)=> {
     const { items } = props
 
-    const children = items.flatMap((item, i) => {
+    const children = items.flatMap((item, i)=> {
       const isLast = i === items.length - 1
       const el = isLast
         ? h('span', { class: 'wf-breadcrumb-current', 'aria-current': 'page' }, item.label)

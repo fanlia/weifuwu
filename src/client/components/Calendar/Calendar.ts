@@ -18,8 +18,8 @@ export interface CalendarProps {
   /** 受控年月：month 0-11，year 四位数 */
   month?: number
   year?: number
-  onMonthChange?: (month: number, year: number) => void
-  onSelectDate?: (date: string) => void
+  onMonthChange?: (month: number, year: number)=> void
+  onSelectDate?: (date: string)=> void
   selectedDate?: string
   'aria-label'?: string
 }
@@ -28,13 +28,13 @@ const MONTH_NAMES = ['1 月', '2 月', '3 月', '4 月', '5 月', '6 月', '7 �
 
 /** 月历（对应 antd/EP Calendar）：月视图网格 + 事件点 + 月切换 + 日期选择。
  * 裁剪（CS-05，见 docs/client.md）：周/日视图、拖拽创建事件、事件详情弹层。 */
-export const Calendar: Component<CalendarProps> = (_init, ctx) => {
+export const Calendar: Component<CalendarProps> = (_init, ctx)=> {
   // render-only：内部状态 let + 显式 render（非受控月份）
   const now = new Date()
   let viewMonth = now.getMonth()
   let viewYear = now.getFullYear()
 
-  return (props) => {
+  return (props)=> {
     const {
       events = [], month, year, onMonthChange, onSelectDate, selectedDate,
       'aria-label': ariaLabel,
@@ -44,10 +44,10 @@ export const Calendar: Component<CalendarProps> = (_init, ctx) => {
     const currentMonth: number = isControlled ? month : viewMonth
     const currentYear: number = isControlled ? year : viewYear
 
-    const shiftMonth = (delta: number) => {
+    const shiftMonth = (delta: number)=> {
       if (isControlled && !onMonthChange) {
         // 受控（month/year 已传）但无 onMonthChange：点击无法切换——开发期提示（与 Collapse/Tree 一致）
-        console.warn(`[weifuwu/Calendar] 受控模式（month/year 已传）但未提供 onMonthChange，月份切换无法生效。\n非受控：去掉 month/year；受控：传入 onMonthChange={(m, y) => setView(m, y)}`)
+        console.warn(`[weifuwu/Calendar] 受控模式（month/year 已传）但未提供 onMonthChange，月份切换无法生效。\n非受控：去掉 month/year；受控：传入 onMonthChange={(m, y)=> setView(m, y)}`)
         return
       }
       let m = currentMonth + delta
@@ -58,7 +58,7 @@ export const Calendar: Component<CalendarProps> = (_init, ctx) => {
       else { viewMonth = m; viewYear = y; ctx.render() }
     }
 
-    const goToday = () => {
+    const goToday = ()=> {
       if (isControlled) onMonthChange?.(now.getMonth(), now.getFullYear())
       else { viewMonth = now.getMonth(); viewYear = now.getFullYear(); ctx.render() }
     }
@@ -69,13 +69,13 @@ export const Calendar: Component<CalendarProps> = (_init, ctx) => {
     const header = h('div', { class: 'wf-calendar-header' }, [
       h('div', { class: 'wf-calendar-title' }, `${currentYear} 年 ${MONTH_NAMES[currentMonth]}`),
       h('div', { class: 'wf-calendar-nav' }, [
-        h('button', { type: 'button', class: 'wf-calendar-nav-btn', 'aria-label': '上个月', onClick: () => shiftMonth(-1) }, h(Icon, { name: 'chevron-left', size: 14 })),
+        h('button', { type: 'button', class: 'wf-calendar-nav-btn', 'aria-label': '上个月', onClick: ()=> shiftMonth(-1) }, h(Icon, { name: 'chevron-left', size: 14 })),
         h('button', { type: 'button', class: 'wf-calendar-nav-btn', 'aria-label': '今天', onClick: goToday }, '今天'),
-        h('button', { type: 'button', class: 'wf-calendar-nav-btn', 'aria-label': '下个月', onClick: () => shiftMonth(1) }, h(Icon, { name: 'chevron-right', size: 14 })),
+        h('button', { type: 'button', class: 'wf-calendar-nav-btn', 'aria-label': '下个月', onClick: ()=> shiftMonth(1) }, h(Icon, { name: 'chevron-right', size: 14 })),
       ]),
     ])
 
-    const weeks = grid.map((week, wi) => {
+    const weeks = grid.map((week, wi)=> {
       const cells = week.map(day => {
         const dateStr = formatDate(day.year, day.month, day.day)
         const dayEvents = events.filter(e => e.date === dateStr)
@@ -90,8 +90,8 @@ export const Calendar: Component<CalendarProps> = (_init, ctx) => {
           key: `${day.year}-${day.month}-${day.day}`,
           role: 'button',
           tabIndex: 0, // P1：可点击必须可聚焦（否则键盘用户无法选择日期）
-          onClick: () => onSelectDate?.(dateStr),
-          onKeyDown: (e: KeyboardEvent) => {
+          onClick: ()=> onSelectDate?.(dateStr),
+          onKeyDown: (e: KeyboardEvent)=> {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDate?.(dateStr) }
           },
         }, [
@@ -110,7 +110,7 @@ export const Calendar: Component<CalendarProps> = (_init, ctx) => {
     })
 
     const gridView = h('div', { class: 'wf-calendar-grid' }, [
-      h('div', { class: 'wf-calendar-weekdays' }, weekdays.map((d, i) =>
+      h('div', { class: 'wf-calendar-weekdays' }, weekdays.map((d, i)=>
         h('div', { class: 'wf-calendar-weekday', key: i }, d))),
       ...weeks,
     ])

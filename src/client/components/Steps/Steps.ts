@@ -16,13 +16,13 @@ export interface StepsProps {
   current?: number
 }
 
-export const Steps: Component<StepsProps> = (_init, _ctx) =>
-  (props) => {
+export const Steps: Component<StepsProps> = (_init, _ctx)=>
+  (props)=> {
   const { items = [], active, current = 0 } = props
 
   const activeKey = active ?? items[current]?.key
 
-  const steps = items.map((item, i) => {
+  const steps = items.map((item, i)=> {
     const idx = items.findIndex(s => s.key === activeKey)
     const isDone = i < idx
     const isCurrent = i === idx

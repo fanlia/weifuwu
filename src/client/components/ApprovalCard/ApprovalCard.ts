@@ -14,8 +14,8 @@ import type { WfApprovalRequest } from '../../../server/ai/types.ts'
  * ```tsx
  * <ApprovalCard
  *   request={approvalReq}
- *   onApprove={() => respond('approved')}
- *   onReject={(note) => respond('rejected', note)}
+ *   onApprove={()=> respond('approved')}
+ *   onReject={(note)=> respond('rejected', note)}
  * />
  * ```
  */
@@ -27,11 +27,11 @@ export interface ApprovalCardProps {
   /** 卡片状态（默认 pending） */
   status?: ApprovalStatus
   /** 用户点"允许"（modified 决策时带修改后参数——父层据此选 decision） */
-  onApprove?: (modifiedArgs?: Record<string, unknown>) => void
+  onApprove?: (modifiedArgs?: Record<string, unknown>)=> void
   /** 用户点"拒绝"，note 为可选备注（进 agent 上下文） */
-  onReject?: (note?: string) => void
+  onReject?: (note?: string)=> void
   /** 自定义详情渲染（默认显示 name + args） */
-  renderDetail?: (request: WfApprovalRequest) => any
+  renderDetail?: (request: WfApprovalRequest)=> any
   /** 提交中（按钮禁用 + 文案反馈，防连点） */
   loading?: boolean
   /** 工具参数 schema——提供时渲染「修改参数」入口（JsonSchemaForm，预填 request.args），提交带修改后参数 */
@@ -45,13 +45,13 @@ const statusText: Record<ApprovalStatus, string> = {
   timeout: '审批超时',
 }
 
-export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
+export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx)=> {
   // ── 手动状态（组件库约定：mount 作用域 let + render，不依赖 $）──
   let note = ''
   let showNote = false
   let showModify = false
 
-  return (props) => {
+  return (props)=> {
     const { request, status = 'pending', onApprove, onReject, renderDetail, loading, argsSchema } = props
 
     const detail = renderDetail
@@ -68,12 +68,12 @@ export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
             schema: argsSchema,
             value: request.args as Record<string, any> | undefined,
             submitLabel: '以修改后参数批准',
-            onSubmit: (vals: Record<string, any>) => onApprove?.(vals),
+            onSubmit: (vals: Record<string, any>)=> onApprove?.(vals),
           }),
           h('button', {
             type: 'button',
             class: 'wf-approval-modify-cancel wf-btn wf-btn--secondary wf-btn--sm',
-            onClick: () => { showModify = false; ctx.render() },
+            onClick: ()=> { showModify = false; ctx.render() },
           }, '取消修改'),
         ])
       : null
@@ -88,7 +88,7 @@ export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
                   'aria-label': '拒绝备注',
                   value: note,
                   disabled: loading || undefined,
-                  onInput: (e: any) => { note = e.target.value },
+                  onInput: (e: any)=> { note = e.target.value },
                 }),
               ])
             : null,
@@ -97,21 +97,21 @@ export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
               class: 'wf-btn wf-btn--primary wf-btn--sm',
               type: 'button',
               disabled: loading || undefined,
-              onClick: loading ? undefined : () => onApprove?.(undefined),
+              onClick: loading ? undefined : ()=> onApprove?.(undefined),
             }, loading ? '提交中…' : '允许'),
             argsSchema && !showModify
               ? h('button', {
                   class: 'wf-btn wf-btn--secondary wf-btn--sm wf-approval-modify-btn',
                   type: 'button',
                   disabled: loading || undefined,
-                  onClick: loading ? undefined : () => { showModify = true; ctx.render() },
+                  onClick: loading ? undefined : ()=> { showModify = true; ctx.render() },
                 }, '修改参数')
               : null,
             h('button', {
               class: 'wf-btn wf-btn--danger wf-btn--sm',
               type: 'button',
               disabled: loading || undefined,
-              onClick: loading ? undefined : () => {
+              onClick: loading ? undefined : ()=> {
                 if (!showNote) { showNote = true; ctx.render(); return }
                 onReject?.(note)
               },
@@ -121,7 +121,7 @@ export const ApprovalCard: Component<ApprovalCardProps> = (_init, ctx) => {
                   class: 'wf-btn wf-btn--secondary wf-btn--sm',
                   type: 'button',
                   disabled: loading || undefined,
-                  onClick: () => { showNote = false; note = ''; ctx.render() },
+                  onClick: ()=> { showNote = false; note = ''; ctx.render() },
                 }, '取消')
               : null,
           ].filter(Boolean)),

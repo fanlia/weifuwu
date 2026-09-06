@@ -14,7 +14,7 @@ import { Icon } from '../Icon/Icon.ts'
 
 export interface InputNumberProps {
   value?: number | null
-  onChange?: (value: number | null) => void
+  onChange?: (value: number | null)=> void
   min?: number
   max?: number
   step?: number
@@ -29,26 +29,26 @@ export interface InputNumberProps {
   className?: string
 }
 
-export const InputNumber: Component<InputNumberProps> = (_init, ctx) => {
+export const InputNumber: Component<InputNumberProps> = (_init, ctx)=> {
   // mount scope：长按连增定时器 + latestStepTo ref（防 render 闭包陈旧）
   let holdTimer: ReturnType<typeof setTimeout> | undefined
   let holdInterval: ReturnType<typeof setInterval> | undefined
   let holdFired = false // 长按触发过连增——抬起时的 click 不再重复步进
-  let latestStepTo: (dir: 1 | -1) => void = () => {}
+  let latestStepTo: (dir: 1 | -1)=> void = ()=> {}
   // **hold 资源通道（2026-08）**：unmount 清理挂起定时器（旧无清理——
   // 组件卸载后 timer 仍 fire → latestStepTo → onChange（卸载后回调——
   // 静默））——hold 语义：声明的资源在卸载时自动释放
-  ctx.ui.hold(() => { clearTimeout(holdTimer); clearInterval(holdInterval) })
-  const startHold = (dir: 1 | -1) => {
+  ctx.ui.hold(()=> { clearTimeout(holdTimer); clearInterval(holdInterval) })
+  const startHold = (dir: 1 | -1)=> {
     clearTimeout(holdTimer); clearInterval(holdInterval)
     holdFired = false
-    holdTimer = setTimeout(() => {
+    holdTimer = setTimeout(()=> {
       holdFired = true
-      holdInterval = setInterval(() => latestStepTo(dir), 60)
+      holdInterval = setInterval(()=> latestStepTo(dir), 60)
     }, 500)
   }
-  const stopHold = () => { clearTimeout(holdTimer); clearInterval(holdInterval) }
-  return (props) => {
+  const stopHold = ()=> { clearTimeout(holdTimer); clearInterval(holdInterval) }
+  return (props)=> {
     const {
       value = null, onChange, min, max, step = 1, precision,
       label, name, placeholder, disabled, error, hint, required, className,
@@ -62,14 +62,14 @@ export const InputNumber: Component<InputNumberProps> = (_init, ctx) => {
       return v
     }
 
-    const stepTo = (dir: 1 | -1) => {
+    const stepTo = (dir: 1 | -1)=> {
       if (disabled) return
       const base = value ?? 0
       onChange?.(clamp(Number((base + dir * step).toFixed(10))))
     }
     latestStepTo = stepTo
 
-    const handleInput = (e: Event) => {
+    const handleInput = (e: Event)=> {
       if (disabled) return
       const raw = (e.target as HTMLInputElement).value.trim()
       if (raw === '' || raw === '-') { onChange?.(null); return }
@@ -94,7 +94,7 @@ export const InputNumber: Component<InputNumberProps> = (_init, ctx) => {
       name,
       disabled,
       onInput: handleInput,
-      onBlur: () => { if (value != null) onChange?.(clamp(value)) },
+      onBlur: ()=> { if (value != null) onChange?.(clamp(value)) },
     })
 
     const up = h('button', {
@@ -102,11 +102,11 @@ export const InputNumber: Component<InputNumberProps> = (_init, ctx) => {
       type: 'button',
       'aria-label': '增加',
       disabled,
-      onClick: () => {
+      onClick: ()=> {
         if (holdFired) { holdFired = false; return } // 长按抬起后的 click 不重复步进
         stepTo(1)
       },
-      onPointerDown: () => startHold(1),
+      onPointerDown: ()=> startHold(1),
       onPointerUp: stopHold,
       onPointerLeave: stopHold,
     }, h(Icon, { name: 'chevron-up', size: 12 }))
@@ -116,11 +116,11 @@ export const InputNumber: Component<InputNumberProps> = (_init, ctx) => {
       type: 'button',
       'aria-label': '减少',
       disabled,
-      onClick: () => {
+      onClick: ()=> {
         if (holdFired) { holdFired = false; return } // 长按抬起后的 click 不重复步进
         stepTo(-1)
       },
-      onPointerDown: () => startHold(-1),
+      onPointerDown: ()=> startHold(-1),
       onPointerUp: stopHold,
       onPointerLeave: stopHold,
     }, h(Icon, { name: 'chevron-down', size: 12 }))

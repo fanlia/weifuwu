@@ -13,27 +13,26 @@
  * 裁剪（CS-05，见 docs/client.md）：不做拖拽悬浮（Resizable 可组合）；回顶用 BackTop 语义更清晰。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
 export type FloatButtonPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 
 export interface FloatButtonProps {
-  icon?: any
+  icon?: VNodeChild
   badge?: number | string
   position?: FloatButtonPosition
   /** 'static'：组内子项（不 fixed——独立 fixed 会与主按钮重叠） */
   static?: boolean
   disabled?: boolean
-  onClick?: () => void
+  onClick?: ()=> void
   'aria-label'?: string
-  children?: any
-}
+  children?: VNodeChild}
 
 /** 单个悬浮按钮 */
-export const FloatButton: Component<FloatButtonProps> = (_init, _ctx: UIContext) =>
-  (props) => {
+export const FloatButton: Component<FloatButtonProps> = (_init, _ctx: UIContext)=>
+  (props)=> {
     const { icon, badge, position = 'bottom-right', static: isStatic, disabled, onClick, children } = props
     return h('button', {
       class: `wf-float-btn wf-float-btn--${position}${isStatic ? ' wf-float-btn--static' : ''}${disabled ? ' wf-float-btn--disabled' : ''}`,
@@ -50,22 +49,21 @@ export const FloatButton: Component<FloatButtonProps> = (_init, _ctx: UIContext)
 
 export interface FloatButtonGroupProps {
   position?: FloatButtonPosition
-  children?: any
-}
+  children?: VNodeChild}
 
 /** 悬浮按钮组：主按钮展开/收起子按钮 */
-export const FloatButtonGroup: Component<FloatButtonGroupProps> = (_init, ctx: UIContext) => {
+export const FloatButtonGroup: Component<FloatButtonGroupProps> = (_init, ctx: UIContext)=> {
   // ── mount（只一次）──
   let open = false
 
-  return (props) => {
+  return (props)=> {
     const { position = 'bottom-right', children } = props
     const kids = Array.isArray(children) ? children : [children]
     return h('div', {
       class: `wf-float-group wf-float-group--${position}${open ? ' wf-float-group--open' : ''}`,
     }, [
       h('div', { class: 'wf-float-group-items' },
-        open ? kids.map((k: any, i: number) => {
+        open ? kids.map((k: any, i: number)=> {
           // 子项注入 static（组内不 fixed——否则全部叠在右下角与主按钮重叠）
           const props = { ...(k.props ?? {}), static: true }
           const child = k.type ? { ...k, props } : k
@@ -75,7 +73,7 @@ export const FloatButtonGroup: Component<FloatButtonGroupProps> = (_init, ctx: U
         class: 'wf-float-group-main',
         'aria-label': open ? '收起' : '展开',
         'aria-expanded': open ? 'true' : 'false',
-        onClick: () => { open = !open; ctx.render() },
+        onClick: ()=> { open = !open; ctx.render() },
       }, h('span', { class: `wf-float-group-icon${open ? ' is-open' : ''}` }, '+')),
     ])
   }

@@ -13,16 +13,16 @@ export interface StatCardProps {
   /** 图标——字符串（emoji/字形）或 VNode（推荐 <Icon name=... />，禁 emoji 装饰的场景用后者） */
   icon?: string | VNode | null
   /** 点击跳转/交互（悬停抬升 + role=button） */
-  onClick?: () => void
+  onClick?: ()=> void
   /** 数字从 0 递增动画（reduced-motion 下直接终值），仅数值类型生效 */
   animate?: boolean
   /** 倒计时目标时间戳（ms）——显示剩余 HH:MM:SS（antd Statistic.Countdown 等价） */
   countdown?: number
   /** 倒计时结束回调 */
-  onFinish?: () => void
+  onFinish?: ()=> void
 }
 
-export const StatCard: Component<StatCardProps> = (init, ctx) => {
+export const StatCard: Component<StatCardProps> = (init, ctx)=> {
   // ── mount：数值动画经 ctx.ui.useTween（rAF + ease-out + reduced-motion 直落终值；
   // 幂等 reset——render 每帧调用安全，动画运行中同目标不重启）。
   // 偏好感知内建于 useTween（reduced-motion 直落终值——组件层不再重复 matchMedia）。
@@ -36,12 +36,12 @@ export const StatCard: Component<StatCardProps> = (init, ctx) => {
   let countdownRemain = 0
   let timer: ReturnType<typeof setInterval> | null = null
   let latestCountdown: number | undefined
-  let latestOnFinish: (() => void) | undefined
+  let latestOnFinish: (()=> void) | undefined
 
-  const stopTimer = () => {
+  const stopTimer = ()=> {
     if (timer) { clearInterval(timer); timer = null }
   }
-  const tick = () => {
+  const tick = ()=> {
     if (latestCountdown === undefined) return
     countdownRemain = Math.max(0, Math.ceil((latestCountdown - Date.now()) / 1000))
     if (countdownRemain <= 0) {
@@ -50,7 +50,7 @@ export const StatCard: Component<StatCardProps> = (init, ctx) => {
     }
     ctx.render()
   }
-  const startTimer = () => {
+  const startTimer = ()=> {
     if (timer || typeof window === 'undefined') return
     timer = setInterval(tick, 1000)
   }
@@ -58,7 +58,7 @@ export const StatCard: Component<StatCardProps> = (init, ctx) => {
   // 首帧即倒计时（initProps）——工厂期直接创建（窗口外——合法）
   if ((init as StatCardProps).countdown !== undefined) queueMicrotask(startTimer)
 
-  return (props: StatCardProps) => {
+  return (props: StatCardProps)=> {
     const { label, value, trend, trendLabel, icon, onClick, animate, countdown, onFinish } = props
     latestOnFinish = onFinish
     const target = typeof value === 'number' ? value : 0
@@ -84,11 +84,11 @@ export const StatCard: Component<StatCardProps> = (init, ctx) => {
     }
 
   const display = countdown !== undefined
-    ? (() => {
+    ? (()=> {
         const hh = Math.floor(countdownRemain / 3600)
         const mm = Math.floor((countdownRemain % 3600) / 60)
         const ss = countdownRemain % 60
-        const pad = (n: number) => String(n).padStart(2, '0')
+        const pad = (n: number)=> String(n).padStart(2, '0')
         return hh > 0 ? `${pad(hh)}:${pad(mm)}:${pad(ss)}` : `${pad(mm)}:${pad(ss)}`
       })()
     : (typeof value === 'number' ? String(tween.value) : String(value ?? ''))
@@ -115,7 +115,7 @@ export const StatCard: Component<StatCardProps> = (init, ctx) => {
     tabindex: onClick ? 0 : undefined,
     // 可点击指标卡：role=button，Enter/Space 必须可操作（键盘可达红线）
     onKeyDown: onClick
-      ? (e: KeyboardEvent) => {
+      ? (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             onClick()

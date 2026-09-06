@@ -8,8 +8,8 @@ export interface SearchInputProps {
   value?: string
   placeholder?: string
   disabled?: boolean
-  onInput?: (e: Event) => void
-  onClear?: () => void
+  onInput?: (e: Event)=> void
+  onClear?: ()=> void
 }
 
 /**
@@ -21,10 +21,10 @@ export interface SearchInputProps {
  *   避免受控 value 重置打断输入法（AutoComplete/Mentions/TagsInput 同款纪律）；
  *   组合结束 onCompositionEnd 处理最终中文值
  */
-export const SearchInput: Component<SearchInputProps> = (_init, _ctx) => {
+export const SearchInput: Component<SearchInputProps> = (_init, _ctx)=> {
   // IME 组合门控（mount 作用域 let——跨渲染保持）
   let composing = false
-  return (props) => {
+  return (props)=> {
     const { value, placeholder = '搜索...', onInput, onClear, disabled } = props
     // 受控判定：value !== undefined → 受控（回写 input.value + 清除按钮随 value）
     const controlled = value !== undefined
@@ -51,13 +51,13 @@ export const SearchInput: Component<SearchInputProps> = (_init, _ctx) => {
         placeholder,
         disabled: disabled || undefined,
         'aria-disabled': disabled ? 'true' : undefined,
-        onInput: (e: any) => {
+        onInput: (e: any)=> {
           // IME 组合期间跳过（e.isComposing 兜底——真实事件带标志）
           if (composing || e.isComposing) return
           onInput?.(e)
         },
-        onCompositionStart: () => { composing = true },
-        onCompositionEnd: (e: any) => {
+        onCompositionStart: ()=> { composing = true },
+        onCompositionEnd: (e: any)=> {
           composing = false
           // 组合完成：处理最终中文值（过滤/回填）
           onInput?.(e)

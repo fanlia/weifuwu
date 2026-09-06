@@ -28,9 +28,9 @@ function segmentOffsetsOf(text: string): number[] {
  *  36 → 35——block-set 只认段起点）——调用方保证在 embed 恢复后应用（最终
  *  结构与原文档一致——段起点 = 原起点）。 */
 function restoreSegmentProps(at: number, restoredText: string, removedBlocks: BlockProp[]): EditEvent[] {
-  return segmentOffsetsOf(restoredText).map((off) => {
+  return segmentOffsetsOf(restoredText).map((off)=> {
     const abs = at + off
-    const prop = removedBlocks.find((b) => b.start === abs)
+    const prop = removedBlocks.find((b)=> b.start === abs)
     return {
       type: 'block-set',
       start: abs,
@@ -53,7 +53,7 @@ export function inverseEdit(ev: EditEvent, doc?: DocState): InverseResult {
         type: 'text-delete', at: ev.at, len: ev.text.length, removed: ev.text,
         removedEmbeds: [],
         removedBlocks: doc
-          ? doc.blockProps.filter((b) => b.start >= ev.at && b.start <= ev.at + ev.text.length)
+          ? doc.blockProps.filter((b)=> b.start >= ev.at && b.start <= ev.at + ev.text.length)
           : [],
       }
     case 'text-delete': {
@@ -65,8 +65,8 @@ export function inverseEdit(ev: EditEvent, doc?: DocState): InverseResult {
       const evs: EditEvent[] = [{ type: 'text-insert', at: ev.at, text: clean }]
       ev.removedEmbeds
         .slice()
-        .sort((a, b) => a.at - b.at)
-        .forEach((e) => {
+        .sort((a, b)=> a.at - b.at)
+        .forEach((e)=> {
           // 插入位置 = 原位置：clean 坐标（原位置 - i 个已剔除占位符）+
           // 已插入 i 个占位符——两者抵消
           evs.push({ type: 'embed-insert', at: e.at, embed: e })
@@ -83,7 +83,7 @@ export function inverseEdit(ev: EditEvent, doc?: DocState): InverseResult {
         type: 'mark-restore',
         mark: ev.mark,
         spans: ev.prev,
-        prev: doc ? doc.marks.filter((m) => m.type === ev.mark) : [],
+        prev: doc ? doc.marks.filter((m)=> m.type === ev.mark) : [],
       }
     case 'mark-restore':
       // 再逆需要操作后区间（doc 上下文提取——无 doc 时用 prev 兜底）
@@ -91,7 +91,7 @@ export function inverseEdit(ev: EditEvent, doc?: DocState): InverseResult {
         type: 'mark-restore',
         mark: ev.mark,
         spans: ev.prev,
-        prev: doc ? doc.marks.filter((m) => m.type === ev.mark) : ev.prev,
+        prev: doc ? doc.marks.filter((m)=> m.type === ev.mark) : ev.prev,
       }
     case 'block-set':
       return {
@@ -119,7 +119,7 @@ export function inverseEdit(ev: EditEvent, doc?: DocState): InverseResult {
         revised: ev.original.replaceAll(EMBED_CHAR, ''),
         removedEmbeds: [],
         removedBlocks: doc
-          ? doc.blockProps.filter((b) => b.start >= start && b.start <= end)
+          ? doc.blockProps.filter((b)=> b.start >= start && b.start <= end)
           : [],
       }]
       // 恢复文本段属性显式重置（rederive 继承污染修复）——放最后：
@@ -127,8 +127,8 @@ export function inverseEdit(ev: EditEvent, doc?: DocState): InverseResult {
       // （clean 文本段起点错位——占位符剔除偏移）——block-set 只认段起点
       ev.removedEmbeds
         .slice()
-        .sort((a, b) => a.at - b.at)
-        .forEach((e) => {
+        .sort((a, b)=> a.at - b.at)
+        .forEach((e)=> {
           // 插入位置 = 原位置（clean 坐标补偿与已插入占位符抵消）
           evs.push({ type: 'embed-insert', at: e.at, embed: e })
         })
@@ -140,7 +140,7 @@ export function inverseEdit(ev: EditEvent, doc?: DocState): InverseResult {
 
 /** commit 的逆（事件逆序 + 各自逆操作展开——undo 应用顺序） */
 export function inverseCommit(events: EditEvent[]): EditEvent[] {
-  return events.slice().reverse().flatMap((ev) => {
+  return events.slice().reverse().flatMap((ev)=> {
     const inv = inverseEdit(ev)
     return Array.isArray(inv) ? inv : [inv]
   })

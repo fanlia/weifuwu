@@ -1,5 +1,5 @@
 /** Typography：Title/Text/Paragraph：语义标签 + 语义色 -text 变体 + mark/code/删除线（showcase /components/typography） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
 export type TextType = 'secondary' | 'success' | 'warning' | 'danger'
@@ -7,7 +7,7 @@ export type TextType = 'secondary' | 'success' | 'warning' | 'danger'
 export interface TitleProps {
   /** 1-5，默认 1（h1-h5） */
   level?: 1 | 2 | 3 | 4 | 5
-  children?: any
+  children?: VNodeChild
   className?: string
   style?: Record<string, string>
   [key: string]: any
@@ -24,7 +24,7 @@ export interface TextProps {
   /** 行内代码 */
   code?: boolean
   size?: 'xs' | 'sm' | 'md' | 'lg'
-  children?: any
+  children?: VNodeChild
   className?: string
   [key: string]: any
 }
@@ -33,14 +33,14 @@ export interface ParagraphProps {
   type?: TextType
   /** 单行截断（ellipsis） */
   ellipsis?: boolean
-  children?: any
+  children?: VNodeChild
   className?: string
   [key: string]: any
 }
 
 /** 标题（对应 antd/EP Typography.Title） */
-export const Title: Component<TitleProps> = (_init) =>
-  (props) => {
+export const Title: Component<TitleProps> = (_init)=>
+  (props)=> {
     const { level = 1, children, className, style, ...rest } = props
     return h(`h${level}`, {
       class: [`wf-title`, `wf-title--${level}`, className].filter(Boolean).join(' '),
@@ -50,8 +50,8 @@ export const Title: Component<TitleProps> = (_init) =>
   }
 
 /** 行内文本（对应 antd/EP Typography.Text） */
-export const Text: Component<TextProps> = (_init) =>
-  (props) => {
+export const Text: Component<TextProps> = (_init)=>
+  (props)=> {
     const {
       type, strong, underline, strikethrough, mark, code, size,
       children, className, ...rest
@@ -69,8 +69,8 @@ export const Text: Component<TextProps> = (_init) =>
   }
 
 /** 段落（对应 antd/EP Typography.Paragraph） */
-export const Paragraph: Component<ParagraphProps> = (_init) =>
-  (props) => {
+export const Paragraph: Component<ParagraphProps> = (_init)=>
+  (props)=> {
     const { type, ellipsis, children, className, ...rest } = props
     const classes = ['wf-paragraph']
     if (type) classes.push(`wf-text--${type}`)

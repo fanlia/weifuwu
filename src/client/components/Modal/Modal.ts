@@ -3,7 +3,7 @@
  * weifuwu/components — Modal
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
@@ -11,9 +11,9 @@ import type { PopupHandle } from '../../vdom/hooks/popup-manager.ts'
 export interface ModalProps {
   open?: boolean
   title?: string
-  onClose?: () => void
-  children?: any
-  footer?: any
+  onClose?: ()=> void
+  children?: VNodeChild
+  footer?: VNodeChild
   /** 自定义宽度，如 '500px'、'80%'，默认 400px */
   width?: string
   /** 是否显示关闭按钮，默认 true */
@@ -22,21 +22,21 @@ export interface ModalProps {
   maskClosable?: boolean
 }
 
-export const Modal: Component<ModalProps> = (_props, ctx) => {
+export const Modal: Component<ModalProps> = (_props, ctx)=> {
   // 命令式弹窗（唯一形态 openPopup）：presence 退场状态机 + 焦点 trap + 滚动锁
   // positioning 'none'：.wf-modal 自己 inset:0 居中（CSS flex——不依赖锚点坐标）
   let latestOpen = false
-  let latestOnClose: (() => void) | undefined
+  let latestOnClose: (()=> void) | undefined
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: PopupHandle | null = null
 
   // ESC 关闭（document 级——焦点在 trap 外也可关闭；open 期间才触发避免退场重复）
-  ctx.ui.useGlobalKey((e: KeyboardEvent) => {
+  ctx.ui.useGlobalKey((e: KeyboardEvent)=> {
     if (e.key === 'Escape' && handle?.open && latestOpen) latestOnClose?.()
   })
-  ctx.ui.onUnmount?.(() => { if (handle) handle.close() })
+  ctx.ui.onUnmount?.(()=> { if (handle) handle.close() })
 
-  return (props: ModalProps) => {
+  return (props: ModalProps)=> {
     const { open, title, onClose, children, footer, width, closable = true, maskClosable = true } = props
     latestOnClose = onClose
     latestOpen = !!open
@@ -66,7 +66,7 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
 
     const content = h('div', {
       class: 'wf-modal-content',
-      onClick: (e: Event) => e.stopPropagation(),
+      onClick: (e: Event)=> e.stopPropagation(),
       style: width ? { minWidth: `min(${width}, calc(100vw - 32px))`, maxWidth: `min(${width}, calc(100vw - 32px))` } : undefined,
     }, [titleEl, bodyEl, footerEl].filter(Boolean))
 
@@ -87,8 +87,8 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
         positioning: 'none',
         closeOnOutside: false, // 关闭语义组件自控（overlay 点击 maskClosable）
         closeOnEscape: false,  // Escape 组件自控（useGlobalKey——危险操作差异留在组件层）
-        content: () => root,
-        onClose: () => { handle = null },
+        content: ()=> root,
+        onClose: ()=> { handle = null },
       })
     else if (!open && handle) {
       // 退场：先渲染 exit class（动画）→ close（presence——animationend → dispose）

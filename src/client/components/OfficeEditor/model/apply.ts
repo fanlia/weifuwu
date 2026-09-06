@@ -138,7 +138,7 @@ export function applySheetOp(wb: WorkbookState, op: SheetOp): WorkbookState {
       return { ...wb, sheets }
     case 'sheet-delete': {
       if (op.sheet >= sheets.length) return wb
-      const next = sheets.filter((_, i) => i !== op.sheet)
+      const next = sheets.filter((_, i)=> i !== op.sheet)
       if (next.length === 0) next.push({ name: 'Sheet1', cols: 1, cells: new Map() })
       return { ...wb, sheets: next, activeSheet: Math.min(wb.activeSheet, next.length - 1) }
     }
@@ -161,7 +161,7 @@ function cloneShape(s: SlideShape): SlideShape {
 }
 
 export function applySlideOp(deck: DeckState, op: SlideOp): DeckState {
-  const slides = deck.slides.map((sl) => ({ ...sl, shapes: sl.shapes.map(cloneShape) }))
+  const slides = deck.slides.map((sl)=> ({ ...sl, shapes: sl.shapes.map(cloneShape) }))
   switch (op.type) {
     case 'slide-add': {
       const s: SlideState = { shapes: [], layout: op.layout }
@@ -191,13 +191,13 @@ export function applySlideOp(deck: DeckState, op: SlideOp): DeckState {
     }
     case 'shape-remove': {
       if (op.slide >= slides.length) return deck
-      const shapes = slides[op.slide].shapes.filter((s) => s.id !== op.shapeId)
+      const shapes = slides[op.slide].shapes.filter((s)=> s.id !== op.shapeId)
       slides[op.slide] = { ...slides[op.slide], shapes }
       return { ...deck, slides }
     }
     case 'shape-move': {
       if (op.slide >= slides.length) return deck
-      const shapes = slides[op.slide].shapes.map((s) =>
+      const shapes = slides[op.slide].shapes.map((s)=>
         s.id === op.shapeId ? { ...s, x: op.x, y: op.y } : s,
       )
       slides[op.slide] = { ...slides[op.slide], shapes }
@@ -205,7 +205,7 @@ export function applySlideOp(deck: DeckState, op: SlideOp): DeckState {
     }
     case 'shape-resize': {
       if (op.slide >= slides.length) return deck
-      const shapes = slides[op.slide].shapes.map((s) =>
+      const shapes = slides[op.slide].shapes.map((s)=>
         s.id === op.shapeId ? { ...s, w: op.w, h: op.h } : s,
       )
       slides[op.slide] = { ...slides[op.slide], shapes }
@@ -213,7 +213,7 @@ export function applySlideOp(deck: DeckState, op: SlideOp): DeckState {
     }
     case 'shape-set': {
       if (op.slide >= slides.length) return deck
-      const shapes = slides[op.slide].shapes.map((s) =>
+      const shapes = slides[op.slide].shapes.map((s)=>
         s.id === op.shapeId ? { ...s, props: { ...(s.props ?? {}), ...op.props } } : s,
       )
       slides[op.slide] = { ...slides[op.slide], shapes }

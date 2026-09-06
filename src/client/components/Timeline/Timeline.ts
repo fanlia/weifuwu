@@ -8,7 +8,7 @@
  * 裁剪（CS-05，见 docs/client.md）：不做折叠节点。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -16,13 +16,13 @@ export type TimelineStatus = 'default' | 'info' | 'success' | 'warning' | 'error
 
 export interface TimelineItem {
   key: string
-  title: any
+  title?: VNodeChild
   time?: string
-  content?: any
+  content?: VNodeChild
   status?: TimelineStatus
   /** 自定义节点内容（覆盖状态圆点） */
-  dot?: any
-  onClick?: () => void
+  dot?: VNodeChild
+  onClick?: ()=> void
 }
 
 export interface TimelineProps {
@@ -31,12 +31,12 @@ export interface TimelineProps {
   reverse?: boolean
 }
 
-export const Timeline: Component<TimelineProps> = (_init, _ctx) =>
-  (props) => {
+export const Timeline: Component<TimelineProps> = (_init, _ctx)=>
+  (props)=> {
     const { items, mode = 'left', reverse } = props
     const list = reverse ? [...items].reverse() : items
 
-    const lis = list.map((item, i) => {
+    const lis = list.map((item, i)=> {
       const { key, title, time, content, status = 'default', dot, onClick } = item
 
       const node = h('div', {
@@ -62,7 +62,7 @@ export const Timeline: Component<TimelineProps> = (_init, _ctx) =>
           tabIndex: onClick ? 0 : undefined,
           onClick,
           onKeyDown: onClick
-            ? (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }
+            ? (e: KeyboardEvent)=> { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }
             : undefined,
         }, [node, col])
       }
@@ -78,7 +78,7 @@ export const Timeline: Component<TimelineProps> = (_init, _ctx) =>
         tabIndex: onClick ? 0 : undefined,
         onClick,
         onKeyDown: onClick
-          ? (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }
+          ? (e: KeyboardEvent)=> { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }
           : undefined,
       }, [node, col])
     })

@@ -1,5 +1,5 @@
 /** Tree：树形：递归模型 + 勾选父子联动 + indeterminate（antd/EP Tree）（showcase /components/tree） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
@@ -11,23 +11,22 @@ export interface TreeNode {
   label: string
   children?: TreeNode[]
   disabled?: boolean
-  icon?: any
-}
+  icon?: VNodeChild}
 
 export interface TreeProps {
   data?: TreeNode[]
   /** 受控选中 keys */
   selectedKeys?: string[]
-  onSelect?: (keys: string[]) => void
+  onSelect?: (keys: string[])=> void
   /** 受控展开 keys */
   expandedKeys?: string[]
-  onExpand?: (keys: string[]) => void
+  onExpand?: (keys: string[])=> void
   /** 勾选模式（父子联动，antd 非 strict 语义） */
   checkable?: boolean
   /** 点击有子节点的行 = 展开/折叠（不触发选中）——TreeSelect 场景（点行展开比点箭头直观） */
   expandOnClick?: boolean
   checkedKeys?: string[]
-  onCheck?: (keys: string[]) => void
+  onCheck?: (keys: string[])=> void
   /** 搜索过滤（label 含 searchValue 的节点 + 祖先；自动展开匹配路径 + 高亮） */
   searchValue?: string
   /** 虚拟滚动（大数据树——固定行高 28px，只渲染可见窗口） */
@@ -88,16 +87,16 @@ function buildParentMap(nodes: TreeNode[], map: Map<string, TreeNode | null>, pa
  * 树形（对应 antd/EP Tree）：递归节点 + 展开/折叠 + 单选 + 勾选（父子联动 +
  * indeterminate 半选态 + 搜索过滤 searchValue）。裁剪：拖拽、异步加载。
  */
-export const Tree: Component<TreeProps> = (_init, ctx) => {
+export const Tree: Component<TreeProps> = (_init, ctx)=> {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // render-only：内部状态 let + 显式 render（非受控展开 keys）
   let internalExpanded: string[] = []
 
   let rowEls: (HTMLElement | null)[] = []
-  const rowRefs: ((el: HTMLElement | null) => void)[] = []
+  const rowRefs: ((el: HTMLElement | null)=> void)[] = []
 
-  return (props) => {
+  return (props)=> {
     const {
       data = [], expandedKeys, onExpand, expandOnClick,
       checkable, className, searchValue,
@@ -119,11 +118,11 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
     // 展开状态
     const isControlledExpand = expandedKeys !== undefined
     const expanded: string[] = isControlledExpand ? expandedKeys : internalExpanded
-    const isExpanded = (key: string) => searchExpand ? searchExpand.has(key) : expanded.includes(key)
-    const toggleExpand = (key: string) => {
+    const isExpanded = (key: string)=> searchExpand ? searchExpand.has(key) : expanded.includes(key)
+    const toggleExpand = (key: string)=> {
       // 受控（expandedKeys 已传）但无 onExpand：折叠/展开无法生效——开发期提示
       if (isControlledExpand && !onExpand) {
-        console.warn(`[weifuwu/Tree] 受控模式（expandedKeys 已传）但未提供 onExpand，展开/折叠无法生效。\n非受控：去掉 expandedKeys；受控：传入 onExpand={(keys) => setExpanded(keys)}`)
+        console.warn(`[weifuwu/Tree] 受控模式（expandedKeys 已传）但未提供 onExpand，展开/折叠无法生效。\n非受控：去掉 expandedKeys；受控：传入 onExpand={(keys)=> setExpanded(keys)}`)
         return
       }
       const next = isExpanded(key)
@@ -134,7 +133,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
     }
 
     // 选中（useControlled：非受控内部态 + 受控走 onSelect；缺回调 warn 幂等）
-    const toggleSelect = (key: string) => {
+    const toggleSelect = (key: string)=> {
       const current = selCtrl?.value ?? []
       const next = current.includes(key) ? [] : [key]
       const wasControlled = selCtrl?.controlled?.value !== undefined
@@ -144,7 +143,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
     }
 
     // 勾选（父子联动）——useControlled：非受控内部态 + 受控走 onCheck
-    const toggleCheck = (node: TreeNode) => {
+    const toggleCheck = (node: TreeNode)=> {
       const current = new Set(checkCtrl?.value ?? [])
       const all = allKeys(node)
       if (current.has(node.key)) {
@@ -179,11 +178,11 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
       const checked = checkCtrl?.value ?? []
       if (!kids.length) return checked.includes(n.key) ? 'checked' : 'unchecked'
       const states = kids.map(nodeState)
-      if (states.every((s) => s === 'checked')) return 'checked'
-      if (states.some((s) => s !== 'unchecked')) return 'half'
+      if (states.every((s)=> s === 'checked')) return 'checked'
+      if (states.some((s)=> s !== 'unchecked')) return 'half'
       return 'unchecked'
     }
-    const isHalf = (node: TreeNode) => nodeState(node) === 'half'
+    const isHalf = (node: TreeNode)=> nodeState(node) === 'half'
 
     // 键盘：容器方向键移动焦点
     let flatNodes: TreeNode[] = []
@@ -191,7 +190,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
     // 单行渲染（虚拟/非虚拟共用——行内容同一实现，防双份漂移）
     const renderRow = (node: TreeNode, level: number, rowIndex: number): any => {
       if (!rowRefs[rowIndex]) {
-        rowRefs[rowIndex] = (el: HTMLElement | null) => { rowEls[rowIndex] = el }
+        rowRefs[rowIndex] = (el: HTMLElement | null)=> { rowEls[rowIndex] = el }
       }
       const hasChildren = !!node.children?.length
       const open = isExpanded(node.key)
@@ -203,7 +202,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
             type: 'button',
             class: `wf-tree-switcher${open ? ' wf-tree-switcher--open' : ''}`,
             'aria-label': open ? '折叠' : '展开',
-            onClick: (e: Event) => { e.stopPropagation(); toggleExpand(node.key) },
+            onClick: (e: Event)=> { e.stopPropagation(); toggleExpand(node.key) },
           }, h(Icon, { name: 'chevron-down', size: 12 }))
         : h('span', { class: 'wf-tree-switcher-placeholder' })
 
@@ -217,7 +216,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
             ].filter(Boolean).join(' '),
             role: 'checkbox',
             'aria-checked': isHalf(node) ? 'mixed' : (checked ? 'true' : 'false'),
-            onClick: (e: Event) => { e.stopPropagation(); toggleCheck(node) },
+            onClick: (e: Event)=> { e.stopPropagation(); toggleCheck(node) },
           })
         : null
 
@@ -238,12 +237,12 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
         ref: rowRefs[rowIndex],
         tabIndex: node.disabled ? undefined : 0,
         'aria-selected': selected ? 'true' : 'false',
-        onClick: node.disabled ? undefined : () => {
+        onClick: node.disabled ? undefined : ()=> {
           // expandOnClick：有子节点 → 展开/折叠；叶子 → 选中
           if (hasChildren && expandOnClick) toggleExpand(node.key)
           else toggleSelect(node.key)
         },
-        onKeyDown: node.disabled ? undefined : (e: any) => {
+        onKeyDown: node.disabled ? undefined : (e: any)=> {
           if (e.key === 'Enter') { e.preventDefault(); toggleSelect(node.key) }
           else if (e.key === ' ' && checkable) { e.preventDefault(); toggleCheck(node) }
           else if (e.key === 'ArrowRight' && hasChildren) { e.preventDefault(); if (!open) toggleExpand(node.key) }
@@ -269,7 +268,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
     // 虚拟模式：可见节点扁平收集（展开态 DFS）——固定行高 28px
     const collectVisible = (nodes: TreeNode[], level: number): Array<{ node: TreeNode; level: number }> => {
       const out: Array<{ node: TreeNode; level: number }> = []
-      const walk = (list: TreeNode[], lv: number) => {
+      const walk = (list: TreeNode[], lv: number)=> {
         for (const n of list) {
           out.push({ node: n, level: lv })
           if (n.children?.length && isExpanded(n.key)) walk(n.children, lv + 1)
@@ -285,7 +284,7 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
       : null
 
     // 容器键盘（方向键上下移动焦点）
-    const onKeyDown = (e: any) => {
+    const onKeyDown = (e: any)=> {
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
       const current = (_browser?.activeElement() ?? null)
       const idx = rowEls.indexOf(current as HTMLElement)
@@ -303,8 +302,8 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
       // 虚拟滚动：只渲染可见窗口（裁剪登记：virtual 模式键盘导航限于可见窗口——
       // VirtualList 无 scrollTo，跨窗口焦点移动不可达；滚动条滚动可达）
       const visible = collectVisible(filteredData, 0)
-      flatNodes = visible.map((v) => v.node)
-      const items = visible.map((v, i) => {
+      flatNodes = visible.map((v)=> v.node)
+      const items = visible.map((v, i)=> {
         // key = 节点 key（虚拟行身份——展开/折叠后行集合变化，key 防状态错位）
         return { key: v.node.key, node: v.node, level: v.level, i }
       })
@@ -317,8 +316,8 @@ export const Tree: Component<TreeProps> = (_init, ctx) => {
           height,
           itemHeight: 28,
           overscan: 6,
-          keyBy: (item: any) => item.key,
-          renderItem: (item: any) => renderRow(item.node, item.level, item.i),
+          keyBy: (item: any)=> item.key,
+          renderItem: (item: any)=> renderRow(item.node, item.level, item.i),
           emptyText: q ? '无匹配节点' : '暂无数据',
         }),
       ])

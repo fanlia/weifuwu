@@ -16,7 +16,7 @@
  * - 回调：onOpenDir/onOpenFile/onBack/onSave/onEditChange/onUpload/onRefresh
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Button } from '../Button/Button.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -51,14 +51,14 @@ export interface FileTreeProps {
   /** 目录空态文案 */
   emptyText?: string
   /** 编辑态返回列表 */
-  onBack?: () => void
-  onOpenDir?: (path: string) => void
-  onOpenFile?: (path: string) => void
-  onSave?: (content: string) => void
-  onEditChange?: (value: string) => void
+  onBack?: ()=> void
+  onOpenDir?: (path: string)=> void
+  onOpenFile?: (path: string)=> void
+  onSave?: (content: string)=> void
+  onEditChange?: (value: string)=> void
   /** 上传（父层处理 File——组件只触发选择） */
-  onUpload?: (file: File) => void
-  onRefresh?: () => void
+  onUpload?: (file: File)=> void
+  onRefresh?: ()=> void
   /** 上传 accept（默认全部） */
   accept?: string
 }
@@ -82,38 +82,38 @@ function fmtTime(iso?: string): string {
   } catch { return '' }
 }
 
-export const FileTree: Component<FileTreeProps> = (_init, _ctx) => {
+export const FileTree: Component<FileTreeProps> = (_init, _ctx)=> {
   let fileInput: HTMLInputElement | null = null
-  const fileInputRef = (el: HTMLInputElement | null) => { if (el) fileInput = el }
-  const pickFile = () => fileInput?.click()
+  const fileInputRef = (el: HTMLInputElement | null)=> { if (el) fileInput = el }
+  const pickFile = ()=> fileInput?.click()
 
-  return (props) => {
+  return (props)=> {
     const {
       entries = [], path = '/', loading = false, openFile = null,
       editValue = '', saving = false, emptyText = '空目录',
     } = props
     const parts = path === '/' ? [] : path.split('/').filter(Boolean)
-    const onFilePick = (e: Event) => {
+    const onFilePick = (e: Event)=> {
       const input = e.target as HTMLInputElement
       const f = input.files?.[0]
       input.value = ''
       if (f) props.onUpload?.(f)
     }
 
-    const crumb = (label: any, onClick: () => void) =>
+    const crumb = (label: VNodeChild, onClick: ()=> void) =>
       h('button', { type: 'button', class: 'wf-filetree-crumb', onClick }, label)
-    const sep = () => h('span', { class: 'wf-filetree-sep' }, '/')
+    const sep = ()=> h('span', { class: 'wf-filetree-sep' }, '/')
 
     return h('div', { class: 'wf-filetree' }, [
       // 工具行：面包屑 + 上传/刷新
       h('div', { class: 'wf-filetree-toolbar' }, [
         h('div', { class: 'wf-filetree-path' }, [
-          crumb('/', () => props.onOpenDir?.('/')),
-          ...parts.map((p, i) => {
+          crumb('/', ()=> props.onOpenDir?.('/')),
+          ...parts.map((p, i)=> {
             const full = parts.slice(0, i + 1).join('/')
             return h('span', { class: 'wf-filetree-crumb-wrap' }, [
               sep(),
-              crumb(p, () => props.onOpenDir?.(full)),
+              crumb(p, ()=> props.onOpenDir?.(full)),
             ])
           }),
         ]),
@@ -131,21 +131,21 @@ export const FileTree: Component<FileTreeProps> = (_init, _ctx) => {
           h('div', { class: 'wf-filetree-editor-head' }, [
             props.onBack ? h(Button, { size: 'sm', variant: 'ghost', onClick: props.onBack, disabled: saving }, [h(Icon, { name: 'arrow-left', size: 13 }), ' 返回列表']) : null,
             h('span', { class: 'wf-filetree-filename' }, `${openFile.path}${openFile.truncated ? '（已截断）' : ''}`),
-            props.onSave ? h(Button, { size: 'sm', variant: 'primary', disabled: saving || props.onEditChange === undefined, onClick: () => props.onSave?.(editValue) }, saving ? '保存中...' : '保存') : null,
+            props.onSave ? h(Button, { size: 'sm', variant: 'primary', disabled: saving || props.onEditChange === undefined, onClick: ()=> props.onSave?.(editValue) }, saving ? '保存中...' : '保存') : null,
           ]),
           props.onEditChange
-            ? h('textarea', { class: 'wf-filetree-editor-area', rows: 14, value: editValue, spellcheck: false, onInput: (e: Event) => props.onEditChange?.((e.target as HTMLTextAreaElement).value) })
+            ? h('textarea', { class: 'wf-filetree-editor-area', rows: 14, value: editValue, spellcheck: false, onInput: (e: Event)=> props.onEditChange?.((e.target as HTMLTextAreaElement).value) })
             : h('pre', { class: 'wf-filetree-preview' }, openFile.content || '（空文件）'),
         ])
         : h('div', { class: 'wf-filetree-list' }, loading
           ? h('div', { class: 'wf-filetree-empty wf-text-secondary' }, '加载中…')
           : entries.length === 0
             ? h('div', { class: 'wf-filetree-empty wf-text-secondary' }, emptyText)
-            : entries.map((entry) => h('button', {
+            : entries.map((entry)=> h('button', {
               type: 'button',
               key: entry.name,
               class: 'wf-filetree-item',
-              onClick: () => entry.type === 'dir'
+              onClick: ()=> entry.type === 'dir'
                 ? props.onOpenDir?.(path === '/' ? entry.name : `${path}/${entry.name}`)
                 : props.onOpenFile?.(path === '/' ? entry.name : `${path}/${entry.name}`),
             }, [

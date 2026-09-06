@@ -48,9 +48,9 @@ export interface RelationGraphProps {
   /** 选中节点 id（受控） */
   selectedId?: string | null
   /** 节点点击（选中态切换——父层管理） */
-  onSelect?: (id: string) => void
+  onSelect?: (id: string)=> void
   /** 节点双击/单独动作（如打开 agent 档案——可选） */
-  onNodeClick?: (id: string) => void
+  onNodeClick?: (id: string)=> void
   /** 布局：ring（环形——网状关系）| grid（网格——组织/矩阵）——默认 ring */
   layout?: 'ring' | 'grid'
   width?: string
@@ -114,7 +114,7 @@ function layoutNodes(nodes: RelationGraphNode[], mode: 'ring' | 'grid'): Array<{
     const cx = VB_W / 2
     const cy = VB_H / 2
     const r = Math.min(VB_W, VB_H) / 2 - 70
-    return nodes.map((_, i) => {
+    return nodes.map((_, i)=> {
       const a = (Math.PI * 2 * i) / n - Math.PI / 2
       return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }
     })
@@ -124,14 +124,14 @@ function layoutNodes(nodes: RelationGraphNode[], mode: 'ring' | 'grid'): Array<{
   const rows = Math.ceil(n / cols)
   const gw = VB_W - 160
   const gh = VB_H - 140
-  return nodes.map((_, i) => ({
+  return nodes.map((_, i)=> ({
     x: 80 + (gw * (i % cols)) / Math.max(1, cols - 1),
     y: 80 + (gh * Math.floor(i / cols)) / Math.max(1, rows - 1),
   }))
 }
 
-export const RelationGraph: Component<RelationGraphProps> = (_init, _ctx) => {
-  return (props) => {
+export const RelationGraph: Component<RelationGraphProps> = (_init, _ctx)=> {
+  return (props)=> {
     const {
       nodes = [], edges = [], selectedId = null,
       onSelect, onNodeClick, layout = 'ring',
@@ -139,14 +139,14 @@ export const RelationGraph: Component<RelationGraphProps> = (_init, _ctx) => {
       nodeColors, edgeColors,
     } = props
     const pos = layoutNodes(nodes, layout)
-    const byId = new Map(nodes.map((n, i) => [n.id, { node: n, ...pos[i] }]))
+    const byId = new Map(nodes.map((n, i)=> [n.id, { node: n, ...pos[i] }]))
     const viewBox = computeViewBox(nodes, pos)
-    const kinds = [...new Set(nodes.map((n) => n.kind ?? 'default'))]
-    const types = [...new Set(edges.map((e) => e.type ?? 'default'))]
+    const kinds = [...new Set(nodes.map((n)=> n.kind ?? 'default'))]
+    const types = [...new Set(edges.map((e)=> e.type ?? 'default'))]
 
     const edgePaths = edges
-      .filter((e) => byId.has(e.from) && byId.has(e.to))
-      .map((e) => {
+      .filter((e)=> byId.has(e.from) && byId.has(e.to))
+      .map((e)=> {
         const a = byId.get(e.from)!
         const b = byId.get(e.to)!
         return {
@@ -169,7 +169,7 @@ export const RelationGraph: Component<RelationGraphProps> = (_init, _ctx) => {
         // 有向箭头 marker
         h('defs', {}, h('marker', { id: 'rg-arrow', viewBox: '0 0 10 10', refX: 22, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, h('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: '#94a3b8' }))),
         // 边（底层）
-        ...edgePaths.map((p) => h('line', {
+        ...edgePaths.map((p)=> h('line', {
           key: `${p.e.from}-${p.e.to}-${p.e.type ?? ''}`,
           x1: p.x1, y1: p.y1, x2: p.x2, y2: p.y2,
           stroke: p.color,
@@ -183,7 +183,7 @@ export const RelationGraph: Component<RelationGraphProps> = (_init, _ctx) => {
           'pointer-events': 'none',
         })),
         // 节点（上层）
-        ...nodes.map((n) => {
+        ...nodes.map((n)=> {
           const p = byId.get(n.id)!
           const r = radiusOf(n.weight)
           const color = colorOf(n.kind ?? 'default', NODE_PALETTE, nodeColors)
@@ -192,7 +192,7 @@ export const RelationGraph: Component<RelationGraphProps> = (_init, _ctx) => {
             key: n.id,
             class: 'wf-rg-node' + (selected ? ' wf-rg-node--selected' : ''),
             transform: `translate(${p.x}, ${p.y})`,
-            onClick: () => {
+            onClick: ()=> {
               onSelect?.(n.id)
               onNodeClick?.(n.id)
             },
@@ -208,11 +208,11 @@ export const RelationGraph: Component<RelationGraphProps> = (_init, _ctx) => {
       ]),
       // 图例（kind + edge type）
       showLegend && (kinds.length + types.length > 0) ? h('div', { class: 'wf-rg-legend' }, [
-        ...kinds.map((k) => h('span', { class: 'wf-rg-legend-item' }, [
+        ...kinds.map((k)=> h('span', { class: 'wf-rg-legend-item' }, [
           h('span', { class: 'wf-rg-swatch', style: { background: colorOf(k, NODE_PALETTE, nodeColors) } }),
           k,
         ])),
-        ...types.map((t) => h('span', { class: 'wf-rg-legend-item' }, [
+        ...types.map((t)=> h('span', { class: 'wf-rg-legend-item' }, [
           h('span', { class: 'wf-rg-line', style: { background: colorOf(t, EDGE_PALETTE, edgeColors) } }),
           t,
         ])),

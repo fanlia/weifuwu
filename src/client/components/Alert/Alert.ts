@@ -1,5 +1,5 @@
 /** Alert：信息提示条，4 种 variant + closable（showcase /components/alert） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
@@ -10,12 +10,11 @@ export type AlertVariant = 'info' | 'success' | 'warning' | 'error'
 export interface AlertProps {
   variant?: AlertVariant
   closable?: boolean
-  onClose?: () => void
-  children?: any
-}
+  onClose?: ()=> void
+  children?: VNodeChild}
 
-export const Alert: Component<AlertProps> = (_init, _ctx) =>
-  (props) => {
+export const Alert: Component<AlertProps> = (_init, _ctx)=>
+  (props)=> {
   const { variant = 'info', closable, onClose, children } = props
 
   if (!children) return null

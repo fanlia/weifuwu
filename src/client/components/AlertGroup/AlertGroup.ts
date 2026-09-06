@@ -11,34 +11,34 @@
  * 不做时间线分组/虚拟化。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface AlertGroupItem {
   id: string
-  message: any
+  message?: VNodeChild
   time?: string
   variant?: 'info' | 'success' | 'warning' | 'error'
 }
 
 export interface AlertGroupProps {
   items: AlertGroupItem[]
-  onClose?: (id: string) => void
+  onClose?: (id: string)=> void
 }
 
 const THRESHOLD = 3
 
-export const AlertGroup: Component<AlertGroupProps> = (_init, ctx: UIContext) => {
+export const AlertGroup: Component<AlertGroupProps> = (_init, ctx: UIContext)=> {
   // ── mount（只一次）──
   let expanded = false
 
-  return (props) => {
+  return (props)=> {
     const { items, onClose } = props
     const collapsible = items.length >= THRESHOLD
 
-    const itemRow = (item: AlertGroupItem) =>
+    const itemRow = (item: AlertGroupItem)=>
       h('div', {
         class: `wf-alertgroup-item wf-alertgroup-item--${item.variant ?? 'info'}`,
         key: item.id,
@@ -48,7 +48,7 @@ export const AlertGroup: Component<AlertGroupProps> = (_init, ctx: UIContext) =>
         onClose && h('button', {
           class: 'wf-alertgroup-close',
           'aria-label': '关闭',
-          onClick: () => onClose(item.id),
+          onClick: ()=> onClose(item.id),
         }, h(Icon, { name: 'close' })),
       ])
 
@@ -56,7 +56,7 @@ export const AlertGroup: Component<AlertGroupProps> = (_init, ctx: UIContext) =>
 
     return h('div', { class: 'wf-alertgroup', role: 'group' }, [
       collapsible && !expanded
-        ? h('button', { class: 'wf-alertgroup-summary', onClick: () => { expanded = true; ctx.render() } },
+        ? h('button', { class: 'wf-alertgroup-summary', onClick: ()=> { expanded = true; ctx.render() } },
             h('span', {}, `+${items.length} 条通知`))
         : null,
       expanded && collapsible

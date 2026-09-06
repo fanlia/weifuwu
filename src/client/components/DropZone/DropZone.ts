@@ -17,42 +17,41 @@
  * - 非文件拖入忽略（files 空不回调）；disabled 全路径拦截
  * - 事件经 useDragDrop 原语（dragover preventDefault 允许放置——vdom 事件表通道）
  */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
 export interface DropZoneProps {
   /** 拖放文件回调（file 数组——调用方负责后续链——与按钮链共享） */
-  onFiles?: (files: File[]) => void
+  onFiles?: (files: File[])=> void
   disabled?: boolean
   className?: string
-  children?: any
-}
+  children?: VNodeChild}
 
-export const DropZone: Component<DropZoneProps> = (_init, ctx: UIContext) => {
+export const DropZone: Component<DropZoneProps> = (_init, ctx: UIContext)=> {
   // ── mount（只一次）：ref 稳定（防 ref-diff churn——Watermark 纪律）──
   let rootEl: HTMLElement | null = null
   const propsRef: DropZoneProps = {}
   /** 深度计数（dragenter/leave 配对——子元素穿越不闪烁） */
   const depth = { n: 0 }
 
-  const highlight = (on: boolean) => {
+  const highlight = (on: boolean)=> {
     if (rootEl) rootEl.style.outline = on ? '2px dashed var(--wf-color-primary)' : ''
   }
 
   const { dropProps } = ctx.ui.useDragDrop({
-    onDragEnter: (e) => {
+    onDragEnter: (e)=> {
       if (propsRef.disabled) return
       e.preventDefault()
       depth.n++
       if (depth.n === 1) highlight(true)
     },
-    onDragLeave: () => {
+    onDragLeave: ()=> {
       if (propsRef.disabled) return
       depth.n = Math.max(0, depth.n - 1)
       if (depth.n === 0) highlight(false)
     },
-    onDrop: (e) => {
+    onDrop: (e)=> {
       if (propsRef.disabled) return
       depth.n = 0
       highlight(false)
@@ -61,9 +60,9 @@ export const DropZone: Component<DropZoneProps> = (_init, ctx: UIContext) => {
     },
   })
 
-  const rootRef = (node: HTMLElement | null) => { rootEl = node }
+  const rootRef = (node: HTMLElement | null)=> { rootEl = node }
 
-  return (props) => {
+  return (props)=> {
     Object.assign(propsRef, props)
     return h('div', {
       class: ['wf-drop-zone', props.disabled ? 'wf-drop-zone--disabled' : '', props.className ?? ''].filter(Boolean).join(' '),

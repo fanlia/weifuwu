@@ -20,15 +20,14 @@
  * - 静态外壳见 layout `_app-shell.css`（wf-app-shell/wf-sidebar/wf-main）
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
 export interface LayoutProps {
   style?: any
   className?: string
-  children?: any
-}
+  children?: VNodeChild}
 
 export interface LayoutSiderProps {
   width?: number | string
@@ -37,23 +36,22 @@ export interface LayoutSiderProps {
   collapsed?: boolean
   /** 显示折叠触发器（底部条） */
   collapsible?: boolean
-  onCollapse?: (collapsed: boolean) => void
+  onCollapse?: (collapsed: boolean)=> void
   /** 触发器内容（默认 chevron Icon） */
-  trigger?: any
-  children?: any
-}
+  trigger?: VNodeChild
+  children?: VNodeChild}
 
-export interface LayoutHeaderProps { children?: any; style?: any }
-export interface LayoutContentProps { children?: any; style?: any }
-export interface LayoutFooterProps { children?: any; style?: any }
+export interface LayoutHeaderProps { children?: VNodeChild; style?: any }
+export interface LayoutContentProps { children?: VNodeChild; style?: any }
+export interface LayoutFooterProps { children?: VNodeChild; style?: any }
 
 const SIDER = Symbol('LayoutSider')
 
 /** 布局容器：含 Sider → row（横向），否则 column（纵向） */
-export const Layout: Component<LayoutProps> = (_init) =>
-  (props) => {
+export const Layout: Component<LayoutProps> = (_init)=>
+  (props)=> {
     const kids = Array.isArray(props.children) ? props.children : [props.children]
-    const hasSider = kids.some((c: any) => c?.type === LayoutSider)
+    const hasSider = kids.some((c: any)=> c?.type === LayoutSider)
     return h('div', {
       class: ['wf-layout', hasSider ? 'wf-layout--row' : 'wf-layout--column', props.className].filter(Boolean).join(' '),
       style: props.style,
@@ -62,14 +60,14 @@ export const Layout: Component<LayoutProps> = (_init) =>
   }
 
 /** 侧边栏（唯一可折叠部件） */
-export const LayoutSider: Component<LayoutSiderProps> = (_init, ctx: UIContext) => {
+export const LayoutSider: Component<LayoutSiderProps> = (_init, ctx: UIContext)=> {
   // ── mount（只一次）──
   let collapsed = _init?.collapsed ?? false
   let latestCollapsed: boolean | undefined = _init?.collapsed
-  let latestOnCollapse: ((v: boolean) => void) | undefined
+  let latestOnCollapse: ((v: boolean)=> void) | undefined
   let latestCollapsible = false
 
-  const toggle = () => {
+  const toggle = ()=> {
     const next = !latestCollapsed
     if (latestOnCollapse) {
       latestOnCollapse(next) // 受控：回调由父组件更新 collapsed
@@ -80,7 +78,7 @@ export const LayoutSider: Component<LayoutSiderProps> = (_init, ctx: UIContext) 
   }
 
   // ── render（每次 dirty/props 变化）──
-  return (props) => {
+  return (props)=> {
     latestCollapsed = props.collapsed
     latestOnCollapse = props.onCollapse
     latestCollapsible = !!props.collapsible
@@ -97,7 +95,7 @@ export const LayoutSider: Component<LayoutSiderProps> = (_init, ctx: UIContext) 
       children.push(h('button', {
         class: 'wf-layout-sider-trigger',
         'aria-label': isCollapsed ? '展开侧边栏' : '折叠侧边栏',
-        onClick: () => toggle(),
+        onClick: ()=> toggle(),
       }, props.trigger ?? h('span', { class: `wf-layout-sider-trigger-icon${isCollapsed ? ' is-collapsed' : ''}` }, '◂')))
     }
     return h('aside', {
@@ -110,13 +108,13 @@ export const LayoutSider: Component<LayoutSiderProps> = (_init, ctx: UIContext) 
 (LayoutSider as unknown as Record<symbol, unknown>)[SIDER] = true
 
 /** 顶部栏 */
-export const LayoutHeader: Component<LayoutHeaderProps> = (_init) =>
-  (props) => h('header', { class: 'wf-layout-header', style: props.style }, props.children)
+export const LayoutHeader: Component<LayoutHeaderProps> = (_init)=>
+  (props)=> h('header', { class: 'wf-layout-header', style: props.style }, props.children)
 
 /** 主内容区（撑满剩余空间 + 可滚动） */
-export const LayoutContent: Component<LayoutContentProps> = (_init) =>
-  (props) => h('main', { class: 'wf-layout-content', style: props.style }, props.children)
+export const LayoutContent: Component<LayoutContentProps> = (_init)=>
+  (props)=> h('main', { class: 'wf-layout-content', style: props.style }, props.children)
 
 /** 底部栏 */
-export const LayoutFooter: Component<LayoutFooterProps> = (_init) =>
-  (props) => h('footer', { class: 'wf-layout-footer', style: props.style }, props.children)
+export const LayoutFooter: Component<LayoutFooterProps> = (_init)=>
+  (props)=> h('footer', { class: 'wf-layout-footer', style: props.style }, props.children)

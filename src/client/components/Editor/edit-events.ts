@@ -32,7 +32,7 @@ const buf: EditStreamEvent[] = []
 let head = 0
 let len = 0
 
-const listeners = new Set<(e: EditStreamEvent) => void>()
+const listeners = new Set<(e: EditStreamEvent)=> void>()
 
 export function editEmit(action: EditAction, payload?: Record<string, unknown>, target?: string): void {
   const ev: EditStreamEvent = { entity: 'edit', action, ts: Date.now() }
@@ -64,9 +64,9 @@ export function editEvents(n?: number, filter?: { action?: EditAction | EditActi
   return out
 }
 
-export function subscribeEditEvents(fn: (e: EditStreamEvent) => void): () => void {
+export function subscribeEditEvents(fn: (e: EditStreamEvent)=> void): ()=> void {
   listeners.add(fn)
-  return () => { listeners.delete(fn) }
+  return ()=> { listeners.delete(fn) }
 }
 
 /** 测试隔离 */
@@ -81,6 +81,6 @@ export function resetEditEvents(): void {
 if (typeof globalThis !== 'undefined') {
   const w = globalThis as Record<string, unknown>
   if (!w.__edit_tail) {
-    w.__edit_tail = (n = 50, action?: EditAction | EditAction[]) => editEvents(n, action ? { action } : undefined)
+    w.__edit_tail = (n = 50, action?: EditAction | EditAction[])=> editEvents(n, action ? { action } : undefined)
   }
 }

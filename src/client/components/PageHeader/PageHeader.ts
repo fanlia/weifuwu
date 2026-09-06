@@ -1,5 +1,5 @@
 /** PageHeader：页面标题栏，支持 sub + 右侧操作区 + display 大标题（showcase /components/pageheader） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -8,11 +8,10 @@ export interface PageHeaderProps {
   sub?: string
   /** 顶级页面大标题（display 档 30px），默认 21px */
   display?: boolean
-  children?: any
-}
+  children?: VNodeChild}
 
-export const PageHeader: Component<PageHeaderProps> = (_init, _ctx) =>
-  (props) => {
+export const PageHeader: Component<PageHeaderProps> = (_init, _ctx)=>
+  (props)=> {
   const { title, sub, display, children } = props
 
   return h('div', { class: 'wf-page-head' }, [

@@ -10,7 +10,7 @@ export interface MentionsOption {
 
 export interface MentionsProps {
   value?: string
-  onChange?: (value: string) => void
+  onChange?: (value: string)=> void
   options?: MentionsOption[]
   /** 触发字符，默认 '@' */
   prefix?: string
@@ -22,7 +22,7 @@ export interface MentionsProps {
 
 /** @提及输入（对应 antd Mentions）：输入 prefix + 关键词弹出候选，点击/Enter 插入。
  * 裁剪（CS-05，见 docs/client.md）：不做多 prefix/自定义高亮渲染/远程搜索（options 静态传入）。 */
-export const Mentions: Component<MentionsProps> = (_init, ctx) => {
+export const Mentions: Component<MentionsProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let open = false
   let keyword = ''
@@ -31,7 +31,7 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
   let composing = false
 
   let taEl: HTMLElement | null = null
-  const taRef = (el: HTMLElement | null) => { taEl = el }
+  const taRef = (el: HTMLElement | null)=> { taEl = el }
 
   // useControlledInput：受控/非受控统一（原非受控 textarea value='' 固定——
   // 每次 render 清空用户输入——严重违规）
@@ -44,25 +44,25 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
   const syncPanel = (panel: import('../../vdom/index.ts').VNode | null): void => {
     if (open && panel && !handle)
       handle = ctx.ui.openPopup({
-        anchor: () => taEl,
+        anchor: ()=> taEl,
         placement: 'bottom',
         center: false,
         gap: 4,
-        content: () => panel,
-        onClose: () => { handle = null; if (open) { open = false; ctx.render() } },
+        content: ()=> panel,
+        onClose: ()=> { handle = null; if (open) { open = false; ctx.render() } },
       })
     else if (!open && handle) { handle.close(); handle = null }
     else if (handle) handle.update(panel)
   }
 
-  const close = () => {
+  const close = ()=> {
     if (open) {
       open = false
       ctx.render()
     }
   }
 
-  return (props) => {
+  return (props)=> {
     const {
       options = [], prefix = '@',
       placeholder, rows = 3, disabled, size = 'md',
@@ -72,7 +72,7 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
     inputCtrl = ctx.ui.useControlledInput({ value: props.value, onChange: props.onChange, name: 'Mentions' })
     const value = inputCtrl.value ?? ''
 
-    const detect = (text: string, pos: number) => {
+    const detect = (text: string, pos: number)=> {
       if (composing) { close(); return }
       // 光标前最后一个 prefix
       const before = text.slice(0, pos)
@@ -92,7 +92,7 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
       ? options.filter(o => o.value.toLowerCase().includes(keyword.toLowerCase()))
       : options
 
-    const insert = (opt: MentionsOption) => {
+    const insert = (opt: MentionsOption)=> {
       const before = value.slice(0, keywordStart)
       const after = value.slice(keywordStart + 1 + keyword.length) // prefix + keyword 之后
       const next = `${before}${prefix}${opt.value} ${after}`
@@ -103,13 +103,13 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
       if (!wasControlled) props.onChange?.(next)
     }
 
-    const handleInput = (e: any) => {
+    const handleInput = (e: any)=> {
       const text = e.target.value
       inputCtrl?.setValue(text)
       detect(text, e.target.selectionStart ?? text.length)
     }
 
-    const handleKeyDown = (e: any) => {
+    const handleKeyDown = (e: any)=> {
       if (!open) return
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -132,14 +132,14 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
     const panel = open && filtered.length > 0 ? h('div', {
       class: 'wf-mentions-panel',
       role: 'listbox',
-    }, filtered.map((opt, i) =>
+    }, filtered.map((opt, i)=>
       h('button', {
         type: 'button',
         class: `wf-mentions-option${highlight === i ? ' wf-mentions-option--hl' : ''}`,
         key: opt.value,
         role: 'option',
-        onClick: () => insert(opt),
-        onMouseEnter: () => { highlight = i },
+        onClick: ()=> insert(opt),
+        onMouseEnter: ()=> { highlight = i },
       }, opt.label ?? opt.value)
     )) : null
 
@@ -155,8 +155,8 @@ export const Mentions: Component<MentionsProps> = (_init, ctx) => {
       'aria-expanded': String(open),
       onInput: handleInput,
       onKeyDown: handleKeyDown,
-      onCompositionStart: () => { composing = true; close() },
-      onCompositionEnd: () => { composing = false },
+      onCompositionStart: ()=> { composing = true; close() },
+      onCompositionEnd: ()=> { composing = false },
     })
 
     // 命令式同步（受控 + 内容更新——每次渲染恒调用）

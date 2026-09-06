@@ -252,7 +252,16 @@ for (const f of files) {
     fail(`props any 注解 ${name}: ${key}——VNodeChild 单源化（children/title/icon/content 家族）或登记`)
   }
 }
-console.log(`  ${anyProps} 处（登记表 ${Object.values(anyPropsWhitelist).reduce((a, v) => a + v.length, 0)}——W1 清）`)
+console.log(`  ${anyProps} 处（登记表 ${Object.values(anyPropsWhitelist).reduce((a, v) => a + v.length, 0)}——数据面登记）`)
+  // 反向：登记键已不存在（幽灵——清后未移出）
+  const actualKeys = new Set()
+  for (const f of files) {
+    const s = readFileSync(f, 'utf8')
+    const name = f.slice(COMPONENTS.length + 1)
+    for (const m of s.matchAll(/([a-zA-Z]+)\??\s*:\s*any(\[\])?\s*[,;\n\}]/g)) actualKeys.add(`${name}#${m[1]}${m[2] ?? ''}`)
+  }
+  const stale = Object.entries(anyPropsWhitelist).flatMap(([n, ks]) => ks.filter((k) => !actualKeys.has(`${n}#${k}`)).map((k) => `${n}:${k}`))
+  if (stale.length) fail(`C6 幽灵登记（已清未移出）: ${stale.slice(0, 5).join(' ')}`)
 
 if (failures) { console.error(`\nC3/C4/C5/C6 健康审计：${failures} 违例`); process.exit(1) }
 console.log('\nC3/C4/C5/C6 健康审计：全绿')

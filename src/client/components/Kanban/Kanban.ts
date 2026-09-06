@@ -24,7 +24,7 @@ export interface KanbanMove {
 export interface KanbanProps {
   columns: KanbanColumn[]
   /** 受控：移动回调（from → to）。缺回调交互静默失效——受控纪律 warn */
-  onMove?: (from: KanbanMove, to: KanbanMove) => void
+  onMove?: (from: KanbanMove, to: KanbanMove)=> void
   className?: string
 }
 
@@ -39,19 +39,19 @@ interface DragState {
  * 卡片拖拽：dragstart 记录源 → 卡片/列 drop 触发 onMove（跨列 + 同列重排）。
  * 受控纪律：columns 受控 prop——无 onMove 时 warn（交互静默失效防护）。
  */
-export const Kanban: Component<KanbanProps> = (_init, ctx) => {
+export const Kanban: Component<KanbanProps> = (_init, ctx)=> {
   let drag: DragState | null = null
 
   // 内置 DnD 原语：drop 侧（列 drop zone）+ drag 侧基础（draggable/onDragEnd）
   const { dropProps, dragProps } = ctx.ui.useDragDrop({
-    onDragOver: () => { /* preventDefault 自动 */ },
-    onDragEnd: () => {
+    onDragOver: ()=> { /* preventDefault 自动 */ },
+    onDragEnd: ()=> {
       drag = null
       ctx.render()
     },
   })
 
-  return (props) => {
+  return (props)=> {
     const { columns, onMove, className = '' } = props
 
     // 受控纪律：columns 受控 + 无 onMove → warn（防静默不可用）
@@ -59,7 +59,7 @@ export const Kanban: Component<KanbanProps> = (_init, ctx) => {
       console.warn('[weifuwu] Kanban: 传入了受控 columns 但缺少 onMove 回调——拖拽将静默失效')
     }
 
-    const move = (toColumn: string, toIndex: number) => {
+    const move = (toColumn: string, toIndex: number)=> {
       if (!drag || !onMove) return
       onMove(
         { columnKey: drag.fromColumn, index: drag.fromIndex },
@@ -75,7 +75,7 @@ export const Kanban: Component<KanbanProps> = (_init, ctx) => {
         key: col.key, // 列身份（列重排/增删——keyed diff move 不重建）
         'data-col': col.key,
         ...dropProps,
-        onDrop: (e: DragEvent) => {
+        onDrop: (e: DragEvent)=> {
           e.preventDefault()
           move(col.key, col.items.length)
         },
@@ -84,7 +84,7 @@ export const Kanban: Component<KanbanProps> = (_init, ctx) => {
           h('span', { class: 'wf-kanban-col-title' }, col.title),
           h('span', { class: 'wf-kanban-col-count' }, String(col.items.length)),
         ]),
-        h('div', { class: 'wf-kanban-col-body' }, col.items.map((item, idx) =>
+        h('div', { class: 'wf-kanban-col-body' }, col.items.map((item, idx)=>
           h('div', {
             class: 'wf-kanban-card',
             key: item.id, // 卡片身份（拖拽重排核心——keyed diff move 保持 DOM/拖拽态）
@@ -94,14 +94,14 @@ export const Kanban: Component<KanbanProps> = (_init, ctx) => {
             onDragEnd: dragProps.onDragEnd,
             // 身份绑定在渲染期闭包（dragstart 用 dataTransfer + 闭包位置——
             // 拖拽进行中不渲染，位置信息必须 mount 时捕获）
-            onDragStart: (e: DragEvent) => {
+            onDragStart: (e: DragEvent)=> {
               e.dataTransfer?.setData('text/plain', item.id)
               if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
               drag = { itemId: item.id, fromColumn: col.key, fromIndex: idx }
             },
             // 卡片级 dragover 允许 drop（列 dropProps 只覆盖列容器）
-            onDragOver: (e: DragEvent) => e.preventDefault(),
-            onDrop: (e: DragEvent) => {
+            onDragOver: (e: DragEvent)=> e.preventDefault(),
+            onDrop: (e: DragEvent)=> {
               e.preventDefault()
               e.stopPropagation()
               move(col.key, idx)

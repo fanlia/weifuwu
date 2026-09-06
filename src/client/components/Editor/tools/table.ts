@@ -31,22 +31,22 @@ export function tableHtml(rows: number, cols: number): string {
 export function renderTableGrid(
   hoverRow: number,
   hoverCol: number,
-  onSelect: (rows: number, cols: number) => void,
-  onHover: (row: number, col: number) => void,
-  onLeave: () => void,
+  onSelect: (rows: number, cols: number)=> void,
+  onHover: (row: number, col: number)=> void,
+  onLeave: ()=> void,
 ): any {
   const grid = h('div', {
     class: 'wf-editor-table-grid',
     onMouseLeave: onLeave,
-  }, Array.from({ length: MAX }, (_, ri) =>
+  }, Array.from({ length: MAX }, (_, ri)=>
     h('div', { class: 'wf-editor-table-grid-row', key: `r${ri}` },
-      Array.from({ length: MAX }, (_, ci) => {
+      Array.from({ length: MAX }, (_, ci)=> {
         const isHighlighted = ri <= hoverRow && ci <= hoverCol
         return h('div', {
           class: `wf-editor-table-grid-cell${isHighlighted ? ' wf-editor-table-grid-cell--active' : ''}`,
           key: `${ri}-${ci}`,
-          onMouseEnter: () => onHover(ri, ci),
-          onClick: () => onSelect(ri + 1, ci + 1),
+          onMouseEnter: ()=> onHover(ri, ci),
+          onClick: ()=> onSelect(ri + 1, ci + 1),
         })
       }),
     ),
@@ -58,7 +58,7 @@ export function renderTableGrid(
 
   return h('div', {
     class: 'wf-editor-table-picker',
-    onMouseDown: (e: Event) => e.stopPropagation(),
+    onMouseDown: (e: Event)=> e.stopPropagation(),
   }, [
     grid,
     h('div', { class: 'wf-editor-table-picker-label' }, label),

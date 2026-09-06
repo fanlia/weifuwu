@@ -6,7 +6,7 @@
  * 命令式：confirm() 中间件注入 ctx.confirm()，返回 Promise<boolean>。
  */
 
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext, AppMiddleware } from '../../vdom/index.ts'
 import { h, type VNode } from '../../vdom/index.ts'
@@ -20,7 +20,7 @@ export interface ConfirmProps {
   open?: boolean
   title?: string
   /** 提示内容（文本或任意 VNode） */
-  message?: any
+  message?: VNodeChild
   confirmText?: string
   cancelText?: string
   variant?: 'primary' | 'danger'
@@ -28,10 +28,10 @@ export interface ConfirmProps {
   width?: string
   /** 遮罩点击是否取消（默认 false：危险操作防误触；显式传 true 可恢复） */
   maskClosable?: boolean
-  onConfirm?: () => void
-  onCancel?: () => void
+  onConfirm?: ()=> void
+  onCancel?: ()=> void
   /** Modal 关闭回调（Escape/遮罩——onCancel 缺省时兜底——命令式兼容） */
-  onClose?: () => void
+  onClose?: ()=> void
 }
 
 /** 命令式 ctx.confirm 的选项（ConfirmProps 的子集） */
@@ -46,7 +46,7 @@ export interface ConfirmOptions {
 
 /** 命令式 ctx.confirm 的注入类型（AppMiddleware<{}, ConfirmInjected>） */
 export interface ConfirmInjected {
-  confirm: (message: string, options?: ConfirmOptions) => Promise<boolean>
+  confirm: (message: string, options?: ConfirmOptions)=> Promise<boolean>
 }
 
 /**
@@ -65,7 +65,7 @@ import { CommandApplier } from '../../vdom/core/patch/index.ts'
 import { createComponentRegistry } from '../../vdom/core/node/component.ts'
 
 export function confirm(message: string, options?: ConfirmOptions): Promise<boolean> {
-  return new Promise((resolve) => {
+  return new Promise((resolve)=> {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const registry = createComponentRegistry()
@@ -86,34 +86,34 @@ export function confirm(message: string, options?: ConfirmOptions): Promise<bool
     // 基础 ctx（组件实例的 hooks 由 renderComponent 自动注入——Modal 内部
     // openPopup 内核/useOpen 正常）——render/onUnmount 仅 serve 语义占位
     const ctx = {
-      render: async () => {},
-      onUnmount: () => {},
-      data: { get: async () => undefined, set: () => {}, has: () => false },
+      render: async ()=> {},
+      onUnmount: ()=> {},
+      data: { get: async ()=> undefined, set: ()=> {}, has: ()=> false },
       browser: createClientBrowser(),
     } as unknown as UIContext
     const vnode = h(Confirm, {
       open: true,
       message,
       ...options,
-      onConfirm: () => close(true),
-      onCancel: () => close(false),
+      onConfirm: ()=> close(true),
+      onCancel: ()=> close(false),
     }) as VNode
     renderToStreamV2(vnode as never, ctx, registry, segments).pipeTo(new WritableStream({
       write(cmd) { applier.apply(cmd) },
-    })).catch(() => close(false))
+    })).catch(()=> close(false))
   })
 }
 
-export const Confirm: Component<ConfirmProps> = (_init, _ctx) => {
+export const Confirm: Component<ConfirmProps> = (_init, _ctx)=> {
   // ── render（每次 dirty/props 变化）──
-  return (props: ConfirmProps) => {
+  return (props: ConfirmProps)=> {
     const { open = false, title, message, confirmText, cancelText, variant = 'primary', width, maskClosable = false, onConfirm, onCancel } = props
     const CL = _ctx?.i18n?.components?.Confirm ?? {}
 
     const footer = [
-      h(Button, { variant: 'secondary', size: 'md', onClick: () => onCancel?.() },
+      h(Button, { variant: 'secondary', size: 'md', onClick: ()=> onCancel?.() },
         cancelText ?? CL.cancelText ?? '取消'),
-      h(Button, { variant, size: 'md', onClick: () => onConfirm?.() },
+      h(Button, { variant, size: 'md', onClick: ()=> onConfirm?.() },
         confirmText ?? CL.confirmText ?? '确定'),
     ]
 

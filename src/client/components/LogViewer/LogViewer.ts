@@ -63,14 +63,14 @@ export function parseAnsi(text: string): any[] {
   return nodes
 }
 
-export const LogViewer: Component<LogViewerProps> = (_init, ctx) => {
+export const LogViewer: Component<LogViewerProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let bodyEl: HTMLElement | null = null
   let lastLineCount = 0
   let atBottom = true
-  const scroll = ctx.ui.useScrollPosition({ getScroller: () => bodyEl ?? null })
+  const scroll = ctx.ui.useScrollPosition({ getScroller: ()=> bodyEl ?? null })
 
-  const stableRef = (node: HTMLElement | null) => {
+  const stableRef = (node: HTMLElement | null)=> {
     if (node) {
       bodyEl = node
       scroll.refresh()
@@ -79,12 +79,12 @@ export const LogViewer: Component<LogViewerProps> = (_init, ctx) => {
     }
   }
 
-  const copyLines = async (lines: string[]) => {
+  const copyLines = async (lines: string[])=> {
     // 复制统一经 ctx.browser（clipboard + execCommand 降级）
     await ctx.browser?.copyText(lines.join('\n'))
   }
 
-  return (props: LogViewerProps) => {
+  return (props: LogViewerProps)=> {
     const {
       lines, height = 400, lineHeight = 24, overscan = 5,
       follow = true, maxLines, showCopy = true, showLineNumbers = true, className,
@@ -99,7 +99,7 @@ export const LogViewer: Component<LogViewerProps> = (_init, ctx) => {
     if (follow && lines.length !== lastLineCount) {
       lastLineCount = lines.length
       if (atBottom && bodyEl) {
-        queueMicrotask(() => {
+        queueMicrotask(()=> {
           if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight
         })
       }
@@ -138,7 +138,7 @@ export const LogViewer: Component<LogViewerProps> = (_init, ctx) => {
       ? h('button', {
           class: 'wf-log-copy',
           'aria-label': '复制全部日志',
-          onClick: () => void copyLines(lines),
+          onClick: ()=> void copyLines(lines),
         }, h(Icon, { name: 'copy', size: 14 }))
       : null
 

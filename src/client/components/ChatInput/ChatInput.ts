@@ -31,17 +31,17 @@ export interface ChatInputProps {
   /** 受控值（共享输入态——ChatInput 不持有聊天逻辑） */
   value: string
   /** 值变化（IME 安全：组合期间不触发） */
-  onChange: (v: string) => void
+  onChange: (v: string)=> void
   /** 发送（Enter 或按钮）——入参为当前输入文本（trim 后非空才触发） */
-  onSend: (text: string) => void
+  onSend: (text: string)=> void
   /** 流式状态——true 时按钮变「停止」 */
   streaming?: boolean
   /** 停止回调（streaming 时按钮触发） */
-  onStop?: () => void
+  onStop?: ()=> void
   /** 错误——非流式时显示「重试」按钮 */
   error?: string | null
   /** 重试回调 */
-  onRetry?: () => void
+  onRetry?: ()=> void
   /** 禁用（输入 + 按钮） */
   disabled?: boolean
   /** 多行 textarea（Enter 发送 / Shift+Enter 换行）；默认 false = 单行 input */
@@ -53,24 +53,24 @@ export interface ChatInputProps {
   /** 外部程序化控制（@ 补全等场景）——mount 期回调上抛稳定 handle（{ setKeyword, setValue }）——
    *  回调必须 mount 层定义（稳定引用——vdom3 props 剪枝）；禁止 out-param 对象（props 不可变契约——
    *  原地写 control.current 触发 vdom3 audit） */
-  onControl?: (handle: ChatInputControl) => void
+  onControl?: (handle: ChatInputControl)=> void
   /** 按键拦截（@ 菜单键盘导航——2026-08）：**onKeyIntercept**（非 onKeyDown——
    *  组件 props 的 on+大写被 vdom 当 DOM 事件拦截（EVENT_RE——不传组件）——
    *  实测 onKeyDown 静默失效——改名避开）——返回 true = 已处理（菜单开时
    *  ↑↓/Enter/Esc 消费方接管）——falsy = ChatInput 默认行为 */
-  onKeyInterceptFn?: (e: KeyboardEvent) => boolean | void
+  onKeyInterceptFn?: (e: KeyboardEvent)=> boolean | void
 }
 
 export interface ChatInputControl {
   /** 直接写内部输入态（不触发 onChange——程序化改写如 @ 补全） */
-  setKeyword: (v: string) => void
+  setKeyword: (v: string)=> void
   /** 写内部态并触发 onChange（受控回传） */
-  setValue: (v: string) => void
+  setValue: (v: string)=> void
 }
 
-export const ChatInput: Component<ChatInputProps, { ui: Ui }> = (_init, ctx) => {
+export const ChatInput: Component<ChatInputProps, { ui: Ui }> = (_init, ctx)=> {
   // ── mount（只一次）：无状态初始化（keyword 在 useControlledInput 的 Map 缓存）
-  return (props) => {
+  return (props)=> {
     const labels: ChatInputLabels = {
       send: '发送',
       stop: '停止',
@@ -95,13 +95,13 @@ export const ChatInput: Component<ChatInputProps, { ui: Ui }> = (_init, ctx) => 
     // 由消费方自行决定是否回传共享态）——回调上抛（props 不可变契约：不写 out-param）
     if (props.onControl) {
       props.onControl({
-        setKeyword: (v: string) => { input.setKeyword(v) },
-        setValue: (v: string) => { input.setKeyword(v); props.onChange?.(v) },
+        setKeyword: (v: string)=> { input.setKeyword(v) },
+        setValue: (v: string)=> { input.setKeyword(v); props.onChange?.(v) },
       })
     }
     let composing = false
 
-    const send = () => {
+    const send = ()=> {
       const text = input.keyword.trim()
       if (!text) return
       input.setKeyword('') // 清内部输入态（防残留重复发送）
@@ -112,23 +112,23 @@ export const ChatInput: Component<ChatInputProps, { ui: Ui }> = (_init, ctx) => 
     const shared: Record<string, any> = {
       class: 'wf-chat-input',
       value: input.keyword,
-      ref: (el: HTMLElement | null) => { inputEl = el as HTMLInputElement | HTMLTextAreaElement | null },
+      ref: (el: HTMLElement | null)=> { inputEl = el as HTMLInputElement | HTMLTextAreaElement | null },
       placeholder: labels.placeholder,
       disabled: props.disabled,
       // 输入期：内部 keyword + onChange 每键同步（消费方按需写共享态；组合期间跳过——IME 安全）
-      onInput: (e: any) => {
+      onInput: (e: any)=> {
         if (composing || e.isComposing) return
         input.setKeyword(e.target.value)
         props.onChange?.(e.target.value)
       },
-      onCompositionStart: () => { composing = true },
-      onCompositionEnd: (e: any) => {
+      onCompositionStart: ()=> { composing = true },
+      onCompositionEnd: (e: any)=> {
         composing = false
         const v = (e.target as HTMLInputElement | HTMLTextAreaElement)?.value ?? ''
         input.setKeyword(v)
         props.onChange?.(v)
       },
-      onKeyDown: (e: any) => {
+      onKeyDown: (e: any)=> {
         // 消费方拦截（@ 菜单观航——2026-08）：返回 true = 已处理（菜单开时
         // ↑↓/Enter/Esc 消费方接管——Enter 选中而非发送）
         if (props.onKeyInterceptFn?.(e as KeyboardEvent)) return
@@ -152,19 +152,19 @@ export const ChatInput: Component<ChatInputProps, { ui: Ui }> = (_init, ctx) => 
             class: 'wf-btn wf-btn--primary wf-btn--sm',
             type: 'button',
             disabled: props.disabled,
-            onClick: () => props.onStop?.(),
+            onClick: ()=> props.onStop?.(),
           }, labels.stop)
         : h('button', {
             class: 'wf-btn wf-btn--primary wf-btn--sm',
             type: 'button',
             disabled: props.disabled,
-            onClick: () => send(),
+            onClick: ()=> send(),
           }, labels.send),
       !props.streaming && props.error
         ? h('button', {
             class: 'wf-btn wf-btn--danger wf-btn--sm',
             type: 'button',
-            onClick: () => props.onRetry?.(),
+            onClick: ()=> props.onRetry?.(),
           }, labels.retry)
         : null,
     ])

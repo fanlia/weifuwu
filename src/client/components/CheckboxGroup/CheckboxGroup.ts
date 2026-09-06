@@ -14,7 +14,7 @@ export interface CheckboxGroupProps {
   options?: CheckboxGroupOption[]
   /** 受控选中值 */
   value?: string[]
-  onChange?: (value: string[]) => void
+  onChange?: (value: string[])=> void
   /** 栅格列数（1-4） */
   columns?: 1 | 2 | 3 | 4
   size?: 'sm' | 'md' | 'lg'
@@ -26,8 +26,8 @@ export interface CheckboxGroupProps {
 }
 
 /** 复选框组/多选列表（对应 antd Checkbox.Group）：成员选择、多值字段 */
-export const CheckboxGroup: Component<CheckboxGroupProps> = (_init, ctx) =>
-  (props) => {
+export const CheckboxGroup: Component<CheckboxGroupProps> = (_init, ctx)=>
+  (props)=> {
     const {
       options = [], columns,
       size = 'md', disabled, label, 'aria-label': ariaLabel, className,
@@ -37,7 +37,7 @@ export const CheckboxGroup: Component<CheckboxGroupProps> = (_init, ctx) =>
     const ctrl = ctx?.ui?.useControlled<string[]>({ value: props.value, onChange: props.onChange, name: 'CheckboxGroup' })
     const value = ctrl?.value ?? []
 
-    const toggle = (v: string, checked: boolean) => {
+    const toggle = (v: string, checked: boolean)=> {
       const next = checked
         ? [...new Set([...value, v])]
         : value.filter(x => x !== v)
@@ -53,7 +53,7 @@ export const CheckboxGroup: Component<CheckboxGroupProps> = (_init, ctx) =>
         label: o.desc ? `${o.label}（${o.desc}）` : o.label,
         checked: value.includes(o.value),
         disabled: disabled || o.disabled,
-        onChange: (checked: boolean) => toggle(o.value, checked),
+        onChange: (checked: boolean)=> toggle(o.value, checked),
       })
     )
 

@@ -1,5 +1,5 @@
 /** Accordion：折叠面板，支持多个 items（showcase /components/accordion） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
@@ -8,7 +8,7 @@ import { Icon } from '../Icon/Icon.ts'
 export interface AccordionItem {
   key: string
   title: string
-  content?: any
+  content?: VNodeChild
   disabled?: boolean
 }
 
@@ -16,7 +16,7 @@ export interface AccordionProps {
   items?: AccordionItem[]
   /** 受控展开 keys */
   active?: string[]
-  onChange?: (keys: string[]) => void
+  onChange?: (keys: string[])=> void
   /** true = 多开；默认 false 手风琴互斥（antd 对齐） */
   multiple?: boolean
 }
@@ -25,7 +25,7 @@ export interface AccordionProps {
  * 手风琴折叠面板（对应 antd/EP Collapse 卡片面板语义）：受控 active + 点击切换 +
  * 方向键移动焦点 + aria-expanded 同步。与 Collapse 边界：Accordion = 整块卡片面板容器。
  */
-export const Accordion: Component<AccordionProps> = (_init, ctx) => {
+export const Accordion: Component<AccordionProps> = (_init, ctx)=> {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // render-only：内部状态 let + 显式 render（非受控展开 keys）
@@ -33,17 +33,17 @@ export const Accordion: Component<AccordionProps> = (_init, ctx) => {
 
   let summaryEls: (HTMLElement | null)[] = []
   // 闭包捕获索引 + Map 缓存稳定（React useCallback 等价物）：不读 dataset（根治顺序依赖）
-  const summaryRefs = new Map<number, (el: HTMLElement | null) => void>()
-  const summaryRefFor = (i: number) => {
+  const summaryRefs = new Map<number, (el: HTMLElement | null)=> void>()
+  const summaryRefFor = (i: number)=> {
     let fn = summaryRefs.get(i)
     if (!fn) {
-      fn = (el) => { if (el) summaryEls[i] = el }
+      fn = (el)=> { if (el) summaryEls[i] = el }
       summaryRefs.set(i, fn)
     }
     return fn
   }
 
-  return (props) => {
+  return (props)=> {
     const { items = [], active, onChange, multiple = false } = props
 
     // 非受控：内部状态初始化为全部展开（向后兼容旧实现的行为）——
@@ -54,19 +54,19 @@ export const Accordion: Component<AccordionProps> = (_init, ctx) => {
 
     const isControlled = active !== undefined
     const activeKeys: string[] = isControlled ? active : internalActive
-    const isOpen = (key: string) => activeKeys.includes(key)
+    const isOpen = (key: string)=> activeKeys.includes(key)
 
-    const setActive = (next: string[]) => {
+    const setActive = (next: string[])=> {
       if (isControlled) onChange?.(next)
       else { internalActive = next; ctx.render() }
     }
 
-    const toggle = (key: string) => {
+    const toggle = (key: string)=> {
       if (isOpen(key)) setActive(activeKeys.filter(k => k !== key))
       else setActive(multiple ? [...activeKeys, key] : [key])
     }
 
-    const onKeyDown = (e: any) => {
+    const onKeyDown = (e: any)=> {
       const current = (_browser?.activeElement() ?? null)
       const idx = summaryEls.indexOf(current as HTMLElement)
       if (idx < 0) return
@@ -80,7 +80,7 @@ export const Accordion: Component<AccordionProps> = (_init, ctx) => {
 
     if (items.length === 0) return null
 
-    const panels = items.map((item, i) => {
+    const panels = items.map((item, i)=> {
       const open = isOpen(item.key)
       return h('div', {
         class: `wf-accordion-item${open ? ' wf-accordion-item--open' : ''}`,
@@ -92,7 +92,7 @@ export const Accordion: Component<AccordionProps> = (_init, ctx) => {
           ref: summaryRefFor(i),
           disabled: item.disabled || undefined,
           'aria-expanded': open ? 'true' : 'false',
-          onClick: item.disabled ? undefined : () => toggle(item.key),
+          onClick: item.disabled ? undefined : ()=> toggle(item.key),
         }, [item.title, h(Icon, { name: 'chevron-down', size: 14, className: 'wf-accordion-arrow' })]),
         open && item.content ? h('div', { class: 'wf-accordion-content' }, item.content) : null,
       ].filter(Boolean))

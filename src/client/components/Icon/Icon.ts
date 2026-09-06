@@ -124,8 +124,8 @@ const PATHS: Record<IconName, string[]> = {
   share: ['M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8', 'M16 6l-4-4-4 4', 'M12 2v13'],
 }
 
-export const Icon: Component<IconProps> = (_init, _ctx) =>
-  (props) => {
+export const Icon: Component<IconProps> = (_init, _ctx)=>
+  (props)=> {
     const { name, size, className } = props
     return h('svg', {
       class: `wf-icon${className ? ' ' + className : ''}`,
@@ -139,7 +139,7 @@ export const Icon: Component<IconProps> = (_init, _ctx) =>
       'stroke-linejoin': 'round',
       'aria-hidden': 'true',
       focusable: 'false',
-    }, (PATHS[name] ?? (() => {
+    }, (PATHS[name] ?? (()=> {
       // **未知 name 防御（2027-10 交互完整性计划 A4）**：原 `PATHS[name].map`
       // 未知名直接崩 renderFn（组件级 hole 降级——重试自愈循环刷错误日志——
       // statcard demo 无效图标名实证）。dev warn 一次 + fallback 圆点（生产

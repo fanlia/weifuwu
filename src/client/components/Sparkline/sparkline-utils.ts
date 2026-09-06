@@ -27,7 +27,7 @@ export function computeSparklinePoints(
   if (n === 1) {
     return [{ x: width / 2, y: height / 2 }]
   }
-  return data.map((v, i) => ({
+  return data.map((v, i)=> ({
     x: padding + (n === 1 ? 0 : (i / (n - 1)) * innerW),
     y: range === 0 ? height / 2 : padding + (1 - (v - min) / range) * innerH,
   }))

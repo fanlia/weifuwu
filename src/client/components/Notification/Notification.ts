@@ -19,12 +19,12 @@ export interface NotificationItem {
   description?: string
   /** 自动关闭时间（ms），0 = 不自动关闭，默认 4500 */
   duration?: number
-  action?: { label: string; onClick: () => void }
+  action?: { label: string; onClick: ()=> void }
 }
 
 export interface NotificationProps {
   items?: NotificationItem[]
-  onRemove?: (id: string) => void
+  onRemove?: (id: string)=> void
   position?: NotificationPosition
   /** 全局默认自动关闭时间（ms），默认 4500 */
   duration?: number
@@ -94,9 +94,9 @@ function ensureHost(): NotifHost {
   const registry = createComponentRegistry()
   const applier = new CommandApplier(container, document, registry)
   const ctx = {
-    render: async () => {},
-    onUnmount: () => {},
-    data: { get: async () => undefined, set: () => {}, has: () => false },
+    render: async ()=> {},
+    onUnmount: ()=> {},
+    data: { get: async ()=> undefined, set: ()=> {}, has: ()=> false },
     browser,
   } as unknown as UIContext
   notifHost = { container, applier, registry, items: [], seq: 0, currentTree: null, ctx, segments: new Map() }
@@ -106,11 +106,11 @@ function ensureHost(): NotifHost {
 async function renderNotifs(host: NotifHost): Promise<void> {
   const vnode = h(Notification, {
     items: host.items,
-    onRemove: (id: string) => { removeNotif(id) },
+    onRemove: (id: string)=> { removeNotif(id) },
   }) as VNode
   const obs = host.currentTree
-    ? diffV2(host.currentTree as never, vnode as never, host.ctx, host.segments, host.registry, () => {})
-    : renderV2(vnode as never, host.ctx, host.registry, host.segments, () => {})
+    ? diffV2(host.currentTree as never, vnode as never, host.ctx, host.segments, host.registry, ()=> {})
+    : renderV2(vnode as never, host.ctx, host.registry, host.segments, ()=> {})
   const cmds = await collectCommands(obs)
   for (const cmd of cmds) host.applier.apply(cmd)
   host.currentTree = vnode
@@ -121,7 +121,7 @@ async function renderNotifs(host: NotifHost): Promise<void> {
 
 async function removeNotif(id: string): Promise<void> {
   if (!notifHost) return
-  notifHost.items = notifHost.items.filter((t) => t.id !== id)
+  notifHost.items = notifHost.items.filter((t)=> t.id !== id)
   if (notifHost.items.length === 0) {
     // **先渲染空列表（2027-08——v1 退役——portal 清理）**：Notification 内容
     // 挂全局 portal（openPopup）——handle.close 发生在 renderFn（空列表
@@ -150,7 +150,7 @@ function openNotif(opts: {
   renderNotifs(host)
   const dur = opts.duration ?? 4500
   if (dur > 0) {
-    setTimeout(() => removeNotif(item.id), dur)
+    setTimeout(()=> removeNotif(item.id), dur)
   }
 }
 
@@ -159,12 +159,12 @@ export const notification: NotificationInjected['notification'] = Object.assign(
   (title: string, opts?: { type?: NotificationType; description?: string; duration?: number; action?: NotificationItem['action'] }): void =>
     openNotif({ type: opts?.type ?? 'info', title, description: opts?.description, duration: opts?.duration, action: opts?.action }),
   {
-    open: (o: { type?: NotificationType; title: string; description?: string; duration?: number; action?: NotificationItem['action'] }) =>
+    open: (o: { type?: NotificationType; title: string; description?: string; duration?: number; action?: NotificationItem['action'] })=>
       openNotif({ type: o.type ?? 'info', title: o.title, description: o.description, duration: o.duration, action: o.action }),
-    success: (o: { title: string; description?: string; duration?: number }) => openNotif({ type: 'success', ...o }),
-    error: (o: { title: string; description?: string; duration?: number }) => openNotif({ type: 'error', ...o }),
-    info: (o: { title: string; description?: string; duration?: number }) => openNotif({ type: 'info', ...o }),
-    warning: (o: { title: string; description?: string; duration?: number }) => openNotif({ type: 'warning', ...o }),
+    success: (o: { title: string; description?: string; duration?: number })=> openNotif({ type: 'success', ...o }),
+    error: (o: { title: string; description?: string; duration?: number })=> openNotif({ type: 'error', ...o }),
+    info: (o: { title: string; description?: string; duration?: number })=> openNotif({ type: 'info', ...o }),
+    warning: (o: { title: string; description?: string; duration?: number })=> openNotif({ type: 'warning', ...o }),
   },
 )
 
@@ -175,12 +175,12 @@ export function notificationMiddleware<C extends Record<string, unknown>>(ctx: C
   return Object.assign(ctx, { notification })
 }
 
-export const Notification: Component<NotificationProps> = (_init, ctx) => {
+export const Notification: Component<NotificationProps> = (_init, ctx)=> {
   // 命令式弹窗（唯一形态 openPopup）：常驻容器（positioning 'none'——CSS 角落定位）
   /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
   let handle: import('../../vdom/hooks/popup-manager.ts').PopupHandle | null = null
 
-  return (props) => {
+  return (props)=> {
     const { items = [], onRemove, position = 'top-right', duration = 4500, max = 0 } = props
 
     const visible = max > 0 && items.length > max ? items.slice(-max) : items
@@ -205,14 +205,14 @@ export const Notification: Component<NotificationProps> = (_init, ctx) => {
           t.action ? h('button', {
             class: 'wf-notification-action',
             type: 'button',
-            onClick: (e: Event) => { e.stopPropagation(); t.action!.onClick() },
+            onClick: (e: Event)=> { e.stopPropagation(); t.action!.onClick() },
           }, t.action.label) : null,
         ].filter(Boolean)),
         h('button', {
           type: 'button',
           class: 'wf-notification-close',
           'aria-label': '关闭通知',
-          onClick: () => onRemove?.(t.id),
+          onClick: ()=> onRemove?.(t.id),
         }, h(Icon, { name: 'close', size: 12 })),
       ].filter(Boolean))
     )
@@ -228,8 +228,8 @@ export const Notification: Component<NotificationProps> = (_init, ctx) => {
         key: 'notification',
         positioning: 'none',
         closeOnOutside: false, closeOnEscape: false,
-        content: () => container,
-        onClose: () => { handle = null },
+        content: ()=> container,
+        onClose: ()=> { handle = null },
       })
     else handle.update(container)
     return null
@@ -242,11 +242,11 @@ export const Notification: Component<NotificationProps> = (_init, ctx) => {
 export interface NotificationInjected {
   notification: {
     (title: string, opts?: { type?: NotificationType; description?: string; duration?: number; action?: NotificationItem['action'] }): void
-    open: (opts: { type?: NotificationType; title: string; description?: string; duration?: number; action?: NotificationItem['action'] }) => void
-    success: (opts: { title: string; description?: string; duration?: number }) => void
-    error: (opts: { title: string; description?: string; duration?: number }) => void
-    info: (opts: { title: string; description?: string; duration?: number }) => void
-    warning: (opts: { title: string; description?: string; duration?: number }) => void
+    open: (opts: { type?: NotificationType; title: string; description?: string; duration?: number; action?: NotificationItem['action'] })=> void
+    success: (opts: { title: string; description?: string; duration?: number })=> void
+    error: (opts: { title: string; description?: string; duration?: number })=> void
+    info: (opts: { title: string; description?: string; duration?: number })=> void
+    warning: (opts: { title: string; description?: string; duration?: number })=> void
   }
 }
 

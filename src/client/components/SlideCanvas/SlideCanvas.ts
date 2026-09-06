@@ -26,7 +26,7 @@ import type { Component, VNode } from '../../vdom/index.ts'
 export interface SlideCanvasProps {
   /** 受控 DeckState */
   deck: DeckState
-  onChange?: (deck: DeckState) => void
+  onChange?: (deck: DeckState)=> void
   ai?: { url: string; headers?: Record<string, string> }
   height?: string
   readonly?: boolean
@@ -41,7 +41,7 @@ interface UndoEntry {
 const CANVAS_W = 960
 const CANVAS_H = 540
 
-export const SlideCanvas: Component<SlideCanvasProps> = (_init, ctx) => {
+export const SlideCanvas: Component<SlideCanvasProps> = (_init, ctx)=> {
   const i18n = ctx.i18n?.components?.SlideCanvas ?? {}
   // ── mount ──
   let deck: DeckState = _init.deck
@@ -67,11 +67,11 @@ export const SlideCanvas: Component<SlideCanvasProps> = (_init, ctx) => {
     if (aiPending && panel && !aiHandle)
       aiHandle = ctx.ui.openPopup({
         key: 'slide-ai',
-        anchor: () => aiAnchor,
+        anchor: ()=> aiAnchor,
         placement: 'bottom',
         gap: 8,
-        content: () => panel,
-        onClose: () => { aiHandle = null; if (aiPending) { aiPending = null; ctx.render() } },
+        content: ()=> panel,
+        onClose: ()=> { aiHandle = null; if (aiPending) { aiPending = null; ctx.render() } },
       })
     else if (!aiPending && aiHandle) { aiHandle.close(); aiHandle = null }
     else if (aiHandle && panel) aiHandle.update(panel)
@@ -89,7 +89,7 @@ export const SlideCanvas: Component<SlideCanvasProps> = (_init, ctx) => {
   }
 
   const shapeOf = (id: string): SlideShape | undefined =>
-    deck.slides[activeSlide]?.shapes.find((s) => s.id === id)
+    deck.slides[activeSlide]?.shapes.find((s)=> s.id === id)
 
   const addShape = (kind: 'text' | 'rect'): void => {
     const id = `s${Date.now()}`
@@ -142,7 +142,7 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
   const envWin = ctx.browser
   envWin?.addEventListener?.('pointermove', windowMove)
   envWin?.addEventListener?.('pointerup', windowUp)
-  ctx.ui?.hold?.(() => {
+  ctx.ui?.hold?.(()=> {
     envWin?.removeEventListener?.('pointermove', windowMove)
     envWin?.removeEventListener?.('pointerup', windowUp)
   })
@@ -197,8 +197,8 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
   const applyShapeLive = (id: string, next: SlideShape): void => {
     deck = {
       ...deck,
-      slides: deck.slides.map((s, i) => i === activeSlide
-        ? { ...s, shapes: s.shapes.map((sh) => sh.id === id ? next : sh) }
+      slides: deck.slides.map((s, i)=> i === activeSlide
+        ? { ...s, shapes: s.shapes.map((sh)=> sh.id === id ? next : sh) }
         : s),
     }
     ctx.render()
@@ -218,17 +218,17 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
       messages: [{ role: 'user', content: prompt }],
     }, {
       headers: _init.ai.headers,
-      onToken: (text) => {
+      onToken: (text)=> {
         if (!aiPending) return
         aiPending.revised += text
         ctx.render()
       },
-      onDone: () => {
+      onDone: ()=> {
         if (!aiPending) return
         aiPending.streaming = false
         ctx.render()
       },
-      onError: (e) => {
+      onError: (e)=> {
         if (!aiPending) return
         aiPending.streaming = false
         aiPending.error = e?.message ?? 'AI 请求失败'
@@ -262,7 +262,7 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
   }
 
   // ── 渲染 ──
-  return (props: SlideCanvasProps) => {
+  return (props: SlideCanvasProps)=> {
     // **受控回流门控（2027-09 场景层拖拽实证）**：拖拽期间场景 render 会以
     // 新 deck 字面量触发引用比较命中——内部 live 状态被 props 重置（x=104→10
     // ——拖拽死）。live 期间挂起回流；commit 后场景受控回传新 deck。
@@ -286,7 +286,7 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
 
 
     // shape 渲染
-    const shapeNodes: VNode[] = slide.shapes.map((shape, i) => {
+    const shapeNodes: VNode[] = slide.shapes.map((shape, i)=> {
       const isSelected = selected === shape.id
       const isEditing = editing?.id === shape.id
       const common = {
@@ -299,7 +299,7 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
           height: `${shape.h}px`,
           ...(shape.props?.fill ? { background: shape.props.fill } : {}),
         },
-        onPointerDown: (e: PointerEvent) => onPointerDown(shape.id, 'move', e),
+        onPointerDown: (e: PointerEvent)=> onPointerDown(shape.id, 'move', e),
       }
       const body: VNode[] = []
       if (isEditing) {
@@ -307,13 +307,13 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
           ref: editAreaRef,
           class: 'wf-slide-shape-edit',
           value: editing?.text ?? '',
-          onInput: (e: Event) => { editing = { id: shape.id, text: (e.target as HTMLTextAreaElement).value } },
-          onFocusout: () => { commitEdit() }, // focusout 冒泡（blur 不冒泡——事件代理不可达）
-          onKeyDown: (e: KeyboardEvent) => {
+          onInput: (e: Event)=> { editing = { id: shape.id, text: (e.target as HTMLTextAreaElement).value } },
+          onFocusout: ()=> { commitEdit() }, // focusout 冒泡（blur 不冒泡——事件代理不可达）
+          onKeyDown: (e: KeyboardEvent)=> {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit() }
             if (e.key === 'Escape') { editing = null; ctx.render() }
           },
-          onPointerDown: (e: PointerEvent) => e.stopPropagation(),
+          onPointerDown: (e: PointerEvent)=> e.stopPropagation(),
         }))
       } else if (shape.kind === 'image') {
         body.push(h('div', { class: 'wf-slide-shape-image' }, '🖼'))
@@ -326,7 +326,7 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
         isSelected && !readonly
           ? h('div', {
             class: 'wf-slide-shape-resize',
-            onPointerDown: (e: PointerEvent) => onPointerDown(shape.id, 'resize', e),
+            onPointerDown: (e: PointerEvent)=> onPointerDown(shape.id, 'resize', e),
           })
           : null,
       )
@@ -353,11 +353,11 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
           h('button', {
             class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button', key: 'ok',
             disabled: aiPending.streaming,
-            onClick: () => acceptAi(),
+            onClick: ()=> acceptAi(),
           }, i18n.accept ?? '应用'),
           h('button', {
             class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'no',
-            onClick: () => rejectAi(),
+            onClick: ()=> rejectAi(),
           }, i18n.reject ?? '拒绝'),
         ]),
       ])
@@ -365,7 +365,7 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
 
     const vn = h('div', {
       class: 'wf-slide',
-      onKeyDown: (e: KeyboardEvent) => {
+      onKeyDown: (e: KeyboardEvent)=> {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoLast() }
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'enter' && _init.ai && selected) { e.preventDefault(); runAi() }
         if (e.key === 'Delete' && selected && !editing) { e.preventDefault(); deleteShape() }
@@ -373,30 +373,30 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
     }, [
       // 工具条
       h('div', { class: 'wf-slide-toolbar' }, [
-        ...deck.slides.map((s, i) =>
+        ...deck.slides.map((s, i)=>
           h('button', {
             key: `tab${i}`,
             class: ['wf-slide-tab', i === activeSlide ? 'wf-slide-tab--active' : ''].filter(Boolean).join(' '),
             type: 'button',
-            onClick: () => { activeSlide = i; selected = null; editing = null; ctx.render() },
+            onClick: ()=> { activeSlide = i; selected = null; editing = null; ctx.render() },
           }, `${i18n.slide ?? '幻灯片'} ${i + 1}`)),
-        h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'add-slide', onClick: () => addSlide(), disabled: readonly }, i18n.addSlide ?? '+ 页'),
+        h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'add-slide', onClick: ()=> addSlide(), disabled: readonly }, i18n.addSlide ?? '+ 页'),
         ...(!readonly ? [
-          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'del-slide', onClick: () => deleteSlide() }, i18n.deleteSlide ?? '删页'),
-          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'add-text', onClick: () => addShape('text') }, i18n.addText ?? '文本'),
-          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'add-rect', onClick: () => addShape('rect') }, i18n.addRect ?? '矩形'),
-          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'del', onClick: () => deleteShape(), disabled: !selected }, i18n.deleteShape ?? '删除'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'del-slide', onClick: ()=> deleteSlide() }, i18n.deleteSlide ?? '删页'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'add-text', onClick: ()=> addShape('text') }, i18n.addText ?? '文本'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'add-rect', onClick: ()=> addShape('rect') }, i18n.addRect ?? '矩形'),
+          h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'del', onClick: ()=> deleteShape(), disabled: !selected }, i18n.deleteShape ?? '删除'),
           ...(_init.ai
             ? [h('button', {
               ref: aiAnchorRef,
               class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'ai',
               'aria-expanded': String(!!aiPending),
               disabled: !selected,
-              onClick: () => runAi(),
+              onClick: ()=> runAi(),
             }, i18n.aiPolish ?? 'AI 润色')]
             : []),
         ] : []),
-        h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'undo', onClick: () => undoLast(), disabled: readonly || undo.length === 0 }, i18n.undo ?? '撤销'),
+        h('button', { class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'undo', onClick: ()=> undoLast(), disabled: readonly || undo.length === 0 }, i18n.undo ?? '撤销'),
       ]),
       // 画布
       // **拖拽事件绑 window（2027-09 场景层拖拽断言实证）**：原绑画布容器——
@@ -412,7 +412,7 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
           ref: canvasRefStable,
           class: 'wf-slide-canvas',
           style: { width: `${CANVAS_W * scale}px`, height: `${CANVAS_H * scale}px` },
-        }, shapeNodes.map((n) => h('div', {
+        }, shapeNodes.map((n)=> h('div', {
           key: (n as { key: string }).key,
           style: { transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute' },
           class: 'wf-slide-shape-scaler',

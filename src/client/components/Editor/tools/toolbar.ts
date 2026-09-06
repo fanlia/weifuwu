@@ -74,8 +74,8 @@ export function renderToolbar(
   items: ToolbarItem[],
   active: FormatState,
   isSource: boolean,
-  onItem: (item: ToolbarItem, anchor?: HTMLElement | null) => void,
-  customRender?: Record<string, (item: ToolbarItem) => VNode>,
+  onItem: (item: ToolbarItem, anchor?: HTMLElement | null)=> void,
+  customRender?: Record<string, (item: ToolbarItem)=> VNode>,
   extra?: VNode[],
 ): VNode {
   const buttons = items.map(item => {
@@ -96,12 +96,12 @@ export function renderToolbar(
       title: TOOLBAR_TITLES[item],
       'aria-label': TOOLBAR_TITLES[item],
       'data-item': item,
-      onClick: (e: MouseEvent) => onItem(item, e.currentTarget as HTMLElement | null),
+      onClick: (e: MouseEvent)=> onItem(item, e.currentTarget as HTMLElement | null),
     }, TOOLBAR_LABELS[item])
   })
 
   const withSeparators: any[] = []
-  items.forEach((item, i) => {
+  items.forEach((item, i)=> {
     if (i > 0 && needsSeparator(items[i - 1], item)) {
       withSeparators.push(h('span', { class: 'wf-editor-tb-sep', key: `sep-${i}` }))
     }

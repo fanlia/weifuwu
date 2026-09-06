@@ -16,12 +16,12 @@ export interface HighlightProps {
   className?: string
 }
 
-export const Highlight: Component<HighlightProps> = (_init, _ctx) =>
-  (props) => {
+export const Highlight: Component<HighlightProps> = (_init, _ctx)=>
+  (props)=> {
     const { text, query, className } = props
     const queries = (Array.isArray(query) ? query : query ? [query] : [])
       .filter(Boolean)
-      .map((q) => q.toLowerCase())
+      .map((q)=> q.toLowerCase())
 
     if (queries.length === 0) return h('span', { class: `wf-highlight${className ? ` ${className}` : ''}` }, text)
 

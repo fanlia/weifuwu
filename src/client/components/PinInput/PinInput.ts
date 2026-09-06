@@ -8,7 +8,7 @@ export interface PinInputProps {
   length?: number
   /** 受控完整值（如 '483920'） */
   value?: string
-  onChange?: (value: string) => void
+  onChange?: (value: string)=> void
   /** number = 纯数字（默认）；text = 任意字符 */
   type?: 'number' | 'text'
   size?: 'sm' | 'md' | 'lg'
@@ -20,11 +20,11 @@ export interface PinInputProps {
  * 验证码输入（对应 shadcn InputOTP / antd 无）：自动聚焦下一格、粘贴分派、
  * Backspace 回退、方向键移动。受控 value 为完整字符串。
  */
-export const PinInput: Component<PinInputProps> = (_init, ctx) => {
+export const PinInput: Component<PinInputProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let refs: (HTMLInputElement | null)[] = []
 
-  const focusCell = (i: number) => {
+  const focusCell = (i: number)=> {
     const el = refs[i]
     if (el) {
       el.focus()
@@ -35,17 +35,17 @@ export const PinInput: Component<PinInputProps> = (_init, ctx) => {
   // 闭包捕获索引 + Map 缓存稳定（React useCallback 等价物）：
   // ref 直接闭包捕获 i（不读 dataset——根治 data-idx 依赖 setProp 顺序的隐式契约）；
   // 函数引用跨渲染缓存复用（不触发 ref-diff 误清理——§5.1 纪律）
-  const cellRefs = new Map<number, (el: HTMLInputElement | null) => void>()
-  const inputRefFor = (i: number) => {
+  const cellRefs = new Map<number, (el: HTMLInputElement | null)=> void>()
+  const inputRefFor = (i: number)=> {
     let fn = cellRefs.get(i)
     if (!fn) {
-      fn = (el) => { if (el) refs[i] = el }
+      fn = (el)=> { if (el) refs[i] = el }
       cellRefs.set(i, fn)
     }
     return fn
   }
 
-  return (props) => {
+  return (props)=> {
     const {
       length = 6, value = '', onChange, type = 'number',
       size = 'md', disabled, 'aria-label': ariaLabel,
@@ -53,7 +53,7 @@ export const PinInput: Component<PinInputProps> = (_init, ctx) => {
 
     const isNumber = type === 'number'
 
-    const handleInput = (i: number, raw: string) => {
+    const handleInput = (i: number, raw: string)=> {
       if (disabled || !onChange) return
       let ch = raw.slice(-1)
       if (isNumber && !/^\d$/.test(ch)) return // 数字模式拒绝非数字
@@ -65,7 +65,7 @@ export const PinInput: Component<PinInputProps> = (_init, ctx) => {
       if (i + 1 < length) focusCell(i + 1)
     }
 
-    const handleKeyDown = (i: number, e: any) => {
+    const handleKeyDown = (i: number, e: any)=> {
       if (disabled) return
       const key = e.key
       if (key === 'Backspace') {
@@ -93,7 +93,7 @@ export const PinInput: Component<PinInputProps> = (_init, ctx) => {
       }
     }
 
-    const handlePaste = (e: any) => {
+    const handlePaste = (e: any)=> {
       if (disabled || !onChange) return
       const text = e.clipboardData?.getData('text') ?? ''
       e.preventDefault()
@@ -118,8 +118,8 @@ export const PinInput: Component<PinInputProps> = (_init, ctx) => {
         'aria-label': `${ariaLabel ?? '验证码'}第 ${i + 1} 位`,
         disabled: disabled || undefined,
         ref: inputRefFor(i),
-        onInput: (e: any) => handleInput(i, e.target.value),
-        onKeyDown: (e: any) => handleKeyDown(i, e),
+        onInput: (e: any)=> handleInput(i, e.target.value),
+        onKeyDown: (e: any)=> handleKeyDown(i, e),
         onPaste: handlePaste,
       }))
     }

@@ -53,14 +53,14 @@ export interface FilePreviewProps {
   /** 编辑模式 AI 协作（透传 Editor） */
   ai?: EditorAiOptions
   /** 编辑保存回调（md/text 序列化回写） */
-  onSave?: (content: string, type: 'md' | 'text') => void
+  onSave?: (content: string, type: 'md' | 'text')=> void
   /** 加载完成（解析成功） */
-  onLoad?: (info: { type: FileType; chars: number; blocks: number }) => void
+  onLoad?: (info: { type: FileType; chars: number; blocks: number })=> void
   /** 内容高度 */
   height?: string
 }
 
-export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
+export const FilePreview: Component<FilePreviewProps> = (_init, ctx)=> {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let doc: DocState = EMPTY_DOC
@@ -77,7 +77,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
   // ── 远程加载（md/html/text 的 url——fetch 内容 → 预览/编辑；sandbox 文件路径） ──
   let remote = { status: 'idle' as 'idle' | 'loading' | 'error', content: null as string | null, error: null as string | null }
   let loadedUrl: string | null = null
-  const loadUrl = async (u: string) => {
+  const loadUrl = async (u: string)=> {
     // **SSR 跳过远程加载（2026-08——服务器崩溃实证）**：node 端 fetch
     // 相对 URL（/api/...）→ TypeError → catch → ctx.render()（SSR 无渲染
     // 概念——noop 已兜底）——但 SSR 本不该发请求（静态结构渲染——加载态）
@@ -104,7 +104,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
     }
   }
 
-  return (props: FilePreviewProps) => {
+  return (props: FilePreviewProps)=> {
     const { type: typeProp, content = '', url, fileName, editable, ai, onSave, onLoad, height = '400px' } = props
     // 自动探测（type 未传——fileName/url 扩展名推断）
     const type = typeProp ?? detectType(fileName, url)
@@ -116,7 +116,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
     }
 
     // ── 事件流：预览加载可观测（__edit_tail；同内容只发一次——renderFn 重跑防重复） ──
-    const emitLoaded = (chars: number, blocks: number) => {
+    const emitLoaded = (chars: number, blocks: number)=> {
       if (loaded) return
       loaded = true
       editEmit('preview', { type, chars, blocks, status: 'loaded' })
@@ -140,7 +140,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
           key: 'editor', // 稳定业务 key（同一编辑器身份——模式切换重建意图显式化）
           minHeight: height,
           ai,
-          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.render() },
+          onChange: (v: string)=> { doc = parseHtml(v); dirty = true; ctx.render() },
         })
       } else {
         emitLoaded(effectiveContent.length, 0)
@@ -162,7 +162,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
           key: 'editor',
           minHeight: height,
           ai,
-          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.render() },
+          onChange: (v: string)=> { doc = parseHtml(v); dirty = true; ctx.render() },
         })
       } else {
         emitLoaded(effectiveContent.length, 1)
@@ -195,7 +195,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
           key: 'editor',
           minHeight: height,
           ai,
-          onChange: (v: string) => { doc = parseHtml(v); dirty = true; ctx.render() },
+          onChange: (v: string)=> { doc = parseHtml(v); dirty = true; ctx.render() },
         })
       } else if (editable && officeWorkbook) {
         emitLoaded(0, 0)
@@ -255,7 +255,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
       previewBody = h('div', { class: 'wf-filepreview-empty wf-filepreview-error' }, `加载失败: ${remote.error}`)
     }
 
-    const doSave = () => {
+    const doSave = ()=> {
       if (!onSave || !isEditableType || !editable) return
       const out = type === 'md' ? serializeMarkdown(doc) : doc.text
       onSave(out, type)
@@ -271,12 +271,12 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
           officeInput.type = 'file'
           officeInput.accept = '.docx,.xlsx,.xls,.pptx'
           officeInput.style.display = 'none'
-          officeInput.onchange = () => {
+          officeInput.onchange = ()=> {
             const f = officeInput!.files?.[0]
             if (!f) return
             const isXlsx = /\.xlsx?$/i.test(f.name)
             const isPptx = /\.pptx?$/i.test(f.name)
-            void f.arrayBuffer().then(async (buf) => {
+            void f.arrayBuffer().then(async (buf)=> {
               try {
                 if (isPptx) {
                   const { pptxToDeck } = await import('../../office/pptx.ts')
@@ -316,7 +316,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
       }
       const downloadDocx = (): void => {
         if (officeDoc) {
-          void import('../../office/docx.ts').then(({ docToDocx }) => {
+          void import('../../office/docx.ts').then(({ docToDocx })=> {
             const res = docToDocx(doc)
             const ok = _browser.downloadFile(fileName ?? 'office-doc.docx', res.data as unknown as string,
               'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
@@ -324,7 +324,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
           })
         } else if (officeWorkbook) {
           const wb = officeWorkbook // 闭包收窄（let 在异步回调中 TS 不保持）
-          void import('../../office/xlsx.ts').then(({ workbookToXlsx }) => {
+          void import('../../office/xlsx.ts').then(({ workbookToXlsx })=> {
             const res = workbookToXlsx(wb)
             const ok = _browser.downloadFile(fileName ?? 'sheet.xlsx', res.data as unknown as string,
               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -332,7 +332,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
           })
         } else if (officeDeck) {
           const dk = officeDeck
-          void import('../../office/pptx.ts').then(({ deckToPptx }) => {
+          void import('../../office/pptx.ts').then(({ deckToPptx })=> {
             const res = deckToPptx(dk)
             const ok = _browser.downloadFile(fileName ?? 'deck.pptx', res.data as unknown as string,
               'application/vnd.openxmlformats-officedocument.presentationml.presentation')
@@ -341,7 +341,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
         }
       }
 
-    const doCopy = async () => {
+    const doCopy = async ()=> {
       // 编辑模式复制序列化内容（含编辑）；预览模式复制原始内容
       const out = isEditableType ? (editMode ? serializeMarkdown(doc) : effectiveContent) : content
       await _browser.copyText(out)
@@ -350,7 +350,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
 
     return h('div', {
       class: `wf-filepreview wf-filepreview--${type}`,
-      onKeyDown: (e: KeyboardEvent) => {
+      onKeyDown: (e: KeyboardEvent)=> {
         // Ctrl+S 保存（编辑模式）
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && isEditableType && editable) {
           e.preventDefault()
@@ -366,20 +366,20 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
             ? h('button', {
               class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'open',
               'data-open': 'true',
-              onClick: () => openDocx(),
+              onClick: ()=> openDocx(),
             }, officeDoc ? '重新打开' : '打开 docx')
             : null,
           type === 'office' && editable && (officeDoc || officeWorkbook || officeDeck)
             ? h('button', {
               class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button', key: 'dl',
               'data-dl': 'true',
-              onClick: () => downloadDocx(),
+              onClick: ()=> downloadDocx(),
             }, officeDeck ? '下载 pptx' : officeWorkbook ? '下载 xlsx' : '下载 docx')
             : null,
           isEditableType && editable
             ? h('button', {
               class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'toggle',
-              onClick: () => {
+              onClick: ()=> {
                 editMode = !editMode
                 // 切回预览：内容已同步 doc（未保存内容可见——dirty 保留提示）
                 editEmit('preview', { type, status: editMode ? 'edit-start' : 'view' })
@@ -390,7 +390,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
           h('button', {
             class: 'wf-btn wf-btn--ghost wf-btn--sm', type: 'button', key: 'copy',
             'data-copy': 'true',
-            onClick: () => void doCopy(),
+            onClick: ()=> void doCopy(),
           }, '复制'),
           ...(isEditableType && editable && onSave && (editMode || dirty)
             ? [
@@ -398,7 +398,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx) => {
               h('span', { class: 'wf-filepreview-actions-hint', key: 'hint' }, 'Ctrl+S 保存'),
               h('button', {
                 class: 'wf-btn wf-btn--primary wf-btn--sm', type: 'button', key: 'save',
-                onClick: () => doSave(),
+                onClick: ()=> doSave(),
               }, '保存'),
             ]
             : []),

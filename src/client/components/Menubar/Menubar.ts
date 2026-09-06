@@ -1,5 +1,5 @@
 /** Menubar：水平菜单栏：←→ 切换 + ↓ 展开（shadcn Menubar）（showcase /components/menubar） */
-import type { Component } from '../../vdom/index.ts'
+import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
@@ -7,10 +7,10 @@ import { h } from '../../vdom/index.ts'
 export interface MenubarItem {
   key: string
   label: string
-  icon?: any
+  icon?: VNodeChild
   shortcut?: string
   disabled?: boolean
-  onSelect?: () => void
+  onSelect?: ()=> void
 }
 
 export interface MenubarMenu {
@@ -27,7 +27,7 @@ export interface MenubarProps {
 
 /** 水平菜单栏（对应 shadcn Menubar）：trigger 点击展开下拉，←→ 切换菜单，Escape 关闭。
  * 裁剪（CS-05，见 docs/client.md）：hover 展开、子菜单、可拖拽菜单。 */
-export const Menubar: Component<MenubarProps> = (_init, ctx) => {
+export const Menubar: Component<MenubarProps> = (_init, ctx)=> {
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
@@ -36,11 +36,11 @@ export const Menubar: Component<MenubarProps> = (_init, ctx) => {
   let triggerEls: (HTMLElement | null)[] = []
 
   // 闭包捕获索引 + Map 缓存稳定（React useCallback 等价物）：不读 dataset（根治顺序依赖）
-  const triggerRefs = new Map<number, (el: HTMLElement | null) => void>()
-  const triggerRefFor = (i: number) => {
+  const triggerRefs = new Map<number, (el: HTMLElement | null)=> void>()
+  const triggerRefFor = (i: number)=> {
     let fn = triggerRefs.get(i)
     if (!fn) {
-      fn = (el) => { if (el) triggerEls[i] = el }
+      fn = (el)=> { if (el) triggerEls[i] = el }
       triggerRefs.set(i, fn)
     }
     return fn
@@ -56,38 +56,38 @@ export const Menubar: Component<MenubarProps> = (_init, ctx) => {
   const syncPanel = (panel: import('../../vdom/index.ts').VNode | null): void => {
     if (openMenu && panel && !handle)
       handle = ctx.ui.openPopup({
-        anchor: () => {
+        anchor: ()=> {
           const i = menus.findIndex(m => m.key === openMenu)
           return i >= 0 ? triggerEls[i] : null
         },
         placement: 'bottom',
         center: false,
         gap: 4,
-        content: () => panel,
-        onClose: () => { handle = null; if (openMenu) close() },
+        content: ()=> panel,
+        onClose: ()=> { handle = null; if (openMenu) close() },
       })
     else if (!openMenu && handle) { handle.close(); handle = null }
     else if (handle) handle.update(panel)
   }
 
-  const close = () => {
+  const close = ()=> {
     if (openMenu !== null) {
       openMenu = null
       ctx.render()
     }
   }
 
-  const toggle = (key: string) => {
+  const toggle = (key: string)=> {
     openMenu = openMenu === key ? null : key
     highlight = 0
     ctx.render()
   }
 
-  return (props) => {
+  return (props)=> {
     const { menus: propMenus = [], 'aria-label': ariaLabel } = props
     menus = propMenus
 
-    const onKeyDown = (e: any) => {
+    const onKeyDown = (e: any)=> {
       if (e.key === 'Escape') {
         close()
         return
@@ -104,7 +104,7 @@ export const Menubar: Component<MenubarProps> = (_init, ctx) => {
       triggerEls[next]?.focus()
     }
 
-    const triggers = menus.map((menu, i) => {
+    const triggers = menus.map((menu, i)=> {
       const open = openMenu === menu.key
       return h('button', {
         type: 'button',
@@ -117,8 +117,8 @@ export const Menubar: Component<MenubarProps> = (_init, ctx) => {
         ref: triggerRefFor(i),
         'aria-haspopup': 'menu',
         'aria-expanded': open ? 'true' : 'false',
-        onClick: menu.disabled ? undefined : () => toggle(menu.key),
-        onKeyDown: (e: any) => {
+        onClick: menu.disabled ? undefined : ()=> toggle(menu.key),
+        onKeyDown: (e: any)=> {
           if (e.key === 'ArrowDown' || e.key === 'Enter') {
             e.preventDefault()
             if (!menu.disabled) toggle(menu.key)
@@ -133,7 +133,7 @@ export const Menubar: Component<MenubarProps> = (_init, ctx) => {
     const panel = openMenuData ? h('div', {
       class: 'wf-menubar-panel',
       role: 'menu',
-    }, (openMenuData.items ?? []).map((item, i) =>
+    }, (openMenuData.items ?? []).map((item, i)=>
       h('button', {
         type: 'button',
         class: [
@@ -143,8 +143,8 @@ export const Menubar: Component<MenubarProps> = (_init, ctx) => {
         ].filter(Boolean).join(' '),
         key: item.key,
         role: 'menuitem',
-        onClick: item.disabled ? undefined : () => { item.onSelect?.(); close() },
-        onMouseEnter: () => { if (!item.disabled) highlight = i },
+        onClick: item.disabled ? undefined : ()=> { item.onSelect?.(); close() },
+        onMouseEnter: ()=> { if (!item.disabled) highlight = i },
       }, [
         h('span', { class: 'wf-menubar-item-label' }, item.label),
         item.shortcut ? h('kbd', { class: 'wf-menubar-shortcut' }, item.shortcut) : null,
