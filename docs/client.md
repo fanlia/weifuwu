@@ -50,6 +50,34 @@ import 'weifuwu/client/components/style.css'
 **JSX 配置**：`tsconfig` 的 `jsxImportSource: "weifuwu/client/vdom"`（jsx-runtime
 子路径自动解析——见仓库 tsconfig 先例）。组件 = 工厂同步 + 渲染纯同步——见 §5.1。
 
+## 1.1 组件的本质——四要素模型（三面论·2027-09 概念化）
+
+> 组件是什么？**语义单元**（不是视觉单元）——语义决定边界与身份
+> （Modal vs Drawer = dialog vs 非模态侧栏——语义差异而非视觉差异）。
+> 组件 = 四要素的契约化封装：
+
+```
+组件 = 语义面（身份/契约——role + aria 面）
+     × 状态机面（行为状态——显式协议）
+     × 投影面（状态 → {类, aria, props} 确定性映射）
+     × 结构面（h 树容器组装）
+```
+
+| 要素 | 含义 | 原语 | 判据 |
+| --- | --- | --- | --- |
+| 语义面 | 角色的标准 aria 契约（dialog→modal/labelledby · tab→selected · progressbar→valuenow/min/max） | `useSemantic`（W1 建） | role 模板表 28 项 |
+| 状态机面 | 行为状态的显式协议（渲染期纯·隔离 hooks） | useSignal / useControlled | getter 纪律·set 即渲染 |
+| 投影面 | 状态 → 视觉/读屏/行为三通道同步映射 | createItem | 捆绑声明——改一面漏一面 = a11y bug |
+| 结构面 | 容器组装（**不抽象——自由皮**） | h() | 抽象 = 配置地狱（createComponent 1 消费者教训） |
+
+**核心洞察**（createItem 16 消费证成）：传统组件把四要素糊在一个函数里
+（let 声明+三元+h 树混写）——三面各为一等原语的正交组合 = 抽象的正确粒度。
+组件作者以此为分层思考（先语义身份 → 再状态协议 → 再投影声明 → 最后结构）。
+
+**诚实边界**：aria-label 是成分面（值组件特异——不模板化）· 数据驱动组件
+（Cascader/Tree）数据流 ≠ 状态机（探针判负待判）· 弱组件（纯展示）是零
+状态投影退化。
+
 ## 2. 组件清单
 
 **139 个组件**——源码目录即清单：`src/client/components/<Comp>/<Comp>.ts`（每个含
