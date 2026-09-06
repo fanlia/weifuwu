@@ -31,8 +31,8 @@ export interface AlertGroupProps {
 const THRESHOLD = 3
 
 export const AlertGroup: Component<AlertGroupProps> = (_init, ctx: UIContext)=> {
-  // ── mount（只一次）──
-  let expanded = false
+  // ── mount（只一次）── 展开态状态原语（set 自动重渲染）
+  const expanded = ctx.ui.useSignal(false)
 
   return (props)=> {
     const { items, onClose } = props
@@ -52,14 +52,14 @@ export const AlertGroup: Component<AlertGroupProps> = (_init, ctx: UIContext)=> 
         }, h(Icon, { name: 'close' })),
       ])
 
-    const visible = collapsible && !expanded ? items.slice(0, 1) : items
+    const visible = collapsible && !expanded.get() ? items.slice(0, 1) : items
 
     return h('div', { class: 'wf-alertgroup', role: 'group' }, [
-      collapsible && !expanded
-        ? h('button', { class: 'wf-alertgroup-summary', onClick: ()=> { expanded = true; ctx.render() } },
+      collapsible && !expanded.get()
+        ? h('button', { class: 'wf-alertgroup-summary', onClick: ()=> { expanded.set(true) } },
             h('span', {}, `+${items.length} 条通知`))
         : null,
-      expanded && collapsible
+      expanded.get() && collapsible
         ? h('div', { class: 'wf-alertgroup-list wf-alertgroup-list--open' }, visible.map(itemRow))
         : h('div', { class: 'wf-alertgroup-list' }, visible.map(itemRow)),
     ])

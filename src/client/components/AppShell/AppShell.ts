@@ -81,9 +81,9 @@ const activeOf = (nav: AppShellNavItem[], path: string): string => {
 
 export const AppShell: Component<AppShellProps> = (_init, ctx)=> {
   // 移动抽屉状态（mount 闭包——AppLayout 同款）
-  let drawerOpen = false
-  const closeDrawer = ()=> { if (drawerOpen) { drawerOpen = false; ctx.render() } }
-  const toggleDrawer = ()=> { drawerOpen = !drawerOpen; ctx.render() }
+  const drawerOpen = ctx.ui.useSignal(false)
+  const closeDrawer = ()=> { if (drawerOpen.get()) drawerOpen.set(false) }
+  const toggleDrawer = ()=> drawerOpen.set((v) => !v)
   // Escape 关抽屉（键盘面——overlay onClick 的键盘等价——自动卸载退订）
   ctx.ui.useGlobalKey('Escape', () => closeDrawer())
 
@@ -102,7 +102,7 @@ export const AppShell: Component<AppShellProps> = (_init, ctx)=> {
 
     return h('div', { class: 'wf-app-shell' }, [
       // 侧栏（layout 原语类 + 抽屉开启态）
-      h('aside', { class: ['wf-sidebar', isMobile && drawerOpen && 'wf-app-shell-drawer--open'] }, [
+      h('aside', { class: ['wf-sidebar', isMobile && drawerOpen.get() && 'wf-app-shell-drawer--open'] }, [
         // 品牌区（移动端：关闭按钮追加）
         h('div', { class: 'wf-sidebar-header' }, [
           h(Avatar, { name: brand.logo ?? name.slice(0, 1), size: 'lg' }),
@@ -142,7 +142,7 @@ export const AppShell: Component<AppShellProps> = (_init, ctx)=> {
         ),
       ]),
       // 遮罩（抽屉开启——点击关闭）
-      isMobile && drawerOpen ? h('div', { class: 'wf-app-shell-overlay', onClick: closeDrawer }) : null,
+      isMobile && drawerOpen.get() ? h('div', { class: 'wf-app-shell-overlay', onClick: closeDrawer }) : null,
       // 右列（移动顶栏 + 主内容——AppLayout ap-body 对应）
       h('div', { class: 'wf-app-shell-body' }, [
         // 移动顶栏（<768——汉堡开抽屉 + 品牌 + 右侧设置）

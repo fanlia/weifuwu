@@ -32,7 +32,7 @@ export const Menubar: Component<MenubarProps> = (_init, ctx)=> {
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
   let openMenu: string | null = null
-  let highlight = 0
+  const highlight = ctx.ui.useSignal(0)
   let triggerEls: (HTMLElement | null)[] = []
 
   // 闭包捕获索引 + Map 缓存稳定（React useCallback 等价物）：不读 dataset（根治顺序依赖）
@@ -79,7 +79,7 @@ export const Menubar: Component<MenubarProps> = (_init, ctx)=> {
 
   const toggle = (key: string)=> {
     openMenu = openMenu === key ? null : key
-    highlight = 0
+    highlight.set(0)
     ctx.render()
   }
 
@@ -138,13 +138,13 @@ export const Menubar: Component<MenubarProps> = (_init, ctx)=> {
         type: 'button',
         class: [
           'wf-menubar-item',
-          highlight === i ? 'wf-menubar-item--hl' : '',
+          highlight.get() === i ? 'wf-menubar-item--hl' : '',
           item.disabled ? 'wf-menubar-item--dis' : '',
         ].filter(Boolean).join(' '),
         key: item.key,
         role: 'menuitem',
         onClick: item.disabled ? undefined : ()=> { item.onSelect?.(); close() },
-        onMouseEnter: ()=> { if (!item.disabled) highlight = i },
+        onMouseEnter: ()=> { if (!item.disabled) highlight.set(i) },
       }, [
         h('span', { class: 'wf-menubar-item-label' }, item.label),
         item.shortcut ? h('kbd', { class: 'wf-menubar-shortcut' }, item.shortcut) : null,

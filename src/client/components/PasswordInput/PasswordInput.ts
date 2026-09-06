@@ -26,7 +26,8 @@ export interface PasswordInputProps {
 }
 
 export const PasswordInput: Component<PasswordInputProps> = (_init, ctx)=> {
-  let show = false
+  // 状态原语（set 自动重渲染）
+  const show = ctx.ui.useSignal(false)
 
   return (props: PasswordInputProps)=> {
     const {
@@ -36,8 +37,7 @@ export const PasswordInput: Component<PasswordInputProps> = (_init, ctx)=> {
 
     const toggle = ()=> {
       if (disabled) return
-      show = !show
-      ctx.render()
+      show.set(v => !v)
     }
 
     // 字段契约（label/error/hint 结构 + aria——复用 Input 类面）
@@ -51,7 +51,7 @@ export const PasswordInput: Component<PasswordInputProps> = (_init, ctx)=> {
 
     const input = h('input', {
       class: 'wf-input',
-      type: show ? 'text' : 'password',
+      type: show.get() ? 'text' : 'password',
       value,
       name,
       placeholder,
@@ -64,10 +64,10 @@ export const PasswordInput: Component<PasswordInputProps> = (_init, ctx)=> {
     const eye = h('button', {
       class: 'wf-password-eye',
       type: 'button',
-      'aria-label': show ? '隐藏密码' : '显示密码',
+      'aria-label': show.get() ? '隐藏密码' : '显示密码',
       tabIndex: -1,
       onClick: toggle,
-    }, h(Icon, { name: show ? 'eye-off' : 'eye', size: 16 }))
+    }, h(Icon, { name: show.get() ? 'eye-off' : 'eye', size: 16 }))
 
     const wrap = h('div', { class: 'wf-input-wrap wf-password' }, [input, eye])
 
