@@ -60,7 +60,7 @@
   justify-content: center;
   min-height: 80px;
   padding: var(--wf-space-md);
-  border: 1px dashed var(--wf-color-border);
+  border: var(--wf-border-width) dashed var(--wf-color-border);
   border-radius: var(--wf-radius);
   color: var(--wf-color-text-tertiary);
   font-family: var(--wf-font-sans);

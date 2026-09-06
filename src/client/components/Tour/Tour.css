@@ -26,7 +26,7 @@
   min-width: var(--wf-tour-min-width);
   max-width: 360px;
   background: var(--wf-color-bg);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   box-shadow: var(--wf-shadow-lg);
   padding: 16px;
@@ -85,7 +85,7 @@
   min-height: 32px;
   padding: 0 var(--wf-space-md);
   border-radius: var(--wf-radius-sm);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   background: var(--wf-color-bg);
   color: var(--wf-color-text);
   font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */

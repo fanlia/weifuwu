@@ -4,7 +4,7 @@
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
   line-height: var(--wf-line-height);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   background: var(--wf-color-bg-tertiary);
 }
@@ -53,7 +53,7 @@
   align-items: flex-start;
   gap: var(--wf-gap-sm);
   padding: var(--wf-gap-xs);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   background: var(--wf-color-bg);
 }

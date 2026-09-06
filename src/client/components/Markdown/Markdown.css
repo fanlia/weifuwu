@@ -49,7 +49,7 @@
 
 .wf-md-hr {
   border: none;
-  border-top: 1px solid var(--wf-color-border);
+  border-top: var(--wf-border-width) solid var(--wf-color-border);
   margin: var(--wf-space-md) 0;
 }
 

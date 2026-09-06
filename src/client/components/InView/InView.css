@@ -15,7 +15,7 @@
   min-height: 100px;
   background: var(--wf-color-bg-secondary);
   border-radius: var(--wf-radius-md);
-  border: 1px dashed var(--wf-color-border);
+  border: var(--wf-border-width) dashed var(--wf-color-border);
   color: var(--wf-color-text-tertiary);
   font-size: var(--wf-font-size-sm);
 }

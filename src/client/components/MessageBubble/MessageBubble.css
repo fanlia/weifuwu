@@ -1,7 +1,7 @@
 /* weifuwu/components — MessageBubble（依赖 layout wf-bubble 原语） */
 
 .wf-bubble--error {
-  border: 1px solid var(--wf-color-error-text);
+  border: var(--wf-border-width) solid var(--wf-color-error-text);
   background: var(--wf-color-error-bg);
   color: var(--wf-color-error-text);
 }

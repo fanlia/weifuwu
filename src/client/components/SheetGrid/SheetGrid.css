@@ -24,7 +24,7 @@
 .wf-sheet-tab {
   font-size: var(--wf-font-size-xs);
   padding: 4px 12px;
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-bottom: none;
   border-radius: var(--wf-radius-sm) var(--wf-radius-sm) 0 0;
   background: var(--wf-color-bg);
@@ -61,7 +61,7 @@
 }
 
 .wf-sheet-scroll {
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   max-height: 100%;
   background: var(--wf-color-bg);
@@ -75,7 +75,7 @@
 
 .wf-sheet-table th,
 .wf-sheet-table td {
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   padding: 2px 8px;
   min-width: 60px;
   height: 24px;
@@ -139,7 +139,7 @@
   overflow: auto;
   padding: var(--wf-gap-sm);
   background: var(--wf-color-bg-elevated);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   box-shadow: var(--wf-shadow-lg);
   z-index: var(--wf-z-popover);

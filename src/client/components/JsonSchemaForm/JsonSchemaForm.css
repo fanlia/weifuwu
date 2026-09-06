@@ -20,7 +20,7 @@
   flex-direction: column;
   gap: var(--wf-gap-md);
   padding-left: var(--wf-gap-md);
-  border-left: 1px solid var(--wf-color-border);
+  border-left: var(--wf-border-width) solid var(--wf-color-border);
 }
 
 .wf-jsf-obj-title {
@@ -62,7 +62,7 @@
   padding: 0;
   line-height: 0;
   flex-shrink: 0;
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   background: var(--wf-color-bg-tertiary);
   color: var(--wf-color-text-secondary);

@@ -2,7 +2,7 @@
 
 .wf-divider {
   border: none;
-  border-top: 1px solid var(--wf-color-border);
+  border-top: var(--wf-border-width) solid var(--wf-color-border);
   margin: var(--wf-space-md) 0;
   height: 0;
 }
@@ -13,7 +13,7 @@
   height: 1em;
   margin: 0 var(--wf-space-sm);
   border-top: none;
-  border-left: 1px solid var(--wf-color-border);
+  border-left: var(--wf-border-width) solid var(--wf-color-border);
   vertical-align: middle;
 }
 
@@ -29,7 +29,7 @@
 .wf-divider--with-text::after {
   content: '';
   flex: 1;
-  border-top: 1px solid var(--wf-color-border);
+  border-top: var(--wf-border-width) solid var(--wf-color-border);
 }
 
 .wf-divider-text {

@@ -12,12 +12,12 @@
   font-weight: var(--wf-font-weight-semibold);
   color: var(--wf-color-text-secondary);
   padding-bottom: var(--wf-space-xs);
-  border-bottom: 1px solid var(--wf-color-border);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
 }
 
 /* md 文档渲染（复用 Editor 模型序列化——样式与 Editor 内容对齐） */
 .wf-filepreview-doc {
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   background: var(--wf-color-bg);
   padding: var(--wf-space-md);
@@ -90,13 +90,13 @@
 
 .wf-filepreview-md hr {
   border: none;
-  border-top: 1px solid var(--wf-color-border);
+  border-top: var(--wf-border-width) solid var(--wf-color-border);
   margin: var(--wf-space-md) 0;
 }
 
 /* iframe（html sandbox / pdf / office） */
 .wf-filepreview-frame {
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   overflow: hidden;
   background: var(--wf-color-bg);
@@ -107,7 +107,7 @@
 }
 
 .wf-filepreview-empty {
-  border: 1px dashed var(--wf-color-border);
+  border: var(--wf-border-width) dashed var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   padding: var(--wf-space-lg);
   text-align: center;

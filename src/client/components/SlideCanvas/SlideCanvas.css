@@ -17,7 +17,7 @@
 .wf-slide-tab {
   font-size: var(--wf-font-size-xs);
   padding: 4px 12px;
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   background: var(--wf-color-bg);
   cursor: pointer;
@@ -40,7 +40,7 @@
 .wf-slide-canvas {
   position: relative;
   background: var(--wf-color-bg);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   box-shadow: var(--wf-shadow-md);
 }
@@ -92,7 +92,7 @@
   justify-content: center;
   font-size: var(--wf-font-size-3xl);
   background: var(--wf-color-bg-subtle);
-  border: 1px dashed var(--wf-color-border);
+  border: var(--wf-border-width) dashed var(--wf-color-border);
 }
 
 .wf-slide-shape-line {
@@ -121,7 +121,7 @@
   width: 10px;
   height: 10px;
   background: var(--wf-color-primary);
-  border: 1px solid var(--wf-color-bg);
+  border: var(--wf-border-width) solid var(--wf-color-bg);
   cursor: nwse-resize;
   pointer-events: auto;
   z-index: 1;
@@ -133,7 +133,7 @@
   overflow: auto;
   padding: var(--wf-gap-sm);
   background: var(--wf-color-bg-elevated);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   box-shadow: var(--wf-shadow-lg);
   z-index: var(--wf-z-popover);

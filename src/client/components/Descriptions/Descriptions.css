@@ -40,9 +40,9 @@
   overflow: hidden;
 }
 .wf-descriptions--bordered .wf-descriptions-item {
-  border-bottom: 1px solid var(--wf-color-border);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
   padding: var(--wf-space-sm) var(--wf-space-md);
-  border-right: 1px solid var(--wf-color-border);
+  border-right: var(--wf-border-width) solid var(--wf-color-border);
 }
 .wf-descriptions--bordered .wf-descriptions-item:nth-child(n):last-child {
   border-bottom: none;

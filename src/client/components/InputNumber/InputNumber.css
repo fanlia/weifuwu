@@ -42,7 +42,7 @@
 .wf-inputnumber-btns {
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--wf-color-border);
+  border-left: var(--wf-border-width) solid var(--wf-color-border);
 }
 
 .wf-inputnumber-btn {
@@ -58,7 +58,7 @@
   min-height: 18px;
 }
 .wf-inputnumber-btn:hover { background: var(--wf-color-bg-secondary); color: var(--wf-color-text); }
-.wf-inputnumber-btn:first-child { border-bottom: 1px solid var(--wf-color-border); }
+.wf-inputnumber-btn:first-child { border-bottom: var(--wf-border-width) solid var(--wf-color-border); }
 .wf-inputnumber-btn:focus-visible { outline: 2px solid var(--wf-color-primary); outline-offset: -2px; }
 .wf-inputnumber-btn:disabled { cursor: not-allowed; }
 

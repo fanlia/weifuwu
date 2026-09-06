@@ -22,7 +22,7 @@
 }
 
 .wf-list--divided .wf-list-item {
-  border-bottom: 1px solid var(--wf-color-border);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
 }
 .wf-list--divided .wf-list-item:last-child {
   border-bottom: none;

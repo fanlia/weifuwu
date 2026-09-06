@@ -29,7 +29,7 @@
   padding: 2px var(--wf-space-xs);
   border-radius: var(--wf-radius-sm);
   background: var(--wf-color-bg-secondary);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text);
   font-family: var(--wf-font-sans);

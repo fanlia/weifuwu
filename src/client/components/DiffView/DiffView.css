@@ -1,7 +1,7 @@
 .wf-diffview {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   overflow: hidden;
   background: var(--wf-color-bg);
@@ -18,7 +18,7 @@
   gap: 8px;
   padding: 8px 12px;
   background: var(--wf-color-fill);
-  border-bottom: 1px solid var(--wf-color-border);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
   font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   flex-shrink: 0;
 }
@@ -76,7 +76,7 @@
   justify-content: center;
   margin: 2px 12px;
   padding: 4px 8px;
-  border: 1px dashed var(--wf-color-border);
+  border: var(--wf-border-width) dashed var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   color: var(--wf-color-text-secondary);
   font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */

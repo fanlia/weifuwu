@@ -4,7 +4,7 @@
   display: flex;
   align-items: stretch;
   background: var(--wf-color-bg-elevated);
-  border-top: 1px solid var(--wf-color-border);
+  border-top: var(--wf-border-width) solid var(--wf-color-border);
   /* 小按钮固定尺寸纪律（§5.6）：防全局 button min-height:36px 撑高 tab */
   min-height: 56px;
 }

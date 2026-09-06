@@ -31,7 +31,7 @@
 
 .wf-json-children {
   padding-left: var(--wf-space-sm);
-  border-left: 1px solid var(--wf-color-border);
+  border-left: var(--wf-border-width) solid var(--wf-color-border);
   margin-left: var(--wf-space-xs);
 }
 

@@ -12,7 +12,7 @@
   max-width: var(--wf-kanban-col-max-width);
   background: var(--wf-color-bg-subtle);
   border-radius: var(--wf-radius-md);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   display: flex;
   flex-direction: column;
   transition: border-color var(--wf-dur-fast) var(--wf-ease-out);
@@ -48,7 +48,7 @@
 
 .wf-kanban-card {
   background: var(--wf-color-bg);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   padding: var(--wf-space-sm) 12px;
   cursor: grab;

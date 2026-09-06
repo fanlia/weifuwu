@@ -1,360 +1,5 @@
 {
-  "hairline": {
-    "ActionSheet/ActionSheet.css#border-bottom#1px": {
-      "file": "ActionSheet/ActionSheet.css",
-      "prop": "border-bottom",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "AiChat/AiChat.css#border#1px": {
-      "file": "AiChat/AiChat.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "AlertGroup/AlertGroup.css#border-left#3px": {
-      "file": "AlertGroup/AlertGroup.css",
-      "prop": "border-left",
-      "value": "3px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "ApprovalCard/ApprovalCard.css#border#1px": {
-      "file": "ApprovalCard/ApprovalCard.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "AvatarGroup/AvatarGroup.css#border#2px": {
-      "file": "AvatarGroup/AvatarGroup.css",
-      "prop": "border",
-      "value": "2px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "ChatInput/ChatInput.css#border#1px": {
-      "file": "ChatInput/ChatInput.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "CitationCard/CitationCard.css#border#1px": {
-      "file": "CitationCard/CitationCard.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "CodeBlock/CodeBlock.css#border#1px": {
-      "file": "CodeBlock/CodeBlock.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "CodeBlock/CodeBlock.css#border-bottom#1px": {
-      "file": "CodeBlock/CodeBlock.css",
-      "prop": "border-bottom",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "CodeEditor/CodeEditor.css#border-right#1px": {
-      "file": "CodeEditor/CodeEditor.css",
-      "prop": "border-right",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Descriptions/Descriptions.css#border-bottom#1px": {
-      "file": "Descriptions/Descriptions.css",
-      "prop": "border-bottom",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Descriptions/Descriptions.css#border-right#1px": {
-      "file": "Descriptions/Descriptions.css",
-      "prop": "border-right",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "DiffView/DiffView.css#border#1px": {
-      "file": "DiffView/DiffView.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "DiffView/DiffView.css#border-bottom#1px": {
-      "file": "DiffView/DiffView.css",
-      "prop": "border-bottom",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Divider/Divider.css#border-left#1px": {
-      "file": "Divider/Divider.css",
-      "prop": "border-left",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Divider/Divider.css#border-top#1px": {
-      "file": "Divider/Divider.css",
-      "prop": "border-top",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Editor/Editor.css#border#1px": {
-      "file": "Editor/Editor.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Editor/Editor.css#border-left#3px": {
-      "file": "Editor/Editor.css",
-      "prop": "border-left",
-      "value": "3px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Editor/Editor.css#border-top#1px": {
-      "file": "Editor/Editor.css",
-      "prop": "border-top",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "FilePreview/FilePreview.css#border#1px": {
-      "file": "FilePreview/FilePreview.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "FilePreview/FilePreview.css#border-bottom#1px": {
-      "file": "FilePreview/FilePreview.css",
-      "prop": "border-bottom",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "FilePreview/FilePreview.css#border-left#3px": {
-      "file": "FilePreview/FilePreview.css",
-      "prop": "border-left",
-      "value": "3px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "FilePreview/FilePreview.css#border-top#1px": {
-      "file": "FilePreview/FilePreview.css",
-      "prop": "border-top",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "FileUpload/FileUpload.css#border#2px": {
-      "file": "FileUpload/FileUpload.css",
-      "prop": "border",
-      "value": "2px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "InView/InView.css#border#1px": {
-      "file": "InView/InView.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Input/Input.css#border-left#1px": {
-      "file": "Input/Input.css",
-      "prop": "border-left",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Input/Input.css#border-top#1px": {
-      "file": "Input/Input.css",
-      "prop": "border-top",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "InputNumber/InputNumber.css#border-bottom#1px": {
-      "file": "InputNumber/InputNumber.css",
-      "prop": "border-bottom",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "InputNumber/InputNumber.css#border-left#1px": {
-      "file": "InputNumber/InputNumber.css",
-      "prop": "border-left",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "JSONViewer/JSONViewer.css#border-left#1px": {
-      "file": "JSONViewer/JSONViewer.css",
-      "prop": "border-left",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "JsonSchemaForm/JsonSchemaForm.css#border#1px": {
-      "file": "JsonSchemaForm/JsonSchemaForm.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "JsonSchemaForm/JsonSchemaForm.css#border-left#1px": {
-      "file": "JsonSchemaForm/JsonSchemaForm.css",
-      "prop": "border-left",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Kanban/Kanban.css#border#1px": {
-      "file": "Kanban/Kanban.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "List/List.css#border-bottom#1px": {
-      "file": "List/List.css",
-      "prop": "border-bottom",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Loading/Loading.css#border#3px": {
-      "file": "Loading/Loading.css",
-      "prop": "border",
-      "value": "3px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Markdown/Markdown.css#border-left#3px": {
-      "file": "Markdown/Markdown.css",
-      "prop": "border-left",
-      "value": "3px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Markdown/Markdown.css#border-top#1px": {
-      "file": "Markdown/Markdown.css",
-      "prop": "border-top",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "MessageBubble/MessageBubble.css#border#1px": {
-      "file": "MessageBubble/MessageBubble.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "MessageBubble/MessageBubble.css#border-right#3px": {
-      "file": "MessageBubble/MessageBubble.css",
-      "prop": "border-right",
-      "value": "3px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "NavBar/NavBar.css#border-bottom#1px": {
-      "file": "NavBar/NavBar.css",
-      "prop": "border-bottom",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Pipeline/Pipeline.css#border#1px": {
-      "file": "Pipeline/Pipeline.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "PromptTemplate/PromptTemplate.css#border#1px": {
-      "file": "PromptTemplate/PromptTemplate.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "ReasoningBlock/ReasoningBlock.css#border#1px": {
-      "file": "ReasoningBlock/ReasoningBlock.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "SheetGrid/SheetGrid.css#border#1px": {
-      "file": "SheetGrid/SheetGrid.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "SlideCanvas/SlideCanvas.css#border#1px": {
-      "file": "SlideCanvas/SlideCanvas.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Slider/Slider.css#border#2px": {
-      "file": "Slider/Slider.css",
-      "prop": "border",
-      "value": "2px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "TabBar/TabBar.css#border-top#1px": {
-      "file": "TabBar/TabBar.css",
-      "prop": "border-top",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Table/Table.css#border-bottom#2px": {
-      "file": "Table/Table.css",
-      "prop": "border-bottom",
-      "value": "2px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Table/Table.css#border-left#2px": {
-      "file": "Table/Table.css",
-      "prop": "border-left",
-      "value": "2px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "TagsInput/TagsInput.css#border#1px": {
-      "file": "TagsInput/TagsInput.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "ToolCallCard/ToolCallCard.css#border#1px": {
-      "file": "ToolCallCard/ToolCallCard.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Tour/Tour.css#border#1px": {
-      "file": "Tour/Tour.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Tree/Tree.css#border-bottom#2px": {
-      "file": "Tree/Tree.css",
-      "prop": "border-bottom",
-      "value": "2px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "Tree/Tree.css#border-left#2px": {
-      "file": "Tree/Tree.css",
-      "prop": "border-left",
-      "value": "2px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "TreeSelect/TreeSelect.css#border#1px": {
-      "file": "TreeSelect/TreeSelect.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "TreeSelect/TreeSelect.css#border-top#5px": {
-      "file": "TreeSelect/TreeSelect.css",
-      "prop": "border-top",
-      "value": "5px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "VirtualTable/VirtualTable.css#border-bottom#2px": {
-      "file": "VirtualTable/VirtualTable.css",
-      "prop": "border-bottom",
-      "value": "2px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "VirtualTable/VirtualTable.css#border-left#2px": {
-      "file": "VirtualTable/VirtualTable.css",
-      "prop": "border-left",
-      "value": "2px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    },
-    "WordCloud/WordCloud.css#border#1px": {
-      "file": "WordCloud/WordCloud.css",
-      "prop": "border",
-      "value": "1px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
-    }
-  },
+  "hairline": {},
   "scale": {
     "AutoComplete/AutoComplete.css#margin-top#4px": {
       "file": "AutoComplete/AutoComplete.css",
@@ -634,6 +279,12 @@
       "value": "2px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
     },
+    "AlertGroup/AlertGroup.css#border-left#3px": {
+      "file": "AlertGroup/AlertGroup.css",
+      "prop": "border-left",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
+    },
     "AlertGroup/AlertGroup.css#height#24px": {
       "file": "AlertGroup/AlertGroup.css",
       "prop": "height",
@@ -741,6 +392,12 @@
       "prop": "width",
       "value": "40px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AvatarGroup/AvatarGroup.css#border#2px": {
+      "file": "AvatarGroup/AvatarGroup.css",
+      "prop": "border",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
     },
     "AvatarGroup/AvatarGroup.css#height#32px": {
       "file": "AvatarGroup/AvatarGroup.css",
@@ -1318,6 +975,12 @@
       "value": "16px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
     },
+    "Editor/Editor.css#border-left#3px": {
+      "file": "Editor/Editor.css",
+      "prop": "border-left",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
+    },
     "Editor/Editor.css#border-radius#2px": {
       "file": "Editor/Editor.css",
       "prop": "border-radius",
@@ -1432,6 +1095,12 @@
       "value": "2px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
     },
+    "FilePreview/FilePreview.css#border-left#3px": {
+      "file": "FilePreview/FilePreview.css",
+      "prop": "border-left",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
+    },
     "FilePreview/FilePreview.css#padding#1px": {
       "file": "FilePreview/FilePreview.css",
       "prop": "padding",
@@ -1449,6 +1118,12 @@
       "prop": "max-height",
       "value": "320px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#border#2px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "border",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
     },
     "FileUpload/FileUpload.css#font-size#24px": {
       "file": "FileUpload/FileUpload.css",
@@ -1840,6 +1515,12 @@
       "value": "3px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
     },
+    "Loading/Loading.css#border#3px": {
+      "file": "Loading/Loading.css",
+      "prop": "border",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
+    },
     "Loading/Loading.css#height#24px": {
       "file": "Loading/Loading.css",
       "prop": "height",
@@ -1893,6 +1574,12 @@
       "prop": "width",
       "value": "24px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Markdown/Markdown.css#border-left#3px": {
+      "file": "Markdown/Markdown.css",
+      "prop": "border-left",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
     },
     "Markdown/Markdown.css#height#14px": {
       "file": "Markdown/Markdown.css",
@@ -2025,6 +1712,12 @@
       "prop": "padding",
       "value": "4px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "MessageBubble/MessageBubble.css#border-right#3px": {
+      "file": "MessageBubble/MessageBubble.css",
+      "prop": "border-right",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
     },
     "Modal/Modal.css#min-width#32px": {
       "file": "Modal/Modal.css",
@@ -2674,6 +2367,12 @@
       "value": "8px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
     },
+    "Slider/Slider.css#border#2px": {
+      "file": "Slider/Slider.css",
+      "prop": "border",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
+    },
     "Slider/Slider.css#box-shadow#3px": {
       "file": "Slider/Slider.css",
       "prop": "box-shadow",
@@ -2907,6 +2606,18 @@
       "prop": "top",
       "value": "4px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Table/Table.css#border-bottom#2px": {
+      "file": "Table/Table.css",
+      "prop": "border-bottom",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
+    },
+    "Table/Table.css#border-left#2px": {
+      "file": "Table/Table.css",
+      "prop": "border-left",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
     },
     "Table/Table.css#height#14px": {
       "file": "Table/Table.css",
@@ -3376,6 +3087,18 @@
       "value": "44px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
     },
+    "Tree/Tree.css#border-bottom#2px": {
+      "file": "Tree/Tree.css",
+      "prop": "border-bottom",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
+    },
+    "Tree/Tree.css#border-left#2px": {
+      "file": "Tree/Tree.css",
+      "prop": "border-left",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
+    },
     "Tree/Tree.css#height#14px": {
       "file": "Tree/Tree.css",
       "prop": "height",
@@ -3496,6 +3219,12 @@
       "value": "4px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
     },
+    "TreeSelect/TreeSelect.css#border-top#5px": {
+      "file": "TreeSelect/TreeSelect.css",
+      "prop": "border-top",
+      "value": "5px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
+    },
     "TreeSelect/TreeSelect.css#box-shadow#2px": {
       "file": "TreeSelect/TreeSelect.css",
       "prop": "box-shadow",
@@ -3519,6 +3248,18 @@
       "prop": "padding",
       "value": "1px",
       "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "VirtualTable/VirtualTable.css#border-bottom#2px": {
+      "file": "VirtualTable/VirtualTable.css",
+      "prop": "border-bottom",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
+    },
+    "VirtualTable/VirtualTable.css#border-left#2px": {
+      "file": "VirtualTable/VirtualTable.css",
+      "prop": "border-left",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
     },
     "VirtualTable/VirtualTable.css#height#14px": {
       "file": "VirtualTable/VirtualTable.css",

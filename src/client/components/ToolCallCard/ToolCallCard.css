@@ -1,7 +1,7 @@
 /* weifuwu/components — ToolCallCard */
 
 .wf-toolcall {
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   padding: var(--wf-space) var(--wf-space-md);
   font-family: var(--wf-font-sans);

@@ -11,7 +11,7 @@
   min-width: 0;
   height: var(--wf-control-height);
   padding: var(--wf-control-pad-y) var(--wf-space-md);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);

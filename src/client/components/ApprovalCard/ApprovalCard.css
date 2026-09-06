@@ -1,7 +1,7 @@
 /* weifuwu/components — ApprovalCard */
 
 .wf-approval {
-  border: 1px solid var(--wf-color-warning);
+  border: var(--wf-border-width) solid var(--wf-color-warning);
   border-radius: var(--wf-radius);
   padding: var(--wf-space) var(--wf-space-md);
   font-family: var(--wf-font-sans);
@@ -95,7 +95,7 @@
 .wf-approval-modify {
   margin-top: var(--wf-gap-md);
   padding: var(--wf-gap-md);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   background: var(--wf-color-bg-tertiary);
   display: flex;

@@ -8,7 +8,7 @@
 }
 .wf-codeeditor-area::placeholder { color: var(--wf-color-text-tertiary); }
 .wf-codeeditor-gutter {
-  border-right: 1px solid var(--wf-color-border);
+  border-right: var(--wf-border-width) solid var(--wf-color-border);
   background: var(--wf-color-bg-secondary);
 }
 .wf-codeeditor-body {

@@ -61,10 +61,11 @@ function classify(): { hairline: Map<string, string>; scale: Map<string, string>
       postcss.parse(css).walkDecls((d: any) => {
         const prop = d.prop as string
         const val = String(d.value).trim()
-        // ① 发丝：border* 宽为字面量（1px/2px/3px…）+ 样式 solid/dashed + 色已走 var
+        // ① 发丝：border* 宽 = **1px**（--wf-border-width 等价面）+ 样式 solid/dashed + 色已走 var
+        //    （非 1px 宽度 = 强调边框——无 token 面，落结构桶登记：判负：--wf-border-width 只有 1px 发丝档）
         const hair = val.match(/^(\d+(?:\.\d+)?)px\s+(?:solid|dashed)\s+var\(/)
-        if (hair && /^border/.test(prop) && !/^var\(--wf-border-width\)/.test(val)) {
-          hairline.set(`${name}#${prop}#${hair[1]}px`, `${name} ${prop}: ${val.slice(0, 60)}`)
+        if (hair && hair[1] === '1' && /^border/.test(prop) && !/^var\(--wf-border-width\)/.test(val)) {
+          hairline.set(`${name}#${prop}#1px`, `${name} ${prop}: ${val.slice(0, 60)}`)
           return
         }
         // ② 标尺档：纯字面量（无 var）+ 每个 px 值都在标尺档内（多值缩写如 4px 8px）

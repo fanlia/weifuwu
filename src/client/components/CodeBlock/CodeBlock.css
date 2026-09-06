@@ -2,7 +2,7 @@
 
 .wf-codeblock {
   margin: 0 0 var(--wf-space-sm);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   overflow: hidden;
   background: var(--wf-color-bg-secondary);
@@ -15,7 +15,7 @@
   justify-content: space-between;
   padding: var(--wf-space-xs) var(--wf-space-sm);
   background: var(--wf-color-bg-tertiary);
-  border-bottom: 1px solid var(--wf-color-border);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border);
 }
 
 .wf-codeblock-title {

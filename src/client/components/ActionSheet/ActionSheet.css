@@ -69,7 +69,7 @@
   text-align: center;
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text-secondary);
-  border-bottom: 1px solid var(--wf-color-border-light);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border-light);
 }
 
 /* 项：固定 min/max-height（§5.6——全局 button min-height:36px 防撑高） */
@@ -84,7 +84,7 @@
   padding: 0 var(--wf-space-md);
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--wf-color-border-light);
+  border-bottom: var(--wf-border-width) solid var(--wf-color-border-light);
   font-size: var(--wf-font-size-base);
   color: var(--wf-color-text);
   cursor: pointer;

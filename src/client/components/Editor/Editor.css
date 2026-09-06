@@ -147,7 +147,7 @@
 
 .wf-editor-content hr {
   border: none;
-  border-top: 1px solid var(--wf-color-border);
+  border-top: var(--wf-border-width) solid var(--wf-color-border);
   margin: 0.75em 0;
 }
 
@@ -187,7 +187,7 @@
   position: fixed;
   z-index: var(--wf-z-popover);
   background: var(--wf-color-bg);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space-sm) var(--wf-space-md);
@@ -278,7 +278,7 @@
 
 .wf-editor-table th,
 .wf-editor-table td {
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   padding: var(--wf-space-xs) var(--wf-space-sm);
   vertical-align: top;
   min-width: 40px;
@@ -315,7 +315,7 @@
 .wf-editor-table-grid-cell {
   width: 18px;
   height: 18px;
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-xs);
   cursor: pointer;
   background: var(--wf-color-bg);
@@ -334,7 +334,7 @@
   color: var(--wf-color-text-secondary);
   margin-top: var(--wf-space-xs);
   padding-top: var(--wf-space-xs);
-  border-top: 1px solid var(--wf-color-border);
+  border-top: var(--wf-border-width) solid var(--wf-color-border);
 }
 
 /* 触屏（coarse）：工具栏按钮 44px 命中区 */
@@ -371,7 +371,7 @@
   position: fixed;
   z-index: var(--wf-z-popover);
   background: var(--wf-color-bg);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space-sm) var(--wf-space-md);
@@ -423,7 +423,7 @@
   position: fixed;
   z-index: var(--wf-z-popover);
   background: var(--wf-color-bg);
-  border: 1px solid var(--wf-color-border);
+  border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-md);
   box-shadow: var(--wf-shadow-md);
   padding: var(--wf-space-xs);
