@@ -125,7 +125,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx) => {
         class: `wf-theme-seg wf-theme-seg--preset${preset === p.value ? ' wf-theme-seg--active' : ''}`,
         role: 'radio',
         'aria-checked': String(preset === p.value),
-        'aria-label': p.label,
+        'aria-label': SL[`preset-${p.value}`] ?? p.label,
         onClick: () => {
           if (preset === p.value) return
           preset = p.value
@@ -139,7 +139,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx) => {
 
     const hasPresetRow = props.preset !== undefined || props.onPresetChange !== undefined
     const children = hasPresetRow
-      ? [segments, h('div', { class: 'wf-theme-preset-row', role: 'radiogroup', 'aria-label': '预设主题' }, presetSegs)]
+      ? [segments, h('div', { class: 'wf-theme-preset-row', role: 'radiogroup', 'aria-label': SL.presetGroup ?? '预设主题' }, presetSegs)]
       : segments
 
     return h('div', {

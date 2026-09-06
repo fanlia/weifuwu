@@ -47,11 +47,9 @@ const A11Y_EXEMPT = [
 const A11Y_PENDING = {} // W2 完成——Modal 豁免（拦截语义）· Popconfirm/StatCard/Tooltip 已修（role/键盘/焦点面）
 
 /** ④ i18n 裸文案——文件级待修登记（W1 清 0；修后移出） */
-const C4_I18N_PENDING = [
-  'ThemeSwitch', // PRESETS 模式名 4 处（SL 机制在——preset 键漏接）
-  'Editor', // commit 历史 label ×2 + title/aria 插入表格/操作历史 4 处（editorText 机制在）
-  'AppShell', // Button title 设置/退出登录 2 处（_ctx 弃用——启用 ctx i18n）
-]
+const C4_I18N_PENDING = [] // W1 完成——ThemeSwitch(5)/Editor(title·aria 4)/AppShell(2) 已接线
+// Editor commit label（'输入'）数据层豁免——pushCommit 持久标签（跨渲染/跨实例）非纯 UI 文案
+// （渲染转译需 tag→key 映射——locale 包面就位 + commit 消费方明确时推翻——C4-I18N-D3）
 /** ④ i18n 裸文案——无机制面豁免（中文 fallback = 设计；locale 包面随下一阶段） */
 const C4_I18N_EXEMPT = [
   'AiChat', 'ApprovalCard', 'CodeBlock', 'PromptTemplate', 'SessionList',
@@ -159,6 +157,9 @@ for (const f of files) {
     if (m[2]) { // 属性面命中（child 场复用捕获组）
       const ctx = s.slice(Math.max(0, m.index - 60), m.index)
       if (WIRED.test(ctx)) continue
+      // 定义表/数据层豁免：① id:/value: 配对 label（定义表 fallback——消费处已接线）
+      //   ② pushCommit/editEmit/tag:（Editor 持久标签/数据事件——非纯 UI 文案——C4-I18N-D3）
+      if (/(?:id|value): '[\w-]+',\s*label:|pushCommit|editEmit|tag:/.test(ctx + m[0].slice(0, 24))) continue
       i18nBare++
       const [fileBase] = name.split('/')
       if (C4_I18N_PENDING.includes(fileBase) || C4_I18N_EXEMPT.includes(fileBase)) continue

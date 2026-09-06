@@ -60,7 +60,7 @@ const activeOf = (nav: AppShellNavItem[], path: string): string => {
   return hit?.key ?? ''
 }
 
-export const AppShell: Component<AppShellProps> = (_init, _ctx) => {
+export const AppShell: Component<AppShellProps> = (_init, ctx) => {
   return (props) => {
     const {
       nav = [], path = '', user = null, brand = {},
@@ -109,8 +109,8 @@ export const AppShell: Component<AppShellProps> = (_init, _ctx) => {
                   ]),
                 ]),
                 h('div', { class: 'wf-app-shell-user-actions' }, [
-                  onSettings ? h(Button, { size: 'sm', variant: 'ghost', title: '设置', onClick: onSettings }, [h(Icon, { name: 'settings', size: 16 })]) : null,
-                  onLogout ? h(Button, { size: 'sm', variant: 'ghost', title: '退出登录', onClick: onLogout }, [h(Icon, { name: 'log-out', size: 16 })]) : null,
+                  onSettings ? h(Button, { size: 'sm', variant: 'ghost', title: ctx?.i18n?.components?.AppShell?.settings ?? '设置', onClick: onSettings }, [h(Icon, { name: 'settings', size: 16 })]) : null,
+                  onLogout ? h(Button, { size: 'sm', variant: 'ghost', title: ctx?.i18n?.components?.AppShell?.logout ?? '退出登录', onClick: onLogout }, [h(Icon, { name: 'log-out', size: 16 })]) : null,
                 ]),
               ]),
             ])

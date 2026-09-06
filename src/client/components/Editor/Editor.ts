@@ -646,8 +646,8 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
       key: 'table',
       class: 'wf-editor-tb-btn',
       type: 'button',
-      title: '插入表格',
-      'aria-label': '插入表格',
+      title: editorText('insertTable', '插入表格'),
+      'aria-label': editorText('insertTable', '插入表格'),
       'data-item': 'table',
     }, '⊞')
 
@@ -930,8 +930,8 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
         key: 'hist',
         class: ['wf-editor-tb-btn', 'wf-editor-tb-btn--ai', historyOpen ? 'wf-editor-tb-btn--active' : ''].filter(Boolean).join(' '),
         type: 'button',
-        title: '操作历史',
-        'aria-label': '操作历史',
+        title: editorText('historyTitle', '操作历史'),
+        'aria-label': editorText('historyTitle', '操作历史'),
         'data-item': 'history',
         onClick: (e: MouseEvent) => { setAnchor(e.currentTarget as HTMLElement); historyOpen = !historyOpen; ctx.render() },
       }, '🕘')
