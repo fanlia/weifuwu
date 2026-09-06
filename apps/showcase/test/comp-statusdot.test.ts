@@ -1,5 +1,5 @@
 /**
- * showcase 组件测试——StatusDot（/components/status-dot）——全功能点固化
+ * showcase 组件测试——StatusDot（/components/statusdot）——全功能点固化
  * 清单：on/tone 矩阵 · label 缺省只渲染点 · 文字色随 tone
  * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-status-dot.test.ts
  */
@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser } from 'playwright'
 import { startShowcaseServer, openShowcase, type ScenarioServer } from './showcase-shared.ts'
 
-const COMP_PATH = '/components/status-dot'
+const COMP_PATH = '/components/statusdot'
 
 let server: ScenarioServer
 let BASE = ''

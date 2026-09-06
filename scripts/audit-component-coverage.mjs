@@ -38,9 +38,18 @@ for (const d of compDir) {
 // ── 2. registry id（v2 别名归并） ──────────────────────────────────────
 const registrySrc = readFileSync(c('apps/showcase/src/registry/components.ts'), 'utf8')
 const registryIds = new Set()
+/** **id = slug 规范（无连字符小写——ContextMenu → contextmenu）**：
+ *  连字符形态即红（2027-09 W1 引入 list-scaffold/status-dot 违规实证——
+ *  与 slug(组件目录) 不匹配——audit 补校验防回流） */
+const slugBad = []
 for (const m of registrySrc.matchAll(/"id":\s*"([a-z0-9-]+)"/g)) {
   const id = m[1].replace(/-v2$/, '') // 别名归并（tree-v2 → tree——主页面覆盖即可）
   registryIds.add(id)
+  if (id.includes('-') && !components.has(id)) slugBad.push(id)
+}
+if (slugBad.length) {
+  console.error(`✖ registry id 连字符违规（必须 slug——无连字符小写）: ${slugBad.join(', ')}——改 id + 更新 banner/测试路径`)
+  process.exit(1)
 }
 
 // ── 3. 契约层（组件目录内 *.test.ts） ──────────────────────────────────

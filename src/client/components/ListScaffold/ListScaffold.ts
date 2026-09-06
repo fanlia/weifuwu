@@ -1,4 +1,4 @@
-/** ListScaffold：列表页骨架（PageHeader + 工具栏 + loading/empty + 内容插槽）（showcase /components/list-scaffold） */
+/** ListScaffold：列表页骨架（PageHeader + 工具栏 + loading/empty + 内容插槽）（showcase /components/listscaffold） */
 import type { Component, VNodeChild } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { PageHeader } from '../PageHeader/PageHeader.ts'

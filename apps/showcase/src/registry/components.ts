@@ -1071,7 +1071,7 @@ export const components: ComponentEntry[] = [
 {
     "id": "togglegroup",
     "name": "ToggleGroup",
-    "desc": "（无 demo 卡片——组件目录存在）",
+    "desc": "（无 demo 卡片——组件目录存在）（+ Toggle 单体开关——同目录双导出）",
     "sourceFile": "src/client/components/ToggleGroup/ToggleGroup.ts",
     "cssFile": "src/client/components/ToggleGroup/ToggleGroup.css",
     "testFile": "src/client/components/ToggleGroup/ToggleGroup.test.ts"
@@ -1126,7 +1126,7 @@ export const components: ComponentEntry[] = [
     "testFile": "src/client/components/CronPicker/CronPicker.test.ts"
   },
   {
-    "id": "list-scaffold",
+    "id": "listscaffold",
     "name": "ListScaffold",
     "desc": "列表页骨架：PageHeader + 工具栏 + loading/empty 态 + 内容插槽（isEmpty 显式契约）",
     "sourceFile": "src/client/components/ListScaffold/ListScaffold.ts",
@@ -1134,7 +1134,7 @@ export const components: ComponentEntry[] = [
     "testFile": "src/client/components/ListScaffold/ListScaffold.test.ts"
   },
   {
-    "id": "status-dot",
+    "id": "statusdot",
     "name": "StatusDot",
     "desc": "状态点：on/tone 语义（label 缺省只渲染点——防双标签）",
     "sourceFile": "src/client/components/StatusDot/StatusDot.ts",

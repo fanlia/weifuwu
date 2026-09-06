@@ -1,4 +1,4 @@
-/** StatusDot：状态点（on/tone 语义——label 缺省只渲染点）（showcase /components/status-dot） */
+/** StatusDot：状态点（on/tone 语义——label 缺省只渲染点）（showcase /components/statusdot） */
 import type { Component, VNodeChild } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Badge } from '../Badge/Badge.ts'

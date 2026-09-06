@@ -247,6 +247,28 @@ app.css 只留**页面布局面**（body 链/面板/消息区）。
 基档——SSR≡SPA 首帧不一致 absorb 违例——实证）——`mobile` prop 父层驱动
 （页面级判定——库惯例「响应式交还用户」同 Layout/NavMenu）。
 
+### 5.10 命名规范（学习成本——API 一致性红线）
+
+**组件命名**（用户看到的第一面）：
+- 目录/导出名：PascalCase（`CronPicker`）· registry id：**slug（无连字符小写）**——
+  `listscaffold`/`statusdot`/`togglegroup`（2027-09 曾引入连字符 id 违规实证——
+  coverage 哨兵已加 id=slug 校验防回流）
+- 示例路径：`/components/<slug>` · 测试文件：`comp-<slug>.test.ts`
+- **家族目录一目录多导出**（ToggleGroup 目录导出 Toggle+ToggleGroup · Typography 导出
+  Title/Text/Paragraph）——desc 首句点明全家族名 + registry 变体表挂全成员
+
+**参数命名**（回调/文案——行业惯性对齐）：
+- 回调：**原生 DOM 事件名直映**（onClick/onKeyDown/onInput/onMouseEnter——事件名
+  即所见）· **合成语义回调**（onChange/onSelect/onOpenChange/onConfirm——等价
+  DOM 事件已在合成层映射）。表单值变化：**Input/Textarea = onInput（原生）** ·
+   Select/RadioGroup/ToggleGroup = onChange（合成）——设计自洽（DOM 名直映 + 语义
+   回调二分）——**不提供双名别名**（单源——防双面漂移）
+- 语义色变体：success/warning/error（状态语义）· primary/secondary/ghost/danger
+  （变量语义）——行业惯例对齐（antd/shadcn 同——不跨组件统一枚举）
+- **改名判负**（2027-09 评估）：组件/参数大改名为破坏性变更（对外消费者 v0.93+）；
+  现状命名已自洽（Pascal×slug×DOM 名直映）——收益<成本——**翻转条件**：下一版
+  大版本（v1.0）预发面 + 迁移脚本
+
 ---
 
 ### 6.1 认证接线范式（fullstack W4——onRefresh 时序契约）

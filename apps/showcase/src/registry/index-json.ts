@@ -30,7 +30,7 @@ const VARIANTS_OF: Record<string, { id: string; name: string; desc: string }[]> 
   statcard: [{ id: 'statcard-countdown', name: 'StatCard Countdown', desc: '倒计时 KPI' }],
   highlight: [{ id: 'highlight-v2', name: 'Highlight 多词', desc: '多关键词高亮' }],
   filepreview: [{ id: 'filepreview-office', name: 'FilePreview Office', desc: 'Office 文档预览' }],
-  togglegroup: [{ id: 'toggle-togglegroup', name: 'Toggle / ToggleGroup', desc: '开关组' }],
+  togglegroup: [{ id: 'toggle-togglegroup', name: 'Toggle / ToggleGroup', desc: '开关组 + Toggle 单体（同目录双导出）' }],
   pininput: [{ id: 'pininput-v2', name: 'PinInput 禁用态', desc: '禁用态' }],
   mentions: [{ id: 'mentions-v2', name: 'Mentions 禁用态', desc: '禁用态' }],
   tree: [{ id: 'tree-v2', name: 'Tree 勾选', desc: '勾选模式' }],
