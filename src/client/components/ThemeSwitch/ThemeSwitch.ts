@@ -15,7 +15,7 @@
 import type { Component } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 
 const browser = createClientBrowser()
 
@@ -84,6 +84,9 @@ export function getTheme(): ThemeMode {
 }
 
 export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx)=> {
+  // 交互子项状态捆绑（createItem——--active 类 + aria-checked 布尔（原 String() 化等价——
+  // 内核 ariaBoolValue 归一 'true'/'false'））
+  const segItem = createItem({ cls: 'wf-theme-seg', role: 'radio', aria: 'aria-checked' })
   const storageKey = initProps.storageKey ?? DEFAULT_KEY
   const presetKey = initProps.storageKey ? `${initProps.storageKey}_preset` : DEFAULT_PRESET_KEY
   // ── mount（只一次）：读取持久化设置并立即应用——状态原语（set 自动重渲染）
@@ -102,11 +105,8 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx)=> {
     ]
 
     const segments = modes.map(m =>
-      h('button', {
+      h('button', segItem(mode.get() === m.value, {
         type: 'button',
-        class: `wf-theme-seg${mode.get() === m.value ? ' wf-theme-seg--active' : ''}`,
-        role: 'radio',
-        'aria-checked': String(mode.get() === m.value),
         'aria-label': m.label,
         onClick: ()=> {
           if (mode.get() === m.value) return
@@ -115,16 +115,14 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx)=> {
           writeStored(storageKey, mode.get())
           props.onChange?.(mode.get())
         },
-      }, m.label),
+      }), m.label),
     )
 
     // 预设行（可选——传 preset/onPresetChange 才渲染；与模式行同一分段控件）
     const presetSegs = PRESETS.map(p =>
-      h('button', {
+      h('button', segItem(preset.get() === p.value, {
         type: 'button',
-        class: `wf-theme-seg wf-theme-seg--preset${preset.get() === p.value ? ' wf-theme-seg--active' : ''}`,
-        role: 'radio',
-        'aria-checked': String(preset.get() === p.value),
+        class: 'wf-theme-seg--preset',
         'aria-label': SL[`preset-${p.value}`] ?? p.label,
         onClick: ()=> {
           if (preset.get() === p.value) return
@@ -133,7 +131,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx)=> {
           writeStored(presetKey, preset.get())
           props.onPresetChange?.(preset.get())
         },
-      }, p.label),
+      }), p.label),
     )
 
     const hasPresetRow = props.preset !== undefined || props.onPresetChange !== undefined

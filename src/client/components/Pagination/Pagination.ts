@@ -1,7 +1,7 @@
 /** Pagination：分页器，自动计算页码范围（showcase /components/pagination） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface PaginationProps {
@@ -11,8 +11,9 @@ export interface PaginationProps {
   onChange?: (page: number)=> void
 }
 
-export const Pagination: Component<PaginationProps> = (_init, ctx)=>
-  (props)=> {
+export const Pagination: Component<PaginationProps> = (_init, ctx)=> {
+  const pageItem = createItem({ cls: 'wf-page-btn', ariaText: { key: 'aria-current', value: 'page' } })
+  return (props)=> {
   const { total, pageSize = 20 } = props
 
   // useControlled：受控/非受控统一（原非受控不可翻页——受控纪律违规）
@@ -44,11 +45,9 @@ export const Pagination: Component<PaginationProps> = (_init, ctx)=>
     if (p === '...') {
       pages.push(h('span', { class: 'wf-page-ellipsis' }, '...'))
     } else {
-      pages.push(h('button', {
-        class: `wf-page-btn${p === page ? ' wf-page-btn--active' : ''}`,
-        'aria-current': p === page ? 'page' : undefined,
+      pages.push(h('button', pageItem(p === page, {
         onClick: p !== page ? ()=> go(p as number) : undefined,
-      }, String(p)))
+      }), String(p)))
     }
   }
 
@@ -81,4 +80,5 @@ function getPageRange(current: number, total: number): (number | '...')[] {
   pages.push(total)
 
   return pages
+  }
 }

@@ -10,7 +10,7 @@
 import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import { Badge } from '../Badge/Badge.ts'
 
@@ -48,6 +48,9 @@ export interface MenuProps {
 }
 
 export const Menu: Component<MenuProps> = (_init, ctx)=> {
+  // 交互子项状态捆绑（createItem——--active 类 + aria-current 文本值 + roving——
+  // danger/child 第二类面走 extra class 追加）
+  const menuItemActive = createItem({ cls: 'wf-menu-item', role: 'menuitem', ariaText: { key: 'aria-current', value: 'page' }, roving: true })
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
@@ -199,10 +202,7 @@ export const Menu: Component<MenuProps> = (_init, ctx)=> {
       return h('div', {
         key: item.key,
         'data-key': item.key,
-        class: `wf-menu-item${isActive ? ' wf-menu-item--active' : ''}${item.danger ? ' wf-menu-item--danger' : ''}${isChild ? ' wf-menu-item--child' : ''}`,
-        role: 'menuitem',
-        tabIndex: isActive ? 0 : -1,
-        'aria-current': isActive ? 'page' : undefined,
+        ...menuItemActive(isActive, { class: [item.danger ? 'wf-menu-item--danger' : '', isChild ? 'wf-menu-item--child' : ''] }),
         onClick: ()=> { if (item.onClick) item.onClick(); else onSelect?.(item.key) },
         onKeyDown: (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (item.onClick) item.onClick(); else onSelect?.(item.key) }

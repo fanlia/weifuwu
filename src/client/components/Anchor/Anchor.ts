@@ -10,7 +10,7 @@
 import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 
 export interface AnchorItem {
   href: string
@@ -32,6 +32,8 @@ export interface AnchorProps {
 }
 
 export const Anchor: Component<AnchorProps> = (_init, ctx)=> {
+  // 交互子项状态捆绑（createItem——aria-current 文本值（原 'true'/undefined 移除语义等价））
+  const anchorItem = createItem({ cls: 'wf-anchor-link', role: 'link', ariaText: { key: 'aria-current', value: 'true' } })
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // ── mount（只一次）──
@@ -101,18 +103,14 @@ export const Anchor: Component<AnchorProps> = (_init, ctx)=> {
 
     const links = items.map(it => {
       const isActive = active === it.href
-      return h('a', {
+      return h('a', anchorItem(isActive, {
         key: it.href,
-        class: `wf-anchor-link${isActive ? ' wf-anchor-link--active' : ''}`,
         href: it.href,
-        role: 'link',
-        tabIndex: 0,
-        'aria-current': isActive ? 'true' : undefined,
         onClick: handleClick(it.href),
         onKeyDown: (e: KeyboardEvent)=> {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(it.href)(e) }
         },
-      }, it.title)
+      }), it.title)
     })
 
     return h('nav', {

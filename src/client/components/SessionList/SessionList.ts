@@ -1,7 +1,7 @@
 /** SessionList：会话管理列表：分组（今天/昨天/更早）+ 搜索 + 选中 + 重命名/删除/新建 + 键盘导航（showcase /components/sessionlist） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 /**
@@ -57,6 +57,8 @@ export function groupKey(t: number, now = Date.now()): 'today' | 'yesterday' | '
 const GROUP_LABEL: Record<string, string> = { today: '今天', yesterday: '昨天', earlier: '更早' }
 
 export const SessionList: Component<SessionListProps, UIContext> = (_init, ctx)=> {
+  // 交互子项状态捆绑（createItem——--active 类 + aria-selected + role 单源）
+  const sessionItem = createItem({ cls: 'wf-session-item', role: 'option', aria: 'aria-selected' })
   // ── 手动状态（组件库纪律：let + render()）──
   let keyword = ''
   let renamingId: string | undefined
@@ -128,15 +130,13 @@ export const SessionList: Component<SessionListProps, UIContext> = (_init, ctx)=
         }))
       }
 
-      return h('div', {
+      return h('div', sessionItem(active, {
         key: s.id,
-        class: `wf-session-item${active ? ' wf-session-item--active' : ''}${focused ? ' wf-session-item--focus' : ''}`,
+        class: [focused ? 'wf-session-item--focus' : ''],
         'data-id': s.id,
-        role: 'option',
-        'aria-selected': active,
         onClick: ()=> onSelect?.(s.id),
         onKeyDown: (e: any)=> { if (e.key === 'Enter') { e.preventDefault(); onSelect?.(s.id) } },
-      }, [
+      }), [
         h('span', { class: 'wf-session-title' }, s.title),
         onRename
           ? h('button', {

@@ -2,7 +2,7 @@
 import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 
 export interface TabItem {
   key: string
@@ -28,6 +28,8 @@ export interface TabsProps {
 
 export const Tabs: Component<TabsProps> = (_init, ctx)=> {
   const _browser = ctx?.browser ?? createClientBrowser()
+  // 交互子项状态捆绑（createItem——类后缀 + aria-selected + role 单源）
+  const tabItem = createItem({ cls: 'wf-tab', role: 'tab', aria: 'aria-selected', roving: true })
   // render-only：内部状态 let + 显式 render（ink bar 位置更新）
   let inkLeft = 0
   let inkWidth = 0
@@ -97,15 +99,10 @@ export const Tabs: Component<TabsProps> = (_init, ctx)=> {
   }
 
   const tabList = items.map(tab =>
-    h('button', {
-      class: `wf-tab${tab.key === activeKey ? ' wf-tab--active' : ''}`,
+    h('button', tabItem(tab.key === activeKey, {
       key: tab.key,
-      role: 'tab',
-      // roving tabindex：仅激活 tab 可 Tab 聚焦，方向键在 tab 间移动
-      tabindex: tab.key === activeKey ? 0 : -1,
-      'aria-selected': tab.key === activeKey,
       onClick: tab.key !== activeKey ? ((e: any)=> { measureTab(e?.currentTarget as HTMLElement); select(tab.key) }) : undefined,
-    }, [
+    }), [
       tab.label,
       // 关闭按钮（closable 模式；tab.closable=false 白名单豁免）——stopPropagation 防选中
       closable && tab.closable !== false

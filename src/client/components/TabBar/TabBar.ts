@@ -14,7 +14,7 @@
  */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 import type { IconName } from '../Icon/Icon.ts'
 import { Icon } from '../Icon/Icon.ts'
 
@@ -40,6 +40,8 @@ export interface TabBarProps {
 }
 
 export const TabBar: Component<TabBarProps> = (_init, ctx: UIContext)=> {
+  // 交互子项状态捆绑（createItem——active 类 + aria-selected + roving 单源）
+  const tabItem = createItem({ cls: 'wf-tab-bar-item', role: 'tab', aria: 'aria-selected', roving: true })
   // ── mount（只一次）：非受控自管理激活态 ──
   let internalActive: string | null = null
 
@@ -78,25 +80,18 @@ export const TabBar: Component<TabBarProps> = (_init, ctx: UIContext)=> {
       const icon = typeof t.icon === 'string'
         ? h(Icon, { name: t.icon as IconName, size: 20, className: 'wf-tab-bar-icon' })
         : t.icon
-      return h('button', {
+      return h('button', tabItem(selected, {
         key: t.key,
         id: `wf-tab-${t.key}`,
         type: 'button',
-        role: 'tab',
-        class: [
-          'wf-tab-bar-item',
-          selected ? 'wf-tab-bar-item--active' : '',
-          t.disabled ? 'wf-tab-bar-item--disabled' : '',
-        ].filter(Boolean).join(' '),
-        tabindex: selected ? 0 : -1,
-        'aria-selected': selected,
+        class: [t.disabled ? 'wf-tab-bar-item--disabled' : ''],
         disabled: t.disabled || undefined,
         onClick: t.disabled ? undefined : ()=> {
           if (!controlled) internalActive = t.key
           onChange?.(t.key)
           ctx.render()
         },
-      }, [
+      }), [
         h('span', { class: 'wf-tab-bar-icon-wrap' }, [
           icon ?? null,
           t.badge !== undefined && t.badge !== null
