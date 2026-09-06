@@ -1,0 +1,3616 @@
+{
+  "hairline": {
+    "ActionSheet/ActionSheet.css#border-bottom#1px": {
+      "file": "ActionSheet/ActionSheet.css",
+      "prop": "border-bottom",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "AiChat/AiChat.css#border#1px": {
+      "file": "AiChat/AiChat.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "AlertGroup/AlertGroup.css#border-left#3px": {
+      "file": "AlertGroup/AlertGroup.css",
+      "prop": "border-left",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "ApprovalCard/ApprovalCard.css#border#1px": {
+      "file": "ApprovalCard/ApprovalCard.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "AvatarGroup/AvatarGroup.css#border#2px": {
+      "file": "AvatarGroup/AvatarGroup.css",
+      "prop": "border",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "ChatInput/ChatInput.css#border#1px": {
+      "file": "ChatInput/ChatInput.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "CitationCard/CitationCard.css#border#1px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "CodeBlock/CodeBlock.css#border#1px": {
+      "file": "CodeBlock/CodeBlock.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "CodeBlock/CodeBlock.css#border-bottom#1px": {
+      "file": "CodeBlock/CodeBlock.css",
+      "prop": "border-bottom",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "CodeEditor/CodeEditor.css#border-right#1px": {
+      "file": "CodeEditor/CodeEditor.css",
+      "prop": "border-right",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Descriptions/Descriptions.css#border-bottom#1px": {
+      "file": "Descriptions/Descriptions.css",
+      "prop": "border-bottom",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Descriptions/Descriptions.css#border-right#1px": {
+      "file": "Descriptions/Descriptions.css",
+      "prop": "border-right",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "DiffView/DiffView.css#border#1px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "DiffView/DiffView.css#border-bottom#1px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "border-bottom",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Divider/Divider.css#border-left#1px": {
+      "file": "Divider/Divider.css",
+      "prop": "border-left",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Divider/Divider.css#border-top#1px": {
+      "file": "Divider/Divider.css",
+      "prop": "border-top",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Editor/Editor.css#border#1px": {
+      "file": "Editor/Editor.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Editor/Editor.css#border-left#3px": {
+      "file": "Editor/Editor.css",
+      "prop": "border-left",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Editor/Editor.css#border-top#1px": {
+      "file": "Editor/Editor.css",
+      "prop": "border-top",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "FilePreview/FilePreview.css#border#1px": {
+      "file": "FilePreview/FilePreview.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "FilePreview/FilePreview.css#border-bottom#1px": {
+      "file": "FilePreview/FilePreview.css",
+      "prop": "border-bottom",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "FilePreview/FilePreview.css#border-left#3px": {
+      "file": "FilePreview/FilePreview.css",
+      "prop": "border-left",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "FilePreview/FilePreview.css#border-top#1px": {
+      "file": "FilePreview/FilePreview.css",
+      "prop": "border-top",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "FileUpload/FileUpload.css#border#2px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "border",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "InView/InView.css#border#1px": {
+      "file": "InView/InView.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Input/Input.css#border-left#1px": {
+      "file": "Input/Input.css",
+      "prop": "border-left",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Input/Input.css#border-top#1px": {
+      "file": "Input/Input.css",
+      "prop": "border-top",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "InputNumber/InputNumber.css#border-bottom#1px": {
+      "file": "InputNumber/InputNumber.css",
+      "prop": "border-bottom",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "InputNumber/InputNumber.css#border-left#1px": {
+      "file": "InputNumber/InputNumber.css",
+      "prop": "border-left",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "JSONViewer/JSONViewer.css#border-left#1px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "border-left",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "JsonSchemaForm/JsonSchemaForm.css#border#1px": {
+      "file": "JsonSchemaForm/JsonSchemaForm.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "JsonSchemaForm/JsonSchemaForm.css#border-left#1px": {
+      "file": "JsonSchemaForm/JsonSchemaForm.css",
+      "prop": "border-left",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Kanban/Kanban.css#border#1px": {
+      "file": "Kanban/Kanban.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "List/List.css#border-bottom#1px": {
+      "file": "List/List.css",
+      "prop": "border-bottom",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Loading/Loading.css#border#3px": {
+      "file": "Loading/Loading.css",
+      "prop": "border",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Markdown/Markdown.css#border-left#3px": {
+      "file": "Markdown/Markdown.css",
+      "prop": "border-left",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Markdown/Markdown.css#border-top#1px": {
+      "file": "Markdown/Markdown.css",
+      "prop": "border-top",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "MessageBubble/MessageBubble.css#border#1px": {
+      "file": "MessageBubble/MessageBubble.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "MessageBubble/MessageBubble.css#border-right#3px": {
+      "file": "MessageBubble/MessageBubble.css",
+      "prop": "border-right",
+      "value": "3px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "NavBar/NavBar.css#border-bottom#1px": {
+      "file": "NavBar/NavBar.css",
+      "prop": "border-bottom",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Pipeline/Pipeline.css#border#1px": {
+      "file": "Pipeline/Pipeline.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "PromptTemplate/PromptTemplate.css#border#1px": {
+      "file": "PromptTemplate/PromptTemplate.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "ReasoningBlock/ReasoningBlock.css#border#1px": {
+      "file": "ReasoningBlock/ReasoningBlock.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "SheetGrid/SheetGrid.css#border#1px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "SlideCanvas/SlideCanvas.css#border#1px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Slider/Slider.css#border#2px": {
+      "file": "Slider/Slider.css",
+      "prop": "border",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "TabBar/TabBar.css#border-top#1px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "border-top",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Table/Table.css#border-bottom#2px": {
+      "file": "Table/Table.css",
+      "prop": "border-bottom",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Table/Table.css#border-left#2px": {
+      "file": "Table/Table.css",
+      "prop": "border-left",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "TagsInput/TagsInput.css#border#1px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "ToolCallCard/ToolCallCard.css#border#1px": {
+      "file": "ToolCallCard/ToolCallCard.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Tour/Tour.css#border#1px": {
+      "file": "Tour/Tour.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Tree/Tree.css#border-bottom#2px": {
+      "file": "Tree/Tree.css",
+      "prop": "border-bottom",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "Tree/Tree.css#border-left#2px": {
+      "file": "Tree/Tree.css",
+      "prop": "border-left",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "TreeSelect/TreeSelect.css#border#1px": {
+      "file": "TreeSelect/TreeSelect.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "TreeSelect/TreeSelect.css#border-top#5px": {
+      "file": "TreeSelect/TreeSelect.css",
+      "prop": "border-top",
+      "value": "5px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "VirtualTable/VirtualTable.css#border-bottom#2px": {
+      "file": "VirtualTable/VirtualTable.css",
+      "prop": "border-bottom",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "VirtualTable/VirtualTable.css#border-left#2px": {
+      "file": "VirtualTable/VirtualTable.css",
+      "prop": "border-left",
+      "value": "2px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    },
+    "WordCloud/WordCloud.css#border#1px": {
+      "file": "WordCloud/WordCloud.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)"
+    }
+  },
+  "scale": {
+    "AutoComplete/AutoComplete.css#margin-top#4px": {
+      "file": "AutoComplete/AutoComplete.css",
+      "prop": "margin-top",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "AutoComplete/AutoComplete.css#padding#8/12px": {
+      "file": "AutoComplete/AutoComplete.css",
+      "prop": "padding",
+      "value": "8/12px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Chart/Chart.css#gap#4px": {
+      "file": "Chart/Chart.css",
+      "prop": "gap",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "CodeBlock/CodeBlock.css#padding#4px": {
+      "file": "CodeBlock/CodeBlock.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "DatePicker/DatePicker.css#gap#4px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "gap",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "DatePicker/DatePicker.css#margin-bottom#4px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "margin-bottom",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "DatePicker/DatePicker.css#padding#4px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "DiffView/DiffView.css#gap#8px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "gap",
+      "value": "8px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "DiffView/DiffView.css#padding#12px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "padding",
+      "value": "12px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "DiffView/DiffView.css#padding#4/8px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "padding",
+      "value": "4/8px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "DiffView/DiffView.css#padding#8/12px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "padding",
+      "value": "8/12px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "DiffView/DiffView.css#padding#8px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "padding",
+      "value": "8px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Editor/Editor.css#margin#4px": {
+      "file": "Editor/Editor.css",
+      "prop": "margin",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "FloatButton/FloatButton.css#gap#12px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "gap",
+      "value": "12px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "JSONViewer/JSONViewer.css#padding#4px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Kanban/Kanban.css#gap#12px": {
+      "file": "Kanban/Kanban.css",
+      "prop": "gap",
+      "value": "12px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Kanban/Kanban.css#gap#8px": {
+      "file": "Kanban/Kanban.css",
+      "prop": "gap",
+      "value": "8px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Kanban/Kanban.css#padding#4px": {
+      "file": "Kanban/Kanban.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Kanban/Kanban.css#padding#8px": {
+      "file": "Kanban/Kanban.css",
+      "prop": "padding",
+      "value": "8px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Link/Link.css#gap#4px": {
+      "file": "Link/Link.css",
+      "prop": "gap",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Markdown/Markdown.css#margin-top#4px": {
+      "file": "Markdown/Markdown.css",
+      "prop": "margin-top",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Math/Math.css#padding#4px": {
+      "file": "Math/Math.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Modal/Modal.css#padding#4px": {
+      "file": "Modal/Modal.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "NavMenu/NavMenu.css#gap#12px": {
+      "file": "NavMenu/NavMenu.css",
+      "prop": "gap",
+      "value": "12px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "NavMenu/NavMenu.css#padding#8/12px": {
+      "file": "NavMenu/NavMenu.css",
+      "prop": "padding",
+      "value": "8/12px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "SheetGrid/SheetGrid.css#gap#4px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "gap",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "SheetGrid/SheetGrid.css#padding#4/12px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "padding",
+      "value": "4/12px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "SlideCanvas/SlideCanvas.css#gap#4px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "gap",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "SlideCanvas/SlideCanvas.css#padding#12px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "padding",
+      "value": "12px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "SlideCanvas/SlideCanvas.css#padding#4/12px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "padding",
+      "value": "4/12px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "SlideCanvas/SlideCanvas.css#padding#4/8px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "padding",
+      "value": "4/8px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "TabBar/TabBar.css#gap#4px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "gap",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "TabBar/TabBar.css#padding#4px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "TabBar/TabBar.css#padding#8/4px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "padding",
+      "value": "8/4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Tabs/Tabs.css#margin#4px": {
+      "file": "Tabs/Tabs.css",
+      "prop": "margin",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "TagsInput/TagsInput.css#gap#4px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "gap",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "TagsInput/TagsInput.css#padding#4px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Tour/Tour.css#gap#8px": {
+      "file": "Tour/Tour.css",
+      "prop": "gap",
+      "value": "8px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Tour/Tour.css#margin-top#4px": {
+      "file": "Tour/Tour.css",
+      "prop": "margin-top",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "Tour/Tour.css#padding#16px": {
+      "file": "Tour/Tour.css",
+      "prop": "padding",
+      "value": "16px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "TreeSelect/TreeSelect.css#gap#8px": {
+      "file": "TreeSelect/TreeSelect.css",
+      "prop": "gap",
+      "value": "8px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    },
+    "TreeSelect/TreeSelect.css#padding#4px": {
+      "file": "TreeSelect/TreeSelect.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "标尺档手写——待 W2 标尺化 var(--wf-space-*/--wf-gap-*)"
+    }
+  },
+  "structural": {
+    "ActionSheet/ActionSheet.css#height#8px": {
+      "file": "ActionSheet/ActionSheet.css",
+      "prop": "height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ActionSheet/ActionSheet.css#max-height#48px": {
+      "file": "ActionSheet/ActionSheet.css",
+      "prop": "max-height",
+      "value": "48px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ActionSheet/ActionSheet.css#min-height#48px": {
+      "file": "ActionSheet/ActionSheet.css",
+      "prop": "min-height",
+      "value": "48px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Alert/Alert.css#padding#2px": {
+      "file": "Alert/Alert.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AlertGroup/AlertGroup.css#height#24px": {
+      "file": "AlertGroup/AlertGroup.css",
+      "prop": "height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AlertGroup/AlertGroup.css#min-height#24px": {
+      "file": "AlertGroup/AlertGroup.css",
+      "prop": "min-height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AlertGroup/AlertGroup.css#min-width#24px": {
+      "file": "AlertGroup/AlertGroup.css",
+      "prop": "min-width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AlertGroup/AlertGroup.css#padding#16px": {
+      "file": "AlertGroup/AlertGroup.css",
+      "prop": "padding",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AlertGroup/AlertGroup.css#width#24px": {
+      "file": "AlertGroup/AlertGroup.css",
+      "prop": "width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Anchor/Anchor.css#border-left#2px": {
+      "file": "Anchor/Anchor.css",
+      "prop": "border-left",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Anchor/Anchor.css#gap#2px": {
+      "file": "Anchor/Anchor.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AutoComplete/AutoComplete.css#box-shadow#2px": {
+      "file": "AutoComplete/AutoComplete.css",
+      "prop": "box-shadow",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AutoComplete/AutoComplete.css#max-height#280px": {
+      "file": "AutoComplete/AutoComplete.css",
+      "prop": "max-height",
+      "value": "280px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Avatar/Avatar.css#font-size#11px": {
+      "file": "Avatar/Avatar.css",
+      "prop": "font-size",
+      "value": "11px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Avatar/Avatar.css#font-size#13px": {
+      "file": "Avatar/Avatar.css",
+      "prop": "font-size",
+      "value": "13px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Avatar/Avatar.css#font-size#16px": {
+      "file": "Avatar/Avatar.css",
+      "prop": "font-size",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Avatar/Avatar.css#height#24px": {
+      "file": "Avatar/Avatar.css",
+      "prop": "height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Avatar/Avatar.css#height#32px": {
+      "file": "Avatar/Avatar.css",
+      "prop": "height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Avatar/Avatar.css#height#40px": {
+      "file": "Avatar/Avatar.css",
+      "prop": "height",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Avatar/Avatar.css#width#24px": {
+      "file": "Avatar/Avatar.css",
+      "prop": "width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Avatar/Avatar.css#width#32px": {
+      "file": "Avatar/Avatar.css",
+      "prop": "width",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Avatar/Avatar.css#width#40px": {
+      "file": "Avatar/Avatar.css",
+      "prop": "width",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AvatarGroup/AvatarGroup.css#height#32px": {
+      "file": "AvatarGroup/AvatarGroup.css",
+      "prop": "height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AvatarGroup/AvatarGroup.css#margin-left#6px": {
+      "file": "AvatarGroup/AvatarGroup.css",
+      "prop": "margin-left",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "AvatarGroup/AvatarGroup.css#width#32px": {
+      "file": "AvatarGroup/AvatarGroup.css",
+      "prop": "width",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "BackTop/BackTop.css#height#40px": {
+      "file": "BackTop/BackTop.css",
+      "prop": "height",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "BackTop/BackTop.css#transform#8px": {
+      "file": "BackTop/BackTop.css",
+      "prop": "transform",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "BackTop/BackTop.css#width#40px": {
+      "file": "BackTop/BackTop.css",
+      "prop": "width",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Badge/Badge.css#height#18px": {
+      "file": "Badge/Badge.css",
+      "prop": "height",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Badge/Badge.css#height#8px": {
+      "file": "Badge/Badge.css",
+      "prop": "height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Badge/Badge.css#min-width#18px": {
+      "file": "Badge/Badge.css",
+      "prop": "min-width",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Badge/Badge.css#padding#2px": {
+      "file": "Badge/Badge.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Badge/Badge.css#width#8px": {
+      "file": "Badge/Badge.css",
+      "prop": "width",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Button/Button.css#border#2px": {
+      "file": "Button/Button.css",
+      "prop": "border",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Button/Button.css#height#14px": {
+      "file": "Button/Button.css",
+      "prop": "height",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Button/Button.css#max-height#28px": {
+      "file": "Button/Button.css",
+      "prop": "max-height",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Button/Button.css#max-height#40px": {
+      "file": "Button/Button.css",
+      "prop": "max-height",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Button/Button.css#min-height#28px": {
+      "file": "Button/Button.css",
+      "prop": "min-height",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Button/Button.css#min-height#40px": {
+      "file": "Button/Button.css",
+      "prop": "min-height",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Button/Button.css#width#14px": {
+      "file": "Button/Button.css",
+      "prop": "width",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Calendar/Calendar.css#margin-top#2px": {
+      "file": "Calendar/Calendar.css",
+      "prop": "margin-top",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Calendar/Calendar.css#min-height#44px": {
+      "file": "Calendar/Calendar.css",
+      "prop": "min-height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Calendar/Calendar.css#min-height#76px": {
+      "file": "Calendar/Calendar.css",
+      "prop": "min-height",
+      "value": "76px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Calendar/Calendar.css#min-width#44px": {
+      "file": "Calendar/Calendar.css",
+      "prop": "min-width",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Calendar/Calendar.css#padding#1px": {
+      "file": "Calendar/Calendar.css",
+      "prop": "padding",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#flex#8px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "flex",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#height#32px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#height#44px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#height#8px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#inset#14px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "inset",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#line-height#8px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "line-height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#max-height#32px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "max-height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#max-height#8px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "max-height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#min-height#32px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "min-height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#min-height#44px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "min-height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#min-height#8px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "min-height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#min-width#44px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "min-width",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#width#32px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "width",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#width#44px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "width",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Carousel/Carousel.css#width#8px": {
+      "file": "Carousel/Carousel.css",
+      "prop": "width",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Cascader/Cascader.css#gap#1px": {
+      "file": "Cascader/Cascader.css",
+      "prop": "gap",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Cascader/Cascader.css#max-height#240px": {
+      "file": "Cascader/Cascader.css",
+      "prop": "max-height",
+      "value": "240px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Chart/Chart.css#height#8px": {
+      "file": "Chart/Chart.css",
+      "prop": "height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Chart/Chart.css#width#8px": {
+      "file": "Chart/Chart.css",
+      "prop": "width",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Checkbox/Checkbox.css#font-size#11px": {
+      "file": "Checkbox/Checkbox.css",
+      "prop": "font-size",
+      "value": "11px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Checkbox/Checkbox.css#height#16px": {
+      "file": "Checkbox/Checkbox.css",
+      "prop": "height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Checkbox/Checkbox.css#width#16px": {
+      "file": "Checkbox/Checkbox.css",
+      "prop": "width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#height#20px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "height",
+      "value": "20px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#height#24px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#margin-top#2px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "margin-top",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#min-height#20px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "min-height",
+      "value": "20px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#min-height#24px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "min-height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#min-height#44px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "min-height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#min-width#20px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "min-width",
+      "value": "20px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#min-width#24px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "min-width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#outline#2px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "outline",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#outline-offset#1px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "outline-offset",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#width#20px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "width",
+      "value": "20px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CitationCard/CitationCard.css#width#24px": {
+      "file": "CitationCard/CitationCard.css",
+      "prop": "width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CodeBlock/CodeBlock.css#height#8px": {
+      "file": "CodeBlock/CodeBlock.css",
+      "prop": "height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CodeBlock/CodeBlock.css#outline#2px": {
+      "file": "CodeBlock/CodeBlock.css",
+      "prop": "outline",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CodeBlock/CodeBlock.css#outline-offset#1px": {
+      "file": "CodeBlock/CodeBlock.css",
+      "prop": "outline-offset",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CodeBlock/CodeBlock.css#width#8px": {
+      "file": "CodeBlock/CodeBlock.css",
+      "prop": "width",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#box-shadow#1px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "box-shadow",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#box-shadow#2px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "box-shadow",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#height#16px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#height#22px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "height",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#max-height#22px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "max-height",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#max-width#22px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "max-width",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#min-height#22px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "min-height",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#min-height#28px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "min-height",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#min-height#40px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "min-height",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#min-width#22px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "min-width",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#padding#2px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#width#16px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ColorPicker/ColorPicker.css#width#22px": {
+      "file": "ColorPicker/ColorPicker.css",
+      "prop": "width",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Command/Command.css#gap#1px": {
+      "file": "Command/Command.css",
+      "prop": "gap",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Command/Command.css#max-height#320px": {
+      "file": "Command/Command.css",
+      "prop": "max-height",
+      "value": "320px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Command/Command.css#padding#1px": {
+      "file": "Command/Command.css",
+      "prop": "padding",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Command/Command.css#padding#8px": {
+      "file": "Command/Command.css",
+      "prop": "padding",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Command/Command.css#width#520px": {
+      "file": "Command/Command.css",
+      "prop": "width",
+      "value": "520px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ContextMenu/ContextMenu.css#gap#1px": {
+      "file": "ContextMenu/ContextMenu.css",
+      "prop": "gap",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CopyButton/CopyButton.css#padding#2px": {
+      "file": "CopyButton/CopyButton.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "CopyButton/CopyButton.css#padding#4px": {
+      "file": "CopyButton/CopyButton.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DatePicker/DatePicker.css#box-shadow#1px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "box-shadow",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DatePicker/DatePicker.css#box-shadow#2px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "box-shadow",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DatePicker/DatePicker.css#gap#2px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DatePicker/DatePicker.css#height#32px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DatePicker/DatePicker.css#max-height#200px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "max-height",
+      "value": "200px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DatePicker/DatePicker.css#max-width#32px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "max-width",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DatePicker/DatePicker.css#padding#2px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DatePicker/DatePicker.css#width#32px": {
+      "file": "DatePicker/DatePicker.css",
+      "prop": "width",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Descriptions/Descriptions.css#gap#2px": {
+      "file": "Descriptions/Descriptions.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DiffView/DiffView.css#margin#2px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "margin",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DiffView/DiffView.css#max-height#480px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "max-height",
+      "value": "480px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DiffView/DiffView.css#min-height#28px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "min-height",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "DiffView/DiffView.css#width#14px": {
+      "file": "DiffView/DiffView.css",
+      "prop": "width",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Drawer/Drawer.css#font-size#16px": {
+      "file": "Drawer/Drawer.css",
+      "prop": "font-size",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#border-radius#2px": {
+      "file": "Editor/Editor.css",
+      "prop": "border-radius",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#font-size#28px": {
+      "file": "Editor/Editor.css",
+      "prop": "font-size",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#gap#2px": {
+      "file": "Editor/Editor.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#height#18px": {
+      "file": "Editor/Editor.css",
+      "prop": "height",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#height#20px": {
+      "file": "Editor/Editor.css",
+      "prop": "height",
+      "value": "20px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#height#32px": {
+      "file": "Editor/Editor.css",
+      "prop": "height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#max-height#200px": {
+      "file": "Editor/Editor.css",
+      "prop": "max-height",
+      "value": "200px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#max-height#280px": {
+      "file": "Editor/Editor.css",
+      "prop": "max-height",
+      "value": "280px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#max-height#300px": {
+      "file": "Editor/Editor.css",
+      "prop": "max-height",
+      "value": "300px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#min-height#200px": {
+      "file": "Editor/Editor.css",
+      "prop": "min-height",
+      "value": "200px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#min-height#44px": {
+      "file": "Editor/Editor.css",
+      "prop": "min-height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#min-width#32px": {
+      "file": "Editor/Editor.css",
+      "prop": "min-width",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#min-width#40px": {
+      "file": "Editor/Editor.css",
+      "prop": "min-width",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#min-width#44px": {
+      "file": "Editor/Editor.css",
+      "prop": "min-width",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#width#18px": {
+      "file": "Editor/Editor.css",
+      "prop": "width",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Editor/Editor.css#width#1px": {
+      "file": "Editor/Editor.css",
+      "prop": "width",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "EmptyState/EmptyState.css#font-size#48px": {
+      "file": "EmptyState/EmptyState.css",
+      "prop": "font-size",
+      "value": "48px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "EmptyState/EmptyState.css#max-width#320px": {
+      "file": "EmptyState/EmptyState.css",
+      "prop": "max-width",
+      "value": "320px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Field/Field.css#margin-left#2px": {
+      "file": "Field/Field.css",
+      "prop": "margin-left",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FilePreview/FilePreview.css#padding#1px": {
+      "file": "FilePreview/FilePreview.css",
+      "prop": "padding",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileTree/FileTree.css#max-height#280px": {
+      "file": "FileTree/FileTree.css",
+      "prop": "max-height",
+      "value": "280px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileTree/FileTree.css#max-height#320px": {
+      "file": "FileTree/FileTree.css",
+      "prop": "max-height",
+      "value": "320px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#font-size#24px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "font-size",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#height#24px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#height#36px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "height",
+      "value": "36px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#height#4px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "height",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#max-height#24px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "max-height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#max-width#24px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "max-width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#min-height#120px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "min-height",
+      "value": "120px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#min-height#24px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "min-height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#min-width#24px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "min-width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#width#24px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FileUpload/FileUpload.css#width#36px": {
+      "file": "FileUpload/FileUpload.css",
+      "prop": "width",
+      "value": "36px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#bottom#24px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "bottom",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#font-size#11px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "font-size",
+      "value": "11px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#font-size#16px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "font-size",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#height#18px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "height",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#height#44px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#left#24px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "left",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#line-height#18px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "line-height",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#min-height#44px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "min-height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#min-width#18px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "min-width",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#min-width#44px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "min-width",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#right#24px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "right",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#right#4px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "right",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#top#24px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "top",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#top#4px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "top",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#transform#8px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "transform",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "FloatButton/FloatButton.css#width#44px": {
+      "file": "FloatButton/FloatButton.css",
+      "prop": "width",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Highlight/Highlight.css#padding#1px": {
+      "file": "Highlight/Highlight.css",
+      "prop": "padding",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "HoverCard/HoverCard.css#max-width#320px": {
+      "file": "HoverCard/HoverCard.css",
+      "prop": "max-width",
+      "value": "320px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "InView/InView.css#min-height#100px": {
+      "file": "InView/InView.css",
+      "prop": "min-height",
+      "value": "100px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "InfiniteScroll/InfiniteScroll.css#height#1px": {
+      "file": "InfiniteScroll/InfiniteScroll.css",
+      "prop": "height",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Input/Input.css#box-shadow#2px": {
+      "file": "Input/Input.css",
+      "prop": "box-shadow",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "InputNumber/InputNumber.css#box-shadow#2px": {
+      "file": "InputNumber/InputNumber.css",
+      "prop": "box-shadow",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "InputNumber/InputNumber.css#margin-left#2px": {
+      "file": "InputNumber/InputNumber.css",
+      "prop": "margin-left",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "InputNumber/InputNumber.css#min-height#18px": {
+      "file": "InputNumber/InputNumber.css",
+      "prop": "min-height",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "InputNumber/InputNumber.css#min-height#36px": {
+      "file": "InputNumber/InputNumber.css",
+      "prop": "min-height",
+      "value": "36px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "InputNumber/InputNumber.css#outline#2px": {
+      "file": "InputNumber/InputNumber.css",
+      "prop": "outline",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "InputNumber/InputNumber.css#outline-offset#2px": {
+      "file": "InputNumber/InputNumber.css",
+      "prop": "outline-offset",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "InputNumber/InputNumber.css#padding#2px": {
+      "file": "InputNumber/InputNumber.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#height#16px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#height#24px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#max-height#16px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "max-height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#max-height#24px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "max-height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#max-width#16px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "max-width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#max-width#24px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "max-width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#min-height#16px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "min-height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#min-height#24px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "min-height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#min-width#16px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "min-width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#min-width#24px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "min-width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#width#16px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JSONViewer/JSONViewer.css#width#24px": {
+      "file": "JSONViewer/JSONViewer.css",
+      "prop": "width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JsonSchemaForm/JsonSchemaForm.css#height#28px": {
+      "file": "JsonSchemaForm/JsonSchemaForm.css",
+      "prop": "height",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JsonSchemaForm/JsonSchemaForm.css#max-height#28px": {
+      "file": "JsonSchemaForm/JsonSchemaForm.css",
+      "prop": "max-height",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JsonSchemaForm/JsonSchemaForm.css#max-width#28px": {
+      "file": "JsonSchemaForm/JsonSchemaForm.css",
+      "prop": "max-width",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JsonSchemaForm/JsonSchemaForm.css#min-height#28px": {
+      "file": "JsonSchemaForm/JsonSchemaForm.css",
+      "prop": "min-height",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JsonSchemaForm/JsonSchemaForm.css#min-width#28px": {
+      "file": "JsonSchemaForm/JsonSchemaForm.css",
+      "prop": "min-width",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JsonSchemaForm/JsonSchemaForm.css#outline#2px": {
+      "file": "JsonSchemaForm/JsonSchemaForm.css",
+      "prop": "outline",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JsonSchemaForm/JsonSchemaForm.css#outline-offset#1px": {
+      "file": "JsonSchemaForm/JsonSchemaForm.css",
+      "prop": "outline-offset",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "JsonSchemaForm/JsonSchemaForm.css#width#28px": {
+      "file": "JsonSchemaForm/JsonSchemaForm.css",
+      "prop": "width",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Kanban/Kanban.css#flex#220px": {
+      "file": "Kanban/Kanban.css",
+      "prop": "flex",
+      "value": "220px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Kanban/Kanban.css#min-height#40px": {
+      "file": "Kanban/Kanban.css",
+      "prop": "min-height",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Kanban/Kanban.css#padding#12px": {
+      "file": "Kanban/Kanban.css",
+      "prop": "padding",
+      "value": "12px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Kanban/Kanban.css#padding#1px": {
+      "file": "Kanban/Kanban.css",
+      "prop": "padding",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Layout/Layout.css#height#40px": {
+      "file": "Layout/Layout.css",
+      "prop": "height",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Link/Link.css#text-underline-offset#3px": {
+      "file": "Link/Link.css",
+      "prop": "text-underline-offset",
+      "value": "3px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Loading/Loading.css#height#24px": {
+      "file": "Loading/Loading.css",
+      "prop": "height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Loading/Loading.css#width#24px": {
+      "file": "Loading/Loading.css",
+      "prop": "width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "LogViewer/LogViewer.css#height#24px": {
+      "file": "LogViewer/LogViewer.css",
+      "prop": "height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "LogViewer/LogViewer.css#max-height#24px": {
+      "file": "LogViewer/LogViewer.css",
+      "prop": "max-height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "LogViewer/LogViewer.css#max-width#24px": {
+      "file": "LogViewer/LogViewer.css",
+      "prop": "max-width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "LogViewer/LogViewer.css#min-height#24px": {
+      "file": "LogViewer/LogViewer.css",
+      "prop": "min-height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "LogViewer/LogViewer.css#min-width#24px": {
+      "file": "LogViewer/LogViewer.css",
+      "prop": "min-width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "LogViewer/LogViewer.css#min-width#48px": {
+      "file": "LogViewer/LogViewer.css",
+      "prop": "min-width",
+      "value": "48px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "LogViewer/LogViewer.css#width#24px": {
+      "file": "LogViewer/LogViewer.css",
+      "prop": "width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Markdown/Markdown.css#height#14px": {
+      "file": "Markdown/Markdown.css",
+      "prop": "height",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Markdown/Markdown.css#margin#2px": {
+      "file": "Markdown/Markdown.css",
+      "prop": "margin",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Markdown/Markdown.css#padding#1px": {
+      "file": "Markdown/Markdown.css",
+      "prop": "padding",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Markdown/Markdown.css#text-underline-offset#2px": {
+      "file": "Markdown/Markdown.css",
+      "prop": "text-underline-offset",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Markdown/Markdown.css#width#14px": {
+      "file": "Markdown/Markdown.css",
+      "prop": "width",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Math/Math.css#border-bottom#1px": {
+      "file": "Math/Math.css",
+      "prop": "border-bottom",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Math/Math.css#margin#2px": {
+      "file": "Math/Math.css",
+      "prop": "margin",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Math/Math.css#margin-right#1px": {
+      "file": "Math/Math.css",
+      "prop": "margin-right",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Mentions/Mentions.css#gap#1px": {
+      "file": "Mentions/Mentions.css",
+      "prop": "gap",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Mentions/Mentions.css#max-height#220px": {
+      "file": "Mentions/Mentions.css",
+      "prop": "max-height",
+      "value": "220px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Mentions/Mentions.css#padding#4px": {
+      "file": "Mentions/Mentions.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Mentions/Mentions.css#padding#8px": {
+      "file": "Mentions/Mentions.css",
+      "prop": "padding",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Menu/Menu.css#gap#2px": {
+      "file": "Menu/Menu.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Menu/Menu.css#min-height#36px": {
+      "file": "Menu/Menu.css",
+      "prop": "min-height",
+      "value": "36px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Menu/Menu.css#outline#2px": {
+      "file": "Menu/Menu.css",
+      "prop": "outline",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Menu/Menu.css#outline-offset#2px": {
+      "file": "Menu/Menu.css",
+      "prop": "outline-offset",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Menu/Menu.css#padding#2px": {
+      "file": "Menu/Menu.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Menu/Menu.css#width#18px": {
+      "file": "Menu/Menu.css",
+      "prop": "width",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Menu/Menu.css#width#56px": {
+      "file": "Menu/Menu.css",
+      "prop": "width",
+      "value": "56px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Menubar/Menubar.css#gap#1px": {
+      "file": "Menubar/Menubar.css",
+      "prop": "gap",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Menubar/Menubar.css#padding#1px": {
+      "file": "Menubar/Menubar.css",
+      "prop": "padding",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Menubar/Menubar.css#padding#4px": {
+      "file": "Menubar/Menubar.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Modal/Modal.css#min-width#32px": {
+      "file": "Modal/Modal.css",
+      "prop": "min-width",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "NavBar/NavBar.css#min-height#48px": {
+      "file": "NavBar/NavBar.css",
+      "prop": "min-height",
+      "value": "48px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "NavBar/NavBar.css#padding#4px": {
+      "file": "NavBar/NavBar.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "NavBar/NavBar.css#padding-top#4px": {
+      "file": "NavBar/NavBar.css",
+      "prop": "padding-top",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "NavMenu/NavMenu.css#gap#2px": {
+      "file": "NavMenu/NavMenu.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "NavMenu/NavMenu.css#left#4px": {
+      "file": "NavMenu/NavMenu.css",
+      "prop": "left",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "NavMenu/NavMenu.css#min-height#48px": {
+      "file": "NavMenu/NavMenu.css",
+      "prop": "min-height",
+      "value": "48px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "NavMenu/NavMenu.css#padding#8px": {
+      "file": "NavMenu/NavMenu.css",
+      "prop": "padding",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "NavMenu/NavMenu.css#top#6px": {
+      "file": "NavMenu/NavMenu.css",
+      "prop": "top",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Notification/Notification.css#border-left-width#3px": {
+      "file": "Notification/Notification.css",
+      "prop": "border-left-width",
+      "value": "3px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Notification/Notification.css#margin-top#2px": {
+      "file": "Notification/Notification.css",
+      "prop": "margin-top",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Notification/Notification.css#max-width#360px": {
+      "file": "Notification/Notification.css",
+      "prop": "max-width",
+      "value": "360px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Notification/Notification.css#padding#2px": {
+      "file": "Notification/Notification.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Notification/Notification.css#padding-top#2px": {
+      "file": "Notification/Notification.css",
+      "prop": "padding-top",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Pagination/Pagination.css#height#32px": {
+      "file": "Pagination/Pagination.css",
+      "prop": "height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Pagination/Pagination.css#max-height#32px": {
+      "file": "Pagination/Pagination.css",
+      "prop": "max-height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Pagination/Pagination.css#min-height#32px": {
+      "file": "Pagination/Pagination.css",
+      "prop": "min-height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Pagination/Pagination.css#min-height#44px": {
+      "file": "Pagination/Pagination.css",
+      "prop": "min-height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Pagination/Pagination.css#min-width#32px": {
+      "file": "Pagination/Pagination.css",
+      "prop": "min-width",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Pagination/Pagination.css#min-width#44px": {
+      "file": "Pagination/Pagination.css",
+      "prop": "min-width",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "PasswordInput/PasswordInput.css#padding-right#38px": {
+      "file": "PasswordInput/PasswordInput.css",
+      "prop": "padding-right",
+      "value": "38px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "PasswordInput/PasswordInput.css#right#4px": {
+      "file": "PasswordInput/PasswordInput.css",
+      "prop": "right",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Pipeline/Pipeline.css#bottom#24px": {
+      "file": "Pipeline/Pipeline.css",
+      "prop": "bottom",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Pipeline/Pipeline.css#max-width#120px": {
+      "file": "Pipeline/Pipeline.css",
+      "prop": "max-width",
+      "value": "120px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Pipeline/Pipeline.css#min-width#72px": {
+      "file": "Pipeline/Pipeline.css",
+      "prop": "min-width",
+      "value": "72px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Pipeline/Pipeline.css#padding#8px": {
+      "file": "Pipeline/Pipeline.css",
+      "prop": "padding",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Popconfirm/Popconfirm.css#margin-top#2px": {
+      "file": "Popconfirm/Popconfirm.css",
+      "prop": "margin-top",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Popover/Popover.css#max-width#320px": {
+      "file": "Popover/Popover.css",
+      "prop": "max-width",
+      "value": "320px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ProgressBar/ProgressBar.css#height#12px": {
+      "file": "ProgressBar/ProgressBar.css",
+      "prop": "height",
+      "value": "12px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ProgressBar/ProgressBar.css#height#4px": {
+      "file": "ProgressBar/ProgressBar.css",
+      "prop": "height",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ProgressBar/ProgressBar.css#height#8px": {
+      "file": "ProgressBar/ProgressBar.css",
+      "prop": "height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ProgressBar/ProgressBar.css#min-width#40px": {
+      "file": "ProgressBar/ProgressBar.css",
+      "prop": "min-width",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ProgressBar/ProgressBar.css#min-width#60px": {
+      "file": "ProgressBar/ProgressBar.css",
+      "prop": "min-width",
+      "value": "60px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "PromptTemplate/PromptTemplate.css#min-height#120px": {
+      "file": "PromptTemplate/PromptTemplate.css",
+      "prop": "min-height",
+      "value": "120px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "PromptTemplate/PromptTemplate.css#padding#2px": {
+      "file": "PromptTemplate/PromptTemplate.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "RadioGroup/RadioGroup.css#border-width#5px": {
+      "file": "RadioGroup/RadioGroup.css",
+      "prop": "border-width",
+      "value": "5px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "RadioGroup/RadioGroup.css#height#16px": {
+      "file": "RadioGroup/RadioGroup.css",
+      "prop": "height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "RadioGroup/RadioGroup.css#width#16px": {
+      "file": "RadioGroup/RadioGroup.css",
+      "prop": "width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ReasoningBlock/ReasoningBlock.css#height#6px": {
+      "file": "ReasoningBlock/ReasoningBlock.css",
+      "prop": "height",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ReasoningBlock/ReasoningBlock.css#min-height#6px": {
+      "file": "ReasoningBlock/ReasoningBlock.css",
+      "prop": "min-height",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ReasoningBlock/ReasoningBlock.css#min-width#6px": {
+      "file": "ReasoningBlock/ReasoningBlock.css",
+      "prop": "min-width",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ReasoningBlock/ReasoningBlock.css#outline#2px": {
+      "file": "ReasoningBlock/ReasoningBlock.css",
+      "prop": "outline",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ReasoningBlock/ReasoningBlock.css#outline-offset#1px": {
+      "file": "ReasoningBlock/ReasoningBlock.css",
+      "prop": "outline-offset",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ReasoningBlock/ReasoningBlock.css#width#6px": {
+      "file": "ReasoningBlock/ReasoningBlock.css",
+      "prop": "width",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "RelationGraph/RelationGraph.css#background#1px": {
+      "file": "RelationGraph/RelationGraph.css",
+      "prop": "background",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "RelationGraph/RelationGraph.css#height#10px": {
+      "file": "RelationGraph/RelationGraph.css",
+      "prop": "height",
+      "value": "10px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "RelationGraph/RelationGraph.css#height#3px": {
+      "file": "RelationGraph/RelationGraph.css",
+      "prop": "height",
+      "value": "3px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "RelationGraph/RelationGraph.css#width#10px": {
+      "file": "RelationGraph/RelationGraph.css",
+      "prop": "width",
+      "value": "10px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "RelationGraph/RelationGraph.css#width#16px": {
+      "file": "RelationGraph/RelationGraph.css",
+      "prop": "width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Resizable/Resizable.css#height#6px": {
+      "file": "Resizable/Resizable.css",
+      "prop": "height",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Resizable/Resizable.css#width#6px": {
+      "file": "Resizable/Resizable.css",
+      "prop": "width",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Result/Result.css#height#72px": {
+      "file": "Result/Result.css",
+      "prop": "height",
+      "value": "72px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Result/Result.css#max-width#420px": {
+      "file": "Result/Result.css",
+      "prop": "max-width",
+      "value": "420px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Result/Result.css#width#72px": {
+      "file": "Result/Result.css",
+      "prop": "width",
+      "value": "72px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Scrollbar/Scrollbar.css#height#8px": {
+      "file": "Scrollbar/Scrollbar.css",
+      "prop": "height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Scrollbar/Scrollbar.css#width#8px": {
+      "file": "Scrollbar/Scrollbar.css",
+      "prop": "width",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SearchInput/SearchInput.css#padding#2px": {
+      "file": "SearchInput/SearchInput.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SegmentedControl/SegmentedControl.css#border-radius#1px": {
+      "file": "SegmentedControl/SegmentedControl.css",
+      "prop": "border-radius",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SegmentedControl/SegmentedControl.css#gap#2px": {
+      "file": "SegmentedControl/SegmentedControl.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SegmentedControl/SegmentedControl.css#min-height#44px": {
+      "file": "SegmentedControl/SegmentedControl.css",
+      "prop": "min-height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SegmentedControl/SegmentedControl.css#padding#2px": {
+      "file": "SegmentedControl/SegmentedControl.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Select/Select.css#box-shadow#1px": {
+      "file": "Select/Select.css",
+      "prop": "box-shadow",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Select/Select.css#box-shadow#2px": {
+      "file": "Select/Select.css",
+      "prop": "box-shadow",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Select/Select.css#max-height#240px": {
+      "file": "Select/Select.css",
+      "prop": "max-height",
+      "value": "240px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Select/Select.css#min-height#44px": {
+      "file": "Select/Select.css",
+      "prop": "min-height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Select/Select.css#padding#1px": {
+      "file": "Select/Select.css",
+      "prop": "padding",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Select/Select.css#padding#2px": {
+      "file": "Select/Select.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#height#22px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "height",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#height#28px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "height",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#min-height#22px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "min-height",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#min-height#32px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "min-height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#min-height#44px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "min-height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#min-width#22px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "min-width",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#outline#2px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "outline",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#outline-offset#1px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "outline-offset",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#padding#2px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#width#22px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "width",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SessionList/SessionList.css#width#28px": {
+      "file": "SessionList/SessionList.css",
+      "prop": "width",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SheetGrid/SheetGrid.css#gap#2px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SheetGrid/SheetGrid.css#height#24px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SheetGrid/SheetGrid.css#max-height#140px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "max-height",
+      "value": "140px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SheetGrid/SheetGrid.css#max-height#260px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "max-height",
+      "value": "260px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SheetGrid/SheetGrid.css#min-width#36px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "min-width",
+      "value": "36px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SheetGrid/SheetGrid.css#min-width#60px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "min-width",
+      "value": "60px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SheetGrid/SheetGrid.css#outline#2px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "outline",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SheetGrid/SheetGrid.css#outline-offset#2px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "outline-offset",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SheetGrid/SheetGrid.css#padding#2px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SheetGrid/SheetGrid.css#width#320px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "width",
+      "value": "320px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Skeleton/Skeleton.css#height#120px": {
+      "file": "Skeleton/Skeleton.css",
+      "prop": "height",
+      "value": "120px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Skeleton/Skeleton.css#height#40px": {
+      "file": "Skeleton/Skeleton.css",
+      "prop": "height",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Skeleton/Skeleton.css#height#48px": {
+      "file": "Skeleton/Skeleton.css",
+      "prop": "height",
+      "value": "48px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Skeleton/Skeleton.css#min-width#60px": {
+      "file": "Skeleton/Skeleton.css",
+      "prop": "min-width",
+      "value": "60px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Skeleton/Skeleton.css#width#40px": {
+      "file": "Skeleton/Skeleton.css",
+      "prop": "width",
+      "value": "40px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Skeleton/Skeleton.css#width#48px": {
+      "file": "Skeleton/Skeleton.css",
+      "prop": "width",
+      "value": "48px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#border#1px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "border",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#bottom#5px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "bottom",
+      "value": "5px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#height#10px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "height",
+      "value": "10px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#height#2px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "height",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#max-height#140px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "max-height",
+      "value": "140px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#max-height#260px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "max-height",
+      "value": "260px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#outline#1px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "outline",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#outline-offset#1px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "outline-offset",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#right#5px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "right",
+      "value": "5px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#width#10px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "width",
+      "value": "10px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SlideCanvas/SlideCanvas.css#width#320px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "width",
+      "value": "320px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#--wf-slider-thumb-size#18px": {
+      "file": "Slider/Slider.css",
+      "prop": "--wf-slider-thumb-size",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#--wf-slider-track-h#6px": {
+      "file": "Slider/Slider.css",
+      "prop": "--wf-slider-track-h",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#--wf-slider-track-margin#8px": {
+      "file": "Slider/Slider.css",
+      "prop": "--wf-slider-track-margin",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#box-shadow#3px": {
+      "file": "Slider/Slider.css",
+      "prop": "box-shadow",
+      "value": "3px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#gap#2px": {
+      "file": "Slider/Slider.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#height#4px": {
+      "file": "Slider/Slider.css",
+      "prop": "height",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#height#6px": {
+      "file": "Slider/Slider.css",
+      "prop": "height",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#height#8px": {
+      "file": "Slider/Slider.css",
+      "prop": "height",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#min-height#36px": {
+      "file": "Slider/Slider.css",
+      "prop": "min-height",
+      "value": "36px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#min-width#30px": {
+      "file": "Slider/Slider.css",
+      "prop": "min-width",
+      "value": "30px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#padding#2px": {
+      "file": "Slider/Slider.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#top#4px": {
+      "file": "Slider/Slider.css",
+      "prop": "top",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#width#4px": {
+      "file": "Slider/Slider.css",
+      "prop": "width",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Slider/Slider.css#width#8px": {
+      "file": "Slider/Slider.css",
+      "prop": "width",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SortableList/SortableList.css#box-shadow#2px": {
+      "file": "SortableList/SortableList.css",
+      "prop": "box-shadow",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "SortableList/SortableList.css#transform#2px": {
+      "file": "SortableList/SortableList.css",
+      "prop": "transform",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "StatCard/StatCard.css#font-size#24px": {
+      "file": "StatCard/StatCard.css",
+      "prop": "font-size",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "StatCard/StatCard.css#transform#2px": {
+      "file": "StatCard/StatCard.css",
+      "prop": "transform",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Steps/Steps.css#box-shadow#3px": {
+      "file": "Steps/Steps.css",
+      "prop": "box-shadow",
+      "value": "3px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Steps/Steps.css#height#28px": {
+      "file": "Steps/Steps.css",
+      "prop": "height",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Steps/Steps.css#height#2px": {
+      "file": "Steps/Steps.css",
+      "prop": "height",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Steps/Steps.css#left#18px": {
+      "file": "Steps/Steps.css",
+      "prop": "left",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Steps/Steps.css#right#18px": {
+      "file": "Steps/Steps.css",
+      "prop": "right",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Steps/Steps.css#top#14px": {
+      "file": "Steps/Steps.css",
+      "prop": "top",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Steps/Steps.css#width#28px": {
+      "file": "Steps/Steps.css",
+      "prop": "width",
+      "value": "28px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Switch/Switch.css#height#16px": {
+      "file": "Switch/Switch.css",
+      "prop": "height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Switch/Switch.css#height#20px": {
+      "file": "Switch/Switch.css",
+      "prop": "height",
+      "value": "20px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Switch/Switch.css#left#2px": {
+      "file": "Switch/Switch.css",
+      "prop": "left",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Switch/Switch.css#top#2px": {
+      "file": "Switch/Switch.css",
+      "prop": "top",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Switch/Switch.css#transform#16px": {
+      "file": "Switch/Switch.css",
+      "prop": "transform",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Switch/Switch.css#width#16px": {
+      "file": "Switch/Switch.css",
+      "prop": "width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Switch/Switch.css#width#36px": {
+      "file": "Switch/Switch.css",
+      "prop": "width",
+      "value": "36px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TabBar/TabBar.css#border-radius#2px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "border-radius",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TabBar/TabBar.css#font-size#10px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "font-size",
+      "value": "10px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TabBar/TabBar.css#height#16px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TabBar/TabBar.css#height#2px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "height",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TabBar/TabBar.css#line-height#16px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "line-height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TabBar/TabBar.css#min-height#56px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "min-height",
+      "value": "56px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TabBar/TabBar.css#min-width#16px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "min-width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TabBar/TabBar.css#padding-bottom#0px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "padding-bottom",
+      "value": "0px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TabBar/TabBar.css#right#8px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "right",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TabBar/TabBar.css#top#4px": {
+      "file": "TabBar/TabBar.css",
+      "prop": "top",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Table/Table.css#height#14px": {
+      "file": "Table/Table.css",
+      "prop": "height",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Table/Table.css#height#2px": {
+      "file": "Table/Table.css",
+      "prop": "height",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Table/Table.css#height#4px": {
+      "file": "Table/Table.css",
+      "prop": "height",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Table/Table.css#width#14px": {
+      "file": "Table/Table.css",
+      "prop": "width",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Table/Table.css#width#6px": {
+      "file": "Table/Table.css",
+      "prop": "width",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Table/Table.css#width#8px": {
+      "file": "Table/Table.css",
+      "prop": "width",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tabs/Tabs.css#border-bottom#2px": {
+      "file": "Tabs/Tabs.css",
+      "prop": "border-bottom",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tabs/Tabs.css#bottom#1px": {
+      "file": "Tabs/Tabs.css",
+      "prop": "bottom",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tabs/Tabs.css#height#16px": {
+      "file": "Tabs/Tabs.css",
+      "prop": "height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tabs/Tabs.css#height#24px": {
+      "file": "Tabs/Tabs.css",
+      "prop": "height",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tabs/Tabs.css#height#2px": {
+      "file": "Tabs/Tabs.css",
+      "prop": "height",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tabs/Tabs.css#margin-bottom#1px": {
+      "file": "Tabs/Tabs.css",
+      "prop": "margin-bottom",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tabs/Tabs.css#margin-left#6px": {
+      "file": "Tabs/Tabs.css",
+      "prop": "margin-left",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tabs/Tabs.css#width#16px": {
+      "file": "Tabs/Tabs.css",
+      "prop": "width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tabs/Tabs.css#width#24px": {
+      "file": "Tabs/Tabs.css",
+      "prop": "width",
+      "value": "24px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tag/Tag.css#height#16px": {
+      "file": "Tag/Tag.css",
+      "prop": "height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tag/Tag.css#max-height#16px": {
+      "file": "Tag/Tag.css",
+      "prop": "max-height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tag/Tag.css#max-width#16px": {
+      "file": "Tag/Tag.css",
+      "prop": "max-width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tag/Tag.css#min-height#16px": {
+      "file": "Tag/Tag.css",
+      "prop": "min-height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tag/Tag.css#min-width#16px": {
+      "file": "Tag/Tag.css",
+      "prop": "min-width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tag/Tag.css#padding#2px": {
+      "file": "Tag/Tag.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tag/Tag.css#width#16px": {
+      "file": "Tag/Tag.css",
+      "prop": "width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#box-shadow#2px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "box-shadow",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#height#16px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#max-height#16px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "max-height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#max-width#16px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "max-width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#min-height#16px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "min-height",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#min-height#36px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "min-height",
+      "value": "36px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#min-width#16px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "min-width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#min-width#60px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "min-width",
+      "value": "60px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#outline#2px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "outline",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#padding#2px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#padding#4px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TagsInput/TagsInput.css#width#16px": {
+      "file": "TagsInput/TagsInput.css",
+      "prop": "width",
+      "value": "16px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Textarea/Textarea.css#box-shadow#2px": {
+      "file": "Textarea/Textarea.css",
+      "prop": "box-shadow",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Textarea/Textarea.css#margin-top#2px": {
+      "file": "Textarea/Textarea.css",
+      "prop": "margin-top",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ThemeSwitch/ThemeSwitch.css#gap#2px": {
+      "file": "ThemeSwitch/ThemeSwitch.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ThemeSwitch/ThemeSwitch.css#margin-top#2px": {
+      "file": "ThemeSwitch/ThemeSwitch.css",
+      "prop": "margin-top",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ThemeSwitch/ThemeSwitch.css#min-height#22px": {
+      "file": "ThemeSwitch/ThemeSwitch.css",
+      "prop": "min-height",
+      "value": "22px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ThemeSwitch/ThemeSwitch.css#min-height#26px": {
+      "file": "ThemeSwitch/ThemeSwitch.css",
+      "prop": "min-height",
+      "value": "26px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ThemeSwitch/ThemeSwitch.css#padding#2px": {
+      "file": "ThemeSwitch/ThemeSwitch.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#gap#2px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#height#18px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "height",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#height#2px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "height",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#left#11px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "left",
+      "value": "11px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#left#8px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "left",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#margin#2px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "margin",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#margin-top#2px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "margin-top",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#outline#2px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "outline",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#outline-offset#1px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "outline-offset",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#padding#2px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#right#11px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "right",
+      "value": "11px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#top#10px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "top",
+      "value": "10px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#top#20px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "top",
+      "value": "20px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#width#18px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "width",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Timeline/Timeline.css#width#2px": {
+      "file": "Timeline/Timeline.css",
+      "prop": "width",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Toast/Toast.css#max-width#400px": {
+      "file": "Toast/Toast.css",
+      "prop": "max-width",
+      "value": "400px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Toast/Toast.css#transform#10px": {
+      "file": "Toast/Toast.css",
+      "prop": "transform",
+      "value": "10px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Toast/Toast.css#transform#20px": {
+      "file": "Toast/Toast.css",
+      "prop": "transform",
+      "value": "20px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ToggleGroup/ToggleGroup.css#gap#2px": {
+      "file": "ToggleGroup/ToggleGroup.css",
+      "prop": "gap",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ToggleGroup/ToggleGroup.css#padding#2px": {
+      "file": "ToggleGroup/ToggleGroup.css",
+      "prop": "padding",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ToggleGroup/ToggleGroup.css#padding#4px": {
+      "file": "ToggleGroup/ToggleGroup.css",
+      "prop": "padding",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "ToolCallCard/ToolCallCard.css#height#4px": {
+      "file": "ToolCallCard/ToolCallCard.css",
+      "prop": "height",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tooltip/Tooltip.css#border#5px": {
+      "file": "Tooltip/Tooltip.css",
+      "prop": "border",
+      "value": "5px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tooltip/Tooltip.css#left#5px": {
+      "file": "Tooltip/Tooltip.css",
+      "prop": "left",
+      "value": "5px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tooltip/Tooltip.css#max-width#240px": {
+      "file": "Tooltip/Tooltip.css",
+      "prop": "max-width",
+      "value": "240px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tooltip/Tooltip.css#top#5px": {
+      "file": "Tooltip/Tooltip.css",
+      "prop": "top",
+      "value": "5px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tour/Tour.css#box-shadow#9999px": {
+      "file": "Tour/Tour.css",
+      "prop": "box-shadow",
+      "value": "9999px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tour/Tour.css#max-width#360px": {
+      "file": "Tour/Tour.css",
+      "prop": "max-width",
+      "value": "360px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tour/Tour.css#min-height#32px": {
+      "file": "Tour/Tour.css",
+      "prop": "min-height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Transfer/Transfer.css#gap#1px": {
+      "file": "Transfer/Transfer.css",
+      "prop": "gap",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Transfer/Transfer.css#height#32px": {
+      "file": "Transfer/Transfer.css",
+      "prop": "height",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Transfer/Transfer.css#height#44px": {
+      "file": "Transfer/Transfer.css",
+      "prop": "height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Transfer/Transfer.css#max-height#240px": {
+      "file": "Transfer/Transfer.css",
+      "prop": "max-height",
+      "value": "240px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Transfer/Transfer.css#min-height#44px": {
+      "file": "Transfer/Transfer.css",
+      "prop": "min-height",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Transfer/Transfer.css#min-width#44px": {
+      "file": "Transfer/Transfer.css",
+      "prop": "min-width",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Transfer/Transfer.css#width#32px": {
+      "file": "Transfer/Transfer.css",
+      "prop": "width",
+      "value": "32px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Transfer/Transfer.css#width#44px": {
+      "file": "Transfer/Transfer.css",
+      "prop": "width",
+      "value": "44px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#height#14px": {
+      "file": "Tree/Tree.css",
+      "prop": "height",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#height#18px": {
+      "file": "Tree/Tree.css",
+      "prop": "height",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#height#2px": {
+      "file": "Tree/Tree.css",
+      "prop": "height",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#height#4px": {
+      "file": "Tree/Tree.css",
+      "prop": "height",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#max-height#14px": {
+      "file": "Tree/Tree.css",
+      "prop": "max-height",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#max-height#18px": {
+      "file": "Tree/Tree.css",
+      "prop": "max-height",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#max-width#14px": {
+      "file": "Tree/Tree.css",
+      "prop": "max-width",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#max-width#18px": {
+      "file": "Tree/Tree.css",
+      "prop": "max-width",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#min-height#14px": {
+      "file": "Tree/Tree.css",
+      "prop": "min-height",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#min-height#18px": {
+      "file": "Tree/Tree.css",
+      "prop": "min-height",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#min-width#14px": {
+      "file": "Tree/Tree.css",
+      "prop": "min-width",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#min-width#18px": {
+      "file": "Tree/Tree.css",
+      "prop": "min-width",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#padding#1px": {
+      "file": "Tree/Tree.css",
+      "prop": "padding",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#transform#1px": {
+      "file": "Tree/Tree.css",
+      "prop": "transform",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#width#14px": {
+      "file": "Tree/Tree.css",
+      "prop": "width",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#width#18px": {
+      "file": "Tree/Tree.css",
+      "prop": "width",
+      "value": "18px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#width#6px": {
+      "file": "Tree/Tree.css",
+      "prop": "width",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Tree/Tree.css#width#8px": {
+      "file": "Tree/Tree.css",
+      "prop": "width",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TreeSelect/TreeSelect.css#border-left#4px": {
+      "file": "TreeSelect/TreeSelect.css",
+      "prop": "border-left",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TreeSelect/TreeSelect.css#border-right#4px": {
+      "file": "TreeSelect/TreeSelect.css",
+      "prop": "border-right",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TreeSelect/TreeSelect.css#box-shadow#2px": {
+      "file": "TreeSelect/TreeSelect.css",
+      "prop": "box-shadow",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TreeSelect/TreeSelect.css#min-height#36px": {
+      "file": "TreeSelect/TreeSelect.css",
+      "prop": "min-height",
+      "value": "36px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "TreeSelect/TreeSelect.css#padding#12px": {
+      "file": "TreeSelect/TreeSelect.css",
+      "prop": "padding",
+      "value": "12px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "Typography/Typography.css#padding#1px": {
+      "file": "Typography/Typography.css",
+      "prop": "padding",
+      "value": "1px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "VirtualTable/VirtualTable.css#height#14px": {
+      "file": "VirtualTable/VirtualTable.css",
+      "prop": "height",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "VirtualTable/VirtualTable.css#height#2px": {
+      "file": "VirtualTable/VirtualTable.css",
+      "prop": "height",
+      "value": "2px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "VirtualTable/VirtualTable.css#height#4px": {
+      "file": "VirtualTable/VirtualTable.css",
+      "prop": "height",
+      "value": "4px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "VirtualTable/VirtualTable.css#width#14px": {
+      "file": "VirtualTable/VirtualTable.css",
+      "prop": "width",
+      "value": "14px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "VirtualTable/VirtualTable.css#width#6px": {
+      "file": "VirtualTable/VirtualTable.css",
+      "prop": "width",
+      "value": "6px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "VirtualTable/VirtualTable.css#width#8px": {
+      "file": "VirtualTable/VirtualTable.css",
+      "prop": "width",
+      "value": "8px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    },
+    "WordCloud/WordCloud.css#min-height#80px": {
+      "file": "WordCloud/WordCloud.css",
+      "prop": "min-height",
+      "value": "80px",
+      "reason": "结构值/var 回退——待 W3 甄别登记理由"
+    }
+  },
+  "zIndex": {
+    "Carousel/Carousel.css#1": {
+      "file": "Carousel/Carousel.css",
+      "prop": "z-index",
+      "value": "1",
+      "reason": "同层 DOM 顺序裁决（局部提升一层惯用——非 z 标尺档：弹层档位 --wf-z-popover 等才属）"
+    },
+    "LogViewer/LogViewer.css#1": {
+      "file": "LogViewer/LogViewer.css",
+      "prop": "z-index",
+      "value": "1",
+      "reason": "同层 DOM 顺序裁决（局部提升一层惯用——非 z 标尺档：弹层档位 --wf-z-popover 等才属）"
+    },
+    "Modal/Modal.css#1": {
+      "file": "Modal/Modal.css",
+      "prop": "z-index",
+      "value": "1",
+      "reason": "同层 DOM 顺序裁决（局部提升一层惯用——非 z 标尺档：弹层档位 --wf-z-popover 等才属）"
+    },
+    "SheetGrid/SheetGrid.css#1": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "z-index",
+      "value": "1",
+      "reason": "同层 DOM 顺序裁决（局部提升一层惯用——非 z 标尺档：弹层档位 --wf-z-popover 等才属）"
+    },
+    "SlideCanvas/SlideCanvas.css#1": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "z-index",
+      "value": "1",
+      "reason": "同层 DOM 顺序裁决（局部提升一层惯用——非 z 标尺档：弹层档位 --wf-z-popover 等才属）"
+    },
+    "Tabs/Tabs.css#1": {
+      "file": "Tabs/Tabs.css",
+      "prop": "z-index",
+      "value": "1",
+      "reason": "同层 DOM 顺序裁决（局部提升一层惯用——非 z 标尺档：弹层档位 --wf-z-popover 等才属）"
+    },
+    "Timeline/Timeline.css#1": {
+      "file": "Timeline/Timeline.css",
+      "prop": "z-index",
+      "value": "1",
+      "reason": "同层 DOM 顺序裁决（局部提升一层惯用——非 z 标尺档：弹层档位 --wf-z-popover 等才属）"
+    },
+    "Tour/Tour.css#1": {
+      "file": "Tour/Tour.css",
+      "prop": "z-index",
+      "value": "1",
+      "reason": "同层 DOM 顺序裁决（局部提升一层惯用——非 z 标尺档：弹层档位 --wf-z-popover 等才属）"
+    }
+  }
+}
