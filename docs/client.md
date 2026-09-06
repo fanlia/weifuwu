@@ -213,6 +213,8 @@ props camelCase · **`className=`（组件 props）`class=`（DOM 元素）** ·
 | CSS 死类（css 定义类全库词干无生成者——动态拼接豁免 wf-hl-*/wf-md-*） | audit:health C4-②（登记表防空表防回潮——W2 清 0） |
 | 文件头 banner 缺失（组件文件首行 = `/** <Name>：<desc>（showcase /components/<id>） */`——desc 单源 registry） | **audit:health C5-①**（首行格式校验——desc 变更 → banner 红——防漂移） |
 | svg 无 aria（h('svg') 平衡 body 无 role/aria-hidden/aria-label） | audit:health C3-svg（role:img 语义容器 / aria-hidden 装饰面） |
+| console.log/error 残留（组件 ts——调试日志生产泄漏） | **C7-①**（log/error = 红 · warn 基线只降不升——dev 提示设计豁免） |
+| 顶层重复选择器（同文件同选择器双定义——隐藏覆盖隐患；@media 内命中区覆盖合法排除） | **style-audit S8**（基线 0——W2 清） |
 
 ### 5.7 注册与文档
 
