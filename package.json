@@ -12,6 +12,46 @@
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
     },
+    "./server/ai": {
+      "types": "./dist/server/ai/index.d.ts",
+      "default": "./dist/server/ai/index.js"
+    },
+    "./server/email": {
+      "types": "./dist/server/email/index.d.ts",
+      "default": "./dist/server/email/index.js"
+    },
+    "./server/messager": {
+      "types": "./dist/server/messager/index.d.ts",
+      "default": "./dist/server/messager/index.js"
+    },
+    "./server/postgres": {
+      "types": "./dist/server/postgres/index.d.ts",
+      "default": "./dist/server/postgres/index.js"
+    },
+    "./server/queue": {
+      "types": "./dist/server/queue/index.d.ts",
+      "default": "./dist/server/queue/index.js"
+    },
+    "./server/redis": {
+      "types": "./dist/server/redis/index.d.ts",
+      "default": "./dist/server/redis/index.js"
+    },
+    "./server/scheduler": {
+      "types": "./dist/server/scheduler/index.d.ts",
+      "default": "./dist/server/scheduler/index.js"
+    },
+    "./server/ui": {
+      "types": "./dist/server/ui/index.d.ts",
+      "default": "./dist/server/ui/index.js"
+    },
+    "./server/user": {
+      "types": "./dist/server/user/index.d.ts",
+      "default": "./dist/server/user/index.js"
+    },
+    "./server/workflows": {
+      "types": "./dist/server/workflows/index.d.ts",
+      "default": "./dist/server/workflows/index.js"
+    },
     "./server/workflow": {
       "types": "./dist/server/workflow/index.d.ts",
       "default": "./dist/server/workflow/index.js"
@@ -41,6 +81,10 @@
     "./dev": {
       "types": "./dist/dev/index.d.ts",
       "default": "./dist/dev/index.js"
+    },
+    "./shared/router": {
+      "types": "./dist/shared/router/index.d.ts",
+      "default": "./dist/shared/router/index.js"
     }
   },
   "files": [

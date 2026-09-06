@@ -44,6 +44,33 @@ await esbuild.build({
   external,
 })
 
+// weifuwu/server/<sub> + weifuwu/shared/router — src 二级目录直映
+// **有 index.ts 的二级目录自动编译**（新子模块零配置——无需逐一登记）
+// 与 server/index 主 bundle 的关系：独立可导入（内联其依赖——体积重复可接受——
+// 路径直映优先）；外部依赖零（node 内置 external）
+for (const sub of ['ai', 'email', 'messager', 'postgres', 'queue', 'redis', 'scheduler', 'ui', 'user', 'workflows']) {
+  const entry = join(srcDir, 'server', sub, 'index.ts')
+  if (!existsSync(entry)) continue
+  await esbuild.build({
+    entryPoints: [entry],
+    outfile: join(distDir, 'server', sub, 'index.js'),
+    format: 'esm',
+    platform: 'node',
+    bundle: true,
+    minify: true,
+    external,
+  })
+}
+await mkdir(join(distDir, 'shared', 'router'), { recursive: true })
+await esbuild.build({
+  entryPoints: [join(srcDir, 'shared', 'router', 'index.ts')],
+  outfile: join(distDir, 'shared', 'router', 'index.js'),
+  format: 'esm',
+  platform: 'neutral',
+  bundle: true,
+  minify: true,
+})
+
 // weifuwu/dev — Node loader（--import weifuwu/dev 启动时运行）
 await esbuild.build({
   entryPoints: [join(srcDir, 'dev', 'index.ts')],
@@ -177,7 +204,7 @@ try {
 console.log('\nBuild complete.')
 
 // ── 产物体积记录（P4 验收用） ──
-import { statSync } from 'node:fs'
+import { statSync , existsSync } from 'node:fs'
 for (const f of ['index.js', 'ui-dom/index.js', 'ui-dom/jsx-runtime.js', 'components/index.js', 'components/style.css', 'layout/weifuwu-layout.css']) {
   const p = join(distDir, f)
   try {

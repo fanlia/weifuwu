@@ -30,15 +30,22 @@ import 'weifuwu/client/components/style.css'
 
 **导出 = src/ 目录结构直映**（无别名）：
 
-| import | 源码 |
+| import | 源码（第一/二级目录直映——有 index.ts 才导出） |
 | --- | --- |
-| `weifuwu` / `weifuwu/server` | `src/server/index.ts`（serve/Router/z/workflow） |
+| `weifuwu` / `weifuwu/server` | `src/server/index.ts`（serve/Router/z/workflow 聚合） |
 | `weifuwu/server/workflow` | `src/server/workflow/index.ts`（声明式执行引擎） |
+| `weifuwu/server/{ai,email,messager,postgres,queue,redis,scheduler,ui,user,workflows}` | `src/server/<子>/index.ts`——二级直映（独立 bundle） |
 | `weifuwu/client/vdom` | `src/client/vdom/index.ts`（h/jsx/uiServe/jsx-runtime） |
 | `weifuwu/client/components` | `src/client/components/index.ts`（139 组件） |
 | `weifuwu/client/components/style.css` | dist 聚合样式（layout + 组件全量） |
+| `weifuwu/client/layout` | `src/client/layout/index.ts`（模块 ——defineLayout + 装配） |
 | `weifuwu/client/layout/weifuwu-layout.css` | 布局原语 CSS（独立面） |
+| `weifuwu/shared/router` | `src/shared/router/index.ts`（trie/pipeline/context/chain 五件） |
 | `weifuwu/dev` | `src/dev/index.ts`（`node --import weifuwu/dev server.ts`） |
+
+> 颗粒度原则：**一级目录只在有天然 `index.ts` 时导出**（server/dev——src 无顶层
+> index 人造聚合）；**二级目录有 `index.ts` 即导出**（client/vdom · client/components ·
+> server/ai · shared/router……）；**更深（三级：vdom/core/field 等）不导出**（内部）。
 
 **JSX 配置**：`tsconfig` 的 `jsxImportSource: "weifuwu/client/vdom"`（jsx-runtime
 子路径自动解析——见仓库 tsconfig 先例）。组件 = 工厂同步 + 渲染纯同步——见 §5.1。
