@@ -230,6 +230,23 @@ style-audit 文件数基线 +1 · 覆盖哨兵跑绿（`scripts/audit-component-
 R-03：类名/结构变更**反查测试选择器**（`[class*="..."]` 定位器）·
 行为变化**必带契约测试** · 机制化优先（能进审计不靠记忆）
 
+### 5.9 应用层组件入库路径（agent-platform 先例——2027-09）
+
+**判别三层**（先探针甄别再动工）：
+1. **纯 UI 组件**（零 fetch/零业务类型）→ 迁库（三件套+契约+showcase+demo）
+2. **平台业务部件**（业务元数据/枚举面——TypeBadge/TypeAva）→ 留平台
+   `ui/blocks/`（判负登记）
+3. **业务区块**（服务端 API 绑定——Sections/MessageItem）→ `pages/blocks`
+   语义降级（判负——推翻条件：API 上抛成纯 props 展示）
+
+**样式面**：平台组件迁库后**零自建 style**（wf- 布局组合/库 css 单源）——
+应用层 ap-* 组件样式（壳抽屉/遮罩/徽标）随迁入改名 `wf-*`（词根登记制）；
+app.css 只留**页面布局面**（body 链/面板/消息区）。
+
+**移动抽屉/断点**：库组件**不内建 useBreakpoint**（node 无 matchMedia 恒回
+基档——SSR≡SPA 首帧不一致 absorb 违例——实证）——`mobile` prop 父层驱动
+（页面级判定——库惯例「响应式交还用户」同 Layout/NavMenu）。
+
 ---
 
 ### 6.1 认证接线范式（fullstack W4——onRefresh 时序契约）

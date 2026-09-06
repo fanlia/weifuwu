@@ -194,6 +194,7 @@ type RenderFn<P> = (props: P) => VNode | null | (VNode | null)[]
 > | 步骤增删/编辑 | 复用 views.ts 纯函数（UI 只发 patch——逻辑单源在 server） |
 > | cron 定时触发 | 复用 scheduler tick；cron 解析器零依赖自研（无现成——判负登记） |
 > | CronPicker（cron UI） | 判负：组件库无通用 cron 控件（enum 语义不符）——平台层暂存，等第二消费者入库 |
+> | 平台组件全量入库 | **执行**：CronPicker/ListScaffold/StatusDot 迁库（三件套）· AppLayout 合并入 AppShell（menu badge+移动抽屉——mobile prop 父层驱动——SSR 一致性）· 6 业务区块+MessageItem 判负（API 绑定）应用层堆——ui/components 目录消除·零自建 style |
 > | 版本快照/回滚 | 复用既有 VERSIONS 表 + crud（wfjs 派生重渲染——不存冗余） |
 
 ### 4.2 修复归类纪律（排查先归类——根因优先核心层）
