@@ -111,7 +111,7 @@
   min-width: min(var(--wf-modal-width,  400px), calc(100vw - 32px));
 }
 
-@media (max-width: 639px) {
+@media (max-width: 639.98px) { /* 断点单源：--wf-bp-sm(640) - 0.02——与 min-width:640px 无缝对接（LAYOUT-PLAN W3·L10 哨兵） */
   .wf-modal {
     align-items: flex-end; /* bottom-sheet 形态 */
   }

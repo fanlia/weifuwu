@@ -301,7 +301,7 @@
 }
 
 /* range 双面板（240px×2 ≈ 500px）在 375px 屏溢出 → 窄屏纵向堆叠 */
-@media (max-width: 639px) {
+@media (max-width: 639.98px) { /* 断点单源：--wf-bp-sm(640) - 0.02（LAYOUT-PLAN W3·L10 哨兵） */
   .wf-datepicker-range-wrap {
     flex-direction: column;
     max-height: 80vh;

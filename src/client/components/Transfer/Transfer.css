@@ -128,7 +128,7 @@
 }
 
 /* 移动端适配（P2）：窄屏双栏纵向堆叠（操作钮居中） */
-@media (max-width: 767px) {
+@media (max-width: 767.98px) { /* 断点单源：--wf-bp-md(768) - 0.02——旧 767 与 layout 的 767.98 碎片（LAYOUT-PLAN W3·L10 哨兵） */
   .wf-transfer {
     flex-direction: column;
   }

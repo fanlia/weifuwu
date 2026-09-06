@@ -56,8 +56,19 @@ app.router(Router())
 ## 3. 设计语言
 
 微流明（Whisper Luminance）：中性色主导、品牌色点睛、动效短促有目的（120–300ms）、
-1px 边界即结构。**Token 即规范**——`src/client/layout/style.css`（183 双层 token：
-色阶/排版/动效/圆角/阴影/z-index）——组件只引用 token、零硬编码（audit 强制）。
+1px 边界即结构。**Token 即规范**——`src/client/layout/_tokens.css`（178 token：
+色阶/排版/动效/圆角/阴影/z-index；`_dark.css` 暗色覆写 · `_presets.css` 紧凑预设覆写）
+——组件只引用 token、零硬编码（audit 强制）。
+
+**token 两面纪律**（layout-inventory L10/L11 哨兵）：
+
+- **断点单源**：`--wf-bp-sm/md/lg/xl` = 640/768/1024/1280——CSS 媒体查询语法不能
+  `var()`，故 token 作**审计白名单源**：合法字面量只有两形态 `V`（`min-width`）与
+  `V - 0.02`（`max-width`）——二者无缝对接（旧碎片：组件面 `639px`/`767px` vs
+  layout 面 `767.98px`——767.00–767.98 区间两侧规则同时失配）
+- **死面 = 0（登记制）**：token 声明必须有消费证据（`var()` / TS 字面）——零消费即删，
+  结构性不可消费的（bp-* 机制源 · gap-2xl 标尺完整性）逐条登记理由；反向哨兵：
+  登记项一旦有消费者即需移出（防登记表腐化）
 
 品牌换色 = 改 seed 一个值；预设主题 = `data-theme` 一个属性（minimal/dark）。
 
@@ -71,8 +82,9 @@ app.router(Router())
   与 `src/test/contract/layout-inventory.test.ts` L1 计数断言——**测试即登记表**）
 
 零值形态唯一（`none` 归一）· 对齐域禁方向词 · 双名歼灭 · 零值档位矩阵（取消面缺口登记）·
-冲突矩阵（同属性不同值对的同元素共用逐对登记胜者+胜因）——layout-inventory 11 断言锁定；
-层叠语义的浏览器计算值读数见场景层 `e2e-layout-semantics.test.ts`（现状基线）。
+冲突矩阵（同属性不同值对的同元素共用逐对登记胜者+胜因）· 层叠机制锁定（层序/`:where()`/
+`!important` 白名单/`@property` 钩子注册）· 断点与 token 单源——layout-inventory 15 断言锁定；
+层叠语义的浏览器计算值读数见场景层 `e2e-layout-semantics.test.ts`。
 
 ## 5. 组件编写规范（唯一入口）
 

@@ -93,7 +93,12 @@ export function inventory() {
   }
   classes.sort((a, b) => a.name.localeCompare(b.name))
 
-  const tokens = (readFileSync(join(LAYOUT_DIR, '_tokens.css'), 'utf-8').match(/^ {2}--wf-/gm) || []).length
+  // token 计数 = 唯一声明名集（旧口径按行匹配 `^  --wf-`——同行多声明只计一次，
+  // 删同值双声明（dark-slate-50/dark-bg 同行）后行仍在 → 计数漂移 1；
+  // LAYOUT-PLAN W3 改为名集口径——与 L11 死面哨兵同一声明面）
+  const tokens = new Set(
+    [...readFileSync(join(LAYOUT_DIR, '_tokens.css'), 'utf-8').matchAll(/^\s*(--wf-[a-z0-9-]+)\s*:/gm)].map((m) => m[1]),
+  ).size
   const primitives = classes.filter((c) => c.category === 'primitive')
   const utilities = classes.filter((c) => c.category === 'utility')
 

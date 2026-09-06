@@ -142,7 +142,7 @@
 }
 
 /* 移动端适配（P2）：小屏抽屉全宽（底部安全区） */
-@media (max-width: 639px) {
+@media (max-width: 639.98px) { /* 断点单源：--wf-bp-sm(640) - 0.02（LAYOUT-PLAN W3·L10 哨兵） */
   .wf-drawer-panel {
     width: 100vw;
     max-width: 100vw;

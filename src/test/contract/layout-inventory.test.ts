@@ -14,6 +14,8 @@
  *   L9 层叠机制锁定(LAYOUT-PLAN W2):层序 utilities 在 components 之后(工具类=显式覆盖)·
  *      display 族基类零优先级 :where()(变体恒胜基类——零 !important)·
  *      !important 白名单(仅 prefers-reduced-motion)· 变量钩子 @property 注册完备(inherits:false)
+ *   L10/L11 断点与 token 单源(LAYOUT-PLAN W3):媒体查询字面量 ⊆ --wf-bp-* 派生白名单
+ *      (每档 V / V-0.02 两形态——bp token 由死面转正为机制源)· token 死面 = 0(登记制)
  *
  * node:test 直跑——零浏览器(契约层纪律)。
  */
@@ -80,7 +82,10 @@ test('L1 计数基线(登记制——变更必须有意)', () => {
   assert.equal(inv.primitives, 50, '布局原语数(清理后基线)——2027-09 +1：fill-hover（消费侧欠账补定义——L3 缺口修复）')
   assert.equal(inv.utilities, 98, '工具类数(清理后基线)——LAYOUT-PLAN W2 +1：padding-none（零值档位补齐——消费证据：agent-platform FilesSection 工作区文件行按钮内联 reset 四件套转工具类；radius-none 同期判负：零消费证据）；2027-09 +5：text-danger/text-warning/font-mono/rounded-sm/rounded-md/card-outline')
   assert.equal(inv.internals, 2, '内部类数(_popup 框架内部)')
-  assert.equal(inv.tokens, 183, '主题 Token 数')
+  // token 口径变更（LAYOUT-PLAN W3）：旧按行匹配 `^  --wf-`——同行多声明只计首个
+  // （--wf-dark-bg 长期被同值的 --wf-dark-slate-50 遮在行内 → 真实 184 计为 183）；
+  // 现按唯一声明名集（与 L11 死面哨兵同一口径）。W3 删 6 死 token → 184 - 6 = 178
+  assert.equal(inv.tokens, 178, '主题 Token 数')
   // 断点变体 ⊆ 登记清单(响应式唯一模式:窄隐宽显)
   const allowed = new Set(['wf-flex', 'wf-hidden'])
   const bps = inv.withBreakpoints
@@ -347,4 +352,95 @@ test('L9b 变量钩子注册完备（@property inherits:false——污染根治 
   )
   const dead = [...registered.keys()].filter((r) => !hooks.has(r))
   assert.equal(dead.length, 0, `注册了但零消费的钩子（声明无行为 = 不透明）: ${dead.join(' ')}`)
+})
+
+test('L10 断点单源（媒体查询字面量 ⊆ --wf-bp-* 派生白名单）', () => {
+  // CSS 媒体查询语法不能 var() → --wf-bp-* 结构性无法被样式直接消费（W0 探针：4 token
+  // 零引用 = 死面）。本断言使其**转正为机制单源**：合法字面量由 token 派生——每档 V
+  // 允许两形态 `V`（min-width）与 `V - 0.02`（max-width），二者无缝对接（不留 0.98px 死区）。
+  // W3 前实证碎片：components 面 `max-width:639px` ×3（Modal/Drawer/DatePicker）+ `767px` ×1
+  // （Transfer）vs layout 面 `767.98px`——同一边界两种写法，767.00–767.98 区间两侧规则同时失配
+  // （已归一为 639.98/767.98）。新增断点 = 改 token 一处（白名单自动扩展）。
+  const tokens = readFileSync(join(LAYOUT, '_tokens.css'), 'utf-8')
+  const bps = [...tokens.matchAll(/--wf-bp-[a-z0-9]+:\s*([\d.]+)px/g)].map((m) => parseFloat(m[1]))
+  assert.ok(bps.length >= 3, `--wf-bp-* 是断点单源——档数不得少于 3（当前 ${bps.length}）`)
+  const allowed = new Set()
+  for (const v of bps) { allowed.add(String(v)); allowed.add((v - 0.02).toFixed(2)) }
+
+  const offenders = []
+  const scan = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const fp = join(dir, e.name)
+      if (e.isDirectory()) { if (e.name !== 'node_modules') scan(fp); continue }
+      if (!e.name.endsWith('.css')) continue
+      const css = readFileSync(fp, 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
+      for (const m of css.matchAll(/@media[^{]*/g)) {
+        for (const w of m[0].matchAll(/(min|max)-width:\s*([\d.]+)px/g)) {
+          if (!allowed.has(w[2])) offenders.push(`${fp.slice(root.length + 1)}: ${w[1]}-width:${w[2]}px`)
+        }
+      }
+    }
+  }
+  scan(join(root, 'src/client/layout'))
+  scan(join(root, 'src/client/components'))
+  assert.equal(
+    offenders.length, 0,
+    `媒体查询宽度字面量必须来自 --wf-bp-*（每档 V / V-0.02 两形态）:\n  ${offenders.join('\n  ')}\n  合法集: ${[...allowed].join(' / ')}`,
+  )
+})
+
+test('L11 token 死面 = 0（登记制——消费证据跨 src+apps）', () => {
+  // 声明面 = layout token 三文件（_tokens/_dark/_presets）；消费面 = src/client + apps 的
+  // .css（var() 形态——声明行不算）与 .ts/.tsx（字面形态——TS 面无声明形态），排除测试文件
+  // （测试引用不算产品消费）。W3 前实证 12 个零消费 token，逐条定案：
+  //   删 6（dark-slate-50 与 dark-bg 同值双声明 · letter-spacing = CSS 初始值 ·
+  //        letter-spacing-wider 零消费 · motion-lg 注释称 drawer 位移但实证用 translateX(±100%) ·
+  //        opacity-overlay 与活的 --wf-overlay:rgba(0,0,0,.4) 同值双声明 · state-selected 判负）
+  //   留 1（gap-2xl——标尺完整性）· 转正 4（bp-* → L10 机制单源）· 活 1（pop-z——showcase 消费）
+  const declared = new Set()
+  for (const f of ['_tokens.css', '_dark.css', '_presets.css']) {
+    for (const m of readFileSync(join(LAYOUT, f), 'utf-8').matchAll(/^\s*(--wf-[a-z0-9-]+)\s*:/gm)) declared.add(m[1])
+  }
+  const used = new Set()
+  const scan = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const fp = join(dir, e.name)
+      if (e.isDirectory()) {
+        if (e.name === 'node_modules' || e.name === 'dist' || e.name === 'test') continue
+        scan(fp); continue
+      }
+      if (/\.test\./.test(e.name)) continue
+      const src = readFileSync(fp, 'utf-8')
+      if (e.name.endsWith('.css')) {
+        for (const m of src.matchAll(/var\(\s*(--wf-[a-z0-9-]+)/g)) used.add(m[1])
+      } else if (/\.tsx?$/.test(e.name)) {
+        for (const m of src.matchAll(/--wf-[a-z0-9-]+/g)) used.add(m[0])
+      }
+    }
+  }
+  scan(join(root, 'src/client'))
+  scan(join(root, 'apps'))
+
+  // 零消费但保留的 token 必须逐条写明理由（否则 = 死面 → 删除）
+  const BP_WHY = '机制单源（L10 断点白名单派生源）——CSS 媒体查询语法不能 var()，结构性不可被样式直接消费'
+  const KEEP = {
+    '--wf-gap-2xl': '标尺完整性——gap 六档（xs..2xl）与 space 六档对称（--wf-space-2xl 活）；且 _presets.css 紧凑预设同步覆写该档——删除即预设面出现无基档对应的覆写',
+    '--wf-bp-sm': BP_WHY,
+    '--wf-bp-md': BP_WHY,
+    '--wf-bp-lg': BP_WHY,
+    '--wf-bp-xl': `${BP_WHY}（1280 档当前无媒体消费者——保留为公共断点面下一档）`,
+  }
+
+  const dead = [...declared].filter((t) => !used.has(t)).sort()
+  const unregistered = dead.filter((t) => !KEEP[t])
+  assert.equal(
+    unregistered.length, 0,
+    `零消费 token（删除或登记豁免+理由）——死面 = 不透明:\n  ${unregistered.join('\n  ')}\n  已登记: ${Object.keys(KEEP).join(' ')}`,
+  )
+  // 反向①：登记项已被消费 → 移出登记（防登记表腐化为「永不清理」）
+  const stale = Object.keys(KEEP).filter((t) => used.has(t))
+  assert.equal(stale.length, 0, `登记项已有消费者——移出 KEEP（登记只容纳结构性零消费）: ${stale.join(' ')}`)
+  // 反向②：登记项已无声明 → 幽灵登记
+  const gone = Object.keys(KEEP).filter((t) => !declared.has(t))
+  assert.equal(gone.length, 0, `登记项已无声明（幽灵登记）: ${gone.join(' ')}`)
 })
