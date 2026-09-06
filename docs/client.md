@@ -152,6 +152,20 @@ props camelCase · **`className=`（组件 props）`class=`（DOM 元素）** ·
 **状态变体类必须有规则或 `:where(.wf-x) {}` 显式声明**（L3 已扩围组件源码——未定义立即红）·
 动效 `--wf-dur-*`/`--wf-ease-*` · transition 含 visibility（隐藏不可 Tab 聚焦）
 
+**组件 px 四纪律（C1 哨兵强制——`contract/components-px.test.ts` 四桶登记制）**：
+
+1. **间距走标尺**：padding/margin/gap 的 4/8/12/16/24/32px →
+   `var(--wf-space-*)`/`var(--wf-gap-*)`（**任一档位值字面量 = 红**——含 var 混合声明
+   `padding: 8px var(--wf-x)` 同样适用——半 token 禁止；档位外值 = 结构桶登记制）
+2. **边框宽走发丝 token**：`border[N]: 1px solid/dashed …` → `var(--wf-border-width)`
+   （色可走 var/currentColor/transparent——hex 已锁 0；**非 1px 宽 = 强调边框**——无 token 面登记制）
+3. **结构值登记制**：非档位 px（结构尺寸/魔数——height/width/min-*/outline/box-shadow 偏移/
+   44px 命中区/z-index:1 等）→ `scripts/components-px-whitelist.json` structural/zIndex 桶
+   **登记 + 理由**（新增未登记 = 红 · 处理完未移出 = 幽灵红）
+4. **豁免面**：派生表达式（calc/env/min/max/clamp——L13 同款）与 0px 零值形态——非作者手写终值
+
+> 紧凑预设语义：**只有走 var() 的组件才跟随缩放**（_presets.css「间距缩一档」——手写=静止=活体缺口）。
+
 ### 5.5 测试二层（覆盖哨兵 ≥2 层）
 
 1. **契约 harness**（`<Comp>.test.ts`——mount/render/createTable 命令流断言）

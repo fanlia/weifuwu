@@ -7,7 +7,7 @@
 > [docs/client.md](docs/client.md) / [docs/server.md](docs/server.md)。
 
 **防线快照（2027-xx）**：
-契约 **450** · 场景 **129** · showcase **328**（134 组件全覆盖）· server **859**（858 pass + 1 docker-gated skip）·
+契约 **451** · 场景 **129** · showcase **328**（134 组件全覆盖）· server **859**（858 pass + 1 docker-gated skip）·
 shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 155** · audit:all **七线** exit 0（semantics/interactivity/vdom/theme/api/
 bundle/showcase）· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· tsc **0 错**。
 
@@ -19,7 +19,13 @@ bundle/showcase）· fuzz 对账 **1310 对**（静态+组件——终态等价 
   不污染子孙原语）· 断点白名单单源（`--wf-bp-*` → 媒体查询字面量 V / V-0.02 两形态）· 间距双标尺
   **派生**（gap = space 紧一档——关系入代码，预设只覆写 space）· token 死面/双名/px 字面量三登记制 ·
   **L1-L16 契约 20 断言** · `docs/layout.md` 机器生成参考（inventory 全量——L15 校验漂移）·
-  dist minify（esbuild——layout 28.1K/gzip 5.7K/br 5.1K · style 220.9K/gzip 29.4K/br 24.3K）
+  dist minify（esbuild——layout 28.1K/gzip 5.7K/br 5.1K · style 223.3K/gzip 29.3K/br 24.3K）
+- **components 样式标准化（2027-xx 完成）**：组件 px 四桶登记制 **C1**
+  （`contract/components-px.test.ts`——发丝/标尺/结构值/z-index + `scripts/components-px-whitelist.json`
+  逐项理由）· 发丝全 token 化（`var(--wf-border-width)`——非 1px 强调边框判负登记）·
+  标尺档全 var()（padding/margin/gap ∈ 4/8/12/16/24/32 → `--wf-space-*`/`--wf-gap-*`——
+  **compact 预设缩放生效**——手写 = 静止 = 活体缺口）· 结构尺寸族判负 token 化
+  （组件域语义——标尺爆炸——登记制锁新增）· 派生面豁免（calc/env——L13 同款）
 - **vdom**（`src/client/vdom/`）——命令流引擎（13 命令 NDJSON 自足）+ 三实体状态机
   + 双树对账器 + fuzz 生成器 + render-health 四轴仪表
 - **外部依赖内存化矩阵**（四类核心依赖——Memory 实现 + Server 协议替身双层——主包全导出）：
