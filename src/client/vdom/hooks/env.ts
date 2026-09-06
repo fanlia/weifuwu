@@ -25,6 +25,7 @@ import { useChat } from './chat.ts'
 import { useTween, useDrag, useVisualViewport, useReducedMotion, type TweenOptions } from './stable.ts'
 import { useSignal, type SignalHandle } from './signal.ts'
 import { useOverlay, type OverlayHandle, type OverlayOptions } from './overlay.ts'
+import { useField, type FieldHandle, type FieldOptions } from './field.ts'
 
 /** hooks 环境（per 组件实例——renderComponent 注入） */
 /** me() 会话面（useSession 返回——轻量结构——不依赖 server 类型） */
@@ -141,6 +142,9 @@ export interface Ui {
   /** 弹层行为契约（open/onOpenChange/焦点困禁/滚动锁/Esc/遮罩单源——
    *  sync 渲染期调用（openPopup 生命周期）——详见 hooks/overlay.ts） */
   useOverlay(opts: OverlayOptions): OverlayHandle
+  /** 表单字段契约（label/error/hint/aria 连接单源——renderLabel/Error/Hint
+   *  结构渲染——类为皮（字段 CSS）——详见 hooks/field.ts） */
+  useField(opts: FieldOptions): FieldHandle
 }
 
 /** useAsyncData 模块级注册表（2027-08——跨组件共享同 key——并发合并）
@@ -321,5 +325,6 @@ export function createUi(env: HookEnv): Ui {
     useReducedMotion: () => useReducedMotion(env),
     useSignal: <T>(init: T) => useSignal(env, init),
     useOverlay: (opts: OverlayOptions) => useOverlay(env, opts),
+    useField: (opts: FieldOptions) => useField(env, opts),
   }
 }

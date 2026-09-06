@@ -1,4 +1,11 @@
 /** Input：text/email/password/number，支持 label/error/hint/required（showcase /components/input） */
+/**
+ * weifuwu/components — Input
+ *
+ * 2027-09 W5：label/required/error/hint 块 + aria 连接（aria-invalid/
+ * aria-describedby/aria-required/label for）→ useField 契约——组件只写输入面。
+ */
+
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 
@@ -25,9 +32,18 @@ export interface InputProps {
   [key: string]: any
 }
 
-export const Input: Component<InputProps> = (_init)=>
+export const Input: Component<InputProps> = (_init, ctx)=>
   (props)=> {
   const { label, name, type = 'text', value, placeholder, required, disabled, readonly, error, hint, variant = 'default', onInput, onChange, ...rest } = props
+  // 字段契约（label/error/hint 结构 + aria 连接——单源）
+  const f = ctx.ui.useField({
+    label, error, hint, required, name,
+    labelClass: 'wf-input-label',
+    errClass: 'wf-input-err',
+    hintClass: 'wf-input-hint',
+    reqClass: 'wf-input-req',
+    wrapErrClass: 'wf-input--err',
+  })
 
   const inputEl = h('input', {
     class: `wf-input${variant === 'borderless' ? ' wf-input--borderless' : ''}`,
@@ -45,25 +61,18 @@ export const Input: Component<InputProps> = (_init)=>
     readonly: readonly || undefined,
     onInput,
     onChange,
+    // aria 连接面（契约——id/aria-invalid/aria-describedby/aria-required）
+    ...f.inputProps(),
     // 额外原生 props 透传（onKeyDown/maxLength/autocomplete 等——调用方传即达，不吞）
     ...rest,
   })
 
-  if (!label && !error && !hint) return inputEl
+  if (!f.hasWrap) return inputEl
 
-  const children: any[] = []
-
-  if (label) {
-    const labelContent: any[] = [label]
-    if (required) labelContent.push(h('span', { class: 'wf-input-req' }, '*'))
-    children.push(h('label', { class: 'wf-input-label' }, labelContent))
-  }
-
-  children.push(inputEl)
-
-  if (error) children.push(h('div', { class: 'wf-input-err' }, error))
-  if (hint && !error) children.push(h('div', { class: 'wf-input-hint' }, hint))
-
-  return h('div', { class: `wf-input-wrap${error ? ' wf-input--err' : ''}` }, children)
-
+  return h('div', { class: `wf-input-wrap${f.stateClass}` }, [
+    f.renderLabel(),
+    inputEl,
+    f.renderError(),
+    f.renderHint(),
+  ])
   }
