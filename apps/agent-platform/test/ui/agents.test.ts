@@ -61,6 +61,8 @@ test('Agent 列表：显示新建 Agent + 删除（确认）', async () => {
   await injectAuth(page, owner)
   await openAgentPage(page, BASE, '/agents')
   await waitForText(page, '待删Agent')
+  // 2027-09 空态与列表并存 bug 防线：列表非空必不含「还没有 Agent」
+  assert.ok(!(await page.textContent('body'))?.includes('还没有 Agent'), '列表非空时不得显示空态')
   // 删除按钮（danger——可能确认弹窗）
   const del = page.locator(`button:has-text("删除")`).first()
   await del.click()

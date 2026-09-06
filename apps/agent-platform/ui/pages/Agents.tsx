@@ -68,7 +68,7 @@ export const Agents: Component = (_props, ctx) => {
         <Button variant="primary" disabled={!canWrite()} title={canWrite() ? undefined : writeDenyReason()}
           onClick={() => ctx.app?.navigate('/agents/new')}>＋ 创建 Agent</Button>
       }
-      empty={{ icon: '🤖', text: '还没有 Agent', hint: '创建你的第一个 AI 机器人、Webhook 或知识库' }}>
+      empty={{ icon: '🤖', text: '还没有 Agent', hint: '创建你的第一个 AI 机器人、Webhook 或知识库' }} isEmpty={agents.length === 0}>
       <div class="wf-row wf-gap-sm wf-items-center wf-margin-bottom-md">
         <div class="wf-fill" style="max-width: 320px">
           <input class="wf-input wf-padding-x-sm wf-padding-y-xs" placeholder="搜索 Agent（名称——1000 实体可管）" value={$.q} onInput={onQInput} />

@@ -53,7 +53,7 @@ export const Departments: Component = (_props, ctx) => {
           title={isTenantOwner() ? undefined : (clientRole() === 'viewer' ? writeDenyReason() : '只有租户所有者可以创建部门')}
           onClick={() => ctx.app?.navigate('/departments/new')}>＋ 创建部门</Button>
       }
-      empty={{ icon: 'users', text: '暂无部门', hint: '点击上方按钮创建第一个部门' }}>
+      empty={{ icon: 'users', text: '暂无部门', hint: '点击上方按钮创建第一个部门' }} isEmpty={depts.length === 0}>
       <div class="wf-row wf-gap-sm wf-items-center wf-margin-bottom-md">
         <div class="wf-fill" style="max-width: 320px">
           <input class="wf-input wf-padding-x-sm wf-padding-y-xs" placeholder="搜索部门（名称——1000 实体可管）" value={$.q} onInput={onQInput} />

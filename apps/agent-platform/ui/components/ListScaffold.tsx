@@ -20,6 +20,8 @@ export type ListScaffoldProps = {
   loading?: boolean
   /** 空态（loading 后且无内容时） */
   empty?: { icon: string; text: string; hint?: string }
+  /** 内容空（empty 仅在 isEmpty 时显示——2027-09 修复：有数据也显示空态的空态与列表并存 bug） */
+  isEmpty?: boolean
   /** 内容插槽（页面核心循环） */
   children?: any
 }
@@ -32,7 +34,7 @@ export const ListScaffold: Component<ListScaffoldProps> = (init, _ctx) => {
       </PageHeader>
       {props.toolbar}
       {props.loading && <Loading />}
-      {!props.loading && props.empty && (
+      {!props.loading && props.empty && props.isEmpty && (
         <EmptyState icon={props.empty.icon} text={props.empty.text} hint={props.empty.hint}>
           {props.actions}
         </EmptyState>
