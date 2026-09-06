@@ -8,6 +8,52 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.93.2] - 2026-09-06
+
+按域统计：components 14 · ui 1 · core 9
+
+### Added
+
+- components：W2 svg 可访问性补全 4→0——role:img 语义容器
+- components：W1 i18n 机制接线补漏——11 处 fallback 接线（行为恒等）
+- components：W2 a11y 键盘可达补全——trigger 三件套 + 行/上传区键盘 + 豁免定案
+
+### Fixed
+
+- ui：ListScaffold 空态与列表并存——isEmpty 显式契约（/agents · /departments）
+
+### Docs
+
+- core：计划归档（components 优化第五批——完成——历史 git log 承接）
+- components：W3 收尾——C7/S8 红线表 + AGENTS 快照 + 计划归档
+- core：计划归档（components 优化第四批——完成——历史 git log 承接）
+- components：W3 收尾——API 形状类型纪律 + AGENTS 快照 + 计划归档
+- core：计划归档（components 优化第三批——完成——历史 git log 承接）
+- components：W3 收尾——banner 红线表 + 三件套规则 + AGENTS 快照 + 计划归档
+- components：W1 文件头 banner 全量补全 155——registry desc 单源派生
+- core：计划归档（components 优化第二批——完成——历史 git log 承接）
+- components：W3 收尾——C4 红线表 + AGENTS 快照（十三线）+ 计划归档
+- core：计划归档（components 健康体检——完成——历史由 git log 承接）
+- components：W3 收尾——C3 红线表 + AGENTS 快照 + 计划归档
+
+### Tests
+
+- components：C6-① props any 注解哨兵（W0 防线先行）
+- components：C5-① 文件头注释哨兵 + C3 svg 线（W0 防线先行）
+- components：C4 健康审计二线——i18n 裸文案 + CSS 死类（W0 防线先行）
+- components：C3 组件健康审计三线——a11y 违规/as any 基线/JS 体积+tree-shake（W0 防线先行）
+
+### Chore
+
+- components：W1 console 调试残留清理 2→0——C7-① 哨兵锁死
+
+### Other（未分类——人工补域）
+
+- core：refactor(components)：W2 重复选择器合并 14 对→0——S8 审计（媒体排除）+ 基线 0
+- core：refactor(components)：W1 Children 类型单源化——VNodeChild 接线 100 处（tsc 驱动闭环）
+- core：refactor(components)：W2 CSS 死类清零 17→0 + S4 误报修复 + token 死面删除
+- core：refactor(components)：W1 as any 34→0——i18n 类型链清理 + 零散最小接口断言
+
 ## [0.93.1] - 2026-09-06
 
 按域统计：db 1 · release 1
