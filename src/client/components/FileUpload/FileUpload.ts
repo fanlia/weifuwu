@@ -121,6 +121,10 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
     const dropZone = h('div', {
       class: `wf-upload-zone${disabled ? ' wf-upload-zone--disabled' : ''}${error ? ' wf-upload-zone--err' : ''}${isDragging ? ' wf-upload-zone--drag' : ''}`,
       onClick: disabled ? undefined : () => fileInput?.click(),
+      // input[type=file] display:none 不可聚焦——zone 即键盘可达面（Enter/Space 触发选择文件）
+      role: disabled ? undefined : 'button',
+      tabIndex: disabled ? undefined : 0,
+      onKeyDown: disabled ? undefined : (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput?.click() } },
       ...dropProps, // useDragDrop：drop/dragover/dragleave（VNode props，渲染器绑定/清理）
     }, children ?? h('div', { class: 'wf-upload-placeholder' }, [
       h('span', { class: 'wf-upload-icon' }, '📁'),

@@ -111,6 +111,9 @@ export const Dropdown: Component<DropdownProps> = (_init, ctx) => {
       // 触发区语义：菜单弹出（trigger 为不透明 VNode，ARIA 挂在包装层，文档注明）
       'aria-haspopup': 'menu',
       'aria-expanded': String(!!openCtrl?.open),
+      role: 'button',
+      tabIndex: 0,
+      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCtrl?.setOpen(!openCtrl.open) } },
     }, trigger)
   }
 }

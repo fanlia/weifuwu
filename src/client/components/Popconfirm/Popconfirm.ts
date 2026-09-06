@@ -111,6 +111,8 @@ export const Popconfirm: Component<PopconfirmProps> = (_init, ctx: UIContext) =>
     return h('span', {
       class: 'wf-popconfirm-wrap', ref: wrapRef,
       'aria-haspopup': 'dialog', 'aria-expanded': String(isOpen),
+      role: 'button', tabIndex: disabled ? -1 : 0, // 键盘可达（Card clickable 同模式——Enter/Space 触发）
+      onKeyDown: (e: KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && !disabled) { e.preventDefault(); openCtrl?.setOpen(!openCtrl.open) } },
       onClick: (e: Event) => { e.stopPropagation?.(); if (!disabled) openCtrl?.setOpen(!openCtrl.open) }, // click 触发
     }, props.children)
   }

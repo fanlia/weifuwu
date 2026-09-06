@@ -211,6 +211,8 @@ export const VirtualTable: Component<VirtualTableProps> = (_init, ctx) => {
           style: { position: 'absolute', top: `${i * rowHeight}px`, left: 0, right: 0, height: `${rowHeight}px` },
           key: String(row.id ?? i),
           onClick: onRowClick ? () => onRowClick(row, i) : undefined,
+          tabIndex: onRowClick ? 0 : undefined,
+          onKeyDown: onRowClick ? (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row, i) } } : undefined,
         }, cells))
       }
       body = h('div', {

@@ -93,6 +93,9 @@ export const Popover: Component<PopoverProps> = (_init, ctx) => {
       ref: wrapRef,
       'aria-haspopup': 'dialog',
       'aria-expanded': String(!!openCtrl?.open),
+      role: 'button',
+      tabIndex: 0,
+      onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCtrl?.setOpen(!openCtrl.open) } },
       onClick: (e: Event) => { e.stopPropagation?.(); openCtrl?.setOpen(!openCtrl.open) }, // click 触发（hover 触屏降级 tap）
       ...(latestTrigger === 'hover'
         ? { onMouseEnter: hoverOpen, onMouseLeave: hoverClose }

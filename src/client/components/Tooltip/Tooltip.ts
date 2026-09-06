@@ -76,6 +76,7 @@ export const Tooltip: Component<TooltipProps> = (_props, ctx) => {
       'aria-haspopup': 'tooltip',
       onMouseEnter: hoverOpen,
       onMouseLeave: hoverClose,
+      onFocusIn: hoverOpen, onFocusOut: hoverClose, // 键盘可达（focusin 冒泡——子元素聚焦触发显示）
       onClick: () => { show = !show; ctx.render() }, // 触屏降级 tap
     }, children)
   }

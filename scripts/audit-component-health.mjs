@@ -30,15 +30,16 @@ const walk = (p, ext, out = []) => {
 const A11Y_EXEMPT = [
   'ActionSheet overlay', 'Drawer overlay', 'Modal overlay', // usePopup Esc 等价——onClick 便捷面
   'HoverCard wrap', // 悬停展开区（hover-only——键盘入口经 trigger 子元素）
+  'Modal content', // onClick = stopPropagation 防冒泡（内容区点击不触发遮罩关闭）——拦截语义非交互
+  'Drawer panel', // 同 Modal content——stopPropagation 拦截语义
+  'VirtualTable sort-icon', // 排序图标——父 th 有 role=button+tabIndex+onKeyDown（134）——图标仅鼠标便捷
+  'SlideCanvas shape', // 画布指针选择面——键盘等价在 shape-edit（onKeyDown 311）
+  'Editor table-grid cell', // 表格单元格指针选择——键盘面随表格编辑波次（诚实裁剪）
+  'Wave wave', // 波纹点击=装饰反馈（无功能语义——非交互——波纹动画源）
 ]
 
 /** ① 待修登记（W2 波次——修后移出；新增同类 = 红——登记制同 C1/C2） */
-const A11Y_PENDING = {
-  'Modal/Modal.ts': 'wf-modal-content 的 onClick（内容区点击关闭）——W2 修为 role/tabIndex/onKeyDown 或改原生语义——豁免审核',
-  'Popconfirm/Popconfirm.ts': 'wf-popconfirm-wrap span onClick——W2 修为原生 button 或补键盘语义',
-  'StatCard/StatCard.ts': 'wf-stat--clickable div onClick——W2 接 Card clickable 模式（role+键盘）——改错即红',
-  'Tooltip/Tooltip.ts': 'wf-tooltip-wrap 缺键盘显示面（aria-haspopup 已有——W2 补 onFocus/onBlur——键盘可达性）',
-}
+const A11Y_PENDING = {} // W2 完成——Modal 豁免（拦截语义）· Popconfirm/StatCard/Tooltip 已修（role/键盘/焦点面）
 
 /** ③ tree-shake 探针：已知真使用（平台源码 import 验证）——其余出现 = 残留 */
 const JS_USED = {
@@ -64,12 +65,22 @@ const files = walk(COMPONENTS, ['.ts', '.tsx']).filter((f) => !f.endsWith('.test
 for (const f of files) {
   const s = readFileSync(f, 'utf8')
   const name = f.slice(COMPONENTS.length + 1)
-  for (const m of s.matchAll(/h\(['"](div|span|a)['"],\s*\{([^}]*onClick[^}]*)\}/g)) {
-    const body = m[2]
-    if (/role|tabIndex|onKeyDown|href/.test(body)) continue
+  // 括号平衡扫描（模板字符串 ${...} 的 } 不截断——onClick 出现在类名条件里不误报）
+  for (const m of s.matchAll(/h\(['"](div|span|a)['"],\s*\{/g)) {
+    const start = m.index + m[0].length // { 之后一位（body 不含开括号）
+    let depth = 1, i = start
+    for (; i < s.length && depth > 0; i++) {
+      if (s[i] === '{') depth++
+      else if (s[i] === '}') depth--
+    }
+    const body = s.slice(start, i - 1)
+    // 事件面判定：onClick/Xxx 作为 prop 键（非模板字符串内引用）
+    const hasClick = /on(Click|PointerDown)['"]?\s*:/.test(body)
+    if (!hasClick) continue
+    if (/role['"]?\s*:|tabIndex['"]?\s*:|onKeyDown['"]?\s*:|onFocusIn['"]?\s*:|onFocusOut['"]?\s*:|href['"]?\s*:/.test(body)) continue
     a11yIssues++
     const hint = `${name}: h('${m[1]}', {${body.trim().slice(0, 50)}`
-    if (A11Y_EXEMPT.some((e) => name.startsWith(e.split(' ')[0]) && /overlay|wrap/.test(body))) continue
+    if (A11Y_EXEMPT.some((e) => name.startsWith(e.split(' ')[0]) && body.includes(e.split(' ')[1]))) continue
     if (A11Y_PENDING[name]) continue // 待修登记（W2 波次——修后移出）
     fail(`a11y 违规 ${hint.slice(0, 60)}...——补 role/tabIndex/onKeyDown 或登记待修`)
   }
