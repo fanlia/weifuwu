@@ -10,13 +10,13 @@
 .wf-slide-toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--wf-gap-xs);
   flex-wrap: wrap;
 }
 
 .wf-slide-tab {
   font-size: var(--wf-font-size-xs);
-  padding: 4px 12px;
+  padding: var(--wf-space-xs) var(--wf-space);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   background: var(--wf-color-bg);
@@ -34,7 +34,7 @@
   overflow: auto;
   background: var(--wf-color-bg-subtle);
   border-radius: var(--wf-radius-md);
-  padding: 12px;
+  padding: var(--wf-space);
 }
 
 .wf-slide-canvas {
@@ -53,7 +53,7 @@
 
 .wf-slide-shape {
   position: absolute;
-  border: 1px solid transparent;
+  border: var(--wf-border-width) solid transparent;
   cursor: move;
   pointer-events: auto;
   box-sizing: border-box;
@@ -76,7 +76,7 @@
 }
 
 .wf-slide-shape-label {
-  padding: 4px 8px;
+  padding: var(--wf-space-xs) var(--wf-space-sm);
   font-size: var(--wf-font-size-sm);
   line-height: 1.4;
   width: 100%;
@@ -109,7 +109,7 @@
   outline: none;
   resize: none;
   font: inherit;
-  padding: 4px 8px;
+  padding: var(--wf-space-xs) var(--wf-space-sm);
   background: transparent;
   min-height: 0;
 }
@@ -163,7 +163,7 @@
 
 .wf-slide-ai-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--wf-gap-xs);
   justify-content: flex-end;
 }
 

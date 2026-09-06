@@ -48,7 +48,7 @@
   border: none;
   cursor: pointer;
   color: var(--wf-color-text-secondary);
-  padding: 4px;
+  padding: var(--wf-space-xs);
   border-radius: var(--wf-radius-xs);
 }
 .wf-codeblock-copy:hover {

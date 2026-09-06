@@ -140,7 +140,7 @@
     width: 24px; height: 24px;
     min-width: 24px; max-width: 24px;
     min-height: 24px; max-height: 24px;
-    padding: 4px;
+    padding: var(--wf-space-xs);
   }
 }
 /* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */

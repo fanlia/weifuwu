@@ -23,7 +23,7 @@
 
 .wf-sheet-tab {
   font-size: var(--wf-font-size-xs);
-  padding: 4px 12px;
+  padding: var(--wf-space-xs) var(--wf-space);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-bottom: none;
   border-radius: var(--wf-radius-sm) var(--wf-radius-sm) 0 0;
@@ -50,7 +50,7 @@
 
 .wf-sheet-tools {
   display: flex;
-  gap: 4px;
+  gap: var(--wf-gap-xs);
   align-items: center;
 }
 
@@ -169,6 +169,6 @@
 
 .wf-sheet-ai-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--wf-gap-xs);
   justify-content: flex-end;
 }

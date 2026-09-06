@@ -31,7 +31,7 @@
 .wf-chart-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--wf-gap-xs);
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-text-secondary);
 }

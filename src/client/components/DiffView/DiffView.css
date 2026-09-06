@@ -15,8 +15,8 @@
 .wf-diffview-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-sm) var(--wf-space);
   background: var(--wf-color-fill);
   border-bottom: var(--wf-border-width) solid var(--wf-color-border);
   font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
@@ -36,13 +36,13 @@
 .wf-diffview-body {
   overflow: auto;
   max-height: 480px;
-  padding: 8px 0;
+  padding: var(--wf-space-sm) 0;
 }
 
 .wf-diffview-row {
   display: flex;
-  gap: 8px;
-  padding: 0 12px;
+  gap: var(--wf-gap-sm);
+  padding: 0 var(--wf-space);
   white-space: pre;
 }
 .wf-diffview-sign {
@@ -75,7 +75,7 @@
   align-items: center;
   justify-content: center;
   margin: 2px 12px;
-  padding: 4px 8px;
+  padding: var(--wf-space-xs) var(--wf-space-sm);
   border: var(--wf-border-width) dashed var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   color: var(--wf-color-text-secondary);
@@ -90,7 +90,7 @@
 }
 
 .wf-diffview-overflow {
-  padding: 8px 12px;
+  padding: var(--wf-space-sm) var(--wf-space);
   color: var(--wf-color-text-tertiary);
   font-size: var(--wf-font-size-xs); /* 12px 同值 token 化——compact 预设可缩放 */
   text-align: center;

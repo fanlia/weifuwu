@@ -5,8 +5,8 @@
   text-align: center;
   margin: 0 2px;
 }
-.wf-math-num { border-bottom: 1px solid currentColor; padding: 0 4px; }
-.wf-math-den { padding: 0 4px; }
+.wf-math-num { border-bottom: var(--wf-border-width) solid currentColor; padding: 0 var(--wf-space-xs); }
+.wf-math-den { padding: 0 var(--wf-space-xs); }
 .wf-math-sqrt-radical { margin-right: 1px; }
 .wf-math-sup { font-size: 0.75em; vertical-align: super; }
 .wf-math-sub { font-size: 0.75em; vertical-align: sub; }

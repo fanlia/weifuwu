@@ -24,7 +24,7 @@
 }
 
 .wf-autocomplete-option {
-  padding: 8px 12px;
+  padding: var(--wf-space-sm) var(--wf-space);
   cursor: pointer;
   color: var(--wf-color-text);
   white-space: nowrap;
@@ -54,5 +54,5 @@
 .wf-autocomplete .wf-input-err {
   color: var(--wf-color-error-text);
   font-size: var(--wf-font-size-xs);
-  margin-top: 4px;
+  margin-top: var(--wf-space-xs);
 }

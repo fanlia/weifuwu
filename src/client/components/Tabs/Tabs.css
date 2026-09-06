@@ -101,7 +101,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  margin: auto 4px;
+  margin: auto var(--wf-space-xs);
   padding: 0;
   border: none;
   background: transparent;

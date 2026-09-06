@@ -1,9 +1,9 @@
 .wf-kanban {
   display: flex;
-  gap: 12px;
+  gap: var(--wf-gap-md);
   align-items: flex-start;
   overflow-x: auto;
-  padding: 4px;
+  padding: var(--wf-space-xs);
 }
 
 .wf-kanban-col {
@@ -39,10 +39,10 @@
 }
 
 .wf-kanban-col-body {
-  padding: 0 8px 8px;
+  padding: 0 var(--wf-space-sm) var(--wf-space-sm);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--wf-gap-sm);
   min-height: 40px;
 }
 
@@ -54,7 +54,7 @@
   cursor: grab;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--wf-gap-sm);
   transition: border-color var(--wf-dur-fast) var(--wf-ease-out), transform var(--wf-dur-fast) var(--wf-ease-out);
 }
 .wf-kanban-card:hover {

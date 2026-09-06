@@ -25,7 +25,7 @@
 .wf-tags-tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--wf-gap-xs);
   padding: 2px var(--wf-space-xs);
   border-radius: var(--wf-radius-sm);
   background: var(--wf-color-bg-secondary);
@@ -65,7 +65,7 @@
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);
-  padding: 4px 0;
+  padding: var(--wf-space-xs) 0;
 }
 .wf-tags-input::placeholder { color: var(--wf-color-text-tertiary); }
 /* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */

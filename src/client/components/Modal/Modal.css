@@ -84,7 +84,7 @@
   font-size: var(--wf-font-size-lg);
   cursor: pointer;
   color: var(--wf-color-text-secondary);
-  padding: 4px;
+  padding: var(--wf-space-xs);
   line-height: 1;
 }
 .wf-modal-close:hover {

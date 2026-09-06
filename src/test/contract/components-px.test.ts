@@ -61,9 +61,10 @@ function classify(): { hairline: Map<string, string>; scale: Map<string, string>
       postcss.parse(css).walkDecls((d: any) => {
         const prop = d.prop as string
         const val = String(d.value).trim()
-        // ① 发丝：border* 宽 = **1px**（--wf-border-width 等价面）+ 样式 solid/dashed + 色已走 var
+        // ① 发丝：border* 宽 = **1px**（--wf-border-width 等价面）+ 样式 solid/dashed
+        //    （色可走 var/currentColor/transparent——hex 硬编码面已锁 0；宽才是本面）
         //    （非 1px 宽度 = 强调边框——无 token 面，落结构桶登记：判负：--wf-border-width 只有 1px 发丝档）
-        const hair = val.match(/^(\d+(?:\.\d+)?)px\s+(?:solid|dashed)\s+var\(/)
+        const hair = val.match(/^(\d+(?:\.\d+)?)px\s+(?:solid|dashed)\s+/)
         if (hair && hair[1] === '1' && /^border/.test(prop) && !/^var\(--wf-border-width\)/.test(val)) {
           hairline.set(`${name}#${prop}#1px`, `${name} ${prop}: ${val.slice(0, 60)}`)
           return

@@ -3,7 +3,7 @@
 .wf-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--wf-gap-xs);
   text-decoration: underline;
   text-underline-offset: 3px;
   color: var(--wf-color-primary-text);

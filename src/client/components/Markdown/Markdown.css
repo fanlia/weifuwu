@@ -70,7 +70,7 @@
   gap: var(--wf-gap-xs);
 }
 .wf-md-task-check {
-  margin-top: 4px;
+  margin-top: var(--wf-space-xs);
   width: 14px;
   height: 14px;
   flex-shrink: 0;
