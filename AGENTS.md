@@ -7,7 +7,7 @@
 > [docs/client.md](docs/client.md) / [docs/server.md](docs/server.md)。
 
 **防线快照（2027-xx）**：
-契约 **451** · 场景 **129** · showcase **328**（134 组件全覆盖）· server **859**（858 pass + 1 docker-gated skip）·
+契约 **452** · 场景 **129** · showcase **328**（134 组件全覆盖）· server **859**（858 pass + 1 docker-gated skip）·
 shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 155** · audit:all **七线** exit 0（semantics/interactivity/vdom/theme/api/
 bundle/showcase）· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· tsc **0 错**。
 
@@ -20,6 +20,12 @@ bundle/showcase）· fuzz 对账 **1310 对**（静态+组件——终态等价 
   **派生**（gap = space 紧一档——关系入代码，预设只覆写 space）· token 死面/双名/px 字面量三登记制 ·
   **L1-L16 契约 20 断言** · `docs/layout.md` 机器生成参考（inventory 全量——L15 校验漂移）·
   dist minify（esbuild——layout 28.1K/gzip 5.7K/br 5.1K · style 223.3K/gzip 29.3K/br 24.3K）
+- **components 样式标准化 §2（2027-xx 完成）**：token 消费三桶 **C2**（components-token.test.ts——
+  line-height 近值/弹层面板宽/零消费——+ components-token-whitelist.json）· line-height 恒等接线
+  （1.5/1.25 → --wf-line-height-*——预设零覆写全主题恒等）· 弹层钩子修复（Popover/Tooltip
+  max-width → min(var(--wf-popup-max,…), calc(100vw-32px))——基类钩子恢复可调——
+  回退=默认宽恒等）· 零消费 83 项全保留（伪 token 注释残名根修——解析剥注释）·
+  TSX inline style 干净实证（px 0 · 色 0）· docs/client.md §5.4 补 C2 三条纪律
 - **components 样式标准化（2027-xx 完成）**：组件 px 四桶登记制 **C1**
   （`contract/components-px.test.ts`——发丝/标尺/结构值/z-index + `scripts/components-px-whitelist.json`
   逐项理由）· 发丝全 token 化（`var(--wf-border-width)`——非 1px 强调边框判负登记）·

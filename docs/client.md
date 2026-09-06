@@ -166,6 +166,18 @@ props camelCase · **`className=`（组件 props）`class=`（DOM 元素）** ·
 
 > 紧凑预设语义：**只有走 var() 的组件才跟随缩放**（_presets.css「间距缩一档」——手写=静止=活体缺口）。
 
+**C2 扩展纪律（`contract/components-token.test.ts` 三桶——token 消费哨兵）**：
+
+5. **文本行高走档**：`line-height` 值 ∈ {1.5, 1.25}（恒等档）→ `var(--wf-line-height)`/
+   `var(--wf-line-height-tight)`（近值=红）；代码排版 1.6（CodeBlock/DiffView——2 消费者
+   <3 升档门——第三消费者出现即升 --wf-line-height-code）；豁免面 {1 重置/0/px 图标}
+6. **弹层宽走钩子**：`.wf-popup` 系面板 **禁止手写 max-width**——基类
+   `min(var(--wf-popup-max, 480px), calc(100vw - 32px))` 是唯一入口；组件默认宽用
+   **回退值**表达（`min(var(--wf-popup-max, 320px), …)`——回退=默认宽）；非弹层面板宽
+   （命令面板/通知条/工作区）判负登记——`popup-max` 钩子调不动 = 钩子失效面
+7. **token 零消费双分类**：{保留类（色板档/暗色映射档/布局档/断点档——消费形态非
+   var() 引用）/真死候选}——新增零消费 token 需登记（消费矩阵哨兵——对齐 L11 组件版）
+
 ### 5.5 测试二层（覆盖哨兵 ≥2 层）
 
 1. **契约 harness**（`<Comp>.test.ts`——mount/render/createTable 命令流断言）
