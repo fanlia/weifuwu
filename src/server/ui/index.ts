@@ -29,8 +29,9 @@
 import { build } from 'esbuild'
 import { readFile, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
-import { resolve, dirname } from 'node:path'
+import { resolve, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { bundleLayout, isLayoutSourceDir } from '../../client/layout/bundle.ts' // CSS 装配单源（LAYOUT-PLAN W1）
 import type { Middleware, Context } from '../types.ts'
 import { HtmlSafe } from './html-safe.ts'
 import { v2ToHtml } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——运行路径 v2 化（v1 renderToStream 仅对账基线）
@@ -120,6 +121,43 @@ interface CompileResult {
 
 /** 缓存容量上限（FIFO 驱逐——防多入口应用膨胀；单应用实际入口数远小于此） */
 const MAX_CACHE_ENTRIES = 32
+
+/** 批量 stat → 新鲜度快照（失败标哨兵值——方向安全：必然不新鲜 → 重编） */
+async function statAll(paths: string[]): Promise<Record<string, InputStat>> {
+  const out: Record<string, InputStat> = {}
+  for (const p of paths) {
+    try {
+      const st = await stat(p)
+      out[p] = { mtimeMs: st.mtimeMs, size: st.size }
+    } catch {
+      out[p] = { mtimeMs: -1, size: -1 }
+    }
+  }
+  return out
+}
+
+/**
+ * CSS `@import` 相对闭包（递归 + visited 防环）——新鲜度键必须含依赖：
+ * 旧实现只 stat 入口文件 → 改 `_tokens.css` 不失效（陈旧缓存）——与 js 面
+ * esbuild metafile 全量校验同构。只解析 `./x.css` 相对形态（包名/url() 交 postcss 面）。
+ */
+async function importClosure(absPath: string, seen: Set<string> = new Set()): Promise<string[]> {
+  if (seen.has(absPath)) return []
+  seen.add(absPath)
+  let css: string
+  try {
+    css = await readFile(absPath, 'utf-8')
+  } catch {
+    return []
+  }
+  const dir = dirname(absPath)
+  const out: string[] = []
+  for (const m of css.matchAll(/@import\s+['"](\.[^'"]+\.css)['"]/g)) {
+    const dep = resolve(dir, m[1])
+    out.push(dep, ...(await importClosure(dep, seen)))
+  }
+  return out
+}
 
 /** 检测 postcss + tailwindcss 是否可用（只检测一次） */
 let postcssAvailable: boolean | undefined
@@ -288,14 +326,19 @@ export function ui(options: UiOptions = {}): Middleware {
       async css(entryPath: string): Promise<Response> {
         const absPath = resolveEntry(entryPath)
         const { code, etag } = await compile('css', absPath, async () => {
-          let code = await readFile(absPath, 'utf-8')
-          const inputs: Record<string, InputStat> = {}
-          try {
-            const st = await stat(absPath)
-            inputs[absPath] = { mtimeMs: st.mtimeMs, size: st.size }
-          } catch {
-            inputs[absPath] = { mtimeMs: -1, size: -1 }
+          const dir = dirname(absPath)
+          // **layout 源面 → 装配单源**（LAYOUT-PLAN W1）：入口是 src/client/layout/
+          // weifuwu-layout.css 时走 bundle.ts（与 build.mjs / dev server 同一实现——
+          // 层序语义一致 + inputs 含全部分量文件）。旧路径：直读入口 → 靠 postcss/
+          // tailwind 顺带内联 @import → 产物**零 @layer**（覆盖语义 ≠ 发布产物）。
+          // dist 入口无分量兄弟文件 → isLayoutSourceDir false → 走下方直读路径。
+          if (basename(absPath) === 'weifuwu-layout.css' && (await isLayoutSourceDir(dir))) {
+            const bundle = await bundleLayout(dir)
+            return { code: bundle.css, inputs: await statAll(bundle.inputs) }
           }
+          let code = await readFile(absPath, 'utf-8')
+          // 新鲜度键 = 入口 + @import 闭包（依赖变更也重建——旧只 stat 入口 = 陈旧缓存）
+          const inputs = await statAll([absPath, ...(await importClosure(absPath))])
           // 如果安装了 postcss + @tailwindcss/postcss，自动编译 Tailwind CSS
           if (await checkPostcss()) {
             try {

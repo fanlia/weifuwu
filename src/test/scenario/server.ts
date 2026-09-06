@@ -9,12 +9,14 @@
  * 启动：node src/test/scenario/server.ts（端口 3299）
  */
 import { Router, serve } from '../../server/index.ts'
-import { readFile, readdir } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises' // readdir 随装配单源化退场（bundleComponents 内部扫目录）
 import { resolve } from 'node:path'
 import { ui } from '../../server/ui/index.ts'
 import { UIRouter, h } from '../../client/vdom/index.ts'
 import { uiSsrV2 } from '../../client/vdom/core/v2/ssr.ts' // 场景层 SSR = v2（默认入口已切——显式引 v2 与 uiServe 同源）
 import { scenarios, findScenario } from './registry.ts'
+import { createHash } from 'node:crypto'
+import { bundleComponents } from '../../client/layout/bundle.ts'
 
 const PORT = Number(process.env.SCENARIO_PORT ?? 0) // 0 = 随机端口（测试自包含——避免端口残留）
 
@@ -46,29 +48,19 @@ app.get('/scenario/:id', async (req, ctx: any) => {
 })
 
 
-// 组件 CSS 聚合（layout + 全部组件——真实布局测试环境）
-app.get('/components.css', async (req, ctx: any) => {
+// 组件 CSS 聚合——**装配单源**（LAYOUT-PLAN W1）：旧内联实现把全部 layout 文件塞进
+// `@layer layout`（utilities 掉层）→ 场景层 128 测试验证的层序 ≠ 发布产物层序。
+// 现调 bundle.ts（与 build.mjs / showcase server 同一函数）+ ETag/304（旧：零缓存头）。
+app.get('/components.css', async (req) => {
   const root = resolve(process.cwd())
-  const layoutSrc = resolve(root, 'src', 'client', 'layout')
-  const entry = await readFile(resolve(layoutSrc, 'weifuwu-layout.css'), 'utf-8')
-  const layoutChunks: string[] = []
-  for (const line of entry.split('\n')) {
-    const m = line.match(/@import\s+['"]([^'"]+)['"]/)
-    if (m) {
-      const content = (await readFile(resolve(layoutSrc, m[1]), 'utf-8')).replace(/@import\s+['"][^'"]+['"]\s*;?\s*\n?/g, '').trim()
-      layoutChunks.push(`@layer layout {\n${content}\n}`)
-    }
-  }
-  let css = '@layer tokens, base, layout, utilities, components;\n\n' + layoutChunks.join('\n\n')
-  css += '\n@layer components {\n'
-  const dirs = await readdir(resolve(root, 'src', 'client', 'components'), { withFileTypes: true })
-  for (const d of dirs.filter((x) => x.isDirectory())) {
-    try {
-      css += await readFile(resolve(root, 'src', 'client', 'components', d.name, `${d.name}.css`), 'utf-8') + '\n'
-    } catch { /* 无 CSS 组件跳过 */ }
-  }
-  css += '}\n'
-  return new Response(css, { headers: { 'content-type': 'text/css; charset=utf-8' } })
+  const { css } = await bundleComponents(
+    resolve(root, 'src', 'client', 'layout'),
+    resolve(root, 'src', 'client', 'components'),
+  )
+  const etag = `"${createHash('sha1').update(css).digest('hex').slice(0, 20)}"`
+  const headers = { 'content-type': 'text/css; charset=utf-8', etag, 'cache-control': 'no-cache' }
+  if (req.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers })
+  return new Response(css, { headers })
 })
 
 // 场景索引（dev 便利）

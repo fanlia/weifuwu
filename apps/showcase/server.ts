@@ -3,7 +3,7 @@
  *
  * 能力：
  *   /app.js               平台前端（ctx.ui.js 动态编译）
- *   /components.css       CSS 运行时聚合（layout @import + 组件 CSS——与 build.mjs 同逻辑）
+ *   /components.css       CSS 运行时聚合（**装配单源** src/client/layout/bundle.ts——与 dist 同一实现）
  *   /index.json           结构化索引（registry 运行时构建——单一事实源）
  *   /api/chat /api/approve /api/files/:name   wire-fake（AiChat/FilePreview 演示）
  *   页面路由（/ /components*） SSR 整树首帧，其余走 SPA 壳（客户端渲染）
@@ -19,7 +19,8 @@ import { writeFile, rm } from 'node:fs/promises'
 import { tmpdir as osTmpdir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { fileURLToPath } from 'node:url'
-import { readdir, readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { bundleComponents } from '../../src/client/layout/bundle.ts'
 // ── 进程级防御（2026-08——SSR 组件副作用/编辑竞态崩溃实证）──
 // unhandledRejection 默认 throw → 服务器进程退出（FilePreview fetch /
 // data url import 崩溃链实证）——**记录不崩**（问题可见——进程存活是
@@ -125,27 +126,18 @@ app.put('/api/files/:name', async (req: Request, ctx: any): Promise<Response> =>
 // ── 平台前端 ──
 app.get('/app.js', (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')))
 
-app.get('/components.css', async (req, ctx) => {
-  const layoutSrc = resolve(root, 'src', 'client', 'layout')
-  const entry = await readFile(resolve(layoutSrc, 'weifuwu-layout.css'), 'utf-8')
-  const layoutChunks: string[] = []
-  for (const line of entry.split('\n')) {
-    const m = line.match(/@import\s+['"]([^'"]+)['"]/)
-    if (m) {
-      const content = (await readFile(resolve(layoutSrc, m[1]), 'utf-8')).replace(/@import\s+['"][^'"]+['"]\s*;?\s*\n?/g, '').trim()
-      layoutChunks.push(`@layer layout {\n${content}\n}`)
-    }
-  }
-  let css = '@layer tokens, base, layout, utilities, components;\n\n' + layoutChunks.join('\n\n')
-  css += '\n@layer components {\n'
-  const dirs = await readdir(resolve(root, 'src', 'client', 'components'), { withFileTypes: true })
-  for (const d of dirs.filter((x) => x.isDirectory())) {
-    try {
-      css += await readFile(resolve(root, 'src', 'client', 'components', d.name, `${d.name}.css`), 'utf-8') + '\n'
-    } catch { /* 无 CSS 组件跳过 */ }
-  }
-  css += '}\n'
-  return new Response(css, { headers: { 'Content-Type': 'text/css' } })
+// CSS 运行时聚合——**装配单源**（LAYOUT-PLAN W1）：旧内联实现把全部 layout 文件塞进
+// `@layer layout`（utilities 掉层）→ showcase 328 测试验证的层序 ≠ 发布产物层序。
+// 现调 bundle.ts（与 build.mjs 同一函数）+ ETag/304（旧：零缓存头——每次全量重传）。
+app.get('/components.css', async (req) => {
+  const { css } = await bundleComponents(
+    resolve(root, 'src', 'client', 'layout'),
+    resolve(root, 'src', 'client', 'components'),
+  )
+  const etag = `"${createHash('sha1').update(css).digest('hex').slice(0, 20)}"`
+  const headers = { 'content-type': 'text/css; charset=utf-8', etag, 'cache-control': 'no-cache' }
+  if (req.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers })
+  return new Response(css, { headers })
 })
 
 

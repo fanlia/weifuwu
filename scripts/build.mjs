@@ -2,9 +2,10 @@
 import esbuild from 'esbuild'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkdir, cp, readFile, writeFile, readdir } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises' // readFile/readdir/cp 随装配单源化退场（bundle.ts 内部读文件）
 import { rm } from 'node:fs/promises'
 import { execSync } from 'node:child_process'
+import { bundleLayout, bundleComponents } from '../src/client/layout/bundle.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
@@ -133,69 +134,20 @@ await esbuild.build({
   plugins: [externalizeUiDomPlugin],
 })
 
-// 编译 layout CSS → 单文件（按文件映射 @layer，源文件零侵入）
+// 编译 layout CSS → 单文件（**装配单源**：src/client/layout/bundle.ts——LAYOUT-PLAN W1）
+// 历史：本处曾有 LAYER_OF + mergeLayoutCss 内联实现，与 apps/showcase/server.ts、
+// src/test/scenario/server.ts 的两份内联实现并存（四管线三种层序语义——测试环境
+// 验证的层序 ≠ 发布产物）；且 head 只取 entry 首行 → 产物开头是**未闭合注释**，
+// 把 `@layer tokens, base, layout, utilities, components;` 整条吞掉（postcss 实证：
+// 层序语句 0 个——优先级退化为块首现顺序）。两处根因均在 bundle.ts 内单源修复。
 const layoutSrc = join(srcDir, 'client', 'layout')
 const layoutDist = join(distDir, 'client', 'layout')
 
-const LAYER_OF = {
-  _tokens: 'tokens', _dark: 'tokens', _presets: 'tokens', _base: 'base',
-  _stack: 'layout', _row: 'layout', _split: 'layout', _center: 'layout', _justify: 'layout',
-  _fill: 'layout', _grid: 'layout', _cluster: 'layout', _cover: 'layout',
-  _position: 'layout', _sticky: 'layout', _overflow: 'layout', '_safe-area': 'layout',
-  _layer: 'layout', '_align-self': 'layout', _nowrap: 'layout', _shrink: 'layout',
-  _container: 'layout', '_app-shell': 'layout',
-  _surface: 'utilities', _spacing: 'utilities', _border: 'utilities',
-  _text: 'utilities', _hidden: 'utilities', _block: 'utilities',
-  _flex: 'utilities', // display 工具族（wf-hidden wf-flex@lg 显隐恢复——必须同层后序获胜）
-  _popup: 'layout', // 框架内部浮层基类（popup-manager 消费——非用户词汇）
-}
-
-function mergeLayoutCss() {
-  const entryFile = join(layoutSrc, 'weifuwu-layout.css')
-  return readFile(entryFile, 'utf-8').then(entry => {
-    const files = []
-    for (const line of entry.split('\n')) {
-      const m = line.match(/@import\s+['"]([^'"]+)['"]/)
-      if (m) files.push(m[1])
-    }
-    const head = entry.split('\n').slice(0, 1)[0]
-    return Promise.all(files.map(f =>
-      readFile(join(layoutSrc, f), 'utf-8').then(c => {
-        const content = c.replace(/@import\s+['"][^'"]+['"]\s*;?\s*\n?/g, '').trim()
-        const name = f.replace(/^\.\//, '').replace(/\.css$/, '')
-        const layer = LAYER_OF[name]
-        // 未登记文件默认 layout 会静默降级层叠优先级（_flex 掉层致 wf-flex@lg 失效的教训）——报错防呆
-        if (!layer) throw new Error(`layout 文件未登记 @layer 映射: ${f}（在 scripts/build.mjs LAYER_OF 中登记）`)
-        // tokens 层不包 @layer（:root/@supports 顶层块——包裹后 @supports 的 } 与 @layer 闭
-    // 产生冗余（PostCSS Unexpected }——dist style.css 500 根因实证）——tokens 变量在隐式
-    // 层仍生效（@layer tokens 声明保留——无同名覆盖冲突——token 优先级不变）
-    if (layer === 'tokens') return content
-    return `@layer ${layer} {\n${content}\n}`
-      })
-    )).then(chunks =>
-      `${head}\n\n@layer tokens, base, layout, utilities, components;\n\n${chunks.join('\n\n')}`
-    )
-  })
-}
-
-const layoutCss = await mergeLayoutCss()
+const { css: layoutCss } = await bundleLayout(layoutSrc)
 await writeFile(join(layoutDist, 'weifuwu-layout.css'), layoutCss)
 
-// 编译组件 CSS = layout 全部 CSS（Token + 暗色 + 基础 + 布局原语 + 工具类）+ 组件 CSS（@layer components）
-// 动态扫描目录（新增组件自动包含，硬编码列表会静默漏 CSS）
-const componentDirs = (await readdir(join(srcDir, 'client', 'components'), { withFileTypes: true }))
-  .filter(d => d.isDirectory())
-  .map(d => d.name)
-let componentCss = layoutCss + '\n@layer components {\n'
-for (const dir of componentDirs) {
-  const cssPath = join(srcDir, 'client', 'components', dir, `${dir}.css`)
-  try {
-    componentCss += await readFile(cssPath, 'utf-8') + '\n'
-  } catch (e) {
-    // 组件 CSS 不存在时跳过
-  }
-}
-componentCss += '}\n'
+// 编译组件 CSS = layout 全量 + 全部组件 CSS（@layer components——目录动态扫描）
+const { css: componentCss } = await bundleComponents(layoutSrc, join(srcDir, 'client', 'components'))
 await writeFile(join(distDir, 'client', 'components', 'style.css'), componentCss)
 
 // 生成类型声明

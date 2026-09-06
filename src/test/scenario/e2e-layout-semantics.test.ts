@@ -1,16 +1,17 @@
 /**
- * 场景 e2e——layout 层叠语义（LAYOUT-PLAN W0：**现状基线固化**）
+ * 场景 e2e——layout 层叠语义（LAYOUT-PLAN W0：**现状基线固化** · W1：装配单源实证）
  *
  * 为什么在场景层：层叠/继承/媒体查询是**浏览器计算值**语义——静态清单契约
  * （layout-inventory.test.ts）读 CSS 文本读不出「谁胜」。本文件用
  * `getComputedStyle` 把 plan/layout-优化.md 的探针读数钉成可回归断言。
  *
- * **断言的是当前行为（含已登记缺陷/缺口）**——不是「应有行为」：
+ * **①-⑤ 断言的是当前行为（含已登记缺陷/缺口）**——不是「应有行为」：
  *   ① `--wf-gap` 继承污染（内层被外层内联钩子污染）      → W2 `@property{inherits:false}` 根治后翻转
  *   ② utilities 层被 components 层压制（工具类覆盖失效）  → W2 层序修正后翻转
  *   ③ 零值档位缺口（`wf-padding-none` 未定义）            → W2 补齐后翻转
  *   ④ 断点变体 `wf-hidden@lg` 靠 `!important` 变通生效    → W2 删 !important 后**仍须 none**
  *   ⑤ 冲突对 `wf-row wf-stack` 静默取 column              → W2 定案（禁共用/合成类）后翻转
+ *   ⑥ 服务面 CSS == 装配单源输出（W1 已兑现——层序语义与 dist 一致）
  *
  * 根因登记（源码原文）：`_hidden.css:4-7`「@layer 顺序下 utilities 永远输给
  * components……源顺序洗牌无法修复（层叠顺序优先于源顺序）——!important 是唯一出路」。
@@ -18,7 +19,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium, type Browser, type Page } from 'playwright'
+import { resolve } from 'node:path'
 import { startScenarioServer, openScenario, type ScenarioServer } from './e2e-shared.ts'
+import { bundleComponents } from '../../client/layout/bundle.ts'
 
 let server: ScenarioServer
 let BASE = ''
@@ -91,4 +94,22 @@ test('⑤ 冲突对 wf-row × wf-stack（基线：同属性不同值——静默
     '基线：wf-row 不设 direction（默认 row）而 wf-stack 设 column → 组合语义静默（W2 定案：禁共用/合成类）',
   )
   assert.equal(await computed('.ls-conflict', 'flexWrap'), 'wrap', 'wf-row 的 wrap 保留（互补属性——非冲突）')
+})
+
+test('⑥ 服务面 == 装配单源（/components.css 字节全等 bundleComponents + 缓存头）', async () => {
+  // W1：旧内联实现把全部 layout 文件塞 @layer layout（utilities 掉层）——本断言
+  // 证明服务面已回到单源（再引入内联装配 → 字节不等 → 红）。
+  const rootDir = resolve(import.meta.dirname, '..', '..', '..')
+  const res = await fetch(`${BASE}/components.css`)
+  const served = await res.text()
+  const { css } = await bundleComponents(
+    resolve(rootDir, 'src/client/layout'),
+    resolve(rootDir, 'src/client/components'),
+  )
+  assert.equal(served, css, 'dev 服务面 CSS 必须 == 装配单源输出（层序语义与 dist 一致）')
+  // 缓存面（旧：`new Response(css)` 零缓存头 → 每次全量重传）
+  assert.ok(res.headers.get('etag'), 'ETag 必须存在')
+  assert.equal(res.headers.get('cache-control'), 'no-cache', '可存但每次复验')
+  const r304 = await fetch(`${BASE}/components.css`, { headers: { 'if-none-match': res.headers.get('etag')! } })
+  assert.equal(r304.status, 304, 'If-None-Match 命中 → 304 空体')
 })
