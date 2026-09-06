@@ -8,6 +8,18 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.94.1] - 2026-09-06
+
+按域统计：vdom 1 · core 1
+
+### Added
+
+- vdom：回馈#4 createItem 多状态槽——单活动态边界打开（Menu/NavMenu 迁移）
+
+### Docs
+
+- core：回馈#4 文档同步——createItem 多状态槽（边界登记：值域槽下代）
+
 ## [0.94.0] - 2026-09-06
 
 按域统计：vdom 6 · layout 3 · components 1 · showcase 1 · core 13 · plan 1
