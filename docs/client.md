@@ -146,6 +146,12 @@ src/client/components/<Comp>/
 
 ### 5.3 API 形状
 
+**children 类型单源**：`children`/`title`/`icon`/`content`/`extra` 等 VNode
+家族 prop 一律 `VNodeChild`（`vnode.ts` L32——`VNode | string | number |
+boolean | null | undefined | VNodeChild[]`——index 已导出）——**禁止 `any` 注解
+**（C6-① 哨兵——数据面 any（data/items/row 等值域自由）登记保留）。必选参数
+不得跟在可选参数后（TS1016 防线）。
+
 props camelCase · **`className=`（组件 props）`class=`（DOM 元素）** ·
 受控三件套（value/onChange + 缺回调 warn）· 事件经事件表（函数 props 不写 attribute）·
 受控回流门控（引用比较 + live 门控）· value 走 property · aria 布尔归一 ·
