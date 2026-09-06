@@ -113,6 +113,28 @@ for (const f of files) {
 }
 if (iconDumb) fail(`图标哑按钮 ${iconDumb} 处（button 无文本无 aria-label）`)
 
+// svg 可访问性（C3-svg——role/aria-hidden/aria-label 至少其一；登记表 W2 清）
+const SVG_PENDING = JSON.parse(readFileSync(join(root, 'scripts/components-svg-whitelist.json'), 'utf8'))
+let svgBare = 0
+for (const f of files) {
+  const s = readFileSync(f, 'utf8')
+  const name = f.slice(COMPONENTS.length + 1)
+  for (const m of s.matchAll(/h\(['"]svg['"],\s*\{/g)) {
+    const start = m.index + m[0].length - 1
+    let depth = 1, i = start
+    for (; i < s.length && depth > 0; i++) {
+      if (s[i] === '{') depth++
+      else if (s[i] === '}') depth--
+    }
+    const body = s.slice(start, i - 1)
+    if (/role['"]?\s*:|aria-?hidden['"]?\s*:|aria-?label['"]?\s*:/.test(body)) continue
+    svgBare++
+    if (SVG_PENDING[name]) continue // 登记在册（W2 清）
+    fail(`svg 无 aria ${name}——补 role/img 或 aria-hidden（装饰面）或登记待修`)
+  }
+}
+console.log(`  svg 线：${svgBare} 处（登记表 ${Object.keys(SVG_PENDING).length} 文件）`)
+
 // ── ② as any 基线 ────────────────────────────────────────
 const ANY_BASE = 34
 let anyCount = 0
@@ -191,5 +213,30 @@ for (const f of files) {
 }
 console.log(`  ${deadCount} 处（登记表 ${Object.values(deadWhitelist).reduce((a, v) => a + v.length, 0)} 处——W2 清）`)
 
-if (failures) { console.error(`\nC3/C4 健康审计：${failures} 违例`); process.exit(1) }
-console.log('\nC3/C4 健康审计：全绿')
+// ── ⑥ 文件头注释（C5-① —— 组件文件头 = registry desc 单源派生——防漂移）──
+console.log('C5-① 文件头注释（组件文件无头注释 = 红——banner 登记表 W1 清）:')
+const bannerWhitelist = JSON.parse(readFileSync(join(root, 'scripts/components-banner-whitelist.json'), 'utf8'))
+// registry desc 单源（id/name/desc 三列——跨行提取）
+const descOf = new Map()
+{
+  const txt = readFileSync(join(root, 'apps/showcase/src/registry/components.ts'), 'utf8')
+  for (const m of txt.matchAll(/"id": "([\w-]+)",[\s\S]{0,260}?"name": "([A-Za-z0-9]+)",[\s\S]{0,260}?"desc": "([^"]+)"/g)) {
+    descOf.set(m[2], { desc: m[3], id: m[1] })
+  }
+}
+let bannerBare = 0
+for (const f of files) {
+  const s = readFileSync(f, 'utf8')
+  if (!/export const \w+:\s*Component/.test(s)) continue
+  const name = f.slice(COMPONENTS.length + 1)
+  const first = s.slice(0, 600)
+  const hasHeader = /^\/\*\*?/.test(first.trim()) || /^\/\//.test(first.trim())
+  if (hasHeader) continue
+  bannerBare++
+  if (bannerWhitelist.includes(name)) continue // 登记在册（W1 清）
+  fail(`文件头注释缺失 ${name}——补 /\*\* <Name>：<desc>（showcase /components/<id>）\*\/（desc 单源 registry）或登记`)
+}
+console.log(`  ${bannerBare} 处（登记表 ${bannerWhitelist.length}——W1 清 · registry desc 面 ${descOf.size}）`)
+
+if (failures) { console.error(`\nC3/C4/C5 健康审计：${failures} 违例`); process.exit(1) }
+console.log('\nC3/C4/C5 健康审计：全绿')
