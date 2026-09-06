@@ -11,6 +11,7 @@ import { DEMOS as C_form_core } from './form-core.tsx'
 import { DEMOS as C_form_select } from './form-select.tsx'
 import { DEMOS as C_navigation } from './navigation.tsx'
 import { DEMOS as C_new_batch } from './new-batch.tsx'
+import { DEMOS as C_platform_migrate } from './platform-migrate.tsx'
 import { DEMOS as C_others } from './others.tsx'
 
 export const DEMOS: Record<string, any> = {
@@ -22,5 +23,6 @@ export const DEMOS: Record<string, any> = {
   ...C_form_select,
   ...C_navigation,
   ...C_new_batch,
+  ...C_platform_migrate,
   ...C_others,
 }

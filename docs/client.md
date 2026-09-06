@@ -31,7 +31,7 @@ app.router(Router())
 
 ## 2. 组件清单
 
-**134 个组件**——源码目录即清单：`src/client/components/<Comp>/<Comp>.ts`（每个含
+**139 个组件**——源码目录即清单：`src/client/components/<Comp>/<Comp>.ts`（每个含
 `<Comp>.css` + 契约测试）。展示与使用示例：`apps/showcase/`（localhost:3200——
 `/components/<id>` 每组件一页 + demo 源码即用法）。
 
@@ -40,6 +40,8 @@ app.router(Router())
 | 类 | 代表组件 |
 | --- | --- |
 | 通用基础 | Button / Card / Badge / Avatar / Alert / EmptyState / Loading / Modal / Drawer |
+| 列表骨架 | ListScaffold（PageHeader+工具栏+状态区+内容插槽）/ StatusDot（状态点—label 缺省只渲染点） |
+| 常用输入 | CronPicker（cron 预设 + 自由编辑——server 解析器语义对齐） |
 | 表单 | Input / Textarea / Select / DatePicker / Upload / Form / Checkbox / Switch / Slider |
 | 数据展示 | Table / VirtualTable / Chart / Tree / CodeBlock / DiffView / Kanban |
 | 导航 | NavBar / TabBar / Breadcrumb / Pagination / Menu / NavMenu / Anchor |

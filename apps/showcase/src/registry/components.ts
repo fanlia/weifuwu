@@ -1116,5 +1116,29 @@ export const components: ComponentEntry[] = [
     "sourceFile": "src/client/components/DropZone/DropZone.ts",
     "cssFile": "src/client/components/DropZone/DropZone.css",
     "testFile": "src/client/components/DropZone/DropZone.test.ts"
+  },
+  {
+    "id": "cronpicker",
+    "name": "CronPicker",
+    "desc": "cron 表达式快捷输入：预置常见档 + 自由编辑双通道（列表页骨架原语入库）",
+    "sourceFile": "src/client/components/CronPicker/CronPicker.ts",
+    "cssFile": "src/client/components/CronPicker/CronPicker.css",
+    "testFile": "src/client/components/CronPicker/CronPicker.test.ts"
+  },
+  {
+    "id": "list-scaffold",
+    "name": "ListScaffold",
+    "desc": "列表页骨架：PageHeader + 工具栏 + loading/empty 态 + 内容插槽（isEmpty 显式契约）",
+    "sourceFile": "src/client/components/ListScaffold/ListScaffold.ts",
+    "cssFile": "src/client/components/ListScaffold/ListScaffold.css",
+    "testFile": "src/client/components/ListScaffold/ListScaffold.test.ts"
+  },
+  {
+    "id": "status-dot",
+    "name": "StatusDot",
+    "desc": "状态点：on/tone 语义（label 缺省只渲染点——防双标签）",
+    "sourceFile": "src/client/components/StatusDot/StatusDot.ts",
+    "cssFile": "src/client/components/StatusDot/StatusDot.css",
+    "testFile": "src/client/components/StatusDot/StatusDot.test.ts"
   }
 ]

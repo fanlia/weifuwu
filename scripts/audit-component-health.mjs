@@ -178,10 +178,13 @@ for (const f of files) {
   while ((m = I18N_ATTR.exec(s)) || (m = I18N_CHILD.exec(s))) {
     if (m[2]) { // 属性面命中（child 场复用捕获组）
       const ctx = s.slice(Math.max(0, m.index - 60), m.index)
+      const after = s.slice(m.index, m.index + 90)
       if (WIRED.test(ctx)) continue
       // 定义表/数据层豁免：① id:/value: 配对 label（定义表 fallback——消费处已接线）
       //   ② pushCommit/editEmit/tag:（Editor 持久标签/数据事件——非纯 UI 文案——C4-I18N-D3）
-      if (/(?:id|value): '[\w-]+',\s*label:|pushCommit|editEmit|tag:/.test(ctx + m[0].slice(0, 24))) continue
+      //   ③ label+value 配对（选项定义表——CronPicker PRESETS 先例：cron 档位
+      //   领域定义（label 用户可见值 + value 机器值——同 id/value 定义表形态）
+      if (/(?:id|value): '[\w-]+',\s*label:|pushCommit|editEmit|tag:|label:\s*'[^']*[\u4e00-\u9fa5][^']*',\s*value:\s*'[^']*'/m.test(ctx + m[0].slice(0, 24) + after)) continue
       i18nBare++
       const [fileBase] = name.split('/')
       if (C4_I18N_PENDING.includes(fileBase) || C4_I18N_EXEMPT.includes(fileBase)) continue
