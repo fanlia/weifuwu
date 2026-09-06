@@ -8,6 +8,19 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.93.3] - 2026-09-06
+
+按域统计：components 2 · core 1
+
+### Added
+
+- components：W2 Menu badge + AppShell 增强——AppLayout 功能面入库
+- components：W1 agent-platform 入库组件 3 件套——CronPicker/ListScaffold/StatusDot
+
+### Other（未分类——人工补域）
+
+- core：refactor(platform): W3 平台组件全量入库——ui/components 消除·零自建 style
+
 ## [0.93.2] - 2026-09-06
 
 按域统计：components 14 · ui 1 · core 9
