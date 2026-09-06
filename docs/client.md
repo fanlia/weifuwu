@@ -249,6 +249,12 @@ app.css 只留**页面布局面**（body 链/面板/消息区）。
 
 ### 5.10 命名规范（学习成本——API 一致性红线）
 
+**类名形态（vnode 内核 normalizeClass——2027-09）**：`class` 支持
+**字符串 / 数组 / 对象**三形态（h/jsx 自动归一——字符串直通零成本 · 对象
+条件真值 `{ 'wf-active': flag }` · 数组组合 `['wf-a', cond && 'wf-b']`）——
+**新组件用对象/数组形态**（零模板拼接）；旧模板字符串保留（等价——不迁移
+（行为恒等重写风险>收益——改动自然随维护推进）
+
 **组件命名**（用户看到的第一面）：
 - 目录/导出名：PascalCase（`CronPicker`）· registry id：**slug（无连字符小写）**——
   `listscaffold`/`statusdot`/`togglegroup`（2027-09 曾引入连字符 id 违规实证——

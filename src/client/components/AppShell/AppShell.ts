@@ -102,7 +102,7 @@ export const AppShell: Component<AppShellProps> = (_init, ctx)=> {
 
     return h('div', { class: 'wf-app-shell' }, [
       // 侧栏（layout 原语类 + 抽屉开启态）
-      h('aside', { class: `wf-sidebar${isMobile && drawerOpen ? ' wf-app-shell-drawer--open' : ''}` }, [
+      h('aside', { class: ['wf-sidebar', isMobile && drawerOpen && 'wf-app-shell-drawer--open'] }, [
         // 品牌区（移动端：关闭按钮追加）
         h('div', { class: 'wf-sidebar-header' }, [
           h(Avatar, { name: brand.logo ?? name.slice(0, 1), size: 'lg' }),

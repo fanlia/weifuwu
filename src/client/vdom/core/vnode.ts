@@ -4,7 +4,10 @@
  * 设计（对齐 vdom-x 契约 + 设计规则 §4.0/§6.3）：
  * ① vnode 纯数据——零回填字段（el/_render/_id 等全部在影子层——可自由克隆/
  *    比较/序列化——用户写 JSX 就能推导 vnode 形状）
- * ② h() 除 key 剥离外零转换——children 原样（false/嵌套数组保留——不 filter）
+ * ② h() 除 key 剥离 + class 归一外零转换——children 原样（false/嵌套数组保留——
+ *    不 filter）；class 归一（2027-09——组件层 105 文件 180 处模板拼接手搓实证——
+ *    对象/数组条件类万库通用形态——内核承载：字符串直通零成本 · 对象/数组归一
+ *    为空格串（协议/SSR/diff 零改——归一时机 vnode 创建——一次）
  * ③ key 业务身份声明协议：key 从 props 剥离进 vnode.key（组件 props 不见 key）
  * ④ children 值域协议：vnode/string/number/boolean/空洞(null/undefined)/嵌套数组
  *    （数组 = 隐式 Fragment——递归展开统一在 childrenOf——单一规则源——
@@ -52,8 +55,36 @@ type HType = string | symbol | Component<any, any>
 /** h()——创建 vnode（纯数据——除 key 剥离外零转换）
  *  children 原样：单子节点直接存、多子节点存数组、无子节点不存——false/嵌套
  *  数组保留（不 filter——空洞占位法在消费侧） */
+/** class 归一（字符串直通 · 数组展开 · 对象条件真值 · 嵌套递归——false/null 剔除）
+ *  万库通用条件类形态（对象 = { 'wf-active': isActive }——零模板拼接） */
+export function normalizeClass(v: unknown): string | undefined {
+  if (v == null || v === false) return undefined
+  if (typeof v === 'string') return v.trim() || undefined
+  if (typeof v === 'number') return String(v)
+  if (Array.isArray(v)) {
+    const parts = v.map(normalizeClass).filter((x): x is string => !!x)
+    return parts.length ? parts.join(' ') : undefined
+  }
+  if (typeof v === 'object') {
+    const parts = Object.entries(v as Record<string, unknown>)
+      .filter(([, on]) => !!on)
+      .map(([k]) => k)
+    return parts.length ? parts.join(' ') : undefined
+  }
+  return undefined
+}
+
+/** props 归一（class/className 归一——仅非字符串时处理——现状零成本兼容） */
+function normalizeProps(p: Record<string, unknown>): Record<string, unknown> {
+  for (const k of ['class', 'className']) {
+    const v = p[k]
+    if (v != null && typeof v !== 'string') p[k] = normalizeClass(v)
+  }
+  return p
+}
+
 export function h(type: HType, props?: Record<string, unknown> | null, ...children: VNodeChild[]): VNode {
-  const p = stripKey(props)
+  const p = stripKey(normalizeProps(props ?? {}))
   if (children.length === 1) p.children = children[0]
   else if (children.length > 1) p.children = children
   return { type, props: p, key: extractKey(props) }
@@ -64,7 +95,7 @@ export function h(type: HType, props?: Record<string, unknown> | null, ...childr
 export function jsx(type: HType, props: Record<string, unknown> | null, key?: string | null): VNode {
   // key 归一（2026-08——jsx 显式 key 参数路径漏归一化——esbuild automatic
   // 编译 key={n.id} 传数字——keyedId 的 key.replace 崩——数字 key 列表渲染中断）
-  return { type, props: stripKey(props), key: normalizeKey(key) ?? extractKey(props) }
+  return { type, props: stripKey(normalizeProps(props ?? {})), key: normalizeKey(key) ?? extractKey(props) }
 }
 export const jsxs = jsx
 export const jsxDEV = jsx
