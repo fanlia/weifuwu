@@ -46,7 +46,7 @@ export type RenderFn<P = Record<string, unknown>> = (props: P) => VNode | null |
 export type Component<P = Record<string, unknown>, C = UIContext> = (
   initProps: P,
   ctx: C,
-) => RenderFn<P>
+) => RenderFn<P> | VNode | null | (VNode | null)[]
 
 // type 参数放宽为 Component<any, any>（ui-dom 同款——TS 逆变：具体 props
 // 的组件可赋给宽松签名——JSX 生态惯例；严格默认参数会拒绝 Component<IconProps>）

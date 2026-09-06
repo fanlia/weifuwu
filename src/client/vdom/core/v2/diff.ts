@@ -116,7 +116,18 @@ export function createSegment(
     },
     getSharedContext: () => ctx ?? null,
   })
-  const renderFn = factory(props, instCtx) as RenderFn
+  // **轻量组件形态（2027-09——分层抽象 W1）**：工厂返回非函数（VNode/数组/null）
+  // = 纯函数组件——工厂即 renderFn（每次渲染执行——读最新 props）；函数 = 有状态（现状）
+  const out = factory(props, instCtx)
+  let renderFn: RenderFn
+  if (typeof out === 'function') {
+    renderFn = out as RenderFn
+  } else {
+    renderFn = ((p: Record<string, unknown>) => {
+      const r = factory(p, instCtx)
+      return (typeof r === 'function' ? null : r) as VNodeChild
+    }) as RenderFn
+  }
   const renderBase = hookSeq.n // 渲染 hook 基准（mount 后计数）
   return { factory, renderFn, lastOutput: undefined, hookSeq, renderBase, instData, destroy$, disposed: false, epoch: segmentEpoch }
 }

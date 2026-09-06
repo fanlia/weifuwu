@@ -177,11 +177,21 @@ export async function renderComponent(
       getSharedContext: () => sharedCtx ?? null,
     })
     // 工厂 = mount（**同步——2027-08 断代**：无 async——无窗口——无 ready）
+    // **轻量组件形态（2027-09——分层抽象 W1）**：工厂返回非函数（VNode/数组/null）
+    // = 纯函数组件——工厂即 renderFn（每次渲染执行——读最新 props）；返回函数 = 有状态（现状）
     let renderFn: RenderFn
     try {
-      renderFn = factory(vn.props, instCtx) as RenderFn
-    if (typeof renderFn !== 'function') {
-    }
+      const out = factory(vn.props, instCtx)
+      if (typeof out === 'function') {
+        renderFn = out as RenderFn
+      } else {
+        // 工厂 = 每次渲染执行（读最新 props——纯函数组件——mount 无状态）
+        renderFn = (props) => {
+          const r = factory(props, instCtx)
+          // 轻量契约：工厂返回非函数（VNode/数组/null）；函数返回防御为 null
+          return (typeof r === 'function' ? null : r) as VNode | null | (VNode | null)[]
+        }
+      }
     } catch (e) {
       registry.delete(compId)
       for (const fn of onUnmounts.reverse()) { try { fn() } catch (e2) { console.error('[vdom] mount 清理:', e2) } }

@@ -23,6 +23,7 @@ import { useControlledInput } from './input.ts'
 import { useDragDrop, useMedia, useBreakpoint } from './drag-media.ts'
 import { useChat } from './chat.ts'
 import { useTween, useDrag, useVisualViewport, useReducedMotion, type TweenOptions } from './stable.ts'
+import { useSignal, type SignalHandle } from './signal.ts'
 
 /** hooks 环境（per 组件实例——renderComponent 注入） */
 /** me() 会话面（useSession 返回——轻量结构——不依赖 server 类型） */
@@ -133,6 +134,9 @@ export interface Ui {
   useVisualViewport(): import('./stable.ts').VisualViewportHandle
   /** 响应式系统偏好（prefers-reduced-motion——mount 期一次判定） */
   useReducedMotion(): boolean
+  /** 局部状态原语（set 自动重渲染——getter 纪律：get() 任意位置读最新）
+   *  **增量原语**：不取代既有 ctx.render() 用法（存量保留） */
+  useSignal<T>(init: T): SignalHandle<T>
 }
 
 /** useAsyncData 模块级注册表（2027-08——跨组件共享同 key——并发合并）
@@ -311,5 +315,6 @@ export function createUi(env: HookEnv): Ui {
     useDrag: (options) => useDrag(env, options),
     useVisualViewport: () => useVisualViewport(env),
     useReducedMotion: () => useReducedMotion(env),
+    useSignal: <T>(init: T) => useSignal(env, init),
   }
 }
