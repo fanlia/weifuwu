@@ -1,3 +1,4 @@
+/** Rate：评分：键盘方向键 / allowClear / readOnly，新增 star 图标（showcase /components/rate） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'

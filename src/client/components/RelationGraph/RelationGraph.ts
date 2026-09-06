@@ -1,3 +1,4 @@
+/** RelationGraph：关系图谱——环形/网格布局 + 类型着色 + 选中交互（人物/组织/网络）（showcase /components/relationgraph） */
 /**
  * weifuwu/components — RelationGraph
  *

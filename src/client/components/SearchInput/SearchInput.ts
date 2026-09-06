@@ -1,3 +1,4 @@
+/** SearchInput：搜索输入框，带清除按钮（showcase /components/searchinput） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

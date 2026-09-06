@@ -1,3 +1,4 @@
+/** SlideCanvas：weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3） 设计（）：文档 = fold(事件流)——每个编辑 =（showcase /components/slidecanvas） */
 /**
  * weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3）
  *

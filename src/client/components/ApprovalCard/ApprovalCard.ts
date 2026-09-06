@@ -1,3 +1,4 @@
+/** ApprovalCard：HITL 审批卡片：pending 可批/拒 + 修改参数（JsonSchemaForm）· approved/rejected/timeout 终态（showcase /components/approvalcard） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'

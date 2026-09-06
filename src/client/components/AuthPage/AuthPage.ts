@@ -1,3 +1,4 @@
+/** AuthPage：认证页骨架：居中卡片 + logo + 表单插槽 + 错误条 + 提交 loading（登录/注册复用）（showcase /components/authpage） */
 /**
  * weifuwu/components — AuthPage
  *

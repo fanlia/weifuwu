@@ -1,3 +1,4 @@
+/** Pipeline：Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测（showcase /components/pipeline） */
 export interface DagNodeInput {
   id: string
 }

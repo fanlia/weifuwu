@@ -1,3 +1,4 @@
+/** NavMenu：顶部导航：多级 hover 弹出 + 键盘（shadcn NavigationMenu）（showcase /components/navmenu） */
 /**
  * weifuwu/components — NavMenu 顶部导航
  *

@@ -1,3 +1,4 @@
+/** Label：独立标签（required 星号）+ 宽高比容器（内容填满）（showcase /components/label） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 

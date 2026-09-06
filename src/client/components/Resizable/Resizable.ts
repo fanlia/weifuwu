@@ -1,3 +1,4 @@
+/** Resizable：拖拽分割面板：pointer + 键盘方向键 + clamp（shadcn）（showcase /components/resizable） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

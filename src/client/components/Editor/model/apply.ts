@@ -1,3 +1,4 @@
+/** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
  * weifuwu/components/Editor/model/apply — 事件应用（文档 = fold(事件流)）
  *

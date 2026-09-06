@@ -1,3 +1,4 @@
+/** HoverCard：悬停富内容卡：openDelay 延迟 + 任意 VNode（shadcn）（showcase /components/hovercard） */
 /**
  * weifuwu/components — HoverCard
  *

@@ -1,3 +1,4 @@
+/** StatCard：KPI 指标卡，支持 trend/icon（showcase /components/statcard） */
 import type { Component, VNode } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

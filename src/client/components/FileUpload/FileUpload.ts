@@ -1,3 +1,4 @@
+/** FileUpload：文件上传，拖拽区 + 文件列表 + accept/maxSize（showcase /components/fileupload） */
 /**
  * weifuwu/components — FileUpload
  */

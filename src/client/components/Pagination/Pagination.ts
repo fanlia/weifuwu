@@ -1,3 +1,4 @@
+/** Pagination：分页器，自动计算页码范围（showcase /components/pagination） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

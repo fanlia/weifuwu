@@ -1,3 +1,4 @@
+/** DropZone：全区域拖放区——整容器拖入文件高亮 + onFiles 回调（现代 IM 标配——Chat 手搓证据）（showcase /components/dropzone） */
 /**
  * weifuwu/components — DropZone 全区域拖放区
  *

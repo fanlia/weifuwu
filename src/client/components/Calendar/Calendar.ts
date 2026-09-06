@@ -1,3 +1,4 @@
+/** Calendar：月历：事件点 + 月切换 + 日期选择（antd/EP Calendar）（showcase /components/calendar） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

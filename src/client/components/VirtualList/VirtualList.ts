@@ -1,3 +1,4 @@
+/** VirtualList：虚拟列表：spacer + 可见窗口，200 条只渲染 ~12 个 DOM（showcase /components/virtuallist） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

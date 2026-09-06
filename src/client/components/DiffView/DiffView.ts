@@ -1,3 +1,4 @@
+/** DiffView：代码 diff：LCS 行级对比 + 未变块折叠 + 三态着色（showcase /components/diffview） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

@@ -1,3 +1,4 @@
+/** Transfer：穿梭框：双列表 + 选中移动（antd/EP Transfer）（showcase /components/transfer） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

@@ -1,3 +1,4 @@
+/** CheckboxGroup：复选框组：数组受控 + 栅格列数（antd Checkbox.Group）（showcase /components/checkboxgroup） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Checkbox } from '../Checkbox/Checkbox.ts'

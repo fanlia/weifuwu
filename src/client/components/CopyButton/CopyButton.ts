@@ -1,3 +1,4 @@
+/** CopyButton：复制按钮：clipboard + execCommand 降级 + 成功状态机（showcase /components/copybutton） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

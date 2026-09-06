@@ -1,3 +1,4 @@
+/** DatePicker：日期选择器，四种模式：date/datetime/time/range（showcase /components/datepicker） */
 /**
  * weifuwu/components — DatePicker
  *

@@ -1,3 +1,4 @@
+/** Layout：布局外壳：Sider 折叠 + Header/Content/Footer 骨架（antd Layout / shadcn Sidebar 等价）（showcase /components/layout） */
 /**
  * weifuwu/components — Layout 布局外壳
  *

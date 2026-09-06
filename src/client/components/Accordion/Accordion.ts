@@ -1,3 +1,4 @@
+/** Accordion：折叠面板，支持多个 items（showcase /components/accordion） */
 import type { Component } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'

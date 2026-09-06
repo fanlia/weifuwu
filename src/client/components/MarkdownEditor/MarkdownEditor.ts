@@ -1,3 +1,4 @@
+/** MarkdownEditor：分屏 Markdown 编辑器——textarea + 实时预览（复用 Markdown parser 零漂移）（showcase /components/markdowneditor） */
 /**
  * MarkdownEditor — 分屏 Markdown 编辑器（textarea + 实时预览）
  *

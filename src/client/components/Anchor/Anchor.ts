@@ -1,3 +1,4 @@
+/** Anchor：锚点导航：滚动高亮跟随 + 点击平滑滚动（showcase /components/anchor） */
 /**
  * weifuwu/components — Anchor
  *

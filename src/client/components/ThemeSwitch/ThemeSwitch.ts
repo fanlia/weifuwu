@@ -1,3 +1,4 @@
+/** ThemeSwitch：主题切换：auto/light/dark，localStorage 持久化（showcase /components/themeswitch） */
 /**
  * weifuwu/components — ThemeSwitch 主题切换器
  *

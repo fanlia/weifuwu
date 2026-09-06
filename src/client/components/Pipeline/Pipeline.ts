@@ -1,3 +1,4 @@
+/** Pipeline：Agent 工作流 DAG：分层布局 + 贝塞尔连线 + 状态语义色 + 环检测（showcase /components/pipeline） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { layoutGraph, detectCycle } from './dag-utils.ts'

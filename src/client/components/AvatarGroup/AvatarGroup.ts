@@ -1,3 +1,4 @@
+/** AvatarGroup：头像组：堆叠 + max 溢出 +N（showcase /components/avatargroup） */
 /**
  * weifuwu/components — AvatarGroup
  *

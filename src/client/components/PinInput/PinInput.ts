@@ -1,3 +1,4 @@
+/** PinInput：验证码输入：自动聚焦/粘贴分派/Backspace 回退（shadcn InputOTP）（showcase /components/pininput） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

@@ -1,3 +1,4 @@
+/** TreeSelect：树形选择：单选/多选（父子联动）+ 选中 label 回显 + 受控纪律（showcase /components/treeselect） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

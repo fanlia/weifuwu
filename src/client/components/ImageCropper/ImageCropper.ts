@@ -1,3 +1,4 @@
+/** ImageCropper：图片裁剪——canvas 原生 API + 拖拽裁剪框 + 比例控制（零依赖）（showcase /components/imagecropper） */
 /**
  * ImageCropper — 图片裁剪（canvas 原生 API + 拖拽裁剪框，零依赖）
  *

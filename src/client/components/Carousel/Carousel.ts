@@ -1,3 +1,4 @@
+/** Carousel：轮播：箭头/圆点/循环 + 自动播放（三库共识）（showcase /components/carousel） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

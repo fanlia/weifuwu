@@ -1,3 +1,4 @@
+/** Sparkline：迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充（showcase /components/sparkline） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { computeSparklinePoints, polylinePoints, smoothPath } from './sparkline-utils.ts'

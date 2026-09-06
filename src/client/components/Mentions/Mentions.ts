@@ -1,3 +1,4 @@
+/** Mentions：@提及：composition 抑制 + 过滤插入（antd Mentions）（showcase /components/mentions） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

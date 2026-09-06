@@ -1,3 +1,4 @@
+/** Watermark：水印：canvas 平铺绘制 + overlay（antd Watermark）（showcase /components/watermark） */
 import type { Component } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'

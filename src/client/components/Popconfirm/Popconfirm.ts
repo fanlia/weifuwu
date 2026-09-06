@@ -1,3 +1,4 @@
+/** Popconfirm：气泡确认：危险操作防误触 + 复用 usePopup 基座（showcase /components/popconfirm） */
 /**
  * weifuwu/components — Popconfirm 气泡确认
  *

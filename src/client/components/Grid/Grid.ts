@@ -1,3 +1,4 @@
+/** Grid：24 栅格 + gutter + flex 容器模式（Row/Col/Flex 等价）（showcase /components/grid） */
 /**
  * weifuwu/components — Grid 栅格 + Flex 容器
  *

@@ -1,3 +1,4 @@
+/** Tree：树形：递归模型 + 勾选父子联动 + indeterminate（antd/EP Tree）（showcase /components/tree） */
 import type { Component } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'

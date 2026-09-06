@@ -229,9 +229,9 @@ for (const f of files) {
   const s = readFileSync(f, 'utf8')
   if (!/export const \w+:\s*Component/.test(s)) continue
   const name = f.slice(COMPONENTS.length + 1)
-  const first = s.slice(0, 600)
-  const hasHeader = /^\/\*\*?/.test(first.trim()) || /^\/\//.test(first.trim())
-  if (hasHeader) continue
+  const firstLine = s.trim().split('\n')[0]
+  // banner 首行单源：/** <Name>：<desc>（showcase /components/<id>） */
+  if (/^\/\*\* [A-Za-z0-9]+：.+（showcase \/components\/[\w-]+） \*\/$/.test(firstLine)) continue
   bannerBare++
   if (bannerWhitelist.includes(name)) continue // 登记在册（W1 清）
   fail(`文件头注释缺失 ${name}——补 /\*\* <Name>：<desc>（showcase /components/<id>）\*\/（desc 单源 registry）或登记`)

@@ -1,3 +1,4 @@
+/** Dropdown：下拉菜单，支持 danger variant（showcase /components/dropdown） */
 /**
  * weifuwu/components — Dropdown
  *

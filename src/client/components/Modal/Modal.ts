@@ -1,3 +1,4 @@
+/** Modal：自定义宽度 + closable 控制关闭按钮（showcase /components/modal） */
 /**
  * weifuwu/components — Modal
  */

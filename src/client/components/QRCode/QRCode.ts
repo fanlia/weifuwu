@@ -1,3 +1,4 @@
+/** QRCode：二维码：自研 QR 编码（Reed-Solomon + 8 掩码）零依赖 SVG（showcase /components/qrcode） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { generateQr } from './qr.ts'

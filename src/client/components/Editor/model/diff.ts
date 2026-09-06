@@ -1,3 +1,4 @@
+/** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
  * weifuwu/components/Editor/model/diff — 文本 diff（AI 建议对比用）
  *

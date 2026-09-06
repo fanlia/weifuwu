@@ -1,3 +1,4 @@
+/** Notification：队列式通知：notification.success/error/warning 命令式（antd 对齐）（showcase /components/notification） */
 import type { Component, VNode } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext, AppMiddleware } from '../../vdom/index.ts'

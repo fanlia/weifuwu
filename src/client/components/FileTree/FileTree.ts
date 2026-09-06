@@ -1,3 +1,4 @@
+/** FileTree：文件树浏览器——面包屑 + 列表/编辑态 + 上传（受控——数据源无关）（showcase /components/filetree） */
 /**
  * weifuwu/components — FileTree
  *

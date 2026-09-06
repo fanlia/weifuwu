@@ -1,3 +1,4 @@
+/** Scrollbar：自定义滚动容器：webkit 样式 + hover 显示（showcase /components/scrollbar） */
 /**
  * weifuwu/components — Scrollbar 自定义滚动容器
  *

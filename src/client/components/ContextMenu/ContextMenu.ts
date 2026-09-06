@@ -1,3 +1,4 @@
+/** ContextMenu：右键菜单：光标定位 + 方向键 + danger 变体（shadcn）（showcase /components/contextmenu） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

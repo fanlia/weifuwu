@@ -1,3 +1,4 @@
+/** ToggleGroup：（无 demo 卡片——组件目录存在）（showcase /components/togglegroup） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 

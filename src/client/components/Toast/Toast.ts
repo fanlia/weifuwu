@@ -1,3 +1,4 @@
+/** Toast：5 种位置 + 自动消失 + 数量限制（showcase /components/toast） */
 import type { Component } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext, AppMiddleware } from '../../vdom/index.ts'

@@ -1,3 +1,4 @@
+/** Field：label+error+hint 容器（showcase /components/field） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

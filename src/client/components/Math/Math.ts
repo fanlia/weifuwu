@@ -1,3 +1,4 @@
+/** Math：轻量公式渲染——自研 LaTeX 子集（上下标/分数/根号/希腊字母——零依赖不引 KaTeX）（showcase /components/math） */
 /**
  * Math — 轻量公式渲染（自研 LaTeX 子集——不引 KaTeX，零依赖）
  *

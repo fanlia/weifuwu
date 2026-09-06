@@ -1,3 +1,4 @@
+/** LogViewer：日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制（showcase /components/logviewer） */
 /**
  * weifuwu/components — LogViewer
  *

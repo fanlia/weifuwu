@@ -1,3 +1,4 @@
+/** InfiniteScroll：无限滚动：底部哨兵触底加载 + loading/end 态（showcase /components/infinitescroll） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

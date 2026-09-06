@@ -1,3 +1,4 @@
+/** Markdown：AI 回复渲染：安全子集 parser + 代码块 + 链接白名单（showcase /components/markdown） */
 /**
  * weifuwu/components — Markdown
  *

@@ -1,3 +1,4 @@
+/** Menu：侧栏导航：分组 + 图标 + 选中态 + 方向键（showcase /components/menu） */
 /**
  * weifuwu/components — Menu
  *

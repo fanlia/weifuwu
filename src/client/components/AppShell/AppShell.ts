@@ -1,3 +1,4 @@
+/** AppShell：应用壳——品牌 + 分组导航 + 用户区 + 主内容（受控——父层驱动）（showcase /components/appshell） */
 /**
  * weifuwu/components — AppShell
  *

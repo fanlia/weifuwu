@@ -1,3 +1,4 @@
+/** ActionSheet：动作面板——移动端底部滑出（命令列表 + 取消按钮，usePopup 会话级模态）（showcase /components/actionsheet） */
 /**
  * weifuwu/components — ActionSheet 动作面板（移动端底部滑出）
  *

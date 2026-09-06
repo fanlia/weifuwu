@@ -1,3 +1,4 @@
+/** Chart：SVG 图表：line/bar/pie/radar/gauge/scatter——零依赖自绘（showcase /components/chart） */
 /**
  * weifuwu/components — Chart 纯函数坐标计算
  *

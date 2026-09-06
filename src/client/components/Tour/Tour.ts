@@ -1,3 +1,4 @@
+/** Tour：新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape（showcase /components/tour） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

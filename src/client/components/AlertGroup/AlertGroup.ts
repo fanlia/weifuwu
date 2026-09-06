@@ -1,3 +1,4 @@
+/** AlertGroup：通知合并组：≥3 条折叠为 +N，点击展开（showcase /components/alertgroup） */
 /**
  * weifuwu/components — AlertGroup 通知合并组
  *

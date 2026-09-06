@@ -1,3 +1,4 @@
+/** DiffView：代码 diff：LCS 行级对比 + 未变块折叠 + 三态着色（showcase /components/diffview） */
 export type DiffLineType = 'add' | 'remove' | 'same'
 
 export interface DiffLine {

@@ -1,3 +1,4 @@
+/** MessageBubble：消息气泡：user/assistant + streaming/error 状态 + actions（showcase /components/messagebubble） */
 /**
  * weifuwu/components — MessageBubble
  *

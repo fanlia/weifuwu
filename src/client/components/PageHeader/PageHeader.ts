@@ -1,3 +1,4 @@
+/** PageHeader：页面标题栏，支持 sub + 右侧操作区 + display 大标题（showcase /components/pageheader） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

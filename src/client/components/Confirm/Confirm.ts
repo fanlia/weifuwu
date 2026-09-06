@@ -1,3 +1,4 @@
+/** Confirm：确认对话框，Promise 化 await 调用（showcase /components/confirm） */
 /**
  * weifuwu/components — Confirm 确认对话框
  *

@@ -1,3 +1,4 @@
+/** JSONViewer：结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开（showcase /components/jsonviewer） */
 /**
  * weifuwu/components — JSONViewer
  *

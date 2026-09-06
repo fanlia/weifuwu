@@ -1,3 +1,4 @@
+/** Wave：点击水波纹动效——包装任意可点击元素（纯 CSS，reduced-motion 自动降级）（showcase /components/wave） */
 /**
  * Wave — 点击水波纹动效（antd Wave 等价，纯 CSS 实现零依赖）
  *

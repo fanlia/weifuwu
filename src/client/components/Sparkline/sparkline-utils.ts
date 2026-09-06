@@ -1,3 +1,4 @@
+/** Sparkline：迷你趋势线：SVG 自绘 + 归一化 + 平滑曲线 + 面积填充（showcase /components/sparkline） */
 export interface SparklinePoint {
   x: number
   y: number

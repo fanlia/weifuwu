@@ -1,3 +1,4 @@
+/** AutoComplete：输入联想：自由输入 + 过滤下拉 + 键盘流 + 选中回填（showcase /components/autocomplete） */
 /**
  * weifuwu/components — AutoComplete 输入联想
  *

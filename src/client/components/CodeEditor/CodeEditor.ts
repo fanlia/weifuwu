@@ -1,3 +1,4 @@
+/** CodeEditor：轻量代码编辑器——textarea + 行号 + Tab 缩进（零依赖，不引 Monaco）（showcase /components/codeeditor） */
 /**
  * CodeEditor — 轻量代码编辑器（textarea + 行号——零依赖自研，不引 Monaco）
  *

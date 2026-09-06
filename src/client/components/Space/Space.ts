@@ -1,3 +1,4 @@
+/** Space：间距容器：size/direction/wrap + split 分隔符（showcase /components/space） */
 /**
  * weifuwu/components — Space 间距容器
  *

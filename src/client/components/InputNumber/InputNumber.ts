@@ -1,3 +1,4 @@
+/** InputNumber：数字输入：min/max/step + 增减按钮 + precision（showcase /components/inputnumber） */
 /**
  * weifuwu/components — InputNumber
  *

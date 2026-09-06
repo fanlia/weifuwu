@@ -1,3 +1,4 @@
+/** QRCode：二维码：自研 QR 编码（Reed-Solomon + 8 掩码）零依赖 SVG（showcase /components/qrcode） */
 /**
  * weifuwu QR 编码器（零依赖自研）
  *

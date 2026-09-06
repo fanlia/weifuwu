@@ -1,3 +1,4 @@
+/** Popover：通用弹出层，click/hover 触发，4 方向（showcase /components/popover） */
 /**
  * weifuwu/components — Popover
  *

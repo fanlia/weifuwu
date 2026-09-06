@@ -1,3 +1,4 @@
+/** PromptTemplate：提示词模板编辑器——变量 chips 插入 + 实时预览填充（AI 场景痛点）（showcase /components/prompttemplate） */
 /**
  * weifuwu/components — PromptTemplate 提示词模板编辑器（AI 场景）
  *

@@ -1,3 +1,4 @@
+/** Avatar：头像（首字母/图片），3 种 size（showcase /components/avatar） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

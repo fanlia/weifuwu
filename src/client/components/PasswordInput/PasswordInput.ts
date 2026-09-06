@@ -1,3 +1,4 @@
+/** PasswordInput：密码输入：眼睛按钮切换可见性（showcase /components/passwordinput） */
 /**
  * weifuwu/components — PasswordInput
  *

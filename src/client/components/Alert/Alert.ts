@@ -1,3 +1,4 @@
+/** Alert：信息提示条，4 种 variant + closable（showcase /components/alert） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

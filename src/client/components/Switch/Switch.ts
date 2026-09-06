@@ -1,3 +1,4 @@
+/** Switch：开关切换，视觉替代 checkbox（showcase /components/switch） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

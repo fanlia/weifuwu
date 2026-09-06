@@ -1,3 +1,4 @@
+/** Slider：范围滑块，支持 min/max/step/label（showcase /components/slider） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

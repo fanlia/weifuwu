@@ -1,3 +1,4 @@
+/** Tag：标签，支持 closable/onClose（showcase /components/tag） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

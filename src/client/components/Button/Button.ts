@@ -1,3 +1,4 @@
+/** Button：4 variants × 3 sizes + loading + block + disabled（showcase /components/button） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

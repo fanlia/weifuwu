@@ -1,3 +1,4 @@
+/** Typography：Title/Text/Paragraph：语义标签 + 语义色 -text 变体 + mark/code/删除线（showcase /components/typography） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 

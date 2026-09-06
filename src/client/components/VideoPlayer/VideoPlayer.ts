@@ -1,3 +1,4 @@
+/** VideoPlayer：视频播放器——原生 video 封装（controls/封面/宽高比/事件——零依赖）（showcase /components/videoplayer） */
 /**
  * VideoPlayer — 视频播放器（原生 video 封装——零依赖）
  *

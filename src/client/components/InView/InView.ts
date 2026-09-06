@@ -1,3 +1,4 @@
+/** InView：进入视窗后懒加载内容，支持 IntersectionObserver（showcase /components/inview） */
 /**
  * weifuwu/components — InView
  *

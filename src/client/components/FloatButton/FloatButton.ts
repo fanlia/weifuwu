@@ -1,3 +1,4 @@
+/** FloatButton：悬浮按钮组：展开状态机 + badge（showcase /components/floatbutton） */
 /**
  * weifuwu/components — FloatButton 悬浮操作按钮
  *

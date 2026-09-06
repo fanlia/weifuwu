@@ -1,3 +1,4 @@
+/** AiChat：useChat + 标准对话界面：流式 token / 工具卡 / 审批卡 / 自动滚动，协议对页面透明（showcase /components/aichat） */
 /**
  * AiChat — 标准 AI 对话组件（useChat 的标准展示层）
  *

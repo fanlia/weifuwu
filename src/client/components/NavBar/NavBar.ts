@@ -1,3 +1,4 @@
+/** NavBar：移动端顶栏——left 槽（返回/菜单）+ 标题截断 + right 槽（antd-mobile NavBar 对位）（showcase /components/navbar） */
 /**
  * weifuwu/components — NavBar 移动端顶栏（antd-mobile NavBar / MUI AppBar 对位）
  *

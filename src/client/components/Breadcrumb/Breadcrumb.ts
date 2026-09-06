@@ -1,3 +1,4 @@
+/** Breadcrumb：面包屑导航，支持 aria-current（showcase /components/breadcrumb） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

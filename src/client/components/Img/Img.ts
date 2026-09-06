@@ -1,3 +1,4 @@
+/** Img：图片 \\<img\\> 组件：fallback / lazy / preview 点击放大（showcase /components/img） */
 /**
  * weifuwu/components — Img
  */

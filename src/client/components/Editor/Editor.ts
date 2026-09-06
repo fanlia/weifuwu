@@ -1,3 +1,4 @@
+/** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
  * weifuwu/components/Editor — 富文本编辑器（事件流事务层，阶段 1）
  *

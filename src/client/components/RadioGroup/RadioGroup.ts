@@ -1,3 +1,4 @@
+/** RadioGroup：单选组，支持 inline/options/value（showcase /components/radiogroup） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

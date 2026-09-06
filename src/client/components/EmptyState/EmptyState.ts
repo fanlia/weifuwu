@@ -1,3 +1,4 @@
+/** EmptyState：空状态占位，支持 icon/text/hint/action（showcase /components/emptystate） */
 import type { Component, VNode } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

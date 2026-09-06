@@ -1,3 +1,4 @@
+/** Form：内置验证规则：required/pattern/minLength/自定义（showcase /components/form） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

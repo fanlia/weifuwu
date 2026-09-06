@@ -1,3 +1,4 @@
+/** Menubar：水平菜单栏：←→ 切换 + ↓ 展开（shadcn Menubar）（showcase /components/menubar） */
 import type { Component } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'

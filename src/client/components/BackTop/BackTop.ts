@@ -1,3 +1,4 @@
+/** BackTop：回到顶部（滚动超 400px 显示）+ 固定导航（距顶 80px 钉住）（showcase /components/backtop） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

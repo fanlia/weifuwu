@@ -1,3 +1,4 @@
+/** ToolCallCard：工具调用卡片：running / ok / error 状态机（call/progress/result 三字段驱动）（showcase /components/toolcallcard） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'

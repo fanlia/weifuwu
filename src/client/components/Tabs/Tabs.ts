@@ -1,3 +1,4 @@
+/** Tabs：标签页切换，支持 active/onChange（showcase /components/tabs） */
 import type { Component } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'

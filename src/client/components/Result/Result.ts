@@ -1,3 +1,4 @@
+/** Result：结果页：success/error/warning/info + extra 操作区（showcase /components/result） */
 /**
  * weifuwu/components — Result
  *

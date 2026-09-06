@@ -1,3 +1,4 @@
+/** Kanban：看板：原生 DnD 拖拽 + 跨列/重排 + 悬停高亮（showcase /components/kanban） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

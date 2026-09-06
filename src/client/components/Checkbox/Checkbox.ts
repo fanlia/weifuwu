@@ -1,3 +1,4 @@
+/** Checkbox：带 label 的复选框，支持 checked/disabled（showcase /components/checkbox） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

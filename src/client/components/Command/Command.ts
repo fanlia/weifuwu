@@ -1,3 +1,4 @@
+/** Command：命令面板：⌘K 全局快捷键 + 键盘流（shadcn Command）（showcase /components/command） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

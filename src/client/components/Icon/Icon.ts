@@ -1,3 +1,4 @@
+/** Icon：stroke SVG 图标集，currentColor 着色，随字号缩放（showcase /components/icon） */
 /**
  * weifuwu/components — Icon 内联 SVG 图标
  *

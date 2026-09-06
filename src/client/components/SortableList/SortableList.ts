@@ -1,3 +1,4 @@
+/** SortableList：拖拽排序列表——useDragDrop 原语 + keyed 身份（任务/字段/配置排序）（showcase /components/sortablelist） */
 /**
  * SortableList — 拖拽排序列表（useDragDrop 原语 + keyed 复用）
  *

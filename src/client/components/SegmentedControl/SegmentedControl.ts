@@ -1,3 +1,4 @@
+/** SegmentedControl：分段单选（模式切换/筛选/模板），支持 sm/block（showcase /components/segmentedcontrol） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

@@ -1,3 +1,4 @@
+/** Select：原生下拉选择器（showcase /components/select） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

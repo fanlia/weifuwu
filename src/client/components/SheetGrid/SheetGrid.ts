@@ -1,3 +1,4 @@
+/** SheetGrid：weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 设计（）：文档 = fold(事件流)——SheetGrid 的每个（showcase /components/sheetgrid） */
 /**
  * weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座）
  *

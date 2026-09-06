@@ -1,3 +1,4 @@
+/** TagsInput：标签输入：回车/逗号添加 + 中文输入法感知（showcase /components/tagsinput） */
 /**
  * weifuwu/components — TagsInput
  *

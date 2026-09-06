@@ -1,3 +1,4 @@
+/** CodeBlock：代码块：语言标签 + 复制按钮 + 横向滚动（showcase /components/codeblock） */
 /**
  * weifuwu/components — 轻量语法高亮 tokenizer
  *

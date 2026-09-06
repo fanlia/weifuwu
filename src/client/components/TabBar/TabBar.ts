@@ -1,3 +1,4 @@
+/** TabBar：底部标签栏——移动端 App 主导航（3-5 tab + icon/badge/受控激活 + safe-area 避让）（showcase /components/tabbar） */
 /**
  * weifuwu/components — TabBar 底部标签栏（移动端导航）
  *

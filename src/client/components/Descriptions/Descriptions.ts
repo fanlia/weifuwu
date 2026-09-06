@@ -1,3 +1,4 @@
+/** Descriptions：描述列表：label/value 栅格 + bordered + span（详情页）（showcase /components/descriptions） */
 /**
  * weifuwu/components — Descriptions
  *

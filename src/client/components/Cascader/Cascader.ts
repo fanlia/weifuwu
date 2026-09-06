@@ -1,3 +1,4 @@
+/** Cascader：级联选择：多列面板逐级推进（antd/EP Cascader）（showcase /components/cascader） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

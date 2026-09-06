@@ -1,3 +1,4 @@
+/** Divider：分割线，支持 horizontal/vertical/带文字（showcase /components/divider） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

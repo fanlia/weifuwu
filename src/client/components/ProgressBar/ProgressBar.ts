@@ -1,3 +1,4 @@
+/** ProgressBar：进度条，支持 label/showValue（showcase /components/progressbar） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

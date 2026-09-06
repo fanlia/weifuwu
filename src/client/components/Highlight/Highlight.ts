@@ -1,3 +1,4 @@
+/** Highlight：搜索词高亮：分词渲染 mark，大小写不敏感（showcase /components/highlight） */
 /**
  * weifuwu/components — Highlight
  *

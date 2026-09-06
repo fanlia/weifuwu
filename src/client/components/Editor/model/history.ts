@@ -1,3 +1,4 @@
+/** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
  * weifuwu/components/Editor/model/history — undo/redo 栈（commit 粒度）
  *

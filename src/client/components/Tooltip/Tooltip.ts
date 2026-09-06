@@ -1,3 +1,4 @@
+/** Tooltip：hover 浮动提示，4 方向（showcase /components/tooltip） */
 /**
  * weifuwu/components — Tooltip
  *

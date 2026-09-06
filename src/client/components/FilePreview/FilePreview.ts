@@ -1,3 +1,4 @@
+/** FilePreview：文件预览（md/html/pdf/office）——基于事件流，可编辑（showcase /components/filepreview） */
 /**
  * weifuwu/components/FilePreview — 文件预览（office/pdf/md/html/text）
  *

@@ -1,3 +1,4 @@
+/** VirtualTable：虚拟表格：10k 行固定表头 + 可见窗口渲染 + 排序（showcase /components/virtualtable） */
 /**
  * weifuwu/components — VirtualTable
  *

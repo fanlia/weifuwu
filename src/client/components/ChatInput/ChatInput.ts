@@ -1,3 +1,4 @@
+/** ChatInput：独立聊天输入条（AiChat 抽取）：单行/多行 + streaming 停止 + IME 安全——不自带聊天逻辑（showcase /components/chatinput） */
 /**
  * weifuwu/components — ChatInput
  *

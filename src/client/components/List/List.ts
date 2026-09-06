@@ -1,3 +1,4 @@
+/** List：通用列表：renderItem + divided + header/footer/empty（showcase /components/list） */
 /**
  * weifuwu/components — List
  *

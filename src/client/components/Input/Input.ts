@@ -1,3 +1,4 @@
+/** Input：text/email/password/number，支持 label/error/hint/required（showcase /components/input） */
 import type { Component } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'
 

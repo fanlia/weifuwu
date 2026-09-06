@@ -1,3 +1,4 @@
+/** Table：可排序 + 自定义 render + 空状态（showcase /components/table） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

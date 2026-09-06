@@ -1,3 +1,4 @@
+/** ExportCSV：数据导出 CSV——RFC 4180 转义 + BOM（Excel 兼容）零依赖（showcase /components/exportcsv） */
 /**
  * ExportCSV — 数据导出 CSV（零依赖：纯函数 + ctx.browser.downloadFile）
  *

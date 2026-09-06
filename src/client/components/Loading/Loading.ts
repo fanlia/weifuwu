@@ -1,3 +1,4 @@
+/** Loading：加载状态，支持自定义文字（showcase /components/loading） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
 import { h } from '../../vdom/index.ts'

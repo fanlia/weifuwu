@@ -1,3 +1,4 @@
+/** Collapse：行内折叠：异步 loading + extra 操作区（区别于 Accordion）（showcase /components/collapse） */
 import type { Component } from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
