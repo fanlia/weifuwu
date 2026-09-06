@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--wf-space-sm) 16px;
+  padding: var(--wf-space-sm) var(--wf-space-md);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-surface-radius);
   background: var(--wf-color-bg-secondary);
@@ -30,7 +30,7 @@
   display: flex;
   align-items: center;
   gap: var(--wf-space-sm);
-  padding: var(--wf-space-sm) 16px;
+  padding: var(--wf-space-sm) var(--wf-space-md);
   border-radius: var(--wf-surface-radius);
   background: var(--wf-color-bg-secondary);
   border-left: 3px solid var(--wf-color-info);

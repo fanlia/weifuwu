@@ -29,12 +29,12 @@
 }
 
 /* variants */
-.wf-copy-btn--ghost { padding: 4px var(--wf-space-sm); }
-.wf-copy-btn--secondary { padding: 4px var(--wf-space-sm); }
+.wf-copy-btn--ghost { padding: var(--wf-space-xs) var(--wf-space-sm); }
+.wf-copy-btn--secondary { padding: var(--wf-space-xs) var(--wf-space-sm); }
 .wf-copy-btn--default {
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
-  padding: 4px var(--wf-space-sm);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
 }
 
 /* sizes */

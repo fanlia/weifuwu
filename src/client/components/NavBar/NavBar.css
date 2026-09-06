@@ -5,7 +5,7 @@
   align-items: center;
   gap: var(--wf-gap-xs);
   min-height: 48px;
-  padding: 4px var(--wf-space-sm);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
   background: var(--wf-color-bg-secondary);
   border-bottom: var(--wf-border-width) solid var(--wf-color-border);
 }

@@ -32,8 +32,8 @@
   cursor: not-allowed;
 }
 
-.wf-mentions-input--sm { padding: 4px var(--wf-space-sm); }
-.wf-mentions-input--lg { padding: 8px var(--wf-space-md); }
+.wf-mentions-input--sm { padding: var(--wf-space-xs) var(--wf-space-sm); }
+.wf-mentions-input--lg { padding: var(--wf-space-sm) var(--wf-space-md); }
 
 .wf-mentions-panel {
   position: fixed;

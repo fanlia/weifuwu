@@ -14,7 +14,7 @@
 .wf-menubar-trigger {
   border: none;
   background: none;
-  padding: 4px var(--wf-space);
+  padding: var(--wf-space-xs) var(--wf-space);
   border-radius: var(--wf-radius-sm);
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);

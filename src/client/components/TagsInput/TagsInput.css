@@ -5,7 +5,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--wf-gap-xs);
-  padding: 4px var(--wf-space-sm);
+  padding: var(--wf-space-xs) var(--wf-space-sm);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
   background: var(--wf-color-bg);

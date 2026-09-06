@@ -69,9 +69,17 @@ function classify(): { hairline: Map<string, string>; scale: Map<string, string>
           hairline.set(`${name}#${prop}#1px`, `${name} ${prop}: ${val.slice(0, 60)}`)
           return
         }
-        // ② 标尺档：纯字面量（无 var）+ 每个 px 值都在标尺档内（多值缩写如 4px 8px）
+        // 派生面豁免（L13 同款）：含 calc/env/min/max/clamp 的声明是表达式值——
+        //   一个字面量面之外的派生面（如 calc(var(--wf-space) - 1px) / env(safe-area)）——
+        //   标尺桶与结构桶都不抓（作者手写的不是最终值）
+        if (/\b(?:calc|env|min|max|clamp)\(/.test(val)) return
+        // 零值形态豁免：0px ≡ 0——零值语义非标尺非魔数（覆盖默认的常见强写——L5d 零值同款）
+        const pxsAll = [...val.matchAll(/\b(\d+(?:\.\d+)?)px\b/g)].map((m) => m[1])
+        if (pxsAll.length && pxsAll.every((p) => p === '0')) return
+        // ② 标尺档：px 值全在标尺档内（纯字面量或多值缩写如 4px 8px；**含 var 的混合声明**
+        //    也应标尺化——px 部分在档位即不完整标准化（W3 半标尺面；已 token 的面 pxs=0 天然豁免）
         const pxs = [...val.matchAll(/\b(\d+(?:\.\d+)?)px\b/g)].map((m) => m[1])
-        if (!val.includes('var(') && pxs.length && SCALE_PROPS.has(prop) && pxs.every((p) => SCALE_STEPS.has(p))) {
+        if (pxs.length && SCALE_PROPS.has(prop) && pxs.every((p) => SCALE_STEPS.has(p))) {
           scale.set(`${name}#${prop}#${[...new Set(pxs)].join('/')}px`, `${name} ${prop}: ${val.slice(0, 60)}`)
           return
         }

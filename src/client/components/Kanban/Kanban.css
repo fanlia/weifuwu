@@ -26,7 +26,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--wf-space-sm) 12px;
+  padding: var(--wf-space-sm) var(--wf-space);
   font-weight: 600;
   font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */
 }
@@ -50,7 +50,7 @@
   background: var(--wf-color-bg);
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius-sm);
-  padding: var(--wf-space-sm) 12px;
+  padding: var(--wf-space-sm) var(--wf-space);
   cursor: grab;
   display: flex;
   align-items: center;

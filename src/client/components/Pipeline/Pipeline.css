@@ -24,7 +24,7 @@
 .wf-pipeline-node {
   position: absolute;
   transform: translate(-50%, -50%);
-  padding: 8px var(--wf-space-md);
+  padding: var(--wf-space-sm) var(--wf-space-md);
   min-width: 72px;
   max-width: 120px;
   text-align: center;

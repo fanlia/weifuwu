@@ -17,7 +17,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--wf-space-sm);
-  padding: 8px var(--wf-space-md);
+  padding: var(--wf-space-sm) var(--wf-space-md);
   border-radius: var(--wf-surface-radius);
   color: var(--wf-color-text-secondary);
   cursor: pointer;
