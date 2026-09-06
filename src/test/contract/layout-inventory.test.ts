@@ -28,7 +28,9 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { join } from 'node:path'
 import { inventory, conflictMatrix, QUARTET_KEEP, LIB_SURFACE_KEEP, SHOWCASE_PRIVATE } from '../../../scripts/layout-inventory.mjs'
-import { LAYER_ORDER } from '../../client/layout/bundle.ts'
+import { LAYER_ORDER, bundleLayout } from '../../client/layout/bundle.ts'
+import { generateLayoutCss } from '../../client/layout/define.ts'
+import { structures } from '../../client/layout/decl.ts'
 
 const root = join(import.meta.dirname, '..', '..', '..')
 const LAYOUT = join(root, 'src/client/layout')
@@ -356,17 +358,23 @@ test('L9b 变量钩子注册完备（@property inherits:false——污染根治 
 
   // layout 全面的钩子消费：var(--wf-X, fallback) 且 X 未在 token 面声明 = 钩子
   const hooks = new Map<string, string[]>()
-  for (const f of readdirSync(LAYOUT).filter((x) => x.endsWith('.css') && x !== '_props.css')) {
-    const parsed = parse(f)
+  const collect = (raw: string, file: string) => {
+    const parsed = postcss.parse(raw)
     parsed.walkDecls((d) => {
       for (const m of String(d.value).matchAll(/var\(\s*(--wf-[a-z0-9-]+)\s*,/g)) {
         const name = m[1]
         if (declared.has(name)) continue
         if (!hooks.has(name)) hooks.set(name, [])
-        hooks.get(name)!.push(f)
+        hooks.get(name)!.push(file)
       }
     })
   }
+  for (const f of readdirSync(LAYOUT).filter((x) => x.endsWith('.css') && x !== '_props.css')) {
+    collect(readFileSync(join(LAYOUT, f), 'utf-8'), f)
+  }
+  // 生成段（decl.ts 声明——_stack 锚点插入）也算消费面（W5：grid/cover 钩子
+  // 在生成段——物理文件不可见——虚拟源参与统计）
+  collect(generateLayoutCss(structures), '生成段(decl.ts)')
   const unregistered = [...hooks.keys()].filter((h) => !registered.has(h))
   assert.equal(
     unregistered.length, 0,
@@ -555,8 +563,8 @@ test('L14 layout 类文件 px 字面量登记制（结构魔数白名单——�
   const WHITELIST = {
     '_app-shell.css#.wf-nav#gap': '2px——导航项发丝分隔间距（小于 gap-xs 4px：紧贴分组视觉，非标尺档位）',
     '_app-shell.css#.wf-nav-item#min-height': '44px——触控命中区下限（WCAG 2.5.5 / Apple HIG 44pt）——不随密度预设缩放（可访问性地板）',
-    '_fill.css#.wf-fill-hover#padding': '2px 4px——hover 底色内缩（与同规则负 margin 成对：视觉零位移的命中区扩展）',
-    '_fill.css#.wf-fill-hover#margin': '-2px -4px——同上 bleed 对（padding/负 margin 必须同值成对——token 化会拆开这对关系）',
+    'decl.ts#.wf-fill-hover#padding': '2px 4px——hover 底色内缩（与同规则负 margin 成对：视觉零位移的命中区扩展）',
+    'decl.ts#.wf-fill-hover#margin': '-2px -4px——同上 bleed 对（padding/负 margin 必须同值成对——token 化会拆开这对关系）',
     '_popup.css#.wf-popup#max-width': '32px——弹层视口内缩 calc(100vw - 32px)（移动端左右各 16px 安全边距）',
     '_surface.css#.wf-pill#border-radius': '999px——胶囊圆角（远大于任何盒高即全圆端；不是标尺档位——token 化无意义）',
     '_surface.css#.wf-elevate:hover#transform': '-2px——hover 微抬升（= motion-sm 4px 半档，无独立档位；入场幅度已走 motion 标尺）',
@@ -576,14 +584,19 @@ test('L14 layout 类文件 px 字面量登记制（结构魔数白名单——�
   }
   const NON_CLASS = new Set(['_tokens.css', '_dark.css', '_presets.css', '_base.css', '_props.css'])
   const found = new Map()
-  for (const f of readdirSync(LAYOUT).filter((x) => x.endsWith('.css') && !NON_CLASS.has(x))) {
-    postcss.parse(readFileSync(join(LAYOUT, f), 'utf-8')).walkDecls((d) => {
+  // 生成段（decl.ts 声明）与物理文件同面参与 px 登记（W5：fill-hover 已入声明）
+  const scanD = (raw: string, f: string) => {
+    postcss.parse(raw).walkDecls((d) => {
       const px = [...stripVars(String(d.value)).matchAll(/-?[\d.]+px/g)].map((m) => m[0])
       if (!px.length) return
       const sel = d.parent && d.parent.selector ? String(d.parent.selector).trim() : '(root)'
       found.set(`${f}#${sel}#${d.prop}`, px.join(' '))
     })
   }
+  for (const f of readdirSync(LAYOUT).filter((x) => x.endsWith('.css') && !NON_CLASS.has(x))) {
+    scanD(readFileSync(join(LAYOUT, f), 'utf-8'), f)
+  }
+  scanD(generateLayoutCss(structures), 'decl.ts')
   const unregistered = [...found.keys()].filter((k) => !WHITELIST[k])
   assert.equal(
     unregistered.length, 0,

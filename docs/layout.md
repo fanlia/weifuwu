@@ -43,23 +43,23 @@
 | `wf-absolute` | _position.css | position · position:absolute | — | — |
 | `wf-app-shell` | _app-shell.css | display · grid-template-columns · height · overflow · display:grid · overflow:visible | — | — |
 | `wf-block` | _block.css | display · display:block | — | — |
-| `wf-center` | _center.css | align-items · display · flex-direction · justify-content · display:flex · flex-direction:column · align-items:… | — | — |
+| `wf-center` | _stack.css | align-items · display · flex-direction · justify-content · display:flex · flex-direction:column · align-items:… | — | — |
 | `wf-cluster` | _cluster.css | align-items · display · flex-wrap · gap · justify-content · display:flex · flex-wrap:wrap · justify-content:va… | — | — |
 | `wf-container` | _container.css | margin · max-width · padding · width | — | — |
-| `wf-cover` | _cover.css | align-items · display · inset · justify-content · position · z-index · position:fixed · display:flex · align-i… | — | — |
+| `wf-cover` | _stack.css | align-items · display · inset · justify-content · position · z-index · position:fixed · display:flex · align-i… | — | — |
 | `wf-dim` | _hidden.css | opacity | — | — |
-| `wf-fill` | _fill.css | flex · min-height · min-width · flex:1 | — | — |
-| `wf-fill-hover` | _fill.css | background · border-radius · margin · padding · transition | — | — |
+| `wf-fill` | _stack.css | flex · min-height · min-width · flex:1 | — | — |
+| `wf-fill-hover` | _stack.css | border-radius · margin · padding · transition | — | — |
 | `wf-flex` | _flex.css | display · display:flex | @@lg @@sm | — |
-| `wf-grid` | _grid.css | display · gap · grid-template-columns · display:grid | — | — |
+| `wf-grid` | _stack.css | display · gap · grid-template-columns · display:grid | — | — |
 | `wf-hidden` | _hidden.css | display · display:none | @@lg | — |
 | `wf-items-center` | _stack.css |  | — | — |
 | `wf-items-end` | _stack.css |  | — | — |
 | `wf-items-start` | _stack.css |  | — | — |
 | `wf-items-stretch` | _stack.css |  | — | — |
-| `wf-justify-between` | _justify.css | align-items · display · gap · justify-content · display:flex · justify-content:space-between · align-items:var… | — | — |
-| `wf-justify-center` | _justify.css | align-items · display · gap · justify-content · display:flex · justify-content:center · align-items:var(--wf-a… | — | — |
-| `wf-justify-end` | _justify.css | align-items · display · gap · justify-content · display:flex · justify-content:flex-end · align-items:var(--wf… | — | — |
+| `wf-justify-between` | _stack.css | align-items · display · gap · justify-content · display:flex · justify-content:space-between · align-items:var… | — | — |
+| `wf-justify-center` | _stack.css | align-items · display · gap · justify-content · display:flex · justify-content:center · align-items:var(--wf-a… | — | — |
+| `wf-justify-end` | _stack.css | align-items · display · gap · justify-content · display:flex · justify-content:flex-end · align-items:var(--wf… | — | — |
 | `wf-layer` | _layer.css | position · z-index · position:relative | — | — |
 | `wf-main` | _app-shell.css | background · margin-inline · max-width · min-height · min-width · overflow · overflow-y · padding · overflow:v… | — | — |
 | `wf-min-width-0` | _shrink.css | min-width | — | — |

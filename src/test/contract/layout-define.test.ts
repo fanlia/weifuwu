@@ -47,6 +47,69 @@ const HANDWRITTEN_ROW_STACK = `/* stack — 纵向堆叠 */
 .wf-items-center { --wf-align: center; }
 .wf-items-end { --wf-align: flex-end; }
 .wf-items-stretch { --wf-align: stretch; }
+
+/* W5 扩容快照（_grid/_center/_justify/_fill/_cover——迁移前手写内容） */
+/* grid — 二维网格（L3：gap 默认值 :where() 零优先级） */
+.wf-grid {
+  display: grid;
+  grid-template-columns: var(--wf-cols, repeat(auto-fill, minmax(280px, 1fr)));
+}
+:where(.wf-grid) {
+  gap: var(--wf-gap, var(--wf-gap-lg));
+}
+/* center — 居中 */
+.wf-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+/* justify — 主轴分布（对齐域统一 CSS 词根） */
+.wf-justify-between {
+  display: flex;
+  justify-content: space-between;
+}
+:where(.wf-justify-between) {
+  align-items: var(--wf-align, center);
+  gap: var(--wf-gap, var(--wf-gap-md));
+}
+.wf-justify-end {
+  display: flex;
+  justify-content: flex-end;
+}
+:where(.wf-justify-end) {
+  align-items: var(--wf-align, center);
+  gap: var(--wf-gap, var(--wf-gap-md));
+}
+.wf-justify-center {
+  display: flex;
+  justify-content: center;
+}
+:where(.wf-justify-center) {
+  align-items: var(--wf-align, center);
+  gap: var(--wf-gap, var(--wf-gap-md));
+}
+/* fill — 撑满剩余空间 */
+.wf-fill {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.wf-fill-hover {
+  border-radius: var(--wf-radius-sm);
+  padding: 2px 4px;
+  margin: -2px -4px;
+  transition: background 0.15s ease;
+}
+/* cover — 全屏覆盖 */
+.wf-cover {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--wf-z, var(--wf-cover-z));
+}
 `
 
 test('生成器：基规则 + 零优先级默认（:where）输出', () => {

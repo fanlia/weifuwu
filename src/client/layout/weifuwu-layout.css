@@ -1,6 +1,8 @@
 /* weifuwu/layout — 基于 CSS 标准的布局原语
  * 命名规则：docs/client.md §4（概念原语 / 属性根全名 / 裸值词——三后缀语法；词根表见 docs/layout.md）
- * 类面随消费证据生长（契约测试锁定——layout-inventory.test.ts） */
+ * 类面随消费证据生长（契约测试锁定——layout-inventory.test.ts）
+ * 生成段锚点：@import './_stack.css'（文件已删——bundle 以 decl.ts 声明生成
+ * row/stack/items/grid/center/justify/fill/cover——生成=旧手写逐属性等价快照锁定） */
 @import './_tokens.css';
 @import './_dark.css';
 @import './_presets.css';
@@ -10,12 +12,7 @@
 @import './_base.css';
 @import './_stack.css';
 @import './_split.css';
-@import './_center.css';
-@import './_justify.css';
-@import './_fill.css';
-@import './_grid.css';
 @import './_cluster.css';
-@import './_cover.css';
 @import './_position.css';
 @import './_sticky.css';
 @import './_overflow.css';
