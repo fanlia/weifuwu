@@ -30,7 +30,7 @@ function formatSize(bytes: number): string {
 }
 
 export const FileUpload: Component<FileUploadProps> = (_init, ctx) => {
-  const FL = (ctx as any)?.i18n?.components?.FileUpload ?? {}
+  const FL = ctx?.i18n?.components?.FileUpload ?? {}
   let fileInput: HTMLInputElement | null = null
   const fileInputRef = (el: HTMLInputElement | null) => { if (el) fileInput = el }
 

@@ -22,7 +22,7 @@ export const Pagination: Component<PaginationProps> = (_init, ctx) =>
     ctrl?.setValue(p)
     if (!wasControlled) props.onChange?.(p)
   }
-  const PL = (ctx as any)?.i18n?.components?.Pagination ?? {}
+  const PL = ctx?.i18n?.components?.Pagination ?? {}
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   if (totalPages <= 1) return null

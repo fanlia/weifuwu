@@ -48,7 +48,7 @@ export const CodeEditor: Component<CodeEditorProps> = (_init, ctx) => {
       spellcheck: false,
       wrap: 'off', // 水平滚动——pre 同 whiteSpace: pre 对齐
       style: { fontFamily: 'var(--wf-font-mono)', fontSize: 12, lineHeight: 1.7, padding: '8px 10px', border: 'none', outline: 'none', resize: 'vertical', display: 'block', width: '100%', background: 'transparent', overflow: 'auto', color: 'transparent', caretColor: 'var(--wf-color-text)' },
-      onScroll: (e: any) => { const el = e.target as HTMLElement; (hl as any).scrollTop = el.scrollTop; (hl as any).scrollLeft = el.scrollLeft },
+      onScroll: (e: Event) => { const el = e.target as HTMLElement; (hl as unknown as { scrollTop: number; scrollLeft: number }).scrollTop = el.scrollTop; (hl as unknown as { scrollTop: number; scrollLeft: number }).scrollLeft = el.scrollLeft },
       onInput: (e: any) => { onChange?.((e.target as HTMLTextAreaElement).value) },
       onKeyDown: (e: KeyboardEvent) => {
         // Tab 插入两个空格（编辑器惯例）

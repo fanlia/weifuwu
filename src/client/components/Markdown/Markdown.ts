@@ -28,7 +28,7 @@ export const Markdown: Component<MarkdownProps> = (_init, _ctx) =>
 function renderBlock(b: MdBlock, key: number): any {
   switch (b.type) {
     case 'heading':
-      return h(`h${b.level!}` as any, { class: `wf-md-h wf-md-h${b.level}`, key }, renderInline(b.inline!))
+      return h(`h${b.level!}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6', { class: `wf-md-h wf-md-h${b.level}`, key }, renderInline(b.inline!))
     case 'paragraph':
       return h('p', { class: 'wf-md-p', key }, renderInline(b.inline!))
     case 'list': {

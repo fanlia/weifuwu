@@ -75,7 +75,7 @@ export const Img: Component<ImgProps> = (_init, ctx) => {
     /** 占位块（未就绪/失败——与最终 img 同尺寸（width/height 已知）——布局恒定） */
     const placeholderVNode = () => h('div', {
       class: phCls,
-      style: { width: width as any, height: height as any, ...(style ?? {}) },
+      style: { width, height, ...(style ?? {}) },
     }, [
       h('span', { class: 'wf-image-placeholder-text' },
         (src && failed) ? errText : phText),

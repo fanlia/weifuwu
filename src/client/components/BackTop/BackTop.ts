@@ -91,7 +91,7 @@ export const BackTop: Component<BackTopProps> = (_init, ctx) => {
       onClick: () => {
         if (!scroller) return
         const top = isBottom ? r() : 0
-        ;(scroller as any).scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' })
+        ;(scroller as unknown as { scrollTo: (o: { top: number; behavior: ScrollBehavior }) => void }).scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' })
       },
     }, children ?? h(Icon, { name: isBottom ? 'arrow-down' : 'arrow-up', size: 16 }))
   }

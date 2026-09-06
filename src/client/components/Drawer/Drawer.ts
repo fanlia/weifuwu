@@ -36,7 +36,7 @@ export const Drawer: Component<DrawerProps> = (_props, ctx) => {
   return (props: DrawerProps) => {
     const { open, title, position = 'right', onClose, children, footer, width } = props
     latestOnClose = onClose
-    const DL = (ctx as any)?.i18n?.components?.Drawer ?? {}
+    const DL = ctx?.i18n?.components?.Drawer ?? {}
     latestOpen = !!open
 
     const overlay = h('div', {

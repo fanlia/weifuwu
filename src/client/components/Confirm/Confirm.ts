@@ -107,7 +107,7 @@ export const Confirm: Component<ConfirmProps> = (_init, _ctx) => {
   // ── render（每次 dirty/props 变化）──
   return (props: ConfirmProps) => {
     const { open = false, title, message, confirmText, cancelText, variant = 'primary', width, maskClosable = false, onConfirm, onCancel } = props
-    const CL = (_ctx as any)?.i18n?.components?.Confirm ?? {}
+    const CL = _ctx?.i18n?.components?.Confirm ?? {}
 
     const footer = [
       h(Button, { variant: 'secondary', size: 'md', onClick: () => onCancel?.() },

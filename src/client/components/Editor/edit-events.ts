@@ -78,7 +78,7 @@ export function resetEditEvents(): void {
 
 // 全局调试工具（与 __wf_tail / __ai_events / __sandbox_events 同风格）
 if (typeof globalThis !== 'undefined') {
-  const w = globalThis as any
+  const w = globalThis as Record<string, unknown>
   if (!w.__edit_tail) {
     w.__edit_tail = (n = 50, action?: EditAction | EditAction[]) => editEvents(n, action ? { action } : undefined)
   }

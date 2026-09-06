@@ -94,8 +94,8 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
       onAnchorChange?.(href)
       if (!useHash && activeKey === undefined) internalActive = href
       const el = href.startsWith('#') ? ctx.browser?.byId(href.slice(1)) ?? null : null
-      if (el && typeof (el as any).scrollIntoView === 'function') {
-        (el as any).scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (el && typeof (el as Element).scrollIntoView === 'function') {
+        (el as Element).scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
     }
 
@@ -110,7 +110,7 @@ export const Anchor: Component<AnchorProps> = (_init, ctx) => {
         'aria-current': isActive ? 'true' : undefined,
         onClick: handleClick(it.href),
         onKeyDown: (e: KeyboardEvent) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(it.href)(e as any) }
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(it.href)(e) }
         },
       }, it.title)
     })

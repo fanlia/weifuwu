@@ -48,7 +48,7 @@ export const ExportCSV: Component<ExportCSVProps> = (_init, ctx) =>
     const { data, filename = 'export.csv', columns, format, children, variant, size, disabled, className = '' } = props
     const doExport = () => {
       const csv = toCsv({ data, columns, format })
-      ;(ctx.browser ?? (typeof window !== 'undefined' ? (window as any).__wfBrowser : null))?.downloadFile(filename, csv, 'text/csv;charset=utf-8')
+      ;(ctx.browser ?? (typeof window !== 'undefined' ? (window as unknown as { __wfBrowser?: unknown }).__wfBrowser : null))?.downloadFile(filename, csv, 'text/csv;charset=utf-8')
     }
     return h('button', {
       type: 'button',

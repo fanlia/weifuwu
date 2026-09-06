@@ -39,7 +39,7 @@ export const Modal: Component<ModalProps> = (_props, ctx) => {
     const { open, title, onClose, children, footer, width, closable = true, maskClosable = true } = props
     latestOnClose = onClose
     latestOpen = !!open
-    const ML = (ctx as any)?.i18n?.components?.Modal ?? {}
+    const ML = ctx?.i18n?.components?.Modal ?? {}
 
     const overlay = h('div', {
       class: 'wf-modal-overlay',

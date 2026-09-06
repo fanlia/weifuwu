@@ -93,7 +93,7 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx) => {
 
   // ── render ──
   return (props) => {
-    const SL = (ctx as any)?.i18n?.components?.ThemeSwitch ?? {}
+    const SL = ctx?.i18n?.components?.ThemeSwitch ?? {}
     const modes: Array<{ value: ThemeMode; label: string }> = [
       { value: 'auto', label: SL.auto ?? '自动' },
       { value: 'light', label: SL.light ?? '亮色' },

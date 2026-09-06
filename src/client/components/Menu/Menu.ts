@@ -201,7 +201,7 @@ export const Menu: Component<MenuProps> = (_init, ctx) => {
             // 子级：收回父级（焦点回父标题）
             if (isChild) {
               e.preventDefault()
-              const parentKey = (item as any)._parentKey
+              const parentKey = (item as { _parentKey?: string })._parentKey
               if (parentKey && openSet.has(parentKey)) toggleOpen(parentKey, false)
             }
           }

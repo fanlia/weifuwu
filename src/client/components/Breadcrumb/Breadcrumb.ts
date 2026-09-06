@@ -27,6 +27,6 @@ export const Breadcrumb: Component<BreadcrumbProps> = (_init, _ctx) =>
       return [el, h('span', { class: 'wf-breadcrumb-sep', 'aria-hidden': 'true' }, '/')]
     })
 
-    const BL = (_ctx as any)?.i18n?.components?.Breadcrumb ?? {}
+    const BL = _ctx?.i18n?.components?.Breadcrumb ?? {}
     return h('nav', { class: 'wf-breadcrumb', 'aria-label': BL.ariaLabel ?? '面包屑' }, children)
   }

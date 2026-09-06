@@ -68,9 +68,9 @@ export const StatCard: Component<StatCardProps> = (init, ctx) => {
       // 「Agent 总数 0」而数据实际正确（同页字符串卡直落正确的混合实证）。
       // 装饰动画的正确性代价不可接受——数值显示直接落终值。
       tween.reset(target)
-      ;(tween as any).value = target
+      ;((tween as unknown as { value: number | string }).value = target)
     } else {
-      ;(tween as any).value = target // 非动画/非数值：直落
+      ;((tween as unknown as { value: number | string }).value = target) // 非动画/非数值：直落
     }
 
     // ── countdown 模式：目标时间戳 → 剩余秒数；tick 意图声明（创建出窗口）──

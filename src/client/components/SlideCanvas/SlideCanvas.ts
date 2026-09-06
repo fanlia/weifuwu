@@ -412,7 +412,7 @@ props: kind === 'text' ? { text: '双击编辑文本' } : { fill: 'var(--wf-surf
           class: 'wf-slide-canvas',
           style: { width: `${CANVAS_W * scale}px`, height: `${CANVAS_H * scale}px` },
         }, shapeNodes.map((n) => h('div', {
-          key: (n as any).key,
+          key: (n as { key: string }).key,
           style: { transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute' },
           class: 'wf-slide-shape-scaler',
         }, n))),

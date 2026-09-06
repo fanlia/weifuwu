@@ -106,7 +106,7 @@ export const LayoutSider: Component<LayoutSiderProps> = (_init, ctx: UIContext) 
     }, children)
   }
 }
-(LayoutSider as any)[SIDER] = true
+(LayoutSider as unknown as Record<symbol, unknown>)[SIDER] = true
 
 /** 顶部栏 */
 export const LayoutHeader: Component<LayoutHeaderProps> = (_init) =>

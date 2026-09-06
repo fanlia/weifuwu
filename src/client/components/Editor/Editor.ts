@@ -483,7 +483,7 @@ export const Editor: Component<EditorProps> = (_props, ctx) => {
 
   // 组件文案（i18n：ctx.i18n.components.Editor——locale 包注册；缺省 fallback）
   const editorText = (key: string, fallback: string): string =>
-    (ctx as any).i18n?.components?.Editor?.[key] ?? fallback
+    ctx?.i18n?.components?.Editor?.[key] ?? fallback
 
   return (props: EditorProps) => {
     const { value = '', onChange, onUpload, placeholder = '', disabled = false, minHeight = '200px', draftKey } = props

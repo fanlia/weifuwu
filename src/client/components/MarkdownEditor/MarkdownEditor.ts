@@ -49,7 +49,7 @@ export const MarkdownEditor: Component<MarkdownEditorProps> = (_init, ctx) => {
           key: k,
           type: 'button',
           class: `wf-btn wf-btn--sm${mode === k ? ' wf-btn--primary' : ''}`,
-          onClick: () => { mode = k as any; ctx.render() },
+          onClick: () => { mode = k as 'write' | 'preview' | 'split'; ctx.render() },
         }, label))),
       mode === 'preview' ? preview
         : mode === 'write' ? editor

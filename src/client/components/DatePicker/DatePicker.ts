@@ -81,7 +81,7 @@ export const DatePicker: Component<DatePickerProps> = (_props, ctx) => {
   }
 
   return (props: DatePickerProps) => {
-    const L = (ctx as any)?.i18n?.components?.DatePicker ?? {}
+    const L = ctx?.i18n?.components?.DatePicker ?? {}
     const { mode = 'date', value, onChange, placeholder = L.placeholder ?? '选择日期', disabled, error } = props
     latestMode = mode
 

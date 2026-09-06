@@ -34,7 +34,7 @@ export const Button: Component<ButtonProps> = (_init, ctx) =>
     props.class,
   ].filter(Boolean).join(' ')
 
-  const L = (ctx as any)?.i18n?.components?.Button ?? {}
+  const L = ctx?.i18n?.components?.Button ?? {}
 
   return h('button', {
     id: props.id,

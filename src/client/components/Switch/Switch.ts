@@ -25,7 +25,7 @@ export const Switch: Component<SwitchProps> = (_init, ctx) =>
 
   const track = h('span', { class: 'wf-switch-track' })
 
-  const SL = (ctx as any)?.i18n?.components?.Switch ?? {}
+  const SL = ctx?.i18n?.components?.Switch ?? {}
   if (!label) return h('label', { class: 'wf-switch', 'aria-label': SL.ariaLabel ?? '切换' }, [input, track])
 
   return h('label', { class: 'wf-switch' }, [

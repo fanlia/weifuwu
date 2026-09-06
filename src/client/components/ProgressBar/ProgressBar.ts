@@ -21,7 +21,7 @@ export const ProgressBar: Component<ProgressBarProps> = (_init, ctx) =>
   const indeterminate = value == null
   const pct = indeterminate ? 0 : Math.min(100, Math.max(0, (value / max) * 100))
 
-  const PBL = (ctx as any)?.i18n?.components?.ProgressBar ?? {}
+  const PBL = ctx?.i18n?.components?.ProgressBar ?? {}
   const bar = h('div', {
     class: `wf-progress wf-progress--${size}${indeterminate ? ' wf-progress--indeterminate' : ''}${status !== 'default' ? ` wf-progress--${status}` : ''}`,
     role: 'progressbar',

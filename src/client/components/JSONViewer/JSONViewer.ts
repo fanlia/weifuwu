@@ -65,7 +65,7 @@ export const JSONViewer: Component<JSONViewerProps> = (_init, ctx) => {
     // 复制 + 反馈：DOM 级图标切换（check 1s）——不依赖渲染管线
     const copyHere = (path: string, value: unknown, e: Event) => {
       copyPath(path, value, onCopy)
-      const btn = (e as any).currentTarget as HTMLElement | undefined
+      const btn = (e as Event).currentTarget as HTMLElement | undefined
       const pathEl = btn?.querySelector('path')
       const oldD = pathEl?.getAttribute('d')
       if (pathEl && oldD) {
