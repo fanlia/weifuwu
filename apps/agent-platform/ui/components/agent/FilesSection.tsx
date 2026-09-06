@@ -292,9 +292,10 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
                 </div>
               )}
               <div class="wf-stack wf-gap-none wf-fill wf-min-width-0">
-                <button type="button" class="wf-row wf-gap-xs wf-fill wf-text-left wf-min-width-0"
+                <button type="button"
+                  class="wf-row wf-gap-xs wf-fill wf-text-left wf-min-width-0 wf-padding-none wf-border-none wf-bg-none wf-pointer wf-width-full"
                   title={entry.name}
-                  style={{ border: 'none', cursor: 'pointer', background: 'none', padding: 0, color: 'inherit', justifyContent: 'flex-start', width: '100%' }}
+                  style={{ color: 'inherit' }}
                   onClick={() => openWsFile(entry)}>
                   <span class="wf-font-sm wf-medium wf-truncate">{entry.name}{entry.type === 'dir' ? '/' : ''}</span>
                 </button>

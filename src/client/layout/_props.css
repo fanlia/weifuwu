@@ -1,0 +1,26 @@
+/* weifuwu/layout — 变量钩子注册（@property——LAYOUT-PLAN W2）
+ *
+ * 钩子 = 原语/工具的**元素级入参**（`style="--wf-gap:20px"`）——消费侧内联 49 处实证
+ * （apps + 组件）。旧行为：自定义属性默认 `inherits: true` → 外层钩子污染全部子孙原语
+ * （探针实证：外层 `--wf-gap:20px` → 内层 `.wf-stack` gap = 20px，应回落自身默认 12px），
+ * 而 `_spacing.css` 的 `wf-gap-*` 工具类因此**不敢**设该变量（注释实录：壳 root
+ * `wf-gap-none` 曾让 KPI grid 的 `gap: var(--wf-gap)` = 0——卡无间距事故）。
+ *
+ * `inherits: false` 后（探针实证）：钩子只作用于设置它的元素——每个原语**自己的回退值保留**
+ * （stack 12px / grid 16px / cluster 8px / container 16px），污染归零。
+ * `syntax: '*'` 且不写 initial-value → 未设置时是 guaranteed-invalid → `var()` 回退生效
+ * （若写死 initial-value 会吃掉各原语不同的回退值——grid 16→12 类静默视觉漂移）。
+ *
+ * 边界：**组件钩子不在此注册**（`--wf-card-radius`/`--wf-btn-pad-y` 等是主题面——
+ * 设计上就要从 `:root`/包裹层继承下来）。这里只注册 layout 的元素级钩子。
+ * 渐进增强：不支持 @property 的浏览器（Safari <16.4 / Firefox <128）保持旧继承行为。
+ */
+@property --wf-gap { syntax: '*'; inherits: false; }        /* 原语间距（stack/row/grid/cluster/split/justify/nowrap/container） */
+@property --wf-align { syntax: '*'; inherits: false; }      /* 交叉轴对齐（wf-items-* 生产——row/stack/cluster/split/justify 消费） */
+@property --wf-justify { syntax: '*'; inherits: false; }    /* 主轴分布（cluster） */
+@property --wf-cols { syntax: '*'; inherits: false; }       /* grid 列模板（grid） */
+@property --wf-max { syntax: '*'; inherits: false; }        /* 容器最大宽（container） */
+@property --wf-w-sm { syntax: '*'; inherits: false; }       /* 宽度档位（width-sm——旧为幽灵 token：引用无声明） */
+@property --wf-z { syntax: '*'; inherits: false; }          /* 层叠序号（cover/layer） */
+@property --wf-offset { syntax: '*'; inherits: false; }     /* 粘性偏移（sticky） */
+@property --wf-popup-max { syntax: '*'; inherits: false; }  /* 浮层最大宽（框架内部 popup） */

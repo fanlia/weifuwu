@@ -14,7 +14,8 @@
  *                  `wf-flex@lg` 失效的历史教训）
  *   ③ 层序声明   = `LAYER_ORDER`（**W1 修复**：旧 build 取 entry 首行当 head，产出
  *                  未闭合注释把 `@layer …;` 声明整条吞掉 → 层序退化为「块首现顺序」
- *                  ——声明面形同虚设，W2 改层序会是空操作）
+ *                  ——声明面形同虚设，W2 改层序会是空操作；**W2 已改**：utilities 提到
+ *                  components 之后 = 工具类可覆盖组件样式）
  *   ④ tokens 不包裹 = `:root`/`@supports` 顶层块被 `@layer` 包裹会产生冗余 `}`
  *                  （PostCSS `Unexpected }` → `/static/style.css` 500 的根因实证）
  *   ⑤ inputs      = 参与装配的全部文件绝对路径（消费侧新鲜度键——`ctx.ui.css`
@@ -23,12 +24,22 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
-/** 层序（优先级从低到高——后声明者胜；W2 将把 utilities 提到 components 之后） */
-export const LAYER_ORDER = ['tokens', 'base', 'layout', 'utilities', 'components'] as const
+/**
+ * 层序（优先级从低到高——后声明者胜）
+ *
+ * **utilities 在 components 之后**（LAYOUT-PLAN W2）：工具类是消费侧的**显式覆盖**意图，
+ * 必须能胜组件自身样式（Tailwind 惯例）。旧序（utilities 在 components 之前）下的实证：
+ *   · `.wf-card--pad-lg + .wf-padding-xs` → 24px（工具类 4px 被吞）
+ *   · `.wf-btn + .wf-hidden` → inline-flex（**隐藏失效**——agent-platform 面板按钮
+ *     桌面隐藏不生效，当时靠 `wf-hidden\@lg { … !important }` 变通）
+ * 层序声明必须是**活 atrule**（见文件头 ③：旧 build 的未闭合注释曾吞掉本声明 →
+ * 优先级退化为块首现顺序，改层序会是空操作）。unlayered 应用 CSS 仍胜全部层（规范行为）。
+ */
+export const LAYER_ORDER = ['tokens', 'base', 'layout', 'components', 'utilities'] as const
 
 /** 文件 → 层归属（未登记即抛错——静默降级 = 层叠优先级悄悄变化） */
 export const LAYER_OF: Record<string, string> = {
-  _tokens: 'tokens', _dark: 'tokens', _presets: 'tokens', _base: 'base',
+  _tokens: 'tokens', _dark: 'tokens', _presets: 'tokens', _props: 'tokens', _base: 'base',
   _stack: 'layout', _row: 'layout', _split: 'layout', _center: 'layout', _justify: 'layout',
   _fill: 'layout', _grid: 'layout', _cluster: 'layout', _cover: 'layout',
   _position: 'layout', _sticky: 'layout', _overflow: 'layout', '_safe-area': 'layout',
@@ -36,7 +47,7 @@ export const LAYER_OF: Record<string, string> = {
   _container: 'layout', '_app-shell': 'layout',
   _surface: 'utilities', _spacing: 'utilities', _border: 'utilities',
   _text: 'utilities', _hidden: 'utilities', _block: 'utilities',
-  _flex: 'utilities', // display 工具族（wf-hidden wf-flex@lg 显隐恢复——必须同层后序获胜）
+  _flex: 'utilities', // display 工具族（基类 :where() 零优先级 + @media 变体正常优先级——变体恒胜基类，零 !important）
   _popup: 'layout', // 框架内部浮层基类（popup-manager 消费——非用户词汇）
 }
 

@@ -22,7 +22,9 @@
 /* ── 胶囊圆角（状态徽章/标签/色块） ── */
 .wf-pill { border-radius: 999px; }
 
-/* ── 圆角工具 — 随 token --wf-radius-*（同名推导） ── */
+/* ── 圆角工具 — 随 token --wf-radius-*（同名推导）
+   判负（LAYOUT-PLAN W2）：`wf-radius-none` 不入库——零消费证据（L2 消费证据制）；
+   取消面缺口登记于 layout-inventory L5d KNOWN_GAPS。推翻条件：出现取消组件圆角的消费侧实例 ── */
 .wf-radius-sm { border-radius: var(--wf-radius-sm); }
 .wf-radius { border-radius: var(--wf-radius); }
 .wf-radius-md { border-radius: var(--wf-radius-md); }

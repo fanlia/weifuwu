@@ -1,14 +1,22 @@
-/* hidden — 隐藏元素。两种响应式组合：
- *   `wf-hidden wf-flex@lg`（窄隐宽显——基础类无 !important，被 media 内 wf-flex@lg 覆盖）
- *   `wf-flex wf-hidden@lg`（宽隐窄显——media 变体 !important，胜组件自身 display）
- * !important 原因（CHAT-UX 波次 2 L4）：@layer 顺序下 utilities 永远输给 components
- * （@layer tokens,base,layout,utilities,components 顶层声明定死）——.wf-btn 的
- * display:inline-flex 无条件压过 hidden 变体——面板按钮桌面隐藏失效实证；
- * 源顺序洗牌无法修复（层叠顺序优先于源顺序）——!important 是唯一出路 */
-.wf-hidden {
+/* hidden — 隐藏元素（display 工具族：基类零优先级 :where()——变体恒胜基类，零 !important）
+ *
+ * 两种响应式组合都成立（LAYOUT-PLAN W2 浏览器实证）：
+ *   `wf-hidden wf-flex@lg`（窄隐宽显）· `wf-flex wf-hidden@lg`（宽隐窄显）
+ *
+ * 机制三层（旧 !important 变通的根因逐条消除）：
+ *   ① **层序**：utilities 在 components 之后（bundle.ts LAYER_ORDER）→ 工具类胜组件自身
+ *      display。旧序（utilities 在 components 之前）下 `.wf-btn` 的 `inline-flex` 无条件
+ *      压过 hidden——面板按钮桌面隐藏失效实证（CHAT-UX 波次 2 L4），当时只能 !important。
+ *   ② **基类零优先级**：`:where(.wf-hidden)` specificity = 0（同 `:where(.wf-stack)` 的
+ *      gap/align 机制）——层内不再靠文件顺序定胜负。
+ *   ③ **变体正常优先级**：`@media` 内 `.wf-hidden\@lg` = (0,1,0) → 恒胜任意基类
+ *      （与 _flex.css 的先后无关——旧注释声称「基础类被 media 内 wf-flex@lg 覆盖」
+ *       在等 specificity 下其实由文件顺序决定，_hidden 在后 → 组合当时是坏的）。
+ * 层序优先于 specificity：unlayered 应用 CSS（如 app.css）仍胜本层——应用覆盖面不变。 */
+:where(.wf-hidden) {
   display: none;
 }
-@media (min-width: 1024px) { .wf-hidden\@lg { display: none !important; } }
+@media (min-width: 1024px) { .wf-hidden\@lg { display: none; } }
 
 /* dim — 视觉淡化（运行中/历史态/次要操作） */
 .wf-dim {

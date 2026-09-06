@@ -9,6 +9,13 @@
  * 类面随消费证据生长（缺口审计机制化——layout-inventory.test.ts）。
  */
 
+/* ── padding：重置（零值唯一形态 none——LAYOUT-PLAN W2 补齐：旧只有 margin/gap 有
+   none 档，padding 无 → 消费侧「取消组件/元素内边距」只能内联手搜。消费证据：
+   agent-platform FilesSection.tsx 工作区文件行按钮（旧：style={{ padding: 0, border: 'none',
+   background: 'none', cursor: 'pointer' }} 四件套手搜 → 现全走工具类）。
+   radius 取消档同期判负（零消费证据——见 _surface.css 注释 + L5d KNOWN_GAPS） ── */
+.wf-padding-none { padding: 0; }
+
 /* ── padding ── */
 .wf-padding-xs { padding: var(--wf-space-xs); }
 .wf-padding-sm { padding: var(--wf-space-sm); }
@@ -55,8 +62,10 @@
 /* ── margin: y 轴 ── */
 .wf-margin-y-xs { margin-top: var(--wf-space-xs); margin-bottom: var(--wf-space-xs); }
 
-/* ── gap：直接设置 gap 属性（不设 --wf-gap 变量——变量会继承污染子孙：
-   壳 root wf-gap-none 曾让 KPI grid 的 gap: var(--wf-gap) = 0 卡无间距） ── */
+/* ── gap：直接设置 gap 属性（不设 --wf-gap 变量——历史理由：变量会继承污染子孙，
+   壳 root wf-gap-none 曾让 KPI grid 的 gap: var(--wf-gap) = 0 卡无间距。
+   LAYOUT-PLAN W2：`@property --wf-gap { inherits: false }`（_props.css）已根治污染——
+   钩子只作用于设置它的元素；本类仍直设 gap（工具类语义 = 确定值，不转发变量） ── */
 .wf-gap-none { gap: 0; }
 .wf-gap-xs { gap: var(--wf-gap-xs); }
 .wf-gap-sm { gap: var(--wf-gap-sm); }

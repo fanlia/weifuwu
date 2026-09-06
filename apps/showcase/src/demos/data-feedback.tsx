@@ -134,7 +134,7 @@ const DemoSkeleton: Component = () => () => (
   <div class="wf-stack wf-gap-md">
     <div class="wf-row wf-gap-md">
       <Skeleton variant="avatar" />
-      <div class="wf-stack wf-row wf-gap-xs wf-fill">
+      <div class="wf-stack wf-gap-xs wf-fill">
         <Skeleton width="60%" />
         <Skeleton />
       </div>

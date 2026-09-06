@@ -4,6 +4,9 @@
 @import './_tokens.css';
 @import './_dark.css';
 @import './_presets.css';
+/* 变量钩子注册（@property inherits:false）——元素级钩子不继承（污染根治），
+ * 必须在消费它的原语之前注册（@property 本身与顺序无关——位置只为可读） */
+@import './_props.css';
 @import './_base.css';
 @import './_stack.css';
 @import './_row.css';

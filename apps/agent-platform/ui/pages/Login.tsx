@@ -72,7 +72,7 @@ export const Login: Component = (_props, ctx) => {
       error={$.error || null}
       onSubmit={handleLogin}
       footer={
-        <div class="wf-stack wf-gap-sm wf-center">
+        <div class="wf-gap-sm wf-center">
           <span>还没有账号？<a onClick={() => ctx.app?.navigate('/register')}>立即注册</a></span>
           {ssoEnabled && (
             <a href="/api/auth/apps/_builtin/auth/sso/login" class="wf-btn wf-btn--secondary wf-btn--sm wf-width-full wf-center">

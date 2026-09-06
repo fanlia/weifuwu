@@ -11,6 +11,9 @@
  *   L6 文档计数同步:layout-guide/README 数字 == inventory
  *   L8 冲突矩阵(登记制):同属性不同值的基类对 = import 顺序定胜负(顺序敏感)——
  *      消费侧同串共用必须逐对登记(静默顺序敏感 = 不透明——LAYOUT-PLAN W0 激活休眠防线)
+ *   L9 层叠机制锁定(LAYOUT-PLAN W2):层序 utilities 在 components 之后(工具类=显式覆盖)·
+ *      display 族基类零优先级 :where()(变体恒胜基类——零 !important)·
+ *      !important 白名单(仅 prefers-reduced-motion)· 变量钩子 @property 注册完备(inherits:false)
  *
  * node:test 直跑——零浏览器(契约层纪律)。
  */
@@ -19,6 +22,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { inventory, conflictMatrix } from '../../../scripts/layout-inventory.mjs'
+import { LAYER_ORDER } from '../../client/layout/bundle.ts'
 
 const root = join(import.meta.dirname, '..', '..', '..')
 const LAYOUT = join(root, 'src/client/layout')
@@ -74,7 +78,7 @@ function componentDefined() {
 
 test('L1 计数基线(登记制——变更必须有意)', () => {
   assert.equal(inv.primitives, 50, '布局原语数(清理后基线)——2027-09 +1：fill-hover（消费侧欠账补定义——L3 缺口修复）')
-  assert.equal(inv.utilities, 97, '工具类数(清理后基线)——2027-09 +5：text-danger/text-warning/font-mono/rounded-sm/rounded-md/card-outline（同批补定义——_base 非类文件迁移归属：rounded/card 归 _surface 域）')
+  assert.equal(inv.utilities, 98, '工具类数(清理后基线)——LAYOUT-PLAN W2 +1：padding-none（零值档位补齐——消费证据：agent-platform FilesSection 工作区文件行按钮内联 reset 四件套转工具类；radius-none 同期判负：零消费证据）；2027-09 +5：text-danger/text-warning/font-mono/rounded-sm/rounded-md/card-outline')
   assert.equal(inv.internals, 2, '内部类数(_popup 框架内部)')
   assert.equal(inv.tokens, 183, '主题 Token 数')
   // 断点变体 ⊆ 登记清单(响应式唯一模式:窄隐宽显)
@@ -165,22 +169,26 @@ test('L5c 双名歼灭(声明指纹全等 = 别名对)', () => {
 })
 
 test('L5d 零值档位矩阵(登记制——取消面完备性基线)', () => {
-  // 有标尺的属性域应有 none 档(取消面)——当前缺口显式登记(补齐后基线更新):
-  //   已有: bg / border / gap / margin / margin-top
-  //   缺口: padding / radius(消费侧「取消组件内边距」无工具类面——只能 app.css !important)
-  // 场景契约 e2e-layout-semantics.test.ts ③ 是本缺口的浏览器读数(补齐后两处同时翻转)
+  // 有标尺的属性域应有 none 档(取消面)——LAYOUT-PLAN W2 补齐 padding:
+  //   bg / border / gap / margin / margin-top / padding
+  // 消费证据：agent-platform FilesSection.tsx 工作区文件行按钮（旧内联手搜
+  //   `padding:0 / border:none / background:none / cursor:pointer` 四件套 → 现全走工具类）
+  // 浏览器读数见 e2e-layout-semantics.test.ts ③（W0 基线 24px → W2 后 0px）
   const noneDomains = new Set(
     bases.filter((c) => /-none$/.test(c.name)).map((c) => c.name.replace(/^wf-/, '').replace(/-none$/, '')),
   )
-  const BASELINE = ['bg', 'border', 'gap', 'margin', 'margin-top']
+  const BASELINE = ['bg', 'border', 'gap', 'margin', 'margin-top', 'padding']
   assert.deepEqual(
     [...noneDomains].sort(),
     [...BASELINE].sort(),
     `零值档位面变更必须有意(新增=取消面补齐·删除=消费侧断链): ${[...noneDomains].sort()}`,
   )
-  // 缺口不静默:补齐即响(提示同步 BASELINE + 场景契约 ③)
-  for (const gap of ['padding', 'radius']) {
-    assert.ok(!noneDomains.has(gap), `wf-${gap}-none 已补——更新 BASELINE 并翻转 e2e-layout-semantics ③(24px → 0px)`)
+  // 判负登记(缺口不静默——补齐即响):标尺域中缺 none 档的必须在此写明理由+推翻条件
+  const KNOWN_GAPS: Record<string, string> = {
+    radius: '判负(LAYOUT-PLAN W2)——零消费证据(L2 消费证据制)；推翻条件:出现取消组件圆角的消费侧实例',
+  }
+  for (const [domain, why] of Object.entries(KNOWN_GAPS)) {
+    assert.ok(!noneDomains.has(domain), `wf-${domain}-none 已补——移出 KNOWN_GAPS 并同步 BASELINE/L1 计数（原登记：${why}）`)
   }
 })
 
@@ -221,13 +229,13 @@ test('L8 冲突矩阵（登记制——同属性不同值 = 源顺序定胜负�
   // 登记内容 = 实证胜者（浏览器 getComputedStyle 读数）+ 胜因（specificity / 源顺序）。
   // 未登记的共用对 = 静默顺序敏感（改 @import 顺序无声翻转页面）——即红。
   const REGISTERED: Record<string, string> = {
-    // 实证：dir=column align=center wrap=wrap——align 胜者 = _row 的 :where 回退 center
-    // （两原语均 :where() 零优先级——同层后序胜：_row 在 _stack 后）；dir 只有 stack 设
-    'wf-row×wf-stack': 'align-items → center（_row 后于 _stack——:where 同零优先级取后序）',
-    // 实证：align=center justify=center——center 胜因是 specificity（.wf-center 0,1,0 > :where(.wf-stack) 0,0,0）
-    'wf-center×wf-stack': 'align-items → center（specificity 胜——与源顺序无关）',
     // 实证：wrap=nowrap——同 specificity（0,1,0）下 _nowrap 后于 _row → 显式禁换行意图胜
+    // （消费侧：apps/showcase/src/shell.tsx 平台域导航——横向滚动导航条，意图正确）
     'wf-nowrap×wf-row': 'flex-wrap → nowrap（_nowrap 后于 _row——显式禁换行意图胜）',
+    // LAYOUT-PLAN W2 已清理的冗余共用（登记随之退场——stale 断言会红）：
+    //   wf-center×wf-stack（not-found.tsx——center 已含 column flex，stack 冗余）
+    //   wf-row×wf-stack（demos/data-feedback.tsx——意图是 column，wf-row 是笔误）
+    // 两组合的引擎行为仍由场景契约 ⑤ 记录（wf-row wf-stack → column）——框架面不隐藏
   }
   const key = (p: { a: string; b: string }): string => [p.a, p.b].sort().join('×')
   const lits = (collectCode(['apps', 'src/client/components']).match(/['"`]([^'"`\n]*)['"`]/g) ?? [])
@@ -250,4 +258,93 @@ test('L8 冲突矩阵（登记制——同属性不同值 = 源顺序定胜负�
     Object.keys(REGISTERED).sort(),
     '共用对集合 == 登记集合（逐对可追溯）',
   )
+})
+
+test('L9a 层叠机制锁定（层序 utilities 最后 · display 族 :where · 零 !important 变通）', async () => {
+  const postcss = (await import('postcss')).default
+  // ① 层序：工具类 = 消费侧显式覆盖意图 → 必须胜组件自身样式
+  //   （旧序实证：`.wf-card--pad-lg + .wf-padding-xs` → 24px 工具类被吞 ·
+  //    `.wf-btn + .wf-hidden` → inline-flex 隐藏失效——当时靠 !important 变通）
+  assert.ok(
+    LAYER_ORDER.indexOf('utilities') > LAYER_ORDER.indexOf('components'),
+    `utilities 必须在 components 之后（当前：${LAYER_ORDER.join(' → ')}）`,
+  )
+
+  // ② display 族基类零优先级（:where）+ 变体正常优先级 → 变体恒胜基类（与文件顺序无关）
+  const DISPLAY_FAMILY = ['wf-block', 'wf-flex', 'wf-hidden']
+  const plain: string[] = []
+  const whereForm = new Set<string>()
+  for (const f of ['_block.css', '_flex.css', '_hidden.css']) {
+    const parsed = postcss.parse(readFileSync(join(LAYOUT, f), 'utf-8'))
+    parsed.walkRules((r) => {
+      for (const sel of r.selector.split(',').map((s) => s.trim())) {
+        const bare = sel.match(/^\.wf-(block|flex|hidden)$/)
+        if (bare) plain.push(`${f}: ${sel}`)
+        const zero = sel.match(/^:where\(\.(wf-(?:block|flex|hidden))\)$/)
+        if (zero) whereForm.add(zero[1])
+      }
+    })
+  }
+  assert.equal(plain.length, 0, `display 族基类必须 :where() 零优先级（否则变体靠文件顺序定胜负）: ${plain.join(' ')}`)
+  assert.deepEqual([...whereForm].sort(), [...DISPLAY_FAMILY].sort(), 'display 族三基类均需 :where 形态')
+
+  // ③ !important 白名单：仅 prefers-reduced-motion（无障碍强制）——断点变体/display 族零使用
+  const sites: string[] = []
+  for (const f of readdirSync(LAYOUT).filter((x) => x.endsWith('.css'))) {
+    const parsed = postcss.parse(readFileSync(join(LAYOUT, f), 'utf-8'))
+    parsed.walkDecls((d) => {
+      if (!d.important) return
+      let reducedMotion = false
+      let p: any = d.parent
+      while (p && p.type !== 'root') {
+        if (p.type === 'atrule' && /prefers-reduced-motion/.test(String(p.params))) reducedMotion = true
+        p = p.parent
+      }
+      const sel = d.parent && d.parent.type === 'rule' ? (d.parent as any).selector : ''
+      if (!reducedMotion) sites.push(`${f}: ${sel} { ${d.prop} }`)
+      assert.ok(!/\\@/.test(sel), `断点变体禁用 !important（变体靠 specificity 恒胜基类）: ${f} ${sel}`)
+    })
+  }
+  assert.equal(sites.length, 0, `layout 层 !important 只允许 prefers-reduced-motion（白名单外 = 层序/specificity 未解决的回退）:\n  ${sites.join('\n  ')}`)
+})
+
+test('L9b 变量钩子注册完备（@property inherits:false——污染根治 + 零幽灵钩子）', async () => {
+  const postcss = (await import('postcss')).default
+  const parse = (f: string) => postcss.parse(readFileSync(join(LAYOUT, f), 'utf-8'))
+
+  // token 面已声明的变量（_tokens/_dark/_presets）
+  const declared = new Set<string>()
+  for (const f of ['_tokens.css', '_dark.css', '_presets.css']) {
+    parse(f).walkDecls((d) => { if (d.prop.startsWith('--wf-')) declared.add(d.prop) })
+  }
+  // _props.css 注册的钩子（必须 inherits:false）
+  const registered = new Map<string, string>()
+  parse('_props.css').walkAtRules('property', (r) => {
+    const name = r.params.trim()
+    let inherits = ''
+    ;(r as any).walkDecls((d: any) => { if (d.prop === 'inherits') inherits = d.value })
+    registered.set(name, inherits)
+    assert.equal(inherits, 'false', `${name} 必须 inherits:false（否则外层钩子污染子孙原语）`)
+  })
+
+  // layout 全面的钩子消费：var(--wf-X, fallback) 且 X 未在 token 面声明 = 钩子
+  const hooks = new Map<string, string[]>()
+  for (const f of readdirSync(LAYOUT).filter((x) => x.endsWith('.css') && x !== '_props.css')) {
+    const parsed = parse(f)
+    parsed.walkDecls((d) => {
+      for (const m of String(d.value).matchAll(/var\(\s*(--wf-[a-z0-9-]+)\s*,/g)) {
+        const name = m[1]
+        if (declared.has(name)) continue
+        if (!hooks.has(name)) hooks.set(name, [])
+        hooks.get(name)!.push(f)
+      }
+    })
+  }
+  const unregistered = [...hooks.keys()].filter((h) => !registered.has(h))
+  assert.equal(
+    unregistered.length, 0,
+    `钩子未注册 @property（继承污染面 + 幽灵变量）:\n  ${unregistered.map((h) => `${h} ← ${[...new Set(hooks.get(h)!)].join(' ')}`).join('\n  ')}`,
+  )
+  const dead = [...registered.keys()].filter((r) => !hooks.has(r))
+  assert.equal(dead.length, 0, `注册了但零消费的钩子（声明无行为 = 不透明）: ${dead.join(' ')}`)
 })

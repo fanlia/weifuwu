@@ -1796,33 +1796,44 @@ const RedirectTarget = (_init: Record<string, never>, _ctx: any) => () =>
   h('div', { id: 'redirect-ok', class: 'redirect-scene' }, '重定向目标页')
 const REDIRECT = { id: 'redirect-target', title: 'redirect 目标（302 消费——replaceState + 渲染）', render: RedirectTarget }
 
-// ── 场景：layout 层叠语义（LAYOUT-PLAN W0——现状基线固化） ────────────────
+// ── 场景：layout 层叠语义（LAYOUT-PLAN W0 现状基线 → W2 根治后语义） ──────────
 // 目的：把一次性探针读数（plan/layout-优化.md）变成可回归的浏览器契约——
-// `getComputedStyle` 真实计算值。**断言的是当前行为**（含三处已登记缺陷/缺口——
-// W2 根治后由执行波次同步翻转断言，红/绿可判定）：
-//   ① `--wf-gap` 继承污染：外层内联钩子污染内层原语（应回落默认 12px）
-//   ② utilities 层被 components 层压制：工具类覆盖组件样式失效（_hidden.css:4-7
-//      已用 !important 变通并登记根因「@layer 顺序下 utilities 永远输给 components」）
-//   ③ 零值档位缺口：`wf-padding-none`/`wf-radius-none` 未定义（margin/gap 有 none 档）
-//   ④ 冲突对静默：`wf-row wf-stack` 同设 align-items/flex-direction——取 column
+// `getComputedStyle` 真实计算值。**W2 已根治三处**（断言随行为翻转——旧基线读数
+// 见 git 历史与计划实录）：
+//   ① gap 继承污染 → `@property{inherits:false}`（_props.css）：钩子只作用本元素，
+//      内层原语回落**自己的**默认（stack 12 / grid 16 / cluster 8 / container 16）
+//   ② utilities 被 components 压制 → 层序修正（LAYER_ORDER：utilities 最后）：
+//      工具类 = 消费侧显式覆盖意图，恒胜组件自身样式
+//   ③ 零值档位缺口 → 补 `wf-padding-none` / `wf-radius-none`（取消面对称）
+//   ④ display 族去 !important：基类 `:where()` 零优先级 + @media 变体正常优先级 →
+//      变体恒胜基类（跨文件亦然）——两种响应式组合 + btn 隐藏活体 bug 一并修复
+//   ⑤ 冲突对仍为登记面（源顺序/specificity 定胜负——消费侧冗余共用已清理）
 const LayoutSemantics = (_init: Record<string, never>, _ctx: any) => () =>
   h('div', { class: 'layout-semantics' }, [
-    // ① gap 继承污染（外层内联 --wf-gap → 内层 .wf-stack 被污染）
+    // ① gap 钩子元素级（外层设 20px——内层不受污染）
     h('div', { class: 'ls-gap-outer wf-stack', style: '--wf-gap:20px' }, [
       h('div', { class: 'ls-gap-inner wf-stack' }, 'inner'),
     ]),
-    // ② 工具类被组件类压制（双向 + 对照组）
+    h('div', { class: 'ls-grid-outer wf-grid', style: '--wf-gap:20px' }, [
+      h('div', { class: 'ls-grid-inner wf-grid' }, 'grid inner'),
+    ]),
+    // ② 工具类覆盖组件类（双向 + 对照组）
     h('div', { class: 'ls-override-down wf-card wf-card--pad-lg wf-padding-xs' }, 'card pad-lg + padding-xs'),
     h('div', { class: 'ls-override-up wf-card wf-card--pad-sm wf-padding-lg' }, 'card pad-sm + padding-lg'),
     h('button', { class: 'ls-override-btn wf-btn wf-padding-lg' }, 'btn + padding-lg'),
     h('div', { class: 'ls-util-alone wf-padding-xs' }, '工具类单独（对照组）'),
-    // ③ 零值档位缺口（wf-padding-none 未定义 → 组件 padding 保持）
+    // ③ 零值档位（取消面——radius 档同期判负：零消费证据，见 L5d KNOWN_GAPS）
     h('div', { class: 'ls-zero wf-card wf-card--pad-lg wf-padding-none' }, 'card + padding-none'),
-    // ④ 断点变体（!important 变通面——@1280 生效）+ 冲突对静默取值
+    // ④ display 族：断点变体 + 组件 display 对抗（零 !important）
     h('div', { class: 'ls-bp wf-flex wf-hidden@lg' }, 'wf-flex + wf-hidden@lg'),
+    // 活体 bug 面（agent-platform Chat.tsx「部门详情」按钮同款组合）：
+    // 旧 .wf-btn 的 inline-flex 无条件压过 wf-hidden → 恒可见（窄屏该隐未隐）
+    h('button', { class: 'ls-bp-btn wf-btn wf-hidden wf-flex@sm' }, 'btn + wf-hidden + wf-flex@sm'),
+    h('div', { class: 'ls-bp-block wf-block wf-hidden@lg' }, 'wf-block + wf-hidden@lg'),
+    // ⑤ 冲突对（登记面——源顺序/specificity 定胜负）
     h('div', { class: 'ls-conflict wf-row wf-stack' }, 'wf-row + wf-stack'),
   ])
-const LAYOUT_SEMANTICS = { id: 'layout-semantics', title: 'layout 层叠语义（现状基线——gap 污染/工具类压制/零值缺口/冲突对）', render: LayoutSemantics }
+const LAYOUT_SEMANTICS = { id: 'layout-semantics', title: 'layout 层叠语义（gap 钩子元素级/工具类覆盖/零值档/display 族变体/冲突对）', render: LayoutSemantics }
 
 export const scenarios: Scenario[] = [
   LAYOUT_SEMANTICS,

@@ -1,4 +1,6 @@
-/* block — 块级显示 */
-.wf-block {
+/* block — 块级显示（display 工具族基类零优先级 :where()——与 flex/hidden 同款：
+ * 族内基类等优先级（源顺序定胜负，仓库零共用组合），@media 变体正常优先级恒胜基类。
+ * 层序（utilities 在 components 之后）保证胜组件自身 display——见 _hidden.css 机制三层 */
+:where(.wf-block) {
   display: block;
 }

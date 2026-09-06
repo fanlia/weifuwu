@@ -6,8 +6,10 @@
  * - L3 翻页工具条：loadOlder 与 loadMessages 同源 parseStoredTools——
  *   首屏 50 条之外的历史 AI 消息工具步骤条恢复（旧代码 spread 原始消息丢工具条）
  * - L4 面板按钮响应式：`wf-flex wf-hidden@lg` 宽隐窄显——根因两层（Button
- *   忽略 class prop→C3 已修；@layer 下 utilities 输 components→hidden 变体
- *   !important 已修）——桌面 1280 必须隐藏 + 移动 390 必须显示可点
+ *   忽略 class prop→C3 已修；@layer 下 utilities 输 components→当时靠 hidden 变体
+ *   !important 变通，**LAYOUT-PLAN W2 已根治**：层序改为 utilities 在 components 之后
+ *   + display 族基类 :where() 零优先级 + 变体正常优先级 → 零 !important）
+ *   ——桌面 1280 必须隐藏 + 移动 390 必须显示可点
  *
  * 锁定契约见每断言注释。
  */
@@ -58,7 +60,7 @@ async function seedMessage(content: string, senderType: string, aiStep?: object)
   }
 }
 
-test('L1+L4 1280px：左栏贴顶满高 + 面板按钮桌面隐藏（hidden@lg !important——组件 display 压不住）', async () => {
+test('L1+L4 1280px：左栏贴顶满高 + 面板按钮桌面隐藏（utilities 层序胜组件 display——零 !important）', async () => {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } })
   await injectAuth(page, owner)
   const errors = await openAgentPage(page, BASE, `/chat/${deptId}`)
@@ -78,7 +80,8 @@ test('L1+L4 1280px：左栏贴顶满高 + 面板按钮桌面隐藏（hidden@lg !
   // L1：wf-self-stretch——aside 与行容器同顶同高（旧形态顶差 121px）
   assert.equal(state.asideTop, state.rowTop, `左栏应贴顶（aside ${state.asideTop} vs row ${state.rowTop}）`)
   assert.equal(state.asideH, state.rowH, `左栏应满高（aside ${state.asideH} vs row ${state.rowH}）`)
-  // L4：hidden@lg !important——桌面隐藏（.wf-btn display:inline-flex 在 components 层曾无条件压过）
+  // L4：桌面隐藏——utilities 层在 components 之后（W2 层序修正）→ hidden@lg 变体胜
+  // .wf-btn 的 display:inline-flex（旧序下组件层无条件压过——当时靠 !important 变通）
   assert.equal(state.btnDisplay, 'none', `桌面 1280 面板按钮应隐藏，实际 ${state.btnDisplay}`)
   assert.ok(fatalErrors(errors).length === 0, `页面零错误红线: ${errors.join(' | ')}`)
   await page.close()

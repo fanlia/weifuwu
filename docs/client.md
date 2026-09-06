@@ -63,7 +63,7 @@ app.router(Router())
 
 ## 4. 布局系统
 
-`src/client/layout/`——50 原语（`_*.css`）+ 97 工具 + 2 内部，全部 `wf-` 前缀：
+`src/client/layout/`——50 原语（`_*.css`）+ 98 工具 + 2 内部，全部 `wf-` 前缀：
 
 - **原语**：`wf-stack` / `wf-row` / `wf-grid` / `wf-center` / `wf-card-surface` / `wf-divider`
 - **工具**：`wf-padding` / `wf-margin` / `wf-text-*` / `wf-bg-*` / `wf-hidden`

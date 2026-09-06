@@ -2,8 +2,13 @@
  * 核心场景：响应式显隐的 flex 容器——`wf-hidden wf-flex@lg`（窄隐宽显且保持 flex 布局）。
  * 不可用 wf-block@lg 替代：block 会覆盖 wf-stack 的 display:flex，
  * 致 flex-direction/gap 全部静默失效（layouts-demo 侧栏 mt-auto 实测踩坑）。
+ *
+ * 基类零优先级 `:where()` + 变体正常优先级（LAYOUT-PLAN W2——display 族三基类同款）：
+ * 变体恒胜基类（与文件顺序无关）→ `wf-hidden wf-flex@sm` 窄隐宽显成立（旧：_hidden 在
+ * _flex 之后，等 specificity 下 hidden 恒胜 → 该组合当时是坏的，agent-platform
+ * Chat.tsx「部门详情」按钮实证——移动端该隐未隐）。
  * 注意：@ 选择器必须转义（\.wf-flex\@lg——未转义 @ 是非法选择器，整条规则被丢弃） */
-.wf-flex {
+:where(.wf-flex) {
   display: flex;
 }
 @media (min-width: 640px) { .wf-flex\@sm { display: flex; } }
