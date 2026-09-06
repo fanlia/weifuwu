@@ -1,7 +1,7 @@
 /** Mentions：@提及：composition 抑制 + 过滤插入（antd Mentions）（showcase /components/mentions） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 
 export interface MentionsOption {
   value: string
@@ -23,6 +23,8 @@ export interface MentionsProps {
 /** @提及输入（对应 antd Mentions）：输入 prefix + 关键词弹出候选，点击/Enter 插入。
  * 裁剪（CS-05，见 docs/client.md）：不做多 prefix/自定义高亮渲染/远程搜索（options 静态传入）。 */
 export const Mentions: Component<MentionsProps> = (_init, ctx)=> {
+  // 选项高亮（createItem——--hl 类 + aria-selected 同条件单源）
+  const mentionItem = createItem({ cls: 'wf-mentions-option', suffix: '--hl', role: 'option', aria: 'aria-selected' })
   // ── mount（只一次）──
   let open = false
   let keyword = ''
@@ -133,15 +135,12 @@ export const Mentions: Component<MentionsProps> = (_init, ctx)=> {
       class: 'wf-mentions-panel',
       role: 'listbox',
     }, filtered.map((opt, i)=>
-      h('button', {
+      h('button', mentionItem(highlight === i, {
         type: 'button',
-        class: `wf-mentions-option${highlight === i ? ' wf-mentions-option--hl' : ''}`,
         key: opt.value,
-        role: 'option',
-        'aria-selected': highlight === i,
         onClick: ()=> insert(opt),
         onMouseEnter: ()=> { highlight = i },
-      }, opt.label ?? opt.value)
+      }), opt.label ?? opt.value)
     )) : null
 
     const ta = h('textarea', {
