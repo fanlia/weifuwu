@@ -247,7 +247,7 @@ body.wf-dragging {
 }
 
 /* ── 微流明 · 进行态语言：stream-in 内容渐显（AI 回复/流式列表/hero 元素） ──
- * 微流明设计语言三支柱之二（design/design-language.md）——"进行中"是可见的流
+ * 微流明设计语言三支柱之二（docs/client.md §3）——"进行中"是可见的流
  * 用法：元素加 wf-stream-in 类（opacity 0→1 + 上移 4px）
  */
 @keyframes wf-stream-in {

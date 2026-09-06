@@ -89,13 +89,14 @@ app.router(Router())
 
 - **原语**：`wf-stack` / `wf-row` / `wf-grid` / `wf-center` / `wf-card-surface` / `wf-divider`
 - **工具**：`wf-padding` / `wf-margin` / `wf-text-*` / `wf-bg-*` / `wf-hidden`
-- **命名规则**：三类词根 + 三后缀（完整词根表见 `apps/showcase/src/demos/layout.tsx`
-  与 `src/test/contract/layout-inventory.test.ts` L1 计数断言——**测试即登记表**）
+- **命名规则**：三类词根 + 三后缀（完整词根表 = **机器生成** `docs/layout.md`：类清单/断点表/
+  钩子表/标尺派生/零消费公共面示例——与 `layout-inventory` 哨兵同源，改布局源码后
+  `node scripts/layout-reference.mjs` 再生成；L15 校验漂移即红）
 
 零值形态唯一（`none` 归一）· 对齐域禁方向词 · 双名歼灭 · 零值档位矩阵（取消面缺口登记）·
 冲突矩阵（同属性不同值对的同元素共用逐对登记胜者+胜因）· 层叠机制锁定（层序/`:where()`/
 `!important` 白名单/`@property` 钩子注册）· 断点与 token 单源 · token 双名歼灭 ·
-间距标尺派生登记 · px 字面量白名单——layout-inventory **18 断言**锁定；
+间距标尺派生登记 · px 字面量白名单——layout-inventory **20 断言**锁定；
 层叠语义的浏览器计算值读数见场景层 `e2e-layout-semantics.test.ts`。
 
 ## 5. 组件编写规范（唯一入口）

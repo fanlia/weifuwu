@@ -1,5 +1,5 @@
 /* weifuwu/layout — 基于 CSS 标准的布局原语
- * 命名规则：design/layout-naming.md（概念原语 / 属性根全名 / 裸值词——三后缀语法）
+ * 命名规则：docs/client.md §4（概念原语 / 属性根全名 / 裸值词——三后缀语法；词根表见 docs/layout.md）
  * 类面随消费证据生长（契约测试锁定——layout-inventory.test.ts） */
 @import './_tokens.css';
 @import './_dark.css';

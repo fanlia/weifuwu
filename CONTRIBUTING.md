@@ -77,7 +77,7 @@ node .pi/skills/weifuwu-dev/scripts/scaffold.mjs component <Name> [category]
 ## 框架贡献（核心）
 
 ```
-1. 大变更先文档（design/ 计划 + 理由）——RFC 精神
+1. 大变更先文档（设计计划 + 理由）——RFC 精神
 2. 实战先行：框架能力变更先在 apps/agent-platform 验证
 3. 诚实裁剪：不支持的能力抛 ProtocolError('unsupported'），不静默降级
 4. 防线不破：style-audit / 防漂移 / verify / LLM 体验审计全绿

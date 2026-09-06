@@ -1,4 +1,4 @@
-/* 排版工具类（design/layout-naming.md 词根分域——过载歼灭）：
+/* 排版工具类（词根分域——docs/client.md §4 命名规则；类清单见 docs/layout.md——过载歼灭）：
  *   wf-font-<刻度>    字号（font-size ← --wf-font-size-*）
  *   wf-medium/semibold/bold  字重（裸值词）
  *   wf-text-<色>      文字颜色（语义 Token——含 on-brand 填充上文字）

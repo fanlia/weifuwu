@@ -1,5 +1,5 @@
 /**
- * weifuwu/layout 清单契约(设计依据: §6 + layout-naming.md §7)
+ * weifuwu/layout 清单契约(设计依据: docs/layout.md §4 类清单 + docs/client.md §4 命名规则)
  *
  * 布局层单一事实源防线——锁定清理/命名成果,防回潮:
  *   L1 计数基线(登记制):原语/工具/内部/变体——变更必须有意
@@ -25,8 +25,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { join } from 'node:path'
-import { inventory, conflictMatrix } from '../../../scripts/layout-inventory.mjs'
+import { inventory, conflictMatrix, QUARTET_KEEP, LIB_SURFACE_KEEP, SHOWCASE_PRIVATE } from '../../../scripts/layout-inventory.mjs'
 import { LAYER_ORDER } from '../../client/layout/bundle.ts'
 
 const root = join(import.meta.dirname, '..', '..', '..')
@@ -96,20 +97,18 @@ test('L1 计数基线(登记制——变更必须有意)', () => {
 })
 
 test('L2 死类 = 0(消费证据制——四件套豁免登记)', () => {
-  // 四件套语义完备豁免(设计:layout-naming.md §4):self-* 对齐四态 3/4 消费——整体保留
-  const QUARTET_KEEP = new Set(['wf-self-stretch', 'wf-self-start'])
+  // 豁免登记单源：scripts/layout-inventory.mjs（测试与 docs/layout.md §6 共用——改动即同步两处）
+  // 四件套语义完备豁免：self-* 对齐四态 3/4 消费——整体保留
+  const quartz = new Set(QUARTET_KEEP)
   // **库公共面豁免(2027-XX 登记——showcase components-only 裁剪)**:展示域移除
   // (layout 域/首页 hero/六域导航)后消费证据消失——类属 weifuwu/layout npm
   // 公共清单(50 原语 + 90 工具基线)——库类面治理归 layout 包,不随 showcase
   // 消费面裁剪删除。恢复消费或库侧裁剪时从本集合移除。
-  const LIB_SURFACE_KEEP = new Set([
-    'wf-absolute', 'wf-cover', 'wf-layer', 'wf-nav', 'wf-nav-group',
-    'wf-radius-lg', 'wf-safe-bottom', 'wf-safe-top',
-  ])
+  const libSurface = new Set(LIB_SURFACE_KEEP)
   const corpus = collectCode(['apps', 'src/client/components'])
   const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
   const dead = bases.filter(
-    (c) => c.category !== 'internal' && !QUARTET_KEEP.has(c.name) && !LIB_SURFACE_KEEP.has(c.name) && ![...used].some((u) => u.replace(/\\?@[a-z]{2}$/, '') === c.name || u === c.name),
+    (c) => c.category !== 'internal' && !quartz.has(c.name) && !libSurface.has(c.name) && ![...used].some((u) => u.replace(/\\?@[a-z]{2}$/, '') === c.name || u === c.name),
   )
   assert.equal(dead.length, 0, `零消费类(删除或登记豁免):\n${dead.map((c) => `  ${c.name} (${c.file})`).join('\n')}`)
 })
@@ -120,12 +119,12 @@ test('L3 缺口 = 0(使用未定义类归零)', () => {
   const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
   // showcase 页面试样式私有类（270f1542 手写折叠——类属 showcase 演示页——L3 defined 集
   // 只含框架 layout/组件 css——页面级私有类登记豁免（定义在其页面上下文——非库面）
-  const SHOWCASE_PRIVATE = new Set(['wf-variant-toggle', 'wf-variant-chevron', 'wf-variant-name', 'wf-variant-desc'])
+  const showcasePrivate = new Set(SHOWCASE_PRIVATE)
   const missing = [...used].filter((n) => {
     const base = n.replace(/\\?@[a-z]{2}$/, '')
     return !defined.has(base) && !defined.has(n)
   })
-  assert.equal(missing.filter((m) => !SHOWCASE_PRIVATE.has(m.replace(/\\?@[a-z]{2}$/, ''))).length, 0, `消费侧使用但未定义的类(补类或修消费侧):\n  ${missing.join(' ')}`)
+  assert.equal(missing.filter((m) => !showcasePrivate.has(m.replace(/\\?@[a-z]{2}$/, ''))).length, 0, `消费侧使用但未定义的类(补类或修消费侧):\n  ${missing.join(' ')}`)
 })
 
 test('L4 无非法选择器(未转义 @ 即整条规则被浏览器丢弃)', () => {
@@ -204,6 +203,15 @@ test('L6 文档计数同步(README == inventory)', () => {
   const readme = readFileSync(join(root, 'README.md'), 'utf-8')
   const line = `${inv.primitives} 个布局原语 + ${inv.utilities} 个工具类 + ${inv.tokens} 个主题 Token`
   assert.ok(readme.includes(line), `README.md 缺计数行: ${line}`)
+  // W5 扩围：docs/client.md §4 同口（50 原语 + 98 工具 + 2 内部——手工维护处必须同步哨兵）
+  const clientDoc = readFileSync(join(root, 'docs/client.md'), 'utf-8')
+  const line2 = `${inv.primitives} 原语（\`_*.css\`）+ ${inv.utilities} 工具 + ${inv.internals} 内部`
+  assert.ok(clientDoc.includes(line2), `docs/client.md 缺计数行: ${line2}`)
+  // W5 扩围：docs/layout.md §7 速览表口径（生成器产物——L15 兜底，此处校验表头存在）
+  const ref = readFileSync(join(root, 'docs/layout.md'), 'utf-8')
+  assert.ok(ref.includes(`| 布局原语 | ${inv.primitives} |`), `docs/layout.md 缺原语计数行`)
+  assert.ok(ref.includes(`| 工具类 | ${inv.utilities} |`), `docs/layout.md 缺工具计数行`)
+  assert.ok(ref.includes(`| 主题 token | ${inv.tokens} |`), `docs/layout.md 缺 token 计数行`)
 })
 
 test('L7 构建产物 CSS 可解析（dist PostCSS 合格——style.css 500 根因防线）', async () => {
@@ -572,4 +580,31 @@ test('L14 layout 类文件 px 字面量登记制（结构魔数白名单——�
   )
   const stale = Object.keys(WHITELIST).filter((k) => !found.has(k))
   assert.equal(stale.length, 0, `白名单项已不存在（幽灵登记——token 化或删除后请同步移出）: ${stale.join(' ')}`)
+})
+
+test('L15 参考文档生成一致性（docs/layout.md == 生成器输出——新类无文档即红）', () => {
+  // docs/layout.md 由 scripts/layout-reference.mjs 机器生成（类清单 = inventory 全量 + 断点/钩子/标尺/零消费示例）
+  // ——新类/新 token/新钩子不重新生成即漂移 → --check 非零退出 = 红（“无文档即红”机制化）
+  const out = execSync('node scripts/layout-reference.mjs --check', { cwd: root, encoding: 'utf-8' })
+  assert.match(out, /最新/)
+})
+
+test('L16 悬空 design/ 引用 = 0（docs 单源——机器生成参考替代历史三文档）', () => {
+  // 历史：design/ 目录不存在但被 8 处引用（layout-naming.md ×5 · design-language.md ·
+  // style-professional-plan.md · CONTRIBUTING「design/ 计划」）——W5 收拢：命名规则入
+  // docs/client.md §4、设计语言入 §3、全量类清单入 docs/layout.md（机器生成）。
+  const hits = []
+  const scan = (p) => {
+    let entries
+    try { entries = readdirSync(p, { withFileTypes: true }) } catch {
+      if (/design\//.test(readFileSync(p, 'utf-8'))) hits.push(p.slice(root.length + 1))
+      return
+    }
+    for (const e of entries) {
+      if (e.name === 'node_modules' || e.name.startsWith('.') || e.name === 'dist') continue
+      scan(join(p, e.name))
+    }
+  }
+  for (const d of ['src/client', 'scripts', 'docs', 'CONTRIBUTING.md']) scan(join(root, d))
+  assert.equal(hits.length, 0, `design/ 悬空引用（设计文档单源已收拢）:\n  ${hits.join('\n  ')}`)
 })

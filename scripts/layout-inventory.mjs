@@ -34,6 +34,19 @@ const UTILITY_FILES = new Set(['_spacing.css', '_surface.css', '_border.css', '_
 /** 内部实现文件（框架自身消费——非用户词汇：不计入原语/工具计数） */
 const INTERNAL_FILES = new Set(['_popup.css'])
 
+/** 消费证据豁免登记（L2/L3 与 docs/layout.md §6 共用——单源）
+ *  - QUARTET_KEEP：self-* 对齐四态语义完备（四态 3/4 消费——整体保留）
+ *  - LIB_SURFACE_KEEP：库公共面（showcase components-only 裁剪后消费证据消失——类属
+ *    weifuwu/layout npm 公共清单，退出消费或库侧裁剪时才从本集合移除）
+ *  - SHOWCASE_PRIVATE：showcase 演示页私有样式类（定义在页面上下文——非库面）
+ */
+export const QUARTET_KEEP = ['wf-self-stretch', 'wf-self-start']
+export const LIB_SURFACE_KEEP = [
+  'wf-absolute', 'wf-cover', 'wf-layer', 'wf-nav', 'wf-nav-group',
+  'wf-radius-lg', 'wf-safe-bottom', 'wf-safe-top',
+]
+export const SHOWCASE_PRIVATE = ['wf-variant-toggle', 'wf-variant-chevron', 'wf-variant-name', 'wf-variant-desc']
+
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
 
 /** 冲突关注属性（布局身份属性——同元素两类设置不同值 = 顺序敏感/互斥） */
@@ -134,7 +147,7 @@ export function conflictMatrix(inv) {
 
 /**
  * 死类报告（L4）：仓库内零引用的类——只报告不删（原语是对外 API，删除需主版本决策）。
- * 引用判定 = 文本包含（宽松，宁漏报不误报）；扫描 apps/src/docs/design/README。
+ * 引用判定 = 文本包含（宽松，宁漏报不误报）；扫描 apps/src 代码面（docs/layout.md 生成物不回喂）。
  */
 export function deadClasses(inv) {
   const corpus = collectCorpus()
@@ -157,6 +170,7 @@ function collectCorpus() {
     }
     for (const e of entries) {
       if (e.name === 'node_modules' || e.name.startsWith('.')) continue
+      if (e.name === 'layout.md') continue // 机器生成参考（由 inventory 生成——不得回喂语料，否则死类检测空转）
       walk(join(p, e.name))
     }
   }

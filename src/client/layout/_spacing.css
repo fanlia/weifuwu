@@ -1,6 +1,6 @@
 /* 间距/尺寸工具类 — 全部引用 --wf-* Token，无硬编码
  *
- * 命名规则（design/layout-naming.md）：属性根全名 + 物理方向全词 + 标尺值
+ * 命名规则（docs/client.md §4）：属性根全名 + 物理方向全词 + 标尺值
  *   wf-padding[-{x,y,top,bottom}]-<刻度>   padding（刻度 ← --wf-space-*）
  *   wf-margin[-{x,y,top,bottom,left}]-<刻度>  margin（刻度 ← --wf-space-*）
  *   wf-gap-<刻度>                          直接设 gap 属性

@@ -66,7 +66,7 @@ npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 （渲染路径副作用守卫）、`build`（首帧命令序列）、`diff`（setProp 只发变化键/
 组件复用/空洞互换）、`key/keyed/attrs`、`router/store/data/html`、`events`、
 `api`（真实 HTTP fixture）、`auth`、`ai-stream`（wf: SSE）、`layout-inventory`
-（布局层清单 **18 断言**——计数基线/死类=0/缺口=0/无非法选择器/零值形态唯一/
+（布局层清单 **20 断言**——计数基线/死类=0/缺口=0/无非法选择器/零值形态唯一/
 方向词隔离/双名歼灭/**零值档位矩阵（L5d——取消面缺口登记）**/文档计数同步/
 dist 可解析/**冲突矩阵登记（L8——同属性不同值对的同元素共用逐对登记胜者+胜因）**）。
 
