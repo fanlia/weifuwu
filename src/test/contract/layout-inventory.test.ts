@@ -16,6 +16,9 @@
  *      !important 白名单(仅 prefers-reduced-motion)· 变量钩子 @property 注册完备(inherits:false)
  *   L10/L11 断点与 token 单源(LAYOUT-PLAN W3):媒体查询字面量 ⊆ --wf-bp-* 派生白名单
  *      (每档 V / V-0.02 两形态——bp token 由死面转正为机制源)· token 死面 = 0(登记制)
+ *   L12/L13/L14 token 面收敛(LAYOUT-PLAN W4):同域同值双名必须 var() 单源(类面 L5c 同款)·
+ *      间距双标尺定案(gap 派生自 space 紧一档 + 值冻结 + 预设不覆写派生档)·
+ *      layout 类文件 px 字面量登记制(结构魔数白名单——其余 token 化)
  *
  * node:test 直跑——零浏览器(契约层纪律)。
  */
@@ -424,7 +427,7 @@ test('L11 token 死面 = 0（登记制——消费证据跨 src+apps）', () => 
   // 零消费但保留的 token 必须逐条写明理由（否则 = 死面 → 删除）
   const BP_WHY = '机制单源（L10 断点白名单派生源）——CSS 媒体查询语法不能 var()，结构性不可被样式直接消费'
   const KEEP = {
-    '--wf-gap-2xl': '标尺完整性——gap 六档（xs..2xl）与 space 六档对称（--wf-space-2xl 活）；且 _presets.css 紧凑预设同步覆写该档——删除即预设面出现无基档对应的覆写',
+    '--wf-gap-2xl': '标尺完整性——gap 六档（xs..2xl）已 var() 派生自 space 标尺（紧一档：2xl = space-xl），顶档对称保留（--wf-space-2xl 活）；零消费但删档即标尺出现洞（L13 派生登记同步要求六档齐备）',
     '--wf-bp-sm': BP_WHY,
     '--wf-bp-md': BP_WHY,
     '--wf-bp-lg': BP_WHY,
@@ -443,4 +446,130 @@ test('L11 token 死面 = 0（登记制——消费证据跨 src+apps）', () => 
   // 反向②：登记项已无声明 → 幽灵登记
   const gone = Object.keys(KEEP).filter((t) => !declared.has(t))
   assert.equal(gone.length, 0, `登记项已无声明（幽灵登记）: ${gone.join(' ')}`)
+})
+
+/** 名词序列是否为另一名的子序列（限定词插入形态：[shadow] ⊂ [surface, shadow]） */
+function isQualifierInsertion(a, b) {
+  const wa = a.replace(/^--wf-/, '').split('-')
+  const wb = b.replace(/^--wf-/, '').split('-')
+  if (wa.length >= wb.length) return false
+  let i = 0
+  for (const w of wb) if (w === wa[i]) i++
+  return i === wa.length
+}
+
+test('L12 token 双名歼灭（同文件内值全等 + 限定词插入形态 = 别名对 → 必须 var() 单源）', () => {
+  // L5c 已在类面歼灭双名（声明指纹全等 = 别名对）；token 面同款债务（W4 探针实证）：
+  //   --wf-surface-shadow ≡ --wf-shadow（0 1px 3px rgba(0,0,0,.08)）
+  //   --wf-dark-surface-shadow ≡ --wf-dark-shadow（0 1px 3px rgba(0,0,0,.3)）
+  // 两边同形——历史双名（亮/暗两主题各一对）。修法：语义名保留、值改 var() 引用（公共面不断）。
+  // 判定形态取「限定词插入」（子序列）——只抓同域双名，不抓跳域巧合（--wf-motion-sm 4px ≡
+  // --wf-overlay-blur 4px · 240px 三胞胎 · 200px 三胞胎）——后者耦合只会制造隐形爆炸半径
+  // （判负登记见 plan W4）。另：--wf-dark-bg-hover ≡ --wf-dark-state-hover（差一词非子序列）
+  // 本轮人工定案同款单源化（镜像亮色侧 --wf-color-bg-hover: var(--wf-state-hover) 形态）——
+  // 不入启发式（差一词形态误报面大：shadow-sm vs motion-sm 类跳域巧合会被拓）。
+  // 值归一：CSS 声明值中的空白无语义——`rgba(0, 0, 0, .08)` 与 `rgba(0,0,0,.08)` 是同一值
+  // （W4 实证：亮色侧 --wf-surface-shadow 与 --wf-shadow 就是靠空格差异逃过字面比对的双名）
+  const norm = (v) => v.replace(/\s+/g, ' ').replace(/,\s*/g, ',').replace(/\s*\)/g, ')').trim()
+  for (const f of ['_tokens.css', '_dark.css', '_presets.css']) {
+    const css = readFileSync(join(LAYOUT, f), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
+    const decls = new Map()
+    for (const m of css.matchAll(/(--wf-[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+      const value = m[2].trim()
+      if (/^var\(/.test(value)) continue // 已单源引用形态
+      decls.set(m[1], norm(value))
+    }
+    const byValue = new Map()
+    for (const [n, v] of decls) { if (!byValue.has(v)) byValue.set(v, []); byValue.get(v).push(n) }
+    const aliases = new Set()
+    for (const [v, names] of byValue) {
+      if (names.length < 2) continue
+      for (const a of names) for (const b of names) {
+        if (a !== b && isQualifierInsertion(a, b)) aliases.add(`${a} ≡ ${b} = ${v}（应为 ${a}: var(${b}) 或反向）`)
+      }
+    }
+    assert.equal(aliases.size, 0, `${f}: 同域同值双名（别名对）必须 var() 单源——保留语义名、值改引用:\n  ${[...aliases].join('\n  ')}`)
+  }
+})
+
+test('L13 间距标尺派生登记（gap = space 紧一档 · 值冻结 · 预设只覆写 space）', () => {
+  // 双标尺定案（LAYOUT-PLAN W4）：旧形态 gap/space 同名档位不同值（gap-md 12 vs space-md 16）
+  // + compact 预设双份字面量 → 「紧一档」关系只存于 folklore（DX 陷阱：同后缀不同值）。
+  // 定案：gap **派生**自 space（关系入代码）——值零变动（探针实证两主题逐档全等：
+  // base gap 4/8/12/16/24/32 · compact 3/6/9/12/18/24），预设六档 gap 覆写已删（自动跟随）。
+  // 判负：方案 A 归一值（gap-md 12→16）——破坏「容器内间距 < 控件内边距」密度关系，
+  //       爆炸半径 gap-* 207 处消费；方案 B 改名去歧义——`wf-gap-*` 是公共工具类名 = 主版本破坏。
+  // 推翻条件：设计面定「gap 与 space 同档同值」→ 改派生映射 + 本登记 + 截图甄别。
+  const GAP_FROM_SPACE = { xs: 'xs', sm: 'sm', md: '', lg: 'md', xl: 'lg', '2xl': 'xl' } // '' = --wf-space 裸档
+  const base = readFileSync(join(LAYOUT, '_tokens.css'), 'utf-8')
+  const presets = readFileSync(join(LAYOUT, '_presets.css'), 'utf-8')
+  for (const [step, spaceStep] of Object.entries(GAP_FROM_SPACE)) {
+    const want = `var(--wf-space${spaceStep ? `-${spaceStep}` : ''})`
+    const m = base.match(new RegExp(`--wf-gap-${step}:\\s*([^;]+);`))
+    assert.ok(m, `--wf-gap-${step} 声明缺失（标尺洞）`)
+    assert.equal(m[1].trim(), want, `gap 标尺必须派生自 space（紧一档）——${step} 档应为 ${want}（字面量 = 关系退回 folklore）`)
+  }
+  // 预设不得覆写派生档（覆写即绕过派生 → 两标尺再度漂移）
+  const overrides = [...new Set([...presets.matchAll(/--wf-gap-[a-z0-9]+/g)].map((m) => m[0]))]
+  assert.equal(overrides.length, 0, `预设不得覆写派生的 gap 档（只覆写 space——gap 自动跟随）: ${overrides.join(' ')}`)
+  // 值冻结（标尺变更必须有意——含 compact 预设；gap 派生随之变动）
+  const SPACE_BASE = { xs: '4px', sm: '8px', '': '12px', md: '16px', lg: '24px', xl: '32px', '2xl': '40px' }
+  const SPACE_COMPACT = { xs: '3px', sm: '6px', '': '9px', md: '12px', lg: '18px', xl: '24px', '2xl': '30px' }
+  for (const [label, file, table] of [['base', base, SPACE_BASE], ['compact', presets, SPACE_COMPACT]]) {
+    for (const [step, want] of Object.entries(table)) {
+      const name = `--wf-space${step ? `-${step}` : ''}`
+      const m = file.match(new RegExp(`${name}:\\s*([^;]+);`))
+      assert.ok(m, `${name} 声明缺失（${label}）`)
+      assert.equal(m[1].trim(), want, `${name}（${label}）值变更必须有意——标尺冻结，gap 派生随之变动`)
+    }
+  }
+})
+
+test('L14 layout 类文件 px 字面量登记制（结构魔数白名单——其余 token 化）', async () => {
+  // W4 探针：layout 类文件（除 token/dark/presets/base/props）px 字面量 17 处——分类定案：
+  //   ① @media 宽度 6 处 → L10 断点单源已治理（非声明面——本断言自然不涉）
+  //   ② var(--hook, 回退值) → 钩子默认面（L9b 治理注册）——剥除 var() 后不参与本断言
+  //   ③ token 化 2 处：`.wf-card-outline` border 1px → var(--wf-border-width)（与 _border.css 同写法）·
+  //      `@keyframes wf-panel-in` -4px → calc(var(--wf-motion-sm) * -1)（与 NavMenu/Command/Menu
+  //      三个同语义面板入场同写法——幅度单源）
+  //   ④ 剩余 7 处 = 结构魔数（语义不属主题标尺）→ 白名单登记，新增字面量必须登记或 token 化
+  const WHITELIST = {
+    '_app-shell.css#.wf-nav#gap': '2px——导航项发丝分隔间距（小于 gap-xs 4px：紧贴分组视觉，非标尺档位）',
+    '_app-shell.css#.wf-nav-item#min-height': '44px——触控命中区下限（WCAG 2.5.5 / Apple HIG 44pt）——不随密度预设缩放（可访问性地板）',
+    '_fill.css#.wf-fill-hover#padding': '2px 4px——hover 底色内缩（与同规则负 margin 成对：视觉零位移的命中区扩展）',
+    '_fill.css#.wf-fill-hover#margin': '-2px -4px——同上 bleed 对（padding/负 margin 必须同值成对——token 化会拆开这对关系）',
+    '_popup.css#.wf-popup#max-width': '32px——弹层视口内缩 calc(100vw - 32px)（移动端左右各 16px 安全边距）',
+    '_surface.css#.wf-pill#border-radius': '999px——胶囊圆角（远大于任何盒高即全圆端；不是标尺档位——token 化无意义）',
+    '_surface.css#.wf-elevate:hover#transform': '-2px——hover 微抬升（= motion-sm 4px 半档，无独立档位；入场幅度已走 motion 标尺）',
+  }
+  const postcss = (await import('postcss')).default
+  const stripVars = (v) => {
+    let out = v, i
+    while ((i = out.indexOf('var(')) !== -1) {
+      let depth = 0, j = i + 3
+      for (; j < out.length; j++) {
+        if (out[j] === '(') depth++
+        else if (out[j] === ')') { depth--; if (depth === 0) break }
+      }
+      out = out.slice(0, i) + out.slice(j + 1)
+    }
+    return out
+  }
+  const NON_CLASS = new Set(['_tokens.css', '_dark.css', '_presets.css', '_base.css', '_props.css'])
+  const found = new Map()
+  for (const f of readdirSync(LAYOUT).filter((x) => x.endsWith('.css') && !NON_CLASS.has(x))) {
+    postcss.parse(readFileSync(join(LAYOUT, f), 'utf-8')).walkDecls((d) => {
+      const px = [...stripVars(String(d.value)).matchAll(/-?[\d.]+px/g)].map((m) => m[0])
+      if (!px.length) return
+      const sel = d.parent && d.parent.selector ? String(d.parent.selector).trim() : '(root)'
+      found.set(`${f}#${sel}#${d.prop}`, px.join(' '))
+    })
+  }
+  const unregistered = [...found.keys()].filter((k) => !WHITELIST[k])
+  assert.equal(
+    unregistered.length, 0,
+    `layout 类文件新增 px 字面量（token 化或登记白名单+理由）:\n  ${unregistered.map((k) => `${k} = ${found.get(k)}`).join('\n  ')}`,
+  )
+  const stale = Object.keys(WHITELIST).filter((k) => !found.has(k))
+  assert.equal(stale.length, 0, `白名单项已不存在（幽灵登记——token 化或删除后请同步移出）: ${stale.join(' ')}`)
 })

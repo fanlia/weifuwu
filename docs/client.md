@@ -69,6 +69,17 @@ app.router(Router())
 - **死面 = 0（登记制）**：token 声明必须有消费证据（`var()` / TS 字面）——零消费即删，
   结构性不可消费的（bp-* 机制源 · gap-2xl 标尺完整性）逐条登记理由；反向哨兵：
   登记项一旦有消费者即需移出（防登记表腐化）
+- **双标尺（定案）**：`--wf-gap-*` **派生**自 `--wf-space-*`（紧一档：gap-md = space 裸档
+  = 12px · gap-lg = space-md）。容器内元素间距 < 控件内边距是有意的密度设计，**不是**
+  同名不同值的命名事故——关系入代码（L13 登记 + 值冻结），预设只覆写 space 标尺
+  （gap 自动跟随）
+- **同值双名（L12）**：同主题文件内值全等且名为「限定词插入」形态（`shadow` ⊂
+  `surface-shadow`）= 历史双名 → 必须 `var()` 单源（语义名保留、值改引用）；
+  跨域巧合（motion-sm 4px ≡ overlay-blur 4px · 240px/200px 三胞胎）**判负不耦合**
+  （耦合即隐形爆炸半径）
+- **px 字面量（L14）**：layout 类文件只允许登记白名单内的结构魔数（44px 命中区 ·
+  999px 胶囊 · 1px 发丝走 `--wf-border-width` · 2px/4px bleed 对 · 32px 视口内缩 ·
+  2px hover 微抬升）——新增字面量必须 token 化或登记
 
 品牌换色 = 改 seed 一个值；预设主题 = `data-theme` 一个属性（minimal/dark）。
 
@@ -83,7 +94,8 @@ app.router(Router())
 
 零值形态唯一（`none` 归一）· 对齐域禁方向词 · 双名歼灭 · 零值档位矩阵（取消面缺口登记）·
 冲突矩阵（同属性不同值对的同元素共用逐对登记胜者+胜因）· 层叠机制锁定（层序/`:where()`/
-`!important` 白名单/`@property` 钩子注册）· 断点与 token 单源——layout-inventory 15 断言锁定；
+`!important` 白名单/`@property` 钩子注册）· 断点与 token 单源 · token 双名歼灭 ·
+间距标尺派生登记 · px 字面量白名单——layout-inventory **18 断言**锁定；
 层叠语义的浏览器计算值读数见场景层 `e2e-layout-semantics.test.ts`。
 
 ## 5. 组件编写规范（唯一入口）

@@ -2,7 +2,9 @@
  *
  * 用法：<html data-preset="minimal|compact|rounded">
  * 与暗色 data-theme 正交（可组合：data-theme="dark" data-preset="compact"）。
- * 每组覆盖同一份 token 清单的相应子集——新增预设必须补齐全套（audit 强制）。
+ * 每组只覆写该预设语义涉及的 token 子集——**派生 token 不必覆写**（如 gap 六档 var() 派生自
+ * space：compact 只改 space 即自动跟随）。旧注释称「必须补齐全套（audit 强制）」——实证无此
+ * audit（W4 修正为事实：一致性由 layout-inventory L13 派生登记守卫）。
  *
  * 预设语义：
  *   minimal  品牌弱化——中性蓝灰主色（适合内容/文档型产品，Geist 式克制）
@@ -19,7 +21,7 @@
   /* 控件尺寸 */
   --wf-control-height: 32px;
   --wf-control-pad-y: 6px;
-  /* 间距标尺缩一档（布局原语/工具类同步生效） */
+  /* 间距标尺缩一档（布局原语/工具类同步生效）——只覆写 space：gap 六档 var() 派生自动跟随 */
   --wf-space-xs: 3px;
   --wf-space-sm: 6px;
   --wf-space: 9px;
@@ -27,12 +29,6 @@
   --wf-space-lg: 18px;
   --wf-space-xl: 24px;
   --wf-space-2xl: 30px;
-  --wf-gap-xs: 3px;
-  --wf-gap-sm: 6px;
-  --wf-gap-md: 9px;
-  --wf-gap-lg: 12px;
-  --wf-gap-xl: 18px;
-  --wf-gap-2xl: 24px;
   /* 正文字号缩一档（数据密度） */
   --wf-font-size-sm: 12px;
   --wf-font-size-base: 13px;
