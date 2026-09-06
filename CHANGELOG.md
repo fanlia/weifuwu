@@ -8,6 +8,15 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.93.1] - 2026-09-06
+
+按域统计：db 1 · release 1
+
+### Fixed
+
+- db：空对象 where 子项 = 无条件——compile 裸 AND 修复（platform /api/agents 400）
+- release：changelog 全角冒号解析——components/layout 域提交不再落 Other
+
 ## [0.93.0] - 2026-09-06
 
 按域统计：components 10 · layout 7 · release 1 · core 4
