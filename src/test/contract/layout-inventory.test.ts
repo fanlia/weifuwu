@@ -228,6 +228,14 @@ test('L7 构建产物 CSS 可解析（dist PostCSS 合格——style.css 500 根
     try {
       const css = readFileSync(f, 'utf-8')
       await postcss.default.parse(css)
+      // LAYOUT-PLAN W6：minify 机制完整性——@layer 声明必须在（W1 曾因头注释吞掉层序——
+      // minify 不得再吞）；注释必须为零（esbuild 剥离——任何残留 = 未 minify 回归）
+      assert.match(css, /@layer [^{]+\{/, `${f}: minify 后 @layer 层序声明丢失`)
+      assert.ok(!css.includes('/*'), `${f}: minify 后仍有注释（剥离不彻底——构建未走 minify 或 esbuild 版本回退）`)
+      if (f.includes('weifuwu-layout')) {
+        assert.equal((css.match(/@property/g) || []).length, 9, `${f}: @property 注册数漂移（W2 基线 9）`)
+        assert.ok(css.includes('wf-padding-none'), `${f}: 零值档位类丢失（W2 补齐面）`)
+      }
     } catch (e: any) {
       assert.fail(`${f}: PostCSS 解析失败（构建产物损坏——500 根因）: ${String(e.message).slice(0, 120)}`)
     }

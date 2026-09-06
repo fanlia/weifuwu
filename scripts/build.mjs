@@ -143,11 +143,14 @@ await esbuild.build({
 const layoutSrc = join(srcDir, 'client', 'layout')
 const layoutDist = join(distDir, 'client', 'layout')
 
-const { css: layoutCss } = await bundleLayout(layoutSrc)
+const { css: layoutCssRaw } = await bundleLayout(layoutSrc)
+// LAYOUT-PLAN W6：CSS minify（esbuild——探针实证保留 @layer/@property/@supports/转义 \@；注释剥离）
+const { code: layoutCss } = await esbuild.transform(layoutCssRaw, { loader: 'css', minify: true })
 await writeFile(join(layoutDist, 'weifuwu-layout.css'), layoutCss)
 
 // 编译组件 CSS = layout 全量 + 全部组件 CSS（@layer components——目录动态扫描）
-const { css: componentCss } = await bundleComponents(layoutSrc, join(srcDir, 'client', 'components'))
+const { css: componentCssRaw } = await bundleComponents(layoutSrc, join(srcDir, 'client', 'components'))
+const { code: componentCss } = await esbuild.transform(componentCssRaw, { loader: 'css', minify: true })
 await writeFile(join(distDir, 'client', 'components', 'style.css'), componentCss)
 
 // 生成类型声明

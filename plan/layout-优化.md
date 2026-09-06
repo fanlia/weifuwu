@@ -67,8 +67,7 @@
   变体不足」的实例（≥2 消费者）
 - **per-app CSS purge / 按需子集**：不做——首页 96% 规则无关（1959/2021）但
   ① 动态类名（数组 join / 条件类）静态扫描漏删风险 = 视觉破损 ② 消费侧改造成本
-  （构建期挂钩）③ br 后 23.7K（W6 后）尚非瓶颈；推翻：真实应用首屏 CSS 成为
-  LCP 阻塞的实测数据（或 style.css br > 60K）
+  （构建期挂钩）③ br 后 **24.3K**（W6 minify 后实铡——远低于 60K 红线）尚非瓶颈；推翻：真实应用首屏 CSS 成为 LCP 阻塞的实测数据（或 style.css br > 60K）
 - **RTL / 逻辑属性化**：不做——物理方向属性 37 处 vs 逻辑属性 1 处，但 RTL 需求
   证据 **0**；推翻：出现 RTL 语言消费者（届时 `padding-inline` 化 + `dir` 审计）
 - **移除 8 个 LIB_SURFACE 零消费类**（`wf-absolute`/`wf-cover`/`wf-layer`/`wf-nav`/
@@ -105,7 +104,7 @@
 | W5 | | **参考面生成**：新增 `scripts/layout-reference.mjs`（生成/--check 双模式）→ 产物 **docs/layout.md**（244 行）——类清单 = inventory 全量（150 行逐类表：域/文件/声明摘要/断点变体/状态修饰）+ 层序与覆盖规则（LAYER_ORDER 实引）+ 断点表（--wf-bp-* 直读）+ 变量钩子表（@property 实读 + 回退值提取）+ 间距标尺派生表 + 零消费公共面（9 类示例 = 可发现，USAGE 映射不完整即生成失败）。**两处语料回喂修正**：`collectCorpus` 排除 `docs/layout.md`（生成物不得回喂——否则死类检测空转；实证：无排除时 deadClasses 恒 0）· 豁免登记单源化：QUARTET_KEEP/LIB_SURFACE_KEEP/SHOWCASE_PRIVATE 从测试内联移到 **layout-inventory.mjs 导出**（测试与生成器共用）。**悬空引用 8 → 0**：layout-naming.md ×5（_text/weifuwu-layout/_spacing/test 头注释）+ design-language.md（_base _base.css:250）+ style-professional-plan.md（FileTree.css）+ CONTRIBUTING「design/ 计划」——全部收拢指到 docs/client.md §3/§4 / docs/layout.md；**L16 哨兵**（负控已验：加回一行 design/ 引用 → 红）· docs/client.md 悬空 `demos/layout.tsx` 词根表指向 → docs/layout.md（机器生成）。**扩围**：L6 增 docs/client.md 计数行 + docs/layout.md 速览表双断言；AGENTS.md 断言计数 18→20。**新防线 L15**（文档漂移 = --check 非零 → 红——负控已验：手改一行 → 红）。**回归**：契约 448→**450**（L15/L16）· 场景 **129** · showcase **328** · audit:all exit 0 · tsc/tsc:test **0** · 平台 UI **155/155**。
 
 **零消费 10 类 + 豁免 14 项定案**：全部**文档化**（不做裁剪）——8 LIB_SURFACE + 1 QUARTET（self-start）进 docs/layout.md §6 示例表 · SHOWCASE_PRIVATE 4 类标注「页面私有非库面」不计入 · 判负维持（卸载需主版本决策）。 |
-| W6 | | |
+| W6 | | **minify 实装**：`build.mjs` 两处 CSS 写盘接 esbuild.transform(css,{loader:'css',minify:true})——探针预验：@layer 语句/9 条 @property/@supports/转义 at 类名（`\@lg` ×3）全保留·注释全剥离；**产出**：layout raw 57846→**28729**（-50%）· gzip 17825→**5816**（-67%）· **br 5151**；style raw 326415→**226229**（-31%）· gzip 60312→**30099**（-50%）· **br 24338**。**副作用两处**（minify 暴露的真实隐惠）：① **97 个空规则（:where() 语义标记类）**被 esbuild 剥离——它们是组件 DOM 钩子（无样式：测试定位/用户扩展——`/* ── 语义标记类 ── */` 显式注释约定）——非样式面，B2 发布面比较改为**排除空规则类**（钩子类可定位性不依赖 CSS 规则存在；静态契约由组件 DOM 类名/L3 源面缺口检查守卫；B2 打印可见计数）② B3/L7 契约增强：minify 产物必须保留 @layer 活声明 + 零注释残留 + @property 9 条 + wf-padding-none（改构建头注释/剥离器回退即红）。**基线兑现**：bundle-baseline.json 更新为 28729/5816 + 226229/30099（note 记录 W0→W6 全程——只降不升纪律：W1-W4 上调均为注释面，W6 一次性兑现回落）；audit:bundle CSS 行：layout **28.1K/5.7K** · style **220.9K/29.4K**。**文档化**：docs/client.md §4 新增载荷面（无组件应用只引 weifuwu/layout——28.1K/br 5.1K 独立面 + 按需子集判负）。**回归**：契约 450（B2 排除逻辑 + L7 增强）· 场景 **129** · showcase **328** · audit:all exit 0 · tsc/tsc:test **0** · 平台 UI **155/155**（dev 管线未 minify——发布面治理不影响开发面）。**判负兑现**：per-app purge/按需子集不做（记录更新：style.css br **24.3K** < 60K 阈值；动态类名漏删 = 视觉破损风险 > 收益）。 |
 | W7 | | |
 
 ## 验收标准

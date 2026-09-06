@@ -10,7 +10,8 @@
  *
  * 本契约锁定（防回潮）：
  *   B1 层归属自证：bundle 输出的 (类 → 层) == LAYER_OF 登记（逐类）
- *   B2 发布面一致：dist 产物层归属 == bundle 输出（含 style.css 的 components 层）
+ *   B2 发布面一致：dist 产物层归属 == bundle 输出（含 style.css 的 components 层——
+ *      语义标记类空规则除外：W6 minify 剥离空规则——非样式面，按约定排除）
  *   B3 层序声明是**活 atrule**：旧 build 取 entry 首行当 head → 未闭合注释把
  *      `@layer tokens, base, layout, utilities, components;` 整条吞掉（postcss 实证
  *      层序语句 0 个 → 优先级退化为块首现顺序 → 改层序声明是空操作）
@@ -61,6 +62,33 @@ test('B1 层归属自证（bundle 输出 == LAYER_OF 登记——逐类）', asy
   assert.ok(layers.has('layout') && layers.has('utilities') && layers.has('base'), `层集合: ${[...layers]}`)
 })
 
+/** 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明）
+ *  非样式面：esbuild minify 会剥离空规则（W6 实证）——发布面比较排除之
+ *  （类的可定位性/可扩展性不依赖 CSS 规则存在——元素挂类名即生效）·
+ *  静态契约由组件代码（类名在 DOM）/ L3 源面缺口检查守卫 */
+function hookClasses(dir: string): Set<string> {
+  const hooks = new Set<string>()
+  const collect = (p: string) => {
+    let entries: ReturnType<typeof readdirSync>
+    try { entries = readdirSync(p, { withFileTypes: true }) } catch {
+      const root = postcss.parse(readFileSync(p, 'utf-8'))
+      root.walkRules((r) => {
+        const hasDecl = (r.nodes ?? []).some((n) => n.type === 'decl')
+        if (hasDecl) return
+        for (const m of String(r.selector).matchAll(/\.(wf-[a-z0-9-]+(?:--[a-z-]+)?)/g)) hooks.add(m[1])
+      })
+      return
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) {
+        if (e.name !== 'node_modules') collect(join(p, e.name))
+      } else if (e.name.endsWith('.css')) collect(join(p, e.name))
+    }
+  }
+  collect(dir)
+  return hooks
+}
+
 test('B2 发布面一致（dist 产物层归属 == bundle 输出）', async () => {
   if (!existsSync(DIST_LAYOUT) || !existsSync(DIST_STYLE)) {
     console.log('⚠ dist 未构建——B2 可见跳过（npm run build 后复跑；不静默）')
@@ -77,8 +105,15 @@ test('B2 发布面一致（dist 产物层归属 == bundle 输出）', async () =
     for (const [k, v] of a) if (b.get(k) !== v) out.push(`${label} ${k}: dist=${b.get(k) ?? '缺失'} vs 源=${v}`)
     return out
   }
-  const d = [...diff(srcLayoutMap, distLayoutMap, 'layout'), ...diff(srcStyleMap, distStyleMap, 'style')]
+  const hooks = hookClasses(COMPONENTS_DIR)
+  const d = [
+    ...diff(srcLayoutMap, distLayoutMap, 'layout'),
+    ...diff(srcStyleMap, distStyleMap, 'style'),
+  ].filter((line) => ![...hooks].some((h) => line.includes(` ${h}:`)))
   assert.equal(d.length, 0, `dist 与源面装配不一致（build 未跑或装配分叉）:\n  ${d.slice(0, 12).join('\n  ')}`)
+  // 语义标记类（样式面契约）：钩子类应仍在 dist 中可被解析到层（若 minify 器不再剥离则恢复全量比较）
+  const hookInDist = [...hooks].filter((h) => !distStyleMap.has(h))
+  console.log(`  ⓘ 语义标记类（空规则 DOM 钩子）: ${hooks.size} 个——minify 剥离后 dist 层映射缺 ${hookInDist.length}（非样式面——排除比较）`)
   // components 层只在 style.css 出现（layout 单文件无组件 CSS）
   assert.equal([...distLayoutMap.values()].includes('components'), false, 'layout 产物不应含 components 层')
   assert.ok([...distStyleMap.values()].includes('components'), 'style.css 必须含 components 层')

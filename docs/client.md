@@ -99,6 +99,13 @@ app.router(Router())
 间距标尺派生登记 · px 字面量白名单——layout-inventory **20 断言**锁定；
 层叠语义的浏览器计算值读数见场景层 `e2e-layout-semantics.test.ts`。
 
+**载荷面（W6 minify）**：dist 发布产物 `weifuwu-layout.css` **28.1K**（gzip 5.7K · brotli 5.1K）·
+`weifuwu/components/style.css` **220.9K**（gzip 29.4K · brotli 24.3K）——esbuild minify（
+`build.mjs` 实装：`@layer`/`@property`/`@supports`/转义类名全保留，注释全剥离）；
+**无组件应用只引 `weifuwu/layout`**（28.1K / br 5.1K——独立面，零组件 CSS 成本）。
+按需子集（per-component 子路径 / purge）**判负**：动态类名漏删风险 + 构建期改造成本
++ br 后 24.3K 非瓶颈——推翻条件：真实应用首屏 CSS 成为 LCP 阻塞的实测数据。
+
 ## 5. 组件编写规范（唯一入口）
 
 > 新建/修改组件前读本节——其余 § 按需。
