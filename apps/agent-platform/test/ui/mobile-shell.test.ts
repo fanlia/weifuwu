@@ -82,22 +82,22 @@ test('390px：顶栏可见 + 侧栏收起（内容直达——不再滚过整条
 test('390px：汉堡开抽屉 → 导航自动收起（开→点菜单项→URL 变+抽屉关）', async () => {
   const { page } = await newMobilePage('/')
   await page.click('.wf-nav-bar button[aria-label="打开菜单"]')
-  await page.waitForFunction(() => document.querySelector('.wf-sidebar')?.classList.contains('ap-drawer--open'), undefined, { timeout: 5000 })
-  const overlayShown = await page.evaluate(() => !!document.querySelector('.ap-drawer-overlay'))
+  await page.waitForFunction(() => document.querySelector('.wf-sidebar')?.classList.contains('wf-app-shell-drawer--open'), undefined, { timeout: 5000 })
+  const overlayShown = await page.evaluate(() => !!document.querySelector('.wf-app-shell-overlay'))
   assert.ok(overlayShown, '抽屉开启时应有遮罩')
   // 点导航项 → 跳转 + 抽屉收起（Menu 项类 wf-menu-item + role=menuitem）
   await page.click('.wf-sidebar .wf-menu-item:has-text("沙盒")')
   await page.waitForURL(/\/sandboxes/, { timeout: 10_000 })
-  await page.waitForFunction(() => !document.querySelector('.wf-sidebar')?.classList.contains('ap-drawer--open'), undefined, { timeout: 5000 })
+  await page.waitForFunction(() => !document.querySelector('.wf-sidebar')?.classList.contains('wf-app-shell-drawer--open'), undefined, { timeout: 5000 })
   await page.close()
 })
 
 test('390px：遮罩点击关闭抽屉', async () => {
   const { page } = await newMobilePage('/')
   await page.click('.wf-nav-bar button[aria-label="打开菜单"]')
-  await page.waitForFunction(() => !!document.querySelector('.ap-drawer-overlay'), undefined, { timeout: 5000 })
-  await page.click('.ap-drawer-overlay', { position: { x: 370, y: 400 } })
-  await page.waitForFunction(() => !document.querySelector('.wf-sidebar')?.classList.contains('ap-drawer--open'), undefined, { timeout: 5000 })
+  await page.waitForFunction(() => !!document.querySelector('.wf-app-shell-overlay'), undefined, { timeout: 5000 })
+  await page.click('.wf-app-shell-overlay', { position: { x: 370, y: 400 } })
+  await page.waitForFunction(() => !document.querySelector('.wf-sidebar')?.classList.contains('wf-app-shell-drawer--open'), undefined, { timeout: 5000 })
   await page.close()
 })
 

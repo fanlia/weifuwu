@@ -1,5 +1,6 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, Ava, EmptyState, Loading, ListScaffold } from '../components/ui'
+import { PageHeader, EmptyState, Loading, ListScaffold } from 'weifuwu/components'
+import { Ava } from '../blocks/ux'
 import { Badge, Button, Card, Icon } from 'weifuwu/components'
 import { isTenantOwner, clientRole, writeDenyReason } from '../lib/roles'
 import type { Department, DepartmentListResponse } from '../lib/types'

@@ -9,7 +9,7 @@
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Button, Card, EmptyState, Icon, Skeleton } from 'weifuwu/components'
-import { Ava, errMsg } from '../components/ui'
+import { Ava, errMsg } from '../blocks/ux'
 import { clientRole, isTenantOwner, writeDenyReason } from '../lib/roles'
 import type { AgentListResponse, DepartmentListResponse, PendingApproval } from '../lib/types'
 

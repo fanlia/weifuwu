@@ -62,7 +62,7 @@ async function seedDraft(content: string): Promise<string> {
 /** 侧边栏审批徽章读数（null = 无徽章） */
 async function badgeText(page: import('playwright').Page): Promise<string | null> {
   return page.evaluate(() => {
-    const badge = document.querySelector('.wf-sidebar .ap-nav-badge')
+    const badge = document.querySelector('.wf-sidebar .wf-menu-badge')
     return badge ? (badge.textContent ?? '').trim() : null
   })
 }
@@ -82,18 +82,18 @@ test('种子草稿 → 导航 → 徽章出现（数字=pending 数）→ 批准
   await injectAuth(page, owner)
   await openAgentPage(page, BASE, '/agents')
   // 挂载拉取（草稿已存在——首拉即见）
-  await page.waitForFunction(() => !!document.querySelector('.wf-sidebar .ap-nav-badge'), undefined, { timeout: 10_000 })
+  await page.waitForFunction(() => !!document.querySelector('.wf-sidebar .wf-menu-badge'), undefined, { timeout: 10_000 })
   assert.equal(await badgeText(page), '1', '徽章应显示 1')
   // 导航（Menu onSelect 拉取路径）→ 徽章保持
   await page.click('.wf-sidebar .wf-menu-item:has-text("沙盒")')
   await page.waitForURL(/\/sandboxes/, { timeout: 10_000 })
-  await page.waitForFunction(() => !!document.querySelector('.wf-sidebar .ap-nav-badge'), undefined, { timeout: 10_000 })
+  await page.waitForFunction(() => !!document.querySelector('.wf-sidebar .wf-menu-badge'), undefined, { timeout: 10_000 })
   assert.equal(await badgeText(page), '1', '导航后徽章保持 1')
   // API 批准草稿 → 导航回 → 徽章消失
   await apiAs(BASE, owner, `/api/messages/${msgId}/approve`, { method: 'POST', body: JSON.stringify({ approved: true }) })
   await page.click('.wf-sidebar .wf-menu-item:has-text("Agent")')
   await page.waitForURL(/\/agents/, { timeout: 10_000 })
-  await page.waitForFunction(() => !document.querySelector('.wf-sidebar .ap-nav-badge'), undefined, { timeout: 10_000 })
+  await page.waitForFunction(() => !document.querySelector('.wf-sidebar .wf-menu-badge'), undefined, { timeout: 10_000 })
   assert.equal(await badgeText(page), null, '批准后徽章应消失')
   await page.close()
 })
@@ -105,7 +105,7 @@ test('两条草稿 → 徽章显示 2（计数非布尔）', async () => {
   await injectAuth(page, owner)
   await openAgentPage(page, BASE, '/reports')
   await page.waitForFunction(
-    () => document.querySelector('.wf-sidebar .ap-nav-badge')?.textContent?.trim() === '2',
+    () => document.querySelector('.wf-sidebar .wf-menu-badge')?.textContent?.trim() === '2',
     undefined, { timeout: 10_000 },
   )
   await page.close()

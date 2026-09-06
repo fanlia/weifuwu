@@ -1,5 +1,6 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, errMsg } from '../components/ui'
+import { PageHeader } from 'weifuwu/components'
+import { errMsg } from '../blocks/ux'
 import { Alert, Badge, Button, Card, Field, Icon, Input, PasswordInput, Select, ThemeSwitch } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 import { isTenantOwner } from '../lib/roles'

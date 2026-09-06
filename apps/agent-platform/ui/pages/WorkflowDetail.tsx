@@ -7,8 +7,9 @@
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Alert, Badge, Button, Card, CodeEditor, Descriptions, DiffView, Input, JSONViewer, Loading, Modal, Pipeline, Select, Tabs, Textarea } from 'weifuwu/components'
-import { errMsg, PageHeader } from '../components/ui'
-import { CronPicker } from '../components/CronPicker'
+import { PageHeader } from 'weifuwu/components'
+import { errMsg } from '../blocks/ux'
+import { CronPicker } from 'weifuwu/components'
 
 interface DagNode { id: string; label: string }
 interface DagEdge { from: string; to: string }

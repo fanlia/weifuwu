@@ -3,7 +3,7 @@
  */
 import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Icon, Loading, Timeline } from 'weifuwu/components'
-import type { AgentLog } from '../../lib/types'
+import type { AgentLog } from '../lib/types'
 
 export const LogsSection: Component<{ agentId: string }> = (_init, ctx) => {
   let logs: AgentLog[] = []

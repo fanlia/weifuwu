@@ -84,6 +84,8 @@ export const AppShell: Component<AppShellProps> = (_init, ctx)=> {
   let drawerOpen = false
   const closeDrawer = ()=> { if (drawerOpen) { drawerOpen = false; ctx.render() } }
   const toggleDrawer = ()=> { drawerOpen = !drawerOpen; ctx.render() }
+  // Escape 关抽屉（键盘面——overlay onClick 的键盘等价——自动卸载退订）
+  ctx.ui.useGlobalKey('Escape', () => closeDrawer())
 
   return (props)=> {
     const {
@@ -96,6 +98,7 @@ export const AppShell: Component<AppShellProps> = (_init, ctx)=> {
     const subtitle = brand.subtitle ?? ''
     const isMobile = mobile
     const appName = mobileTitle ?? name
+  const i18n = ctx?.i18n?.components?.AppShell ?? {}
 
     return h('div', { class: 'wf-app-shell' }, [
       // 侧栏（layout 原语类 + 抽屉开启态）
@@ -107,7 +110,7 @@ export const AppShell: Component<AppShellProps> = (_init, ctx)=> {
             h('span', { class: 'wf-app-shell-brand-name' }, name),
             subtitle ? h('small', { class: 'wf-app-shell-brand-sub' }, subtitle) : null,
           ]),
-          isMobile ? h(Button, { size: 'sm', variant: 'ghost', title: '关闭菜单', 'aria-label': '关闭菜单', onClick: closeDrawer }, [h(Icon, { name: 'close', size: 16 })]) : null,
+          isMobile ? h(Button, { size: 'sm', variant: 'ghost', title: i18n.closeMenu ?? '关闭菜单', 'aria-label': i18n.closeMenu ?? '关闭菜单', onClick: closeDrawer }, [h(Icon, { name: 'close', size: 16 })]) : null,
         ]),
         h('div', { class: 'wf-sidebar-body' }, [
           loading
@@ -148,7 +151,7 @@ export const AppShell: Component<AppShellProps> = (_init, ctx)=> {
               title: appName,
               align: 'left',
               fixed: true,
-              left: h(Button, { size: 'sm', variant: 'ghost', title: '打开菜单', 'aria-label': '打开菜单', onClick: toggleDrawer }, [h(Icon, { name: 'menu', size: 20 })]),
+              left: h(Button, { size: 'sm', variant: 'ghost', title: i18n.openMenu ?? '打开菜单', 'aria-label': i18n.openMenu ?? '打开菜单', onClick: toggleDrawer }, [h(Icon, { name: 'menu', size: 20 })]),
               right: onSettings ? h(Button, { size: 'sm', variant: 'ghost', title: ctx?.i18n?.components?.AppShell?.settings ?? '设置', onClick: onSettings }, [h(Icon, { name: 'settings', size: 16 })]) : null,
             })
           : null,

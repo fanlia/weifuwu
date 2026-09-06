@@ -5,8 +5,8 @@
  */
 import type { Component } from 'weifuwu/vdom'
 import { Button, Card, EmptyState, Icon, Img, Loading } from 'weifuwu/components'
-import { errMsg } from '../../components/ui'
-import { onFilesReload, offFilesReload } from '../../lib/project-store.ts'
+import { errMsg } from '../blocks/ux'
+import { onFilesReload, offFilesReload } from '../lib/project-store.ts'
 
 // ── 类型感知（DELIVERABLES-UX-PLAN W1）──
 const IMG_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif']
@@ -29,7 +29,7 @@ async function loadThumb(deptId: string, rel: string): Promise<string | null> {
   const hit = thumbCache.get(key)
   if (hit) return hit
   try {
-    const { authorizedGet } = await import('../../lib/download.ts')
+    const { authorizedGet } = await import('../lib/download.ts')
     const res = await authorizedGet(`/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`)
     if (!res.ok) return null
     const url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: 'image/*' }))
@@ -64,7 +64,7 @@ const FileThumb: Component<{ deptId: string; rel: string; name: string }> = (_in
 /** B-下载（2026-08）：带鉴权下载——`<a href>` 导航无 Bearer → 401（用户实证）——
  * fetch + token → Blob → 编程式 <a download>（支持二进制）——返回是否成功 */
 async function downloadWsFile(departmentId: string, rel: string, name: string): Promise<boolean> {
-  const { downloadFileAuthorized } = await import('../../lib/download.ts')
+  const { downloadFileAuthorized } = await import('../lib/download.ts')
   return downloadFileAuthorized(
     `/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`,
     name,
@@ -175,11 +175,11 @@ export const FilesSection: Component<{ departmentId: string; initialFiles?: Arra
     // 视频（2026-09——mp4/WebM/mov——弹窗播放：blob（鉴权 fetch）→ VideoPlayer 内置组件）
     if (/\.(mp4|webm|mov)$/i.test(entry.name)) {
       try {
-        const { authorizedGet } = await import('../../lib/download.ts')
+        const { authorizedGet } = await import('../lib/download.ts')
         const res = await authorizedGet(`/api/departments/${departmentId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: 'video/mp4' }))
-        const { openVideoPopup } = await import('../../lib/video-popup.ts')
+        const { openVideoPopup } = await import('../lib/video-popup.ts')
         openVideoPopup(ctx as any, url, entry.name)
       } catch (e) {
         ctx.toast!('视频加载失败：' + errMsg(e, ''), 'error')

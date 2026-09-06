@@ -6,7 +6,8 @@
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Alert, Badge, Button, Card, CodeEditor, Field, Input, Loading, Textarea } from 'weifuwu/components'
-import { errMsg, PageHeader } from '../components/ui'
+import { PageHeader } from 'weifuwu/components'
+import { errMsg } from '../blocks/ux'
 import { inputValue } from '../lib/types'
 
 interface WorkflowRow {

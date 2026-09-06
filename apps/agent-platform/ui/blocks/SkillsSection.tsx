@@ -3,7 +3,7 @@
  */
 import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Icon, Input } from 'weifuwu/components'
-import type { AvailableSkill, BoundSkill } from '../../lib/types'
+import type { AvailableSkill, BoundSkill } from '../lib/types'
 
 export interface SectionProps { agentId: string }
 

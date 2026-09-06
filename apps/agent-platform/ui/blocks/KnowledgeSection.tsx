@@ -3,9 +3,9 @@
  */
 import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Field, Icon, Input, Textarea } from 'weifuwu/components'
-import { errMsg } from '../../components/ui'
-import { inputValue } from '../../lib/types'
-import type { Agent, KbChunk, KbDocument } from '../../lib/types'
+import { errMsg } from '../blocks/ux'
+import { inputValue } from '../lib/types'
+import type { Agent, KbChunk, KbDocument } from '../lib/types'
 
 /** 知识库文档详情响应（?chunks=true） */
 interface KbChunkDetailResponse {

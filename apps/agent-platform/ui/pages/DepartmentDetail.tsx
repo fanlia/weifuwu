@@ -1,9 +1,10 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { Ava, Loading, TypeBadge, StatusDot } from '../components/ui'
+import { Loading, StatusDot } from 'weifuwu/components'
+import { Ava, TypeBadge } from '../blocks/ux'
 import { Badge, Button, Card, Checkbox, EmptyState, Icon } from 'weifuwu/components'
 import type { Agent, AgentListResponse, Department, Member } from '../lib/types'
 import { isTenantOwner } from '../lib/roles'
-import { FilesSection } from '../components/agent/FilesSection.tsx'
+import { FilesSection } from '../blocks/FilesSection.tsx'
 
 interface DepartmentDetailState {
   dept: Department | null

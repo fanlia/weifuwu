@@ -1,5 +1,6 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, Ava, EmptyState, Loading } from '../components/ui'
+import { PageHeader, EmptyState, Loading } from 'weifuwu/components'
+import { Ava } from '../blocks/ux'
 import { Button, Card, Icon } from 'weifuwu/components'
 import type { Department, DepartmentListResponse } from '../lib/types'
 

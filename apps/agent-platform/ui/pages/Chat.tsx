@@ -1,5 +1,5 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { Ava, errMsg } from '../components/ui'
+import { Ava, errMsg } from '../blocks/ux'
 import { BackTop, Badge, Button, ChatInput, DropZone, EmptyState, Icon, Input } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 
@@ -51,8 +51,8 @@ function parseStoredTools(aiStep: unknown): MessageTool[] {
 }
 
 import { track } from '../lib/track'
-import { MessageItem } from '../components/project/MessageItem.tsx'
-import { FilesSection } from '../components/agent/FilesSection.tsx'
+import { MessageItem } from '../blocks/MessageItem.tsx'
+import { FilesSection } from '../blocks/FilesSection.tsx'
 import { bumpFilesVersion, setAiWorking, aiStatus, notifyFilesReload } from '../lib/project-store.ts'
 
 /** ChatInput 程序化控制（与 weifuwu/components ChatInputControl 同形） */

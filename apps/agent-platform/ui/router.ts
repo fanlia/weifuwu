@@ -6,7 +6,7 @@
  */
 import { UIRouter, h } from 'weifuwu/vdom'
 import type { RenderCtx } from 'weifuwu/vdom'
-import { AppLayout } from './components/AppLayout'
+import { AppChrome } from './blocks/app-chrome'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Workspace } from './pages/Workspace'
@@ -30,7 +30,7 @@ import { Workflows } from './pages/Workflows'
 import { WorkflowDetail } from './pages/WorkflowDetail'
 
 const page = (Comp: any, props: Record<string, unknown> = {}) =>
-  (req: Request, ctx: any) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(Comp, props)))
+  (req: Request, ctx: any) => (ctx as RenderCtx).stream(h(AppChrome, {}, h(Comp, props)))
 const router = new UIRouter()
 router.get('/login', (req, ctx) => (ctx as RenderCtx).stream(h(Login, {})))
 router.get('/register', (req, ctx) => (ctx as RenderCtx).stream(h(Register, {})))
@@ -42,17 +42,17 @@ router.get('/agents', page(Agents))
 router.get('/templates', page(Templates))
 router.get('/departments', page(Departments))
 router.get('/chat/new', page(NewChat))
-router.get('/chat/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(Chat, { ...(ctx.params ?? {}) }))))
+router.get('/chat/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppChrome, {}, h(Chat, { ...(ctx.params ?? {}) }))))
 router.get('/settings', page(Settings))
 router.get('/agents/new', page(NewAgent))
-router.get('/agents/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(AgentDetail, { ...(ctx.params ?? {}) }))))
+router.get('/agents/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppChrome, {}, h(AgentDetail, { ...(ctx.params ?? {}) }))))
 router.get('/sandboxes', page(Sandboxes))
 router.get('/departments/new', page(NewDepartment))
-router.get('/departments/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(DepartmentDetail, { ...(ctx.params ?? {}) }))))
+router.get('/departments/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppChrome, {}, h(DepartmentDetail, { ...(ctx.params ?? {}) }))))
 router.get('/approvals', page(Approvals))
 router.get('/admin', page(Admin))
 router.get('/surveys', page(Surveys))
 router.get('/workflows', page(Workflows))
-router.get('/workflows/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppLayout, {}, h(WorkflowDetail, { ...(ctx.params ?? {}) }))))
+router.get('/workflows/:id', (req, ctx) => (ctx as RenderCtx).stream(h(AppChrome, {}, h(WorkflowDetail, { ...(ctx.params ?? {}) }))))
 
 export { router }

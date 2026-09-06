@@ -21,35 +21,6 @@
   min-height: 0;
 }
 
-@media (max-width: 767.98px) {
-  /* 侧栏 → 抽屉：fixed 覆盖（脱离文档流——框架堆叠降级被替换） */
-  .wf-app-shell .wf-sidebar {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: min(80vw, 300px);
-    z-index: 50;
-    transform: translateX(-105%);
-    transition: transform var(--wf-transition);
-    box-shadow: none;
-    visibility: hidden;
-  }
-  .wf-app-shell .wf-sidebar.ap-drawer--open {
-    transform: translateX(0);
-    visibility: visible;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  }
-
-  /* 遮罩（抽屉开启时覆盖主区——点击关闭） */
-  .ap-drawer-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    z-index: 45;
-  }
-}
-
 /* ── 聊天页左栏（成员/环境/交付物）移动抽屉（<1024px——@lg 隐藏的对偶入口） ── */
 .ap-panel-overlay {
   position: fixed;
@@ -83,20 +54,6 @@
 }
 
 /* ── 审批待办导航徽章（UX-PLAN-2 波次 4——非首页审批可见性） ── */
-.ap-nav-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--wf-color-error);
-  color: var(--wf-color-on-brand);
-  font-size: 11px;
-  font-weight: var(--wf-font-weight-semibold);
-  line-height: 1;
-}
 
 /* reduced-motion：抽屉动画降级（框架 motion 纪律对齐） */
 @media (prefers-reduced-motion: reduce) {

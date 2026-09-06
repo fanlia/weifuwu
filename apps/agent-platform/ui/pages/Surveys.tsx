@@ -7,7 +7,8 @@
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Alert, Badge, Button, Card, Checkbox, Field, Input, Loading, Select } from 'weifuwu/components'
-import { errMsg, PageHeader } from '../components/ui'
+import { PageHeader } from 'weifuwu/components'
+import { errMsg } from '../blocks/ux'
 import { inputValue } from '../lib/types'
 
 /** 内置人设（与 seed 一致的精简版——企业可后续扩展） */

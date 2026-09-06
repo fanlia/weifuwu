@@ -7,7 +7,8 @@
  *  - 空态：提示 AI 干活后此处可见（价值主张引导）
  */
 import type { Component } from 'weifuwu/vdom'
-import { EmptyState, Loading, PageHeader, errMsg } from '../components/ui'
+import { EmptyState, Loading, PageHeader } from 'weifuwu/components'
+import { errMsg } from '../blocks/ux'
 import { Badge, Button, Card, Icon, Input } from 'weifuwu/components'
 import { inputValue } from '../lib/types'
 

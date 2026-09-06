@@ -4,7 +4,8 @@
  */
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Alert, Badge, Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
-import { Ava, PageHeader } from '../components/ui'
+import { PageHeader } from 'weifuwu/components'
+import { Ava } from '../blocks/ux'
 import type { AgentListResponse, CostAgentRow, FunnelData, StatsData } from '../lib/types'
 
 interface ReportsState {

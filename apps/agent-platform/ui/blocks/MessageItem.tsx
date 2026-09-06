@@ -5,15 +5,15 @@
  * 状态与 WS 逻辑留在 Chat 页（createStore 化 P2）。
  */
 import type { Component } from 'weifuwu/vdom'
-import { Ava } from '../../components/ui'
+import { Ava } from '../blocks/ux'
 import { Alert, Badge, Button, CopyButton, Icon, Img, Input, Markdown, MessageBubble } from 'weifuwu/components'
-import { inputValue } from '../../lib/types'
-import type { ChatMessage, MessageTool } from '../../lib/types'
-import { detectTaskMarker } from '../../../src/services/task-markers.ts'
+import { inputValue } from '../lib/types'
+import type { ChatMessage, MessageTool } from '../lib/types'
+import { detectTaskMarker } from '../../src/services/task-markers.ts'
 
 /** B-下载（2026-08）：聊天流文件卡片带鉴权下载（<a href> 无 Bearer → 401 实证） */
 async function downloadFileCard(deptId: string, rel: string): Promise<void> {
-  const { downloadFileAuthorized } = await import('../../lib/download.ts')
+  const { downloadFileAuthorized } = await import('../lib/download.ts')
   await downloadFileAuthorized(
     `/api/departments/${deptId}/workspace/file?path=${encodeURIComponent(rel)}&download=1`,
     rel.split('/').pop() ?? rel,
@@ -46,7 +46,7 @@ function ChatVideoBlock(video: NonNullable<ChatMessage['video']>, name: string, 
           class="wf-radius wf-border wf-pointer"
           style="width: 300px; height: 169px; overflow: hidden; position: relative;"
           onClick={() => {
-            void import('../../lib/video-popup.ts').then(({ openVideoPopup }) =>
+            void import('../lib/video-popup.ts').then(({ openVideoPopup }) =>
               openVideoPopup(ctx as any, video.url!, name))
           }}
         >

@@ -3,7 +3,7 @@
  */
 import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Icon, Input } from 'weifuwu/components'
-import { inputValue, type AgentVersion } from '../../lib/types'
+import { inputValue, type AgentVersion } from '../lib/types'
 
 export const VersionsSection: Component<{ agentId: string }> = (_init, ctx) => {
   let versions: AgentVersion[] = []

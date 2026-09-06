@@ -1,6 +1,6 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
 import { Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
-import { Ava } from '../components/ui'
+import { Ava } from '../blocks/ux'
 import type { Agent, AgentListResponse, CostAgentRow, DepartmentListResponse, FunnelData, PendingApproval, StatsData } from '../lib/types'
 
 interface DashboardState {

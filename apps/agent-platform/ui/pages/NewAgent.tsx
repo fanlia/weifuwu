@@ -1,5 +1,6 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, errMsg } from '../components/ui'
+import { PageHeader } from 'weifuwu/components'
+import { errMsg } from '../blocks/ux'
 import { Alert, Badge, Button, Card, Checkbox, Field, Input, InputNumber, Loading, Select, Slider, Textarea } from 'weifuwu/components'
 import { inputValue, AGENT_TYPES as ALL_AGENT_TYPES } from '../lib/types'
 

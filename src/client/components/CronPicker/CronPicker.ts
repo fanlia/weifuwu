@@ -50,7 +50,7 @@ export const CronPicker: Component<CronPickerProps> = (_init, _ctx)=>
         value: selectValue,
         placeholder,
         options: presets.map(optOf),
-        onChange: (v)=> {
+        onChange: (v: string | string[])=> {
           // 单选走 string；空清选（placeholder）忽略（预设清空无效——保留平台语义）
           if (typeof v === 'string' && v) onChange?.(v)
         },
@@ -59,7 +59,7 @@ export const CronPicker: Component<CronPickerProps> = (_init, _ctx)=>
         h(Input, {
           value,
           placeholder: '* * * * *',
-          onInput: (e)=> onChange?.((e.target as HTMLInputElement).value ?? ''),
+          onInput: (e: Event)=> onChange?.((e.target as HTMLInputElement).value ?? ''),
         }),
       ]),
     ])

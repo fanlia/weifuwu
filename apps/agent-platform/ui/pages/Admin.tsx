@@ -1,5 +1,6 @@
 import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, errMsg } from '../components/ui'
+import { PageHeader } from 'weifuwu/components'
+import { errMsg } from '../blocks/ux'
 import { Alert, Badge, Button, Card, Input, StatCard, Table, Icon } from 'weifuwu/components'
 
 interface AdminApp {

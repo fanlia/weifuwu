@@ -34,6 +34,7 @@ const walk = (p, ext, out = []) => {
 /** ① a11y 违规模板（h('div',{onClick}) 无键盘语义）——豁免：遮罩类 */
 const A11Y_EXEMPT = [
   'ActionSheet overlay', 'Drawer overlay', 'Modal overlay', // usePopup Esc 等价——onClick 便捷面
+  'AppShell overlay', // 抽屉遮罩——组件内建 useGlobalKey Escape 等价（onClick 便捷面）
   'HoverCard wrap', // 悬停展开区（hover-only——键盘入口经 trigger 子元素）
   'Modal content', // onClick = stopPropagation 防冒泡（内容区点击不触发遮罩关闭）——拦截语义非交互
   'Drawer panel', // 同 Modal content——stopPropagation 拦截语义

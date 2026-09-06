@@ -3,8 +3,8 @@
  */
 import type { Component } from 'weifuwu/vdom'
 import { Button, Card, Icon, Input } from 'weifuwu/components'
-import { errMsg } from '../../components/ui'
-import { inputValue } from '../../lib/types'
+import { errMsg } from '../blocks/ux'
+import { inputValue } from '../lib/types'
 
 export const PreviewSection: Component<{ agentId: string }> = (_init, ctx) => {
   let previewQuery = ''
