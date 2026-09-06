@@ -1,0 +1,45 @@
+{
+  "Command/Command.ts": [
+    "wf-cover"
+  ],
+  "DatePicker/DatePicker.ts": [
+    "wf-datepicker-overlay"
+  ],
+  "Editor/Editor.ts": [
+    "wf-editor-toolbar-row"
+  ],
+  "FilePreview/FilePreview.ts": [
+    "wf-filepreview-md"
+  ],
+  "Img/Img.ts": [
+    "wf-img-preview-overlay"
+  ],
+  "Input/Input.ts": [
+    "wf-input-number-step",
+    "wf-input-number-stepper",
+    "wf-input-number-wrap"
+  ],
+  "NavMenu/NavMenu.ts": [
+    "wf-navmenu-sub-nested"
+  ],
+  "Pagination/Pagination.ts": [
+    "wf-pagination-item"
+  ],
+  "Popover/Popover.ts": [
+    "wf-popover-overlay",
+    "wf-popover-trigger"
+  ],
+  "Toast/Toast.ts": [
+    "wf-toast-out"
+  ],
+  "ToolCallCard/ToolCallCard.ts": [
+    "wf-toolcall-args"
+  ],
+  "Tour/Tour.ts": [
+    "wf-tour-mask",
+    "wf-tour-overlay"
+  ],
+  "WordCloud/WordCloud.ts": [
+    "wf-popup"
+  ]
+}

@@ -10,6 +10,11 @@
  * ② as any 基线（组件面——平台 audit:any 同款机制：只降不升——34 基线）
  * ③ JS 体积 + tree-shake 防回退（app.js 产物——22 重组件特征探针；
  *    4 真使用登记——新增残留特征 = 红——tree-shake 失效防线）
+ * ④ i18n 裸文案（C4——有机制面组件接线补漏——裸字面量 = 红；
+ *    文件级登记：C4_I18N_PENDING 待修（W1 清）· C4_I18N_EXEMPT 无机制面
+ *    （fallback 默认 = 设计——locale 包面随下一阶段））
+ * ⑤ CSS 死类（C4——css 定义类全库词干无生成者 = 红；登记表
+ *    components-dead-class-whitelist.json——W2 清 0 · 动态拼接豁免内联）
  */
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -40,6 +45,18 @@ const A11Y_EXEMPT = [
 
 /** ① 待修登记（W2 波次——修后移出；新增同类 = 红——登记制同 C1/C2） */
 const A11Y_PENDING = {} // W2 完成——Modal 豁免（拦截语义）· Popconfirm/StatCard/Tooltip 已修（role/键盘/焦点面）
+
+/** ④ i18n 裸文案——文件级待修登记（W1 清 0；修后移出） */
+const C4_I18N_PENDING = [
+  'ThemeSwitch', // PRESETS 模式名 4 处（SL 机制在——preset 键漏接）
+  'Editor', // commit 历史 label ×2 + title/aria 插入表格/操作历史 4 处（editorText 机制在）
+  'AppShell', // Button title 设置/退出登录 2 处（_ctx 弃用——启用 ctx i18n）
+]
+/** ④ i18n 裸文案——无机制面豁免（中文 fallback = 设计；locale 包面随下一阶段） */
+const C4_I18N_EXEMPT = [
+  'AiChat', 'ApprovalCard', 'CodeBlock', 'PromptTemplate', 'SessionList',
+  'SheetGrid', 'SlideCanvas', 'ChatInput', // ChatInput 有 labels prop 覆盖面（设计即 i18n）
+]
 
 /** ③ tree-shake 探针：已知真使用（平台源码 import 验证）——其余出现 = 残留 */
 const JS_USED = {
@@ -127,5 +144,51 @@ if (existsSync(appJs)) {
   console.log('C3-③ app.js 产物不存在（跳过——audit:all 中位于 bundle 线后）')
 }
 
-if (failures) { console.error(`\nC3 健康审计：${failures} 违例`); process.exit(1) }
-console.log('\nC3 健康审计：全绿')
+// ── ④ i18n 裸文案（C4-① —— 剥注释 · children/文案属性面 · 上下文接线信号）──
+console.log('C4-① i18n 裸文案（中文用户可见文案无接线信号——fallback 形态豁免）:')
+const I18N_ATTR = /(placeholder|title|aria-?label|label|empty|emptyText|text|content|description|alt|okText|cancelText|closeText|tip|hint|prefix|suffix|loading)\s*:\s*['"`]([^'"`]*[\u4e00-\u9fa5][^'"`]*)['"`]/g
+const I18N_CHILD = /\],\s*['"`]([^'"`]*[\u4e00-\u9fa5][^'"`]*)['"`]/g
+const WIRED = /\?\?|editorText|SL\.|ML\.|L\[|labels|\.t\(|i18n|getText|fmt\(/
+let i18nBare = 0
+for (const f of files) {
+  const name = f.slice(COMPONENTS.length + 1)
+  let s = readFileSync(f, 'utf8')
+  s = s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+  let m
+  while ((m = I18N_ATTR.exec(s)) || (m = I18N_CHILD.exec(s))) {
+    if (m[2]) { // 属性面命中（child 场复用捕获组）
+      const ctx = s.slice(Math.max(0, m.index - 60), m.index)
+      if (WIRED.test(ctx)) continue
+      i18nBare++
+      const [fileBase] = name.split('/')
+      if (C4_I18N_PENDING.includes(fileBase) || C4_I18N_EXEMPT.includes(fileBase)) continue
+      fail(`i18n 裸文案 ${name}:${m[1]}:'${m[2].slice(0, 12)}'——接机制（editorText/SL./labels）或登记豁免`)
+    }
+  }
+}
+console.log(`  ${i18nBare} 处（待修 ${C4_I18N_PENDING.length} 文件 · 豁免 ${C4_I18N_EXEMPT.length} 组件——W1 清）`)
+
+// ── ⑤ CSS 死类（C4-② —— 全库词干生成者检测——登记表防回潮）──
+console.log('C4-② CSS 死类（css 定义类全库词干无生成者——动态拼接豁免 wf-hl-*/wf-md-*）:')
+const deadWhitelist = JSON.parse(readFileSync(join(root, 'scripts/components-dead-class-whitelist.json'), 'utf8'))
+const DYNAMIC_CLASS = [/^wf-hl-/, /^wf-md-h\d+$/, /^wf-md-(ol|ul)$/]
+const allTsText = files.map((f) => readFileSync(f, 'utf8'))
+let deadCount = 0
+for (const f of files) {
+  const css = f.replace(/\.tsx?$/, '.css')
+  let c
+  try { c = readFileSync(css, 'utf8') } catch { continue }
+  const name = f.slice(COMPONENTS.length + 1)
+  for (const n of new Set([...c.matchAll(/\.(wf-[\w-]+)\b/g)].map((m) => m[1]))) {
+    if (DYNAMIC_CLASS.some((re) => re.test(n))) continue
+    const stem = n.split('--')[0]
+    if (allTsText.some((t) => t.includes(stem))) continue
+    if ((deadWhitelist[name] || []).includes(n)) continue // 登记在册（W2 清）
+    deadCount++
+    fail(`CSS 死类 ${name}: ${n}（css 定义无生成者——新增 = 红线）`)
+  }
+}
+console.log(`  ${deadCount} 处（登记表 ${Object.values(deadWhitelist).reduce((a, v) => a + v.length, 0)} 处——W2 清）`)
+
+if (failures) { console.error(`\nC3/C4 健康审计：${failures} 违例`); process.exit(1) }
+console.log('\nC3/C4 健康审计：全绿')
