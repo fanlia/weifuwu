@@ -79,6 +79,7 @@ shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 15
 | R-06 | **shape 防漂移守卫**——`npm run check:shapes`（apps/agent-platform——DDL 列集 vs SHAPES 逐表 diff——新增列必须补 shape——缺列报错+模板；CI 可挂） |
 | R-04 | **小步快跑·单变量探针**——探针最小化（一个假设一个输出）· 单变量×干净环境（端口级杀共享 server `lsof -i:<port> -t \| xargs kill -9`——ps grep 匹配不全）· 探针 API 逐字复刻被测代码（`locator('button', {hasText})` vs `page.click(sel, {hasText})`——后者运行时忽略——API 不一致=复现无效）· catch 吞错必须打印（`catch(e => console.log('[x]', e))`）· CSS `:has-text` 是 includes 语义（用精确正则 `^\s*批准\s*$`） |
 | R-03 | **批量重命名/迁移**——词边界替换负向断言 `(?![a-z0-9-])`（前缀误伤防护）· 类名变更反查测试 `[class*="子串"]` 选择器（R-03 反查纪律见 docs/client.md §5.8） |
+| R-07 | **测试日志落盘**——任何测试命令用 `./scripts/test-log.sh <cmd>` 跑（tee 落盘 `/tmp/wf-test-<域>.log`）——**失败只 grep 日志定位，不重跑**（重跑 = 丢失失败现场 + 高耗时）。定位：`grep -E '✖|AssertionError|Error' /tmp/wf-test-<域>.log`（失败行上下文 -B2 -A10）；重跑仅当日志无法定位根因（环境类）。已有日志优先于重跑（showcase 5 分钟级）。 |
 
 ## 2. 测试架构
 
