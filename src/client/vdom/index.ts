@@ -83,6 +83,7 @@ export { diffToStreamV2 as diffStream } from './core/v2/integrate.ts' // v1 é€€å
 export { CommandApplier } from './core/patch/index.ts'
 export { createComponentRegistry } from './core/node/component.ts'
 export { createItem } from './core/create-item.ts'
+export { semantic, ROLE_SEMANTICS } from './core/semantic.ts'
 export type { ItemStateDecl } from './core/create-item.ts'
 export { createComponent } from './core/create-component.ts'
 export type { CreateComponentDecl } from './core/create-component.ts'

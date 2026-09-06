@@ -1,7 +1,7 @@
 /** Switch：开关切换，视觉替代 checkbox（showcase /components/switch） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, semantic } from '../../vdom/index.ts'
 
 export interface SwitchProps {
   label?: string
@@ -19,8 +19,7 @@ export const Switch: Component<SwitchProps> = (_init, ctx)=>
     class: 'wf-switch-input',
     checked: checked || undefined,
     disabled: disabled || undefined,
-    role: 'switch',
-    'aria-checked': String(!!checked),
+    ...semantic('switch', { values: { 'aria-checked': !!checked } }),
     onChange: onChange ? (e: Event)=> onChange((e.target as HTMLInputElement).checked) : undefined,
   })
 

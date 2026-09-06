@@ -1,7 +1,7 @@
 /** ProgressBar：进度条，支持 label/showValue（showcase /components/progressbar） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, semantic } from '../../vdom/index.ts'
 
 export interface ProgressBarProps {
   /** 进度值；undefined = indeterminate（不确定态，动画扫动） */
@@ -25,11 +25,10 @@ export const ProgressBar: Component<ProgressBarProps> = (_init, ctx)=>
   const PBL = ctx?.i18n?.components?.ProgressBar ?? {}
   const bar = h('div', {
     class: `wf-progress wf-progress--${size}${indeterminate ? ' wf-progress--indeterminate' : ''}${status !== 'default' ? ` wf-progress--${status}` : ''}`,
-    role: 'progressbar',
-    'aria-valuenow': indeterminate ? undefined : Math.round(value),
-    'aria-valuemin': 0,
-    'aria-valuemax': Math.round(max),
-    'aria-label': label ?? (PBL.ariaLabel ?? '进度'),
+    ...semantic('progressbar', {
+      label: label ?? (PBL.ariaLabel ?? '进度'),
+      values: { 'aria-valuenow': indeterminate ? undefined : Math.round(value), 'aria-valuemin': 0, 'aria-valuemax': Math.round(max) },
+    }),
   }, [
     h('div', {
       class: `wf-progress-fill${status !== 'default' ? ` wf-progress-fill--${status}` : ''}`,

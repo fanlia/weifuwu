@@ -1,6 +1,6 @@
 /** ToolCallCard：工具调用卡片：running / ok / error 状态机（call/progress/result 三字段驱动）（showcase /components/toolcallcard） */
 import type { Component } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, semantic } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import { JSONViewer } from '../JSONViewer/JSONViewer.ts'
 import type { IconName } from '../Icon/Icon.ts'
@@ -46,7 +46,7 @@ export const ToolCallCard: Component<ToolCallCardProps> = (_init, _ctx)=>
           progress.message
             ? h('div', { class: 'wf-toolcall-msg' }, `${progress.message} (${progress.step}/${progress.total})`)
             : null,
-          h('div', { class: 'wf-toolcall-bar', role: 'progressbar', 'aria-valuenow': progress.step, 'aria-valuemax': progress.total }, [
+          h('div', { class: 'wf-toolcall-bar', ...semantic('progressbar', { label: '执行进度', values: { 'aria-valuenow': progress.step, 'aria-valuemin': 0, 'aria-valuemax': progress.total } }) }, [
             h('div', {
               class: 'wf-toolcall-bar-fill',
               style: { width: `${Math.min(100, (progress.step / Math.max(1, progress.total)) * 100)}%` },

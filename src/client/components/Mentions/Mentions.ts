@@ -138,6 +138,7 @@ export const Mentions: Component<MentionsProps> = (_init, ctx)=> {
         class: `wf-mentions-option${highlight === i ? ' wf-mentions-option--hl' : ''}`,
         key: opt.value,
         role: 'option',
+        'aria-selected': highlight === i,
         onClick: ()=> insert(opt),
         onMouseEnter: ()=> { highlight = i },
       }, opt.label ?? opt.value)
