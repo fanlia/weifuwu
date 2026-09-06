@@ -1,7 +1,7 @@
 /** Table：可排序 + 自定义 render + 空状态（showcase /components/table） */
 import type {Component, VNodeChild} from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface TableColumn {
@@ -69,6 +69,19 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
 }
 
 export const Table: Component<TableProps> = (_init, ctx)=> {
+  // 表头三态复选框（值域槽 enum——checked/indeterminate/aria-checked 三面捆绑单源：
+  // off = 全不选 · checked = 全选 · half = 部分选（mixed aria + indeterminate 半边））
+  const headTriCheck = createItem({
+    cls: 'wf-table-checkbox',
+    enum: {
+      key: 'aria-checked',
+      off: { props: { checked: false, indeterminate: false } },
+      values: {
+        checked: { props: { checked: true, indeterminate: false }, aria: true },
+        half: { props: { checked: false, indeterminate: true }, aria: 'mixed' },
+      },
+    },
+  })
   // ── 行内编辑态（render-only：editing 位置 + 输入值——工厂闭包跨渲染保持） ──
   let editing: { row: number; col: string; value: string } | null = null
   const propsRef: { onCellEdit?: TableProps['onCellEdit']; data?: any[] } = {}
@@ -147,14 +160,11 @@ export const Table: Component<TableProps> = (_init, ctx)=> {
   // 选择列（rowSelection 开启时作为第一列）
   const selHeader = rowSelection
     ? h('th', { class: 'wf-table-th wf-table-th--selection', scope: 'col' },
-        h('input', {
+        h('input', headTriCheck(allSelected ? 'checked' : (someSelected && !allSelected ? 'half' : null), {
           type: 'checkbox',
-          class: 'wf-table-checkbox',
-          checked: allSelected || undefined,
-          indeterminate: someSelected && !allSelected ? 'true' : undefined,
           'aria-label': '全选',
           onChange: toggleAll,
-        }))
+        })))
     : null
 
   const selCell = (row: any, i: number)=> rowSelection

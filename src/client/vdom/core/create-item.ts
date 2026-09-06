@@ -61,6 +61,26 @@ export interface ItemStateSlot {
   roving?: boolean
 }
 
+/** 值域槽变体态（互斥单键多值——三态 checkbox 原型） */
+export interface ItemEnumVariant {
+  /** 类后缀（缺省无类面——input 型无状态类） */
+  suffix?: string
+  /** 写入 enum.key 的值（boolean | string——'mixed' 型） */
+  aria?: boolean | string
+  /** 附加 props（indeterminate/checked property 面——vdom property 通道） */
+  props?: Record<string, unknown>
+}
+
+/** 值域槽声明（互斥单值——'checked' | 'half' | null——替代多键布尔） */
+export interface ItemEnumDecl {
+  /** 共享 aria 键（如 'aria-checked'）——各态写入互斥值 */
+  key: string
+  /** 零值态（null 时：类无 · key=off.aria ?? false） */
+  off?: ItemEnumVariant
+  /** 值态（互斥——键名即调用值） */
+  values: Record<string, ItemEnumVariant>
+}
+
 export interface ItemStateDecl {
   /** 基类（如 'wf-tab'）——槽态时派生 `cls + 槽后缀` */
   cls: string
@@ -73,9 +93,13 @@ export interface ItemStateDecl {
   roving?: boolean
   /** 多状态槽（槽名 = 类后缀词干——'active' → '--active'） */
   states?: Record<string, ItemStateSlot>
+  /** 值域槽（互斥单键多值——enum.key 写入各态 aria 值 + props 捆绑——
+   * 与 states 正交：states = 多键独立（Menu active+open）· enum = 单键互斥
+   * （三态 checkbox checked/half）） */
+  enum?: ItemEnumDecl
 }
 
-export type ItemStateArg = boolean | Record<string, boolean>
+export type ItemStateArg = boolean | Record<string, boolean> | string | null | undefined
 
 /**
  * 生成「交互元素状态 props」工厂——返回 (state, extra) => props。
@@ -88,6 +112,32 @@ export type ItemStateArg = boolean | Record<string, boolean>
  */
 export function createItem(decl: ItemStateDecl) {
   const { cls, role } = decl
+  const enumDecl = decl.enum
+  if (enumDecl !== undefined) {
+    const { key, off, values } = enumDecl
+    const offVariant: ItemEnumVariant = off ?? {}
+    return (state: ItemStateArg, extra: Record<string, unknown> = {}): Record<string, unknown> => {
+      const name = typeof state === 'string' ? state : null
+      const v = name !== null && values[name] ? values[name] : offVariant
+      const parts = [cls]
+      if (v.suffix) parts.push(cls + v.suffix)
+      const base = parts.join(' ')
+      const extraCls = extra.class
+      const classOut = extraCls
+        ? base + ' ' + (Array.isArray(extraCls) ? extraCls.filter(Boolean).join(' ') : extraCls)
+        : base
+      const { class: _omit, ...rest } = extra
+      const out: Record<string, unknown> = { class: classOut }
+      if (role) out.role = role
+      // aria 键：显式值（含 boolean/string/undefined）——undefined = 不写（Table 补
+      // aria 前的原语义）· off 兜底（含未知态名）默认 false（三态标准——
+      // 与属性移除语义不同——off.aria 可显式覆盖）
+      if (v.aria !== undefined) out[key] = v.aria
+      else if (v === offVariant) out[key] = offVariant.aria !== undefined ? offVariant.aria : false
+      if (v.props) Object.assign(out, v.props)
+      return { ...out, ...rest }
+    }
+  }
   const multi = decl.states !== undefined
   // 归一为槽表（单槽便捷 → 单一 active 槽）
   type SlotNorm = { suffix: string | false; aria?: string; ariaText?: { key: string; value: string }; roving?: boolean }
@@ -102,8 +152,10 @@ export function createItem(decl: ItemStateDecl) {
       } satisfies SlotNorm]]
 
   return (state: ItemStateArg, extra: Record<string, unknown> = {}): Record<string, unknown> => {
-    // 单槽 boolean 直判；多槽对象取槽值（undefined → false）
-    const on = (name: string): boolean => typeof state === 'boolean' ? state : !!state[name]
+    // 单槽 boolean 直判；多槽对象取槽值（undefined → false）——enum 路径已在上方
+    // return（类型收窄：此处 state 仅 boolean | Record）
+    const st = state as boolean | Record<string, boolean>
+    const on = (name: string): boolean => typeof st === 'boolean' ? st : !!st[name]
     const classParts = [cls]
     for (const [name, slot] of slots) {
       const act = on(name)

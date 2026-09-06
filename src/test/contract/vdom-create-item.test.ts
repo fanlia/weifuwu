@@ -101,3 +101,57 @@ test('多槽：未传入槽键 → false（不激活）', () => {
   assert.equal(item({}).class, 'wf-z')
   assert.equal(item({})['aria-expanded'], false)
 })
+
+// ── 值域槽（互斥单键多值——三态 checkbox 原型）──
+const triCheck = createItem({
+  cls: 'wf-check', role: 'checkbox',
+  enum: {
+    key: 'aria-checked',
+    off: { props: { checked: false, indeterminate: false } },
+    values: {
+      checked: { props: { checked: true, indeterminate: false }, aria: true },
+      half: { suffix: '--half', props: { checked: false, indeterminate: true }, aria: 'mixed' },
+    },
+  },
+})
+
+test('值域槽：checked 态——aria/props 捆绑（三面单源）', () => {
+  const p = triCheck('checked')
+  assert.equal(p.class, 'wf-check')
+  assert.equal(p['aria-checked'], true)
+  assert.equal(p.checked, true)
+  assert.equal(p.indeterminate, false)
+})
+
+test('值域槽：half 态——suffix + mixed 值 + indeterminate', () => {
+  const p = triCheck('half')
+  assert.equal(p.class, 'wf-check wf-check--half')
+  assert.equal(p['aria-checked'], 'mixed')
+  assert.equal(p.checked, false)
+  assert.equal(p.indeterminate, true)
+})
+
+test('值域槽：off 态（null）——aria false + off props', () => {
+  const p = triCheck(null)
+  assert.equal(p.class, 'wf-check')
+  assert.equal(p['aria-checked'], false)
+  assert.equal(p.checked, false)
+  assert.equal(p.indeterminate, false)
+})
+
+test('值域槽：未知态名 → off 兜底', () => {
+  const p = triCheck('nope' as any)
+  assert.equal(p['aria-checked'], false)
+  assert.equal(p.indeterminate, false)
+})
+
+test('值域槽：extra.class 追加 + 业务 props 共存', () => {
+  const p = triCheck('half', { class: 'wf-check-lg', 'aria-label': '全选' })
+  assert.equal(p.class, 'wf-check wf-check--half wf-check-lg')
+  assert.equal(p['aria-label'], '全选')
+})
+
+test('值域槽：boolean 调用被 off 兜底（类型收窄边界）', () => {
+  const p = triCheck(true as any)
+  assert.equal(p['aria-checked'], false)
+})

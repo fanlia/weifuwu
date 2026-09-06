@@ -1,7 +1,7 @@
 /** Steps：分步指示器，支持 active/current（showcase /components/steps） */
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 
 export interface StepItem {
@@ -16,8 +16,16 @@ export interface StepsProps {
   current?: number
 }
 
-export const Steps: Component<StepsProps> = (_init, _ctx)=>
-  (props)=> {
+export const Steps: Component<StepsProps> = (_init, _ctx)=> {
+  // 步骤项（states 多槽——done 纯类 · current 类 + aria-current 'step' 文本）
+  const stepItem = createItem({
+    cls: 'wf-step',
+    states: {
+      done: {},
+      current: { ariaText: { key: 'aria-current', value: 'step' } },
+    },
+  })
+  return (props)=> {
   const { items = [], active, current = 0 } = props
 
   const activeKey = active ?? items[current]?.key
@@ -26,12 +34,6 @@ export const Steps: Component<StepsProps> = (_init, _ctx)=>
     const idx = items.findIndex(s => s.key === activeKey)
     const isDone = i < idx
     const isCurrent = i === idx
-
-    const cls = [
-      'wf-step',
-      isDone && 'wf-step--done',
-      isCurrent && 'wf-step--current',
-    ].filter(Boolean).join(' ')
 
     const num = isDone
       ? h('span', { class: 'wf-step-num' }, h(Icon, { name: 'check' }))
@@ -46,12 +48,9 @@ export const Steps: Component<StepsProps> = (_init, _ctx)=>
       ? h('span', { class: `wf-step-connector${isDone ? ' wf-step-connector--done' : ''}` })
       : null
 
-    return h('div', {
-      class: cls,
+    return h('div', stepItem({ done: isDone, current: isCurrent }, {
       key: item.key,
-      role: 'listitem',
-      'aria-current': isCurrent ? 'step' : undefined,
-    }, [
+    }), [
       num,
       label,
       desc,
@@ -60,4 +59,5 @@ export const Steps: Component<StepsProps> = (_init, _ctx)=>
   })
 
   return h('div', { class: 'wf-steps', role: 'list' }, steps)
+  }
 }

@@ -11,7 +11,7 @@
 
 import type { Component } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 import { Icon } from '../Icon/Icon.ts'
 import type { TableColumn } from '../Table/Table.ts'
 
@@ -59,6 +59,19 @@ function sortData(data: any[], columns: TableColumn[], sortKey?: string, sortOrd
 }
 
 export const VirtualTable: Component<VirtualTableProps> = (_init, ctx)=> {
+  // 表头三态复选框（值域槽 enum——checked/indeterminate/aria-checked 三面捆绑单源：
+  // off = 全不选 · checked = 全选 · half = 部分选（mixed aria + indeterminate 半边））
+  const headTriCheck = createItem({
+    cls: 'wf-table-checkbox',
+    enum: {
+      key: 'aria-checked',
+      off: { props: { checked: false, indeterminate: false } },
+      values: {
+        checked: { props: { checked: true, indeterminate: false }, aria: true },
+        half: { props: { checked: false, indeterminate: true }, aria: 'mixed' },
+      },
+    },
+  })
   // ── mount（只一次）──
   let bodyEl: HTMLElement | null = null
   const scroll = ctx.ui.useScrollPosition({ getScroller: ()=> bodyEl ?? null })
@@ -154,16 +167,11 @@ export const VirtualTable: Component<VirtualTableProps> = (_init, ctx)=> {
       headerCells.push(h('div', {
         class: 'wf-virtual-table-th wf-virtual-table-th--select',
         style: { width: '40px' },
-      }, h('input', {
+      }, h('input', headTriCheck(allSelected ? 'checked' : (someSelected ? 'half' : null), {
         type: 'checkbox',
-        class: 'wf-virtual-table-check',
-        checked: allSelected,
-        // 部分选中 → indeterminate（半选标记）：仅部分行被选中时表头显示横线
-        indeterminate: someSelected,
         'aria-label': allSelected ? '取消全选' : '全选',
-        'aria-checked': someSelected ? 'mixed' : String(allSelected),
         onChange: toggleAll,
-      })))
+      }))))
     }
     headerCells.push(...colHeaders)
 

@@ -2,7 +2,7 @@
 import type {Component, VNodeChild} from '../../vdom/index.ts'
 import { createClientBrowser } from '../../vdom/index.ts'
 import type { UIContext } from '../../vdom/index.ts'
-import { h } from '../../vdom/index.ts'
+import { h, createItem } from '../../vdom/index.ts'
 import { VirtualList } from '../VirtualList/VirtualList.ts'
 import { Icon } from '../Icon/Icon.ts'
 
@@ -88,6 +88,19 @@ function buildParentMap(nodes: TreeNode[], map: Map<string, TreeNode | null>, pa
  * indeterminate 半选态 + 搜索过滤 searchValue）。裁剪：拖拽、异步加载。
  */
 export const Tree: Component<TreeProps> = (_init, ctx)=> {
+  // 三态复选框（值域槽 enum——类后缀/aria-checked 枚举/checked 态互斥单源）
+  const triCheckbox = createItem({
+    cls: 'wf-tree-checkbox',
+    role: 'checkbox',
+    enum: {
+      key: 'aria-checked',
+      off: { aria: false },
+      values: {
+        checked: { suffix: '--checked', aria: true },
+        half: { suffix: '--half', aria: 'mixed' },
+      },
+    },
+  })
   // 浏览器环境（ctx.browser 优先，测试/无注入环境 fallback createClientBrowser——自研惰性防御）
   const _browser = ctx.browser ?? createClientBrowser()
   // render-only：内部状态 let + 显式 render（非受控展开 keys）
@@ -207,17 +220,10 @@ export const Tree: Component<TreeProps> = (_init, ctx)=> {
         : h('span', { class: 'wf-tree-switcher-placeholder' })
 
       const checkbox = checkable
-        ? h('button', {
+        ? h('button', triCheckbox(checked ? 'checked' : (isHalf(node) ? 'half' : null), {
             type: 'button',
-            class: [
-              'wf-tree-checkbox',
-              checked ? 'wf-tree-checkbox--checked' : '',
-              isHalf(node) ? 'wf-tree-checkbox--half' : '',
-            ].filter(Boolean).join(' '),
-            role: 'checkbox',
-            'aria-checked': isHalf(node) ? 'mixed' : (checked),
             onClick: (e: Event)=> { e.stopPropagation(); toggleCheck(node) },
-          })
+          }))
         : null
 
       const rowChildren: any[] = [
