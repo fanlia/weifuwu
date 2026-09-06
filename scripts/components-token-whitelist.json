@@ -1,0 +1,559 @@
+{
+  "lineHeight": {
+    "Badge/Badge.css#1.4": {
+      "file": "Badge/Badge.css",
+      "value": "1.4",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "ChatInput/ChatInput.css#1.5": {
+      "file": "ChatInput/ChatInput.css",
+      "value": "1.5",
+      "reason": "近值 = --wf-line-height（恒等——近值待 W1 接线）——W1 接线"
+    },
+    "CodeBlock/CodeBlock.css#1.6": {
+      "file": "CodeBlock/CodeBlock.css",
+      "value": "1.6",
+      "reason": "代码排版行高（CodeBlock/DiffView 同义 ×10——2 消费者 <3 升档门——判负登记）"
+    },
+    "DiffView/DiffView.css#1.6": {
+      "file": "DiffView/DiffView.css",
+      "value": "1.6",
+      "reason": "代码排版行高（CodeBlock/DiffView 同义 ×10——2 消费者 <3 升档门——判负登记）"
+    },
+    "Editor/Editor.css#1.3": {
+      "file": "Editor/Editor.css",
+      "value": "1.3",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "Editor/Editor.css#1.6": {
+      "file": "Editor/Editor.css",
+      "value": "1.6",
+      "reason": "代码排版行高（CodeBlock/DiffView 同义 ×10——2 消费者 <3 升档门——判负登记）"
+    },
+    "FilePreview/FilePreview.css#1.7": {
+      "file": "FilePreview/FilePreview.css",
+      "value": "1.7",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "FilePreview/FilePreview.css#1.3": {
+      "file": "FilePreview/FilePreview.css",
+      "value": "1.3",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "FileTree/FileTree.css#1.6": {
+      "file": "FileTree/FileTree.css",
+      "value": "1.6",
+      "reason": "代码排版行高（CodeBlock/DiffView 同义 ×10——2 消费者 <3 升档门——判负登记）"
+    },
+    "JSONViewer/JSONViewer.css#1.6": {
+      "file": "JSONViewer/JSONViewer.css",
+      "value": "1.6",
+      "reason": "代码排版行高（CodeBlock/DiffView 同义 ×10——2 消费者 <3 升档门——判负登记）"
+    },
+    "Kanban/Kanban.css#1.5": {
+      "file": "Kanban/Kanban.css",
+      "value": "1.5",
+      "reason": "近值 = --wf-line-height（恒等——近值待 W1 接线）——W1 接线"
+    },
+    "Markdown/Markdown.css#1.25": {
+      "file": "Markdown/Markdown.css",
+      "value": "1.25",
+      "reason": "近值 = --wf-line-height-tight（恒等——近值待 W1 接线）——W1 接线"
+    },
+    "Mentions/Mentions.css#1.5": {
+      "file": "Mentions/Mentions.css",
+      "value": "1.5",
+      "reason": "近值 = --wf-line-height（恒等——近值待 W1 接线）——W1 接线"
+    },
+    "Popconfirm/Popconfirm.css#1.5": {
+      "file": "Popconfirm/Popconfirm.css",
+      "value": "1.5",
+      "reason": "近值 = --wf-line-height（恒等——近值待 W1 接线）——W1 接线"
+    },
+    "PromptTemplate/PromptTemplate.css#1.6": {
+      "file": "PromptTemplate/PromptTemplate.css",
+      "value": "1.6",
+      "reason": "代码排版行高（CodeBlock/DiffView 同义 ×10——2 消费者 <3 升档门——判负登记）"
+    },
+    "SlideCanvas/SlideCanvas.css#1.4": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "value": "1.4",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "TabBar/TabBar.css#1.2": {
+      "file": "TabBar/TabBar.css",
+      "value": "1.2",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "Tag/Tag.css#1.5": {
+      "file": "Tag/Tag.css",
+      "value": "1.5",
+      "reason": "近值 = --wf-line-height（恒等——近值待 W1 接线）——W1 接线"
+    },
+    "Tooltip/Tooltip.css#1.4": {
+      "file": "Tooltip/Tooltip.css",
+      "value": "1.4",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "Tour/Tour.css#1.6": {
+      "file": "Tour/Tour.css",
+      "value": "1.6",
+      "reason": "代码排版行高（CodeBlock/DiffView 同义 ×10——2 消费者 <3 升档门——判负登记）"
+    },
+    "Typography/Typography.css#1.2": {
+      "file": "Typography/Typography.css",
+      "value": "1.2",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "Typography/Typography.css#1.25": {
+      "file": "Typography/Typography.css",
+      "value": "1.25",
+      "reason": "近值 = --wf-line-height-tight（恒等——近值待 W1 接线）——W1 接线"
+    },
+    "Typography/Typography.css#1.3": {
+      "file": "Typography/Typography.css",
+      "value": "1.3",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "Typography/Typography.css#1.35": {
+      "file": "Typography/Typography.css",
+      "value": "1.35",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "Typography/Typography.css#1.4": {
+      "file": "Typography/Typography.css",
+      "value": "1.4",
+      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
+    },
+    "Typography/Typography.css#1.6": {
+      "file": "Typography/Typography.css",
+      "value": "1.6",
+      "reason": "代码排版行高（CodeBlock/DiffView 同义 ×10——2 消费者 <3 升档门——判负登记）"
+    },
+    "WordCloud/WordCloud.css#1.5": {
+      "file": "WordCloud/WordCloud.css",
+      "value": "1.5",
+      "reason": "近值 = --wf-line-height（恒等——近值待 W1 接线）——W1 接线"
+    }
+  },
+  "popupWidth": {
+    "Command/Command.css#width#min(520px, 90vw)": {
+      "file": "Command/Command.css",
+      "prop": "width",
+      "value": "min(520px, 90vw)",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "EmptyState/EmptyState.css#max-width#320px": {
+      "file": "EmptyState/EmptyState.css",
+      "prop": "max-width",
+      "value": "320px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "HoverCard/HoverCard.css#max-width#320px": {
+      "file": "HoverCard/HoverCard.css",
+      "prop": "max-width",
+      "value": "320px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "Notification/Notification.css#max-width#360px": {
+      "file": "Notification/Notification.css",
+      "prop": "max-width",
+      "value": "360px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "Pipeline/Pipeline.css#max-width#120px": {
+      "file": "Pipeline/Pipeline.css",
+      "prop": "max-width",
+      "value": "120px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "Popover/Popover.css#max-width#320px": {
+      "file": "Popover/Popover.css",
+      "prop": "max-width",
+      "value": "320px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "Result/Result.css#max-width#420px": {
+      "file": "Result/Result.css",
+      "prop": "max-width",
+      "value": "420px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "SheetGrid/SheetGrid.css#width#320px": {
+      "file": "SheetGrid/SheetGrid.css",
+      "prop": "width",
+      "value": "320px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "SlideCanvas/SlideCanvas.css#width#320px": {
+      "file": "SlideCanvas/SlideCanvas.css",
+      "prop": "width",
+      "value": "320px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "Toast/Toast.css#max-width#400px": {
+      "file": "Toast/Toast.css",
+      "prop": "max-width",
+      "value": "400px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "Tooltip/Tooltip.css#max-width#240px": {
+      "file": "Tooltip/Tooltip.css",
+      "prop": "max-width",
+      "value": "240px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    },
+    "Tour/Tour.css#max-width#360px": {
+      "file": "Tour/Tour.css",
+      "prop": "max-width",
+      "value": "360px",
+      "reason": "弹层面板宽字面量（.wf-popup 基类钩子 min(var(--wf-popup-max,480px),calc(100vw-32px)) 面——手写=钩子失效/未接）——W2 接线或判负登记"
+    }
+  },
+  "zeroConsume": {
+    "--wf-accent-color": {
+      "token": "--wf-accent-color",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-align": {
+      "token": "--wf-align",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-amber-50": {
+      "token": "--wf-amber-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-amber-500": {
+      "token": "--wf-amber-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-amber-700": {
+      "token": "--wf-amber-700",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-bp-lg": {
+      "token": "--wf-bp-lg",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-bp-md": {
+      "token": "--wf-bp-md",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-bp-sm": {
+      "token": "--wf-bp-sm",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-bp-xl": {
+      "token": "--wf-bp-xl",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-brand-50": {
+      "token": "--wf-brand-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-brand-500": {
+      "token": "--wf-brand-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-brand-600": {
+      "token": "--wf-brand-600",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-brand-700": {
+      "token": "--wf-brand-700",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-brand-seed": {
+      "token": "--wf-brand-seed",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-caret-color": {
+      "token": "--wf-caret-color",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-color-on-warning": {
+      "token": "--wf-color-on-warning",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-cols": {
+      "token": "--wf-cols",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-cover-z": {
+      "token": "--wf-cover-z",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-amber-50": {
+      "token": "--wf-dark-amber-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-amber-500": {
+      "token": "--wf-dark-amber-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-bg": {
+      "token": "--wf-dark-bg",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-bg-hover": {
+      "token": "--wf-dark-bg-hover",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-brand-50": {
+      "token": "--wf-dark-brand-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-brand-500": {
+      "token": "--wf-dark-brand-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-brand-600": {
+      "token": "--wf-dark-brand-600",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-brand-seed": {
+      "token": "--wf-dark-brand-seed",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-fill": {
+      "token": "--wf-dark-fill",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-green-50": {
+      "token": "--wf-dark-green-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-green-500": {
+      "token": "--wf-dark-green-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-overlay": {
+      "token": "--wf-dark-overlay",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-red-50": {
+      "token": "--wf-dark-red-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-red-500": {
+      "token": "--wf-dark-red-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-shadow": {
+      "token": "--wf-dark-shadow",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-shadow-inset": {
+      "token": "--wf-dark-shadow-inset",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-shadow-lg": {
+      "token": "--wf-dark-shadow-lg",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-shadow-md": {
+      "token": "--wf-dark-shadow-md",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-shadow-sm": {
+      "token": "--wf-dark-shadow-sm",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-sky-50": {
+      "token": "--wf-dark-sky-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-sky-500": {
+      "token": "--wf-dark-sky-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-slate-100": {
+      "token": "--wf-dark-slate-100",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-slate-200": {
+      "token": "--wf-dark-slate-200",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-slate-300": {
+      "token": "--wf-dark-slate-300",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-slate-400": {
+      "token": "--wf-dark-slate-400",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-slate-50": {
+      "token": "--wf-dark-slate-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-slate-500": {
+      "token": "--wf-dark-slate-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-slate-900": {
+      "token": "--wf-dark-slate-900",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-state-hover": {
+      "token": "--wf-dark-state-hover",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-state-pressed": {
+      "token": "--wf-dark-state-pressed",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dark-surface-shadow": {
+      "token": "--wf-dark-surface-shadow",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-dur-": {
+      "token": "--wf-dur-",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-gap-2xl": {
+      "token": "--wf-gap-2xl",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-gap-lg": {
+      "token": "--wf-gap-lg",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-gap-xl": {
+      "token": "--wf-gap-xl",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-green-50": {
+      "token": "--wf-green-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-green-500": {
+      "token": "--wf-green-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-green-700": {
+      "token": "--wf-green-700",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-justify": {
+      "token": "--wf-justify",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-layout-sider-collapsed-width": {
+      "token": "--wf-layout-sider-collapsed-width",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-layout-sider-width": {
+      "token": "--wf-layout-sider-width",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-letter-spacing-wide": {
+      "token": "--wf-letter-spacing-wide",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-line-height-relaxed": {
+      "token": "--wf-line-height-relaxed",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-max": {
+      "token": "--wf-max",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-offset": {
+      "token": "--wf-offset",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-pop-z": {
+      "token": "--wf-pop-z",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-popup-max": {
+      "token": "--wf-popup-max",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-red-50": {
+      "token": "--wf-red-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-red-500": {
+      "token": "--wf-red-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-red-700": {
+      "token": "--wf-red-700",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-shadow": {
+      "token": "--wf-shadow",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-sidebar-width": {
+      "token": "--wf-sidebar-width",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-sky-50": {
+      "token": "--wf-sky-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-sky-500": {
+      "token": "--wf-sky-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-sky-700": {
+      "token": "--wf-sky-700",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-slate-100": {
+      "token": "--wf-slate-100",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-slate-200": {
+      "token": "--wf-slate-200",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-slate-300": {
+      "token": "--wf-slate-300",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-slate-400": {
+      "token": "--wf-slate-400",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-slate-50": {
+      "token": "--wf-slate-50",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-slate-500": {
+      "token": "--wf-slate-500",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-slate-900": {
+      "token": "--wf-slate-900",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-transition-duration": {
+      "token": "--wf-transition-duration",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-transition-timing": {
+      "token": "--wf-transition-timing",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-w-sm": {
+      "token": "--wf-w-sm",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-white": {
+      "token": "--wf-white",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-z": {
+      "token": "--wf-z",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    },
+    "--wf-z-overlay": {
+      "token": "--wf-z-overlay",
+      "reason": "零消费——待 W3 定案（保留/真死判决）"
+    }
+  }
+}
