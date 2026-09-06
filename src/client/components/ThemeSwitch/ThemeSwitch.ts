@@ -86,11 +86,11 @@ export function getTheme(): ThemeMode {
 export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx)=> {
   const storageKey = initProps.storageKey ?? DEFAULT_KEY
   const presetKey = initProps.storageKey ? `${initProps.storageKey}_preset` : DEFAULT_PRESET_KEY
-  // ── mount（只一次）：读取持久化设置并立即应用 ──
-  let mode: ThemeMode = initProps.mode ?? readStored(storageKey) ?? 'auto'
-  let preset: PresetName = initProps.preset ?? readStoredPreset(presetKey) ?? 'default'
-  applyTheme(mode)
-  applyPreset(preset)
+  // ── mount（只一次）：读取持久化设置并立即应用——状态原语（set 自动重渲染）
+  const mode = ctx.ui.useSignal<ThemeMode>(initProps.mode ?? readStored(storageKey) ?? 'auto')
+  const preset = ctx.ui.useSignal<PresetName>(initProps.preset ?? readStoredPreset(presetKey) ?? 'default')
+  applyTheme(mode.get())
+  applyPreset(preset.get())
 
   // ── render ──
   return (props)=> {
@@ -104,17 +104,16 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx)=> {
     const segments = modes.map(m =>
       h('button', {
         type: 'button',
-        class: `wf-theme-seg${mode === m.value ? ' wf-theme-seg--active' : ''}`,
+        class: `wf-theme-seg${mode.get() === m.value ? ' wf-theme-seg--active' : ''}`,
         role: 'radio',
-        'aria-checked': String(mode === m.value),
+        'aria-checked': String(mode.get() === m.value),
         'aria-label': m.label,
         onClick: ()=> {
-          if (mode === m.value) return
-          mode = m.value
-          applyTheme(mode)
-          writeStored(storageKey, mode)
-          props.onChange?.(mode)
-          ctx.render()
+          if (mode.get() === m.value) return
+          mode.set(m.value)
+          applyTheme(mode.get())
+          writeStored(storageKey, mode.get())
+          props.onChange?.(mode.get())
         },
       }, m.label),
     )
@@ -123,17 +122,16 @@ export const ThemeSwitch: Component<ThemeSwitchProps> = (initProps, ctx)=> {
     const presetSegs = PRESETS.map(p =>
       h('button', {
         type: 'button',
-        class: `wf-theme-seg wf-theme-seg--preset${preset === p.value ? ' wf-theme-seg--active' : ''}`,
+        class: `wf-theme-seg wf-theme-seg--preset${preset.get() === p.value ? ' wf-theme-seg--active' : ''}`,
         role: 'radio',
-        'aria-checked': String(preset === p.value),
+        'aria-checked': String(preset.get() === p.value),
         'aria-label': SL[`preset-${p.value}`] ?? p.label,
         onClick: ()=> {
-          if (preset === p.value) return
-          preset = p.value
-          applyPreset(preset)
-          writeStored(presetKey, preset)
-          props.onPresetChange?.(preset)
-          ctx.render()
+          if (preset.get() === p.value) return
+          preset.set(p.value)
+          applyPreset(preset.get())
+          writeStored(presetKey, preset.get())
+          props.onPresetChange?.(preset.get())
         },
       }, p.label),
     )

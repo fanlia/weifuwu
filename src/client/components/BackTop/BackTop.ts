@@ -31,7 +31,8 @@ type Scroller = HTMLElement | Window
 export const BackTop: Component<BackTopProps> = (_init, ctx)=> {
   // ── mount（只一次）──
   let scroller: Scroller | null = null
-  let visible = false
+  // 状态原语（set 自动重渲染——滚动手势触发渲染无手动 render）
+  const visible = ctx.ui.useSignal(false)
   let win: Window | null = null
   const propsRef: any = {}
 
@@ -40,7 +41,7 @@ export const BackTop: Component<BackTopProps> = (_init, ctx)=> {
     const next = scroller === win
       ? (win as Window).scrollY > v
       : ((scroller as HTMLElement).scrollHeight - (scroller as HTMLElement).scrollTop - (scroller as HTMLElement).clientHeight) > v
-    if (next !== visible) { visible = next; ctx.render() }
+    if (next !== visible.get()) visible.set(next)
   }
 
   const attach = ()=> {
@@ -85,7 +86,7 @@ export const BackTop: Component<BackTopProps> = (_init, ctx)=> {
       class: [
         'wf-backtop',
         fixed ? '' : 'wf-backtop--inline',
-        visible ? '' : 'wf-backtop--hidden',
+        visible.get() ? '' : 'wf-backtop--hidden',
         className,
       ].filter(Boolean).join(' '),
       'aria-label': ariaLabel ?? (isBottom ? '回到底部' : '回到顶部'),

@@ -53,17 +53,17 @@ export interface FloatButtonGroupProps {
 
 /** 悬浮按钮组：主按钮展开/收起子按钮 */
 export const FloatButtonGroup: Component<FloatButtonGroupProps> = (_init, ctx: UIContext)=> {
-  // ── mount（只一次）──
-  let open = false
+  // ── mount（只一次）── 状态原语（set 自动重渲染——无需 ctx.render()）
+  const open = ctx.ui.useSignal(false)
 
   return (props)=> {
     const { position = 'bottom-right', children } = props
     const kids = Array.isArray(children) ? children : [children]
     return h('div', {
-      class: `wf-float-group wf-float-group--${position}${open ? ' wf-float-group--open' : ''}`,
+      class: `wf-float-group wf-float-group--${position}${open.get() ? ' wf-float-group--open' : ''}`,
     }, [
       h('div', { class: 'wf-float-group-items' },
-        open ? kids.map((k: any, i: number)=> {
+        open.get() ? kids.map((k: any, i: number)=> {
           // 子项注入 static（组内不 fixed——否则全部叠在右下角与主按钮重叠）
           const props = { ...(k.props ?? {}), static: true }
           const child = k.type ? { ...k, props } : k
@@ -71,10 +71,10 @@ export const FloatButtonGroup: Component<FloatButtonGroupProps> = (_init, ctx: U
         }) : []),
       h('button', {
         class: 'wf-float-group-main',
-        'aria-label': open ? '收起' : '展开',
-        'aria-expanded': open ? 'true' : 'false',
-        onClick: ()=> { open = !open; ctx.render() },
-      }, h('span', { class: `wf-float-group-icon${open ? ' is-open' : ''}` }, '+')),
+        'aria-label': open.get() ? '收起' : '展开',
+        'aria-expanded': open.get() ? 'true' : 'false',
+        onClick: ()=> open.set((v) => !v),
+      }, h('span', { class: `wf-float-group-icon${open.get() ? ' is-open' : ''}` }, '+')),
     ])
   }
 }

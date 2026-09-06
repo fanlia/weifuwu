@@ -21,14 +21,12 @@ export interface RateProps {
 }
 
 export const Rate: Component<RateProps> = (_init, ctx)=> {
-  // ── mount（只一次）──
-  let hover = -1 // -1 = 未悬停；键盘悬停态复用（聚焦跟随）
-  // 手动状态纪律（§4.1）：hover 是手动 UI 状态——变更必须显式 render，
-  // 否则 effective = hover + 1 的预览是死代码（hover/focus 预览不落地）
+  // ── mount（只一次）── 悬停态状态原语（set 自动重渲染——§4.1 手动状态纪律
+  // 的精确化：set 即渲染——不存在"忘了 render"的死代码路径）
+  const hover = ctx.ui.useSignal(-1) // -1 = 未悬停；键盘悬停态复用（聚焦跟随）
   const setHover = (v: number)=> {
-    if (hover === v) return
-    hover = v
-    ctx.render()
+    if (hover.get() === v) return
+    hover.set(v)
   }
 
   return (props)=> {
@@ -51,7 +49,7 @@ export const Rate: Component<RateProps> = (_init, ctx)=> {
     }
 
     const interactive = !readOnly && !disabled
-    const effective = hover >= 0 ? hover + 1 : value
+    const effective = hover.get() >= 0 ? hover.get() + 1 : value
     const step = allowHalf ? 0.5 : 1
 
     const handleKeyDown = (e: any)=> {

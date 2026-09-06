@@ -21,8 +21,8 @@ export interface CarouselProps {
 /** 轮播（对应 antd/EP/shadcn Carousel）：横向滑动 + 箭头/圆点 + 自动播放 + 触摸滑动。
  * 裁剪（CS-05，见 docs/client.md）：垂直模式、多图联动、淡入淡出（fade 用 CSS 可配）。 */
 export const Carousel: Component<CarouselProps> = (_init, ctx)=> {
-  // ── mount（只一次）──
-  let index = 0
+  // ── mount（只一次）── 当前页状态原语（set 自动重渲染）
+  const index = ctx.ui.useSignal(0)
   let timer: ReturnType<typeof setInterval> | undefined
   let startX = 0
 
@@ -43,7 +43,7 @@ export const Carousel: Component<CarouselProps> = (_init, ctx)=> {
     if (timer && runningInterval === latestInterval) return // 幂等——同间隔不重启
     stopAuto()
     runningInterval = latestInterval
-    timer = setInterval(()=> goToRef(index + 1), latestInterval)
+    timer = setInterval(()=> goToRef(index.get() + 1), latestInterval)
   }
   ctx.ui.hold(stopAuto)
 
@@ -61,8 +61,8 @@ export const Carousel: Component<CarouselProps> = (_init, ctx)=> {
       const clamped = loop
         ? (i + count) % count
         : Math.max(0, Math.min(i, count - 1))
-      if (clamped !== index) {
-        index = clamped
+      if (clamped !== index.get()) {
+        index.set(clamped)
         ctx.render()
       }
     }
@@ -71,8 +71,8 @@ export const Carousel: Component<CarouselProps> = (_init, ctx)=> {
     latestInterval = interval
     queueMicrotask(syncAuto) // 意图声明——创建/重启出渲染窗口（幂等）
 
-    const next = ()=> goTo(index + 1)
-    const prev = ()=> goTo(index - 1)
+    const next = ()=> goTo(index.get() + 1)
+    const prev = ()=> goTo(index.get() - 1)
 
     const touchProps = {
       onTouchStart: (e: any)=> { startX = e.touches[0].clientX },
@@ -87,7 +87,7 @@ export const Carousel: Component<CarouselProps> = (_init, ctx)=> {
 
     const track = h('div', {
       class: 'wf-carousel-track',
-      style: { transform: `translateX(-${index * 100}%)` },
+      style: { transform: `translateX(-${index.get() * 100}%)` },
     }, children)
 
     const arrows = showArrows ? [
@@ -110,7 +110,7 @@ export const Carousel: Component<CarouselProps> = (_init, ctx)=> {
     }, children.map((_, i)=>
       h('button', {
         type: 'button',
-        class: `wf-carousel-dot${i === index ? ' wf-carousel-dot--active' : ''}`,
+        class: `wf-carousel-dot${i === index.get() ? ' wf-carousel-dot--active' : ''}`,
         key: i,
         'aria-label': `第 ${i + 1} 张`,
         onClick: ()=> goTo(i),

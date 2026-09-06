@@ -23,8 +23,8 @@ export interface CopyButtonProps {
 
 /** 复制按钮（weifuwu 独有，Chat 消息复制/CodeBlock 抽取统一） */
 export const CopyButton: Component<CopyButtonProps> = (_init, ctx)=> {
-  // ── mount（只一次）──
-  let copied = false
+  // ── mount（只一次）── 状态原语（2s 复位定时器保持——set 自动重渲染）
+  const copied = ctx.ui.useSignal(false)
   let timer: ReturnType<typeof setTimeout> | undefined
   // 定时器纪律（AGENTS.md #12）：定时器变量工厂期声明 + hold 注册清理——
   // 创建在事件回调内（合法窗口）——卸载时未触发的复位定时器必清
@@ -40,18 +40,14 @@ export const CopyButton: Component<CopyButtonProps> = (_init, ctx)=> {
     const doCopy = async ()=> {
       // 经 ctx.browser 统一复制（clipboard + execCommand 降级）——组件不直接碰 window/document
       await ctx.browser?.copyText(value)
-      copied = true
+      copied.set(true)
       onCopied?.()
-      ctx.render()
       clearTimeout(timer)
-      timer = setTimeout(()=> {
-        copied = false
-        ctx.render()
-      }, 2000)
+      timer = setTimeout(()=> copied.set(false), 2000)
     }
 
     const children: any[] = []
-    if (copied) {
+    if (copied.get()) {
       children.push(h(Icon, { name: 'check', size: 14 }))
       if (!iconOnly) children.push(h('span', { class: 'wf-copy-btn-text' }, successText))
     } else {
@@ -65,7 +61,7 @@ export const CopyButton: Component<CopyButtonProps> = (_init, ctx)=> {
         'wf-copy-btn',
         `wf-copy-btn--${size}`,
         `wf-copy-btn--${variant}`,
-        copied ? 'wf-copy-btn--copied' : '',
+        copied.get() ? 'wf-copy-btn--copied' : '',
         className,
       ].filter(Boolean).join(' '),
       'aria-label': label || '复制',
