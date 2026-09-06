@@ -8,6 +8,47 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.94.0] - 2026-09-06
+
+按域统计：vdom 6 · layout 3 · components 1 · showcase 1 · core 13 · plan 1
+
+### Added
+
+- vdom：回馈#2 createItem——交互元素状态捆绑原语（原语全面化经验回馈）
+- layout：W5 defineLayout 扩容——grid/center/justify×3/fill/fill-hover/cover 声明化（原语全面化）
+- components：W3 createComponent 判负调查 + W4 useSignal 铺开 6 组件（原语全面化）
+- layout：补 weifuwu/client/layout JS 入口——defineLayout 生态导出（src 结构直映收口）
+- vdom：W5 useField 表单字段契约——label/error/hint/aria 连接单源 + Input 消费（分层抽象）
+- layout：W4 defineLayout 原语声明 + 生成器——row/stack 族声明化（分层抽象）
+- vdom：W3 createComponent 组件声明抽象——状态类/aria/role 机械面生成 + Button 首批（分层抽象）
+- vdom：W2 useOverlay 行为契约——弹层开/关/焦点/Esc 单源 + Modal 首消费（分层抽象）
+- vdom：W1 原语二件——useSignal 状态原语 + 轻量组件形态（分层抽象）
+- vdom：normalizeClass 内核增强——对象/数组条件类（组件层 180 处手搓实证）
+
+### Fixed
+
+- showcase：overlay-custom demo import 路径修正 + W7 回归（R-07 日志落盘纪律）
+
+### Docs
+
+- core：回馈#3 抽象层次定位文档化——createComponent/createItem 单位判据 + 内核资产登记
+- plan：原语全面化 W1-W6 执行实录 + 判负登记（release 待确认）
+- core：W6 分层抽象出口——hooks 类型导出 + docs §5.11 三用法 + showcase 换皮示例（分层抽象）
+- core：分层抽象思维入 AGENTS（架构总纲）+ 大重构计划 W1-W7
+- core：入库路径 §5.9 + AGENTS 复用记录（平台组件入库先例——v0.93.3）
+- core：计划归档（agent-platform 组件入库——完成——历史 git log 承接）
+
+### Other（未分类——人工补域）
+
+- core：refactor(components): 回馈#1 aria 布尔手写冗余消灭——内核归一单源（原语全面化经验）
+- core：refactor(components): W2 useField 铺开——Textarea/PasswordInput/Field 迁移（原语全面化）
+- core：refactor(components): W1 useOverlay 铺开——Drawer/ActionSheet/Command 迁移（原语全面化）
+- core：plan: 原语全面化——契约层抽象全库铺开 W1-W6（探针基线 + 候选池判据）
+- core：refactor(exports): 颗粒度对齐 src 二级目录——撤销人造一级聚合，补 server 全子模块直映
+- core：refactor(exports): 导出=src 目录结构直映——移除全部路径别名（vdom/components/layout/workflow）
+- core：plan: 分层抽象计划 W1-W7 状态更新（完成标记——发布待确认）
+- core：refactor(components): 命名规范（学习成本）——slug 归一 + 可发现性 + §5.10
+
 ## [0.93.3] - 2026-09-06
 
 按域统计：components 2 · core 1
