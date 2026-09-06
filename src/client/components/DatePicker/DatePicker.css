@@ -32,12 +32,6 @@
 
 /* ── 遮罩 ── */
 
-.wf-datepicker-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: calc(var(--wf-z-popover) - 1);
-}
-
 /* ── 日历面板 ── */
 
 .wf-datepicker-dropdown {

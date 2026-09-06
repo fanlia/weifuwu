@@ -59,10 +59,6 @@
 
 /* 触屏（coarse）：页码 44px 命中区（覆盖全局 button min-height） */
 @media (pointer: coarse) {
-  .wf-pagination-item {
-    min-height: 44px;
-    min-width: 44px;
-  }
 }
 
 /* 移动端适配（P2）：窄屏页码横向滚动兜底（44px 命中区 + 折叠后仍可能溢出） */

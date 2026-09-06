@@ -61,16 +61,6 @@
 .wf-toast--warning { background: var(--wf-color-warning-bg); color: var(--wf-color-warning-text); }
 .wf-toast--info { background: var(--wf-color-info-bg); color: var(--wf-color-info-text); }
 
-/* ── 退场：向右淡出（位置变体方向未细分，诚实裁剪） ── */
-.wf-toast-out {
-  animation: wf-toast-out var(--wf-dur-base) var(--wf-ease-in) forwards;
-}
-
-@keyframes wf-toast-out {
-  from { opacity: 1; transform: translateX(0); }
-  to   { opacity: 0; transform: translateX(var(--wf-motion-md)); }
-}
-
 .wf-toast-icon {
   font-size: var(--wf-font-size-lg);
   font-weight: var(--wf-font-weight-bold);

@@ -812,18 +812,6 @@
       "value": "2px",
       "reason": "2px 发丝级偏移/间距（标尺最小档 4px=xs——密集面惯用）"
     },
-    "FilePreview/FilePreview.css#border-left#3px": {
-      "file": "FilePreview/FilePreview.css",
-      "prop": "border-left",
-      "value": "3px",
-      "reason": "发丝半 token（宽字面量+色 token）——待 W1 token 化 var(--wf-border-width)（非 1px 宽 = 强调边框——无 token 面：--wf-border-width 只有 1px 发丝档；判负 token 化）"
-    },
-    "FilePreview/FilePreview.css#padding#1px": {
-      "file": "FilePreview/FilePreview.css",
-      "prop": "padding",
-      "value": "1px",
-      "reason": "1px 发丝/偏移（——同 --wf-border-width 值面——非 border 声明的 1px 登记；border 面已 token 化）"
-    },
     "FileTree/FileTree.css#max-height#280px": {
       "file": "FileTree/FileTree.css",
       "prop": "max-height",
@@ -1424,12 +1412,6 @@
       "value": "48px",
       "reason": "结构最小高（组件域——判负 token 化：标尺爆炸）（值 48px——组件域登记）"
     },
-    "NavMenu/NavMenu.css#top#6px": {
-      "file": "NavMenu/NavMenu.css",
-      "prop": "top",
-      "value": "6px",
-      "reason": "定位偏移（组件域结构——覆盖层/指示器）（值 6px——组件域登记）"
-    },
     "Notification/Notification.css#border-left-width#3px": {
       "file": "Notification/Notification.css",
       "prop": "border-left-width",
@@ -1478,23 +1460,11 @@
       "value": "32px",
       "reason": "结构最小高（组件域——判负 token 化：标尺爆炸）（值 32px——组件域登记）"
     },
-    "Pagination/Pagination.css#min-height#44px": {
-      "file": "Pagination/Pagination.css",
-      "prop": "min-height",
-      "value": "44px",
-      "reason": "44px 命中区最小尺寸（WCAG 2.5.8 触达目标——布局面先例同款白名单）"
-    },
     "Pagination/Pagination.css#min-width#32px": {
       "file": "Pagination/Pagination.css",
       "prop": "min-width",
       "value": "32px",
       "reason": "结构最小宽（组件域——判负 token 化）（值 32px——组件域登记）"
-    },
-    "Pagination/Pagination.css#min-width#44px": {
-      "file": "Pagination/Pagination.css",
-      "prop": "min-width",
-      "value": "44px",
-      "reason": "44px 命中区最小尺寸（WCAG 2.5.8 触达目标——布局面先例同款白名单）"
     },
     "PasswordInput/PasswordInput.css#padding-right#38px": {
       "file": "PasswordInput/PasswordInput.css",

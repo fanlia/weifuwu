@@ -89,7 +89,9 @@ test('L1 计数基线(登记制——变更必须有意)', () => {
   // token 口径变更（LAYOUT-PLAN W3）：旧按行匹配 `^  --wf-`——同行多声明只计首个
   // （--wf-dark-bg 长期被同值的 --wf-dark-slate-50 遮在行内 → 真实 184 计为 183）；
   // 现按唯一声明名集（与 L11 死面哨兵同一口径）。W3 删 6 死 token → 184 - 6 = 178
-  assert.equal(inv.tokens, 178, '主题 Token 数')
+  // 组件-W2 再删 2（motion-md——toast-out 死类清理后唯一消费者退出（motion-lg 先例）；
+  // z-tour——唯一消费者 wf-tour-mask/overlay 死类清理（Tour 遮罩从未渲染——bubble 走 DOM 顺序））
+  assert.equal(inv.tokens, 176, '主题 Token 数')
   // 断点变体 ⊆ 登记清单(响应式唯一模式:窄隐宽显)
   const allowed = new Set(['wf-flex', 'wf-hidden'])
   const bps = inv.withBreakpoints

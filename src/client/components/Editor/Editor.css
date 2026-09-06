@@ -347,13 +347,6 @@
 
 /* ── AI 协作（选区操作 → 建议浮层） ── */
 
-.wf-editor-toolbar-row {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  flex-wrap: wrap;
-}
-
 .wf-editor-ai-bar {
   display: inline-flex;
   align-items: center;

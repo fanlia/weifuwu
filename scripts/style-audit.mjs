@@ -79,8 +79,9 @@ function walkCss(dir) {
   return files
 }
 
-/** S4 可交互样式族启发匹配（button 元素/role=button/…-item/-close/-trigger/-btn/-opt） */
-const INTERACTIVE_RE = /(button|\[role=["']button["']\]|\.wf-[a-z0-9-]+(?:--[a-z0-9-]+)?(?:-(?:item|close|trigger|btn|opt|step|tab|node|crumb|swatch|dot|page|cell|tag|icon|row|col|slider|thumb|handle|link|chip|entry|head|title|toggle|switch|radio|check|menu|option|action|card|btn)))/
+/** S4 可交互样式族启发匹配（button 元素/role=button/…-item/-close/-trigger/-btn/-opt）
+ *  伪元素排除：::-webkit-inner-spin-button 等含 button 子串（spin-button 非按钮族） */
+const INTERACTIVE_RE = /(?<![\w-])button(?![\w-])|\[role=["']button["']\]|\.wf-[a-z0-9-]+(?:--[a-z0-9-]+)?(?:-(?:item|close|trigger|btn|opt|step|tab|node|crumb|swatch|dot|page|cell|tag|icon|row|col|slider|thumb|handle|link|chip|entry|head|title|toggle|switch|radio|check|menu|option|action|card|btn))/
 
 export function audit() {
   const defined = definedTokens()

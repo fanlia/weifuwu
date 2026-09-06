@@ -9,7 +9,7 @@
   overflow: hidden;
   font-family: var(--wf-font-sans);
   animation: wf-command-in var(--wf-dur-base) var(--wf-ease-out);
-  /* usePopup maskCentered 全屏居中（.wf-cover flex 居中）——命令面板惯例偏上 12vh */
+  /* usePopup maskCentered 全屏居中——命令面板惯例偏上 12vh */
   margin-top: -12vh;
 }
 

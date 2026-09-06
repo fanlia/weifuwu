@@ -1,15 +1,3 @@
-.wf-tour-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--wf-z-tour);
-  outline: none;
-}
-
-.wf-tour-mask {
-  position: absolute;
-  inset: 0;
-  background: var(--wf-overlay);
-}
 
 .wf-tour-highlight {
   position: fixed;

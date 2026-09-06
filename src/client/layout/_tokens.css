@@ -105,7 +105,9 @@
   --wf-z-sticky: 40;
   --wf-z-overlay: 80;
   --wf-z-modal: 100;
-  --wf-z-tour: 2000;
+  /* z-tour 已删（组件-W2）：唯一消费者 wf-tour-mask/overlay 死类已清——Tour 遮罩从未
+     渲染（ts 无生成者）——bubble 层级 = z-index:1 + DOM 顺序（同层裁决）——2000 档
+     无层级需求（z 档位层级语义非对称标尺——无消费即删） */
   --wf-tour-min-width: 240px;
   --wf-kanban-col-min-width: 200px;
   /* Layout 布局外壳（batch-8） */
@@ -219,9 +221,9 @@
   --wf-dur-md: var(--wf-dur-base);                    /* 中档时长（= base 别名） */
 
   --wf-motion-sm: 4px;
-  --wf-motion-md: 8px;
-  /* lg 档已删（LAYOUT-PLAN W3）：旧注释称「drawer 全幅位移」——Drawer.css 实证用
-     translateX(±100%) 百分比，px 档位零可能消费者（注释与事实不符 = 不透明） */
+  /* md/lg 档已删（LAYOUT-PLAN W3 + 组件-W2）：lg 注释与事实不符（drawer 用 %）；
+     md 唯一消费者为 toast 退场 keyframes（toast-out 死类已清）——退出动画改由
+     dur/ease 面承担位移近距（4px 内）或组件自身处理——motion 档位只保留活档 */
 
   /* 循环动效族（旋转/呼吸/闪烁/进度——时长阶梯之外的循环节拍——S5 审计强制引用） */
   --wf-dur-spin: 0.6s;                 /* 旋转（spinner/loading/折叠） */

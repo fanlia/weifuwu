@@ -56,7 +56,7 @@ app.router(Router())
 ## 3. 设计语言
 
 微流明（Whisper Luminance）：中性色主导、品牌色点睛、动效短促有目的（120–300ms）、
-1px 边界即结构。**Token 即规范**——`src/client/layout/_tokens.css`（178 token：
+1px 边界即结构。**Token 即规范**——`src/client/layout/_tokens.css`（176 token：
 色阶/排版/动效/圆角/阴影/z-index；`_dark.css` 暗色覆写 · `_presets.css` 紧凑预设覆写）
 ——组件只引用 token、零硬编码（audit 强制）。
 

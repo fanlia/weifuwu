@@ -24,17 +24,6 @@
   border-radius: var(--wf-radius-sm);
 }
 
-.wf-img-preview-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--wf-z-modal);
-  background: var(--wf-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: zoom-in;
-}
-
 .wf-img-preview-image {
   transition: transform var(--wf-dur-base) var(--wf-ease-out);
 }

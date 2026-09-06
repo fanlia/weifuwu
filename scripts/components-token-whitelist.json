@@ -25,16 +25,6 @@
       "value": "1.6",
       "reason": "代码排版行高（CodeBlock/DiffView 同义 ×10——2 消费者 <3 升档门——判负登记）"
     },
-    "FilePreview/FilePreview.css#1.3": {
-      "file": "FilePreview/FilePreview.css",
-      "value": "1.3",
-      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
-    },
-    "FilePreview/FilePreview.css#1.7": {
-      "file": "FilePreview/FilePreview.css",
-      "value": "1.7",
-      "reason": "档位空洞值（tight 1.25 / base 1.5 之间——接线=视觉变化——判负登记）"
-    },
     "FileTree/FileTree.css#1.6": {
       "file": "FileTree/FileTree.css",
       "value": "1.6",

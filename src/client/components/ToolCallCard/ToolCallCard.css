@@ -28,12 +28,6 @@
   color: var(--wf-color-text);
 }
 
-.wf-toolcall-args {
-  color: var(--wf-color-text-secondary);
-  font-size: var(--wf-font-size-xs);
-  word-break: break-all;
-}
-
 .wf-toolcall-msg {
   color: var(--wf-color-text-secondary);
   font-size: var(--wf-font-size-xs);

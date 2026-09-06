@@ -100,17 +100,6 @@
   color: var(--wf-color-text-tertiary);
 }
 
-.wf-navmenu-sub-nested {
-  position: absolute;
-  top: -6px;
-  left: calc(100% + 4px);
-  min-width: var(--wf-navmenu-min-width);
-  padding: var(--wf-space-sm);
-  border-radius: var(--wf-surface-radius);
-  background: var(--wf-surface-bg);
-  box-shadow: var(--wf-surface-shadow);
-  border: var(--wf-border-width) solid var(--wf-color-border-light);
-}
 /* ── 语义标记类（DOM 钩子——无样式：测试定位/用户扩展——:where 零优先级显式声明） ── */
 :where(.wf-navmenu-label) {}
 :where(.wf-navmenu-nested) {}
