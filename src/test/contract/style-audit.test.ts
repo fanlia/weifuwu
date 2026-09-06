@@ -19,6 +19,9 @@ const S4_WARN_BASELINE = 66
 /** S6 硬编码字号基线（登记制——图标/头像/徽标白名单 12 处；正文 token 化后下降） */
 const S6_WARN_BASELINE = 12
 
+/** S8 重复选择器基线（W2 清 0——顶层同选择器双定义 = 隐藏覆盖隐患） */
+const S8_WARN_BASELINE = 26
+
 test('S1-S7 样式审计零错误（防回潮红线）', () => {
   const res = audit()
   assert.equal(res.errors.length, 0, 'S1-S7 违规:\n' + res.errors.join('\n'))
@@ -32,6 +35,17 @@ test('S4 交互态链警告 ≤ 基线（登记制——不新增漏网）', () 
     s4.length <= S4_WARN_BASELINE,
     `S4 警告 ${s4.length} 超过基线 ${S4_WARN_BASELINE}——新交互元素缺状态链反馈:\n` +
       s4.slice(0, 30).join('\n'),
+  )
+})
+
+test('S8 重复选择器 ≤ 基线（登记制——同体合并后清 0）', () => {
+  const res = audit()
+  const s8 = res.warnings.filter((w) => w.includes('S8'))
+  assert.ok(
+    s8.length <= S8_WARN_BASELINE,
+    `S8 重复选择器 ${s8.length} 超过基线 ${S8_WARN_BASELINE}——同文件同选择器双定义:
+` +
+      s8.slice(0, 30).join('\n'),
   )
 })
 

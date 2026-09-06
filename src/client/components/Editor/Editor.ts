@@ -412,7 +412,7 @@ export const Editor: Component<EditorProps> = (_props, ctx)=> {
     const start = sel?.start ?? 0
     const end = sel && sel.start !== sel.end ? sel.end : doc.text.length
     const original = doc.text.slice(start, end)
-    console.log('[runAi] original:', JSON.stringify(original), 'start:', start, 'end:', end)
+    // runAi 调试日志已删（2027-xx 第五批——大 JSON 生产泄漏面）
     if (!original.trim()) return
     aiPending?.handle?.abort()
     lastAiAction = action

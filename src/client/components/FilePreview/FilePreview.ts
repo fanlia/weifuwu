@@ -90,7 +90,7 @@ export const FilePreview: Component<FilePreviewProps> = (_init, ctx)=> {
     editEmit('preview', { type: 'remote', url: u, status: 'loading' })
     try {
       // eslint-disable-next-line no-console
-      console.log('[fp-dbg] fetching', u)
+      // fp-dbg 调试日志已删（第五批——fetch 面日志残留）
       const res = await fetch(u)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const text = await res.text()

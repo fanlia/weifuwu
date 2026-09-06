@@ -263,5 +263,25 @@ console.log(`  ${anyProps} 处（登记表 ${Object.values(anyPropsWhitelist).re
   const stale = Object.entries(anyPropsWhitelist).flatMap(([n, ks]) => ks.filter((k) => !actualKeys.has(`${n}#${k}`)).map((k) => `${n}:${k}`))
   if (stale.length) fail(`C6 幽灵登记（已清未移出）: ${stale.slice(0, 5).join(' ')}`)
 
-if (failures) { console.error(`\nC3/C4/C5/C6 健康审计：${failures} 违例`); process.exit(1) }
+// ── ⑧ console 残留（C7-① —— console.log/error = 红（登记 2——W1 清）；warn 基线只降不升）──
+console.log('C7-① console 残留（log/error = 红 · warn 基线）:')
+{
+  const conWl = JSON.parse(readFileSync(join(root, 'scripts/components-console-whitelist.json'), 'utf8'))
+  const warnBase = conWl.warn._total
+  let warnNow = 0
+  for (const f of files) {
+    const s = readFileSync(f, 'utf8')
+    const name = f.slice(COMPONENTS.length + 1)
+    const logN = (s.match(/console\.log\b/g) || []).length
+    const errN = (s.match(/console\.error\b/g) || []).length
+    const warnN = (s.match(/console\.warn\b/g) || []).length
+    warnNow += warnN
+    if (logN && !(conWl.log[name] ?? 0)) fail(`console.log 残留 ${name} ×${logN}——删除（调试完成——git 历史可溯）或登记`)
+    if (errN) fail(`console.error ${name} ×${errN}——错误面应走捕获/上报通道`)
+  }
+  if (warnNow > warnBase) fail(`console.warn ${warnNow} > 基线 ${warnBase}（dev 提示设计——只降不升）`)
+  console.log(`  log ${Object.keys(conWl.log).length} 文件（W1 清）· warn ${warnNow}（基线 ${warnBase}）`)
+}
+
+if (failures) { console.error(`\nC3/C4/C5/C6/C7 健康审计：${failures} 违例`); process.exit(1) }
 console.log('\nC3/C4/C5/C6 健康审计：全绿')

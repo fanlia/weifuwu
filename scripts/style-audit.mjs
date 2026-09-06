@@ -171,6 +171,19 @@ export function audit() {
       }
     }
 
+    // ── S8 重复选择器（warn——顶层同选择器双定义 = 隐藏覆盖隐患；@media/keyframes 上下文排除） ──
+    {
+      const map = new Map()
+      for (const m of css.matchAll(/([^{}]+)\{/g)) {
+        const sel = m[1].trim()
+        if (!sel || sel.startsWith('@') || sel === 'from' || sel === 'to') continue
+        map.set(sel, (map.get(sel) ?? 0) + 1)
+      }
+      for (const [sel, n] of map) {
+        if (n > 1) warningsF.push(`S8 重复选择器 ${sel.slice(0, 44)}×${n}（同文件两次定义——内容同删一/不同合并+注释）`)
+      }
+    }
+
     // ── S6 硬编码字号（warn——登记制：图标/头像/徽标白名单，正文必须 token 化） ──
     {
       const re = /font-size:\s*(\d+)px\s*;/g
