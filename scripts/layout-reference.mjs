@@ -20,8 +20,8 @@ const LAYOUT = join(root, 'src/client/layout')
 const OUT = join(root, 'docs/layout.md')
 
 /** 从 CSS 提取声明摘要（props + 冲突值 + 断点/修饰）——解析逻辑与 inventory 同构 */
-function buildReference() {
-  const inv = inventory()
+async function buildReference() {
+  const inv = await inventory()
   const L = []
   L.push('# weifuwu/layout 参考')
   L.push('')
@@ -145,13 +145,14 @@ import { LAYER_ORDER } from '../src/client/layout/bundle.ts'
 const target = process.argv[2] === '--check'
 if (target) {
   const current = readFileSync(OUT, 'utf-8')
-  const expected = buildReference()
+  const expected = await buildReference()
   if (current !== expected) {
     console.error(`docs/layout.md 漂移——运行 \`node scripts/layout-reference.mjs\` 重新生成（契约 L15）`)
     process.exit(1)
   }
   console.log('docs/layout.md 最新 ✓')
 } else {
-  writeFileSync(OUT, buildReference())
-  console.log(`docs/layout.md 已生成（${buildReference().split('\n').length} 行）`)
+  const doc = await buildReference()
+  writeFileSync(OUT, doc)
+  console.log(`docs/layout.md 已生成（${doc.split('\n').length} 行）`)
 }

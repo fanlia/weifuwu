@@ -33,7 +33,7 @@ import { LAYER_ORDER } from '../../client/layout/bundle.ts'
 const root = join(import.meta.dirname, '..', '..', '..')
 const LAYOUT = join(root, 'src/client/layout')
 
-const inv = inventory()
+const inv = await inventory()
 const bases = inv.classes.filter((c) => !c.modifierOf)
 
 /** 收集语料(.ts/.tsx——真实代码消费,不含文档提及/静态 HTML) */
@@ -116,7 +116,8 @@ test('L2 死类 = 0(消费证据制——四件套豁免登记)', () => {
 })
 
 test('L3 缺口 = 0(使用未定义类归零)', () => {
-  const defined = new Set([...layoutDefined(), ...componentDefined()])
+  // layoutDefined 含生成段（decl 声明——inv 的类清单已并入——单源）
+  const defined = new Set([...inv.classes.map((c) => c.name), ...layoutDefined(), ...componentDefined()])
   const corpus = collectCode(['apps', 'src/client/components'])
   const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
   // showcase 页面试样式私有类（270f1542 手写折叠——类属 showcase 演示页——L3 defined 集

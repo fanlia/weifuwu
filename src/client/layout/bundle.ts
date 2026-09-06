@@ -22,6 +22,8 @@
  *                  旧实现只 stat 入口 → 改 `_tokens.css` 不失效 = 陈旧缓存）
  */
 import { readFile, readdir } from 'node:fs/promises'
+import { generateLayoutCss } from './define.ts'
+import { structures } from './decl.ts'
 import { join, resolve } from 'node:path'
 
 /**
@@ -95,6 +97,14 @@ export async function bundleLayout(layoutDir: string): Promise<CssBundle> {
   const inputs: string[] = [join(dir, 'weifuwu-layout.css')]
   const chunks: string[] = []
   for (const f of files) {
+    // **生成段（defineLayout——原语声明单源）**：row/stack 族由声明生成——
+    // 手写 _row.css/_stack.css 已删（布局契约 layout-define 锁生成=手写等价）
+    if (f === '_stack.css') {
+      inputs.push(join(dir, 'decl.ts'), join(dir, 'define.ts'))
+      chunks.push(`@layer ${LAYER_OF['_stack']} {\n${generateLayoutCss(structures)}\n}`)
+      continue
+    }
+    if (f === '_row.css') continue // 已随 _stack 生成（声明含 row 族）
     const abs = join(dir, f)
     inputs.push(abs)
     const content = stripImports(await readFile(abs, 'utf-8')).trim()

@@ -53,10 +53,10 @@
 | `wf-flex` | _flex.css | display · display:flex | @@lg @@sm | — |
 | `wf-grid` | _grid.css | display · gap · grid-template-columns · display:grid | — | — |
 | `wf-hidden` | _hidden.css | display · display:none | @@lg | — |
-| `wf-items-center` | _row.css |  | — | — |
-| `wf-items-end` | _row.css |  | — | — |
-| `wf-items-start` | _row.css |  | — | — |
-| `wf-items-stretch` | _row.css |  | — | — |
+| `wf-items-center` | _stack.css |  | — | — |
+| `wf-items-end` | _stack.css |  | — | — |
+| `wf-items-start` | _stack.css |  | — | — |
+| `wf-items-stretch` | _stack.css |  | — | — |
 | `wf-justify-between` | _justify.css | align-items · display · gap · justify-content · display:flex · justify-content:space-between · align-items:var… | — | — |
 | `wf-justify-center` | _justify.css | align-items · display · gap · justify-content · display:flex · justify-content:center · align-items:var(--wf-a… | — | — |
 | `wf-justify-end` | _justify.css | align-items · display · gap · justify-content · display:flex · justify-content:flex-end · align-items:var(--wf… | — | — |
@@ -74,8 +74,8 @@
 | `wf-overflow-x` | _overflow.css | overflow-x | — | — |
 | `wf-pointer` | _hidden.css | cursor | — | — |
 | `wf-relative` | _position.css | position · position:relative | — | — |
-| `wf-row` | _row.css | align-items · display · flex-wrap · gap · display:flex · flex-wrap:wrap · align-items:var(--wf-align, center) | — | — |
-| `wf-row-reverse` | _row.css | align-items · display · flex-direction · flex-wrap · gap · display:flex · flex-direction:row-reverse · flex-wr… | — | — |
+| `wf-row` | _stack.css | align-items · display · flex-wrap · gap · display:flex · flex-wrap:wrap · align-items:var(--wf-align, center) | — | — |
+| `wf-row-reverse` | _stack.css | align-items · display · flex-direction · flex-wrap · gap · display:flex · flex-wrap:wrap · flex-direction:row-… | — | — |
 | `wf-safe-bottom` | _safe-area.css | padding-bottom | — | — |
 | `wf-safe-top` | _safe-area.css | padding-top | — | — |
 | `wf-self-center` | _align-self.css | align-self | — | — |

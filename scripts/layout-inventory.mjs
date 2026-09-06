@@ -83,12 +83,21 @@ function parseFile(css) {
   return classes
 }
 
-export function inventory() {
+export async function inventory() {
   const files = readdirSync(LAYOUT_DIR).filter((f) => /^_.*\.css$/.test(f) && !NON_CLASS_FILES.has(f))
+  // **生成段（defineLayout——原语声明单源——行 87 的 _stack.css 锚点）**：
+  // row/stack 族由声明生成（手写 _row.css/_stack.css 已删除——bundle 同源）
+  const { generateLayoutCss } = await import('../src/client/layout/define.ts')
+  const { structures } = await import('../src/client/layout/decl.ts')
+  const generated = generateLayoutCss(structures)
   const classes = []
-  for (const file of files.sort()) {
+  const allFiles = [...files.sort()]
+  if (!allFiles.includes('_stack.css')) allFiles.push('_stack.css') // 删除后锚点缺失——补位（类面=生成段）
+  for (const file of allFiles) {
     const category = INTERNAL_FILES.has(file) ? 'internal' : UTILITY_FILES.has(file) ? 'utility' : 'primitive'
-    const parsed = parseFile(stripComments(readFileSync(join(LAYOUT_DIR, file), 'utf-8')))
+    // _stack.css 锚点（顺序占位——文件已删）——类面 = 声明生成段
+    let css = file === '_stack.css' ? generated : stripComments(readFileSync(join(LAYOUT_DIR, file), 'utf-8'))
+    const parsed = parseFile(css)
     for (const [name, info] of parsed) {
       classes.push({
         name,
@@ -195,7 +204,7 @@ export function componentInventory() {
 
 // ── CLI ──
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const inv = inventory()
+  const inv = await inventory()
   if (process.argv.includes('--json')) {
     console.log(JSON.stringify(inv, null, 2))
   } else if (process.argv.includes('--dead')) {

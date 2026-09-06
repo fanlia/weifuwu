@@ -47,7 +47,7 @@ function liveLayerStatement(css: string): string | undefined {
 test('B1 层归属自证（bundle 输出 == LAYER_OF 登记——逐类）', async () => {
   const { css } = await bundleLayout(LAYOUT_DIR)
   const map = layerMapOf(css)
-  const inv = inventory()
+  const inv = await inventory()
   const bad: string[] = []
   for (const c of inv.classes) {
     const layer = LAYER_OF[c.file.replace(/\.css$/, '')]
