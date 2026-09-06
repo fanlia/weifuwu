@@ -1,5 +1,5 @@
 /**
- * weifuwu/layout — CSS 装配单源契约（LAYOUT-PLAN W1）
+ * weifuwu/client/layout — CSS 装配单源契约（LAYOUT-PLAN W1）
  *
  * 背景（探针实证）：同一样式源曾有**四条装配管线、三种层序语义**——
  *   ① `scripts/build.mjs`（LAYER_OF 五层）      → dist 发布产物

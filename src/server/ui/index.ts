@@ -39,7 +39,7 @@ import { commandToHtml } from '../../client/vdom/core/ssr/html.ts'
 import { h } from '../../client/vdom/index.ts'
 import type { Component } from '../../client/vdom/index.ts'
 
-// 浏览器端编译：**零 alias（2027-03 定稿）**——import 'weifuwu/vdom' 走
+// 浏览器端编译：**零 alias（2027-03 定稿）**——import 'weifuwu/client/vdom' 走
 // package.json exports（self-reference——dist 镜像 src 结构：dist/server/ +
 // dist/client/vdom/ + dist/client/components/——exports 与 dist 一致）——
 // src 模式（dev）由 tsconfig paths 映射；dist 模式（发布）由 exports 解析——
@@ -53,7 +53,7 @@ declare module '../../server/types.ts' {
       html: UiHtmlTag
       /** 编译 TSX → JS bundle Response（支持包名 weifuwu/ui-dom 或文件路径） */
       js: (entryPath: string) => Promise<Response>
-      /** 读取 CSS → CSS Response（支持包名 weifuwu/layout、weifuwu/components/style.css 或文件路径） */
+      /** 读取 CSS → CSS Response（支持包名 weifuwu/client/layout、weifuwu/client/components/style.css 或文件路径） */
       css: (entryPath: string) => Promise<Response>
       /**
        * SSR 渲染组件 → HTML 片段（HtmlSafe，可直接内联进 ctx.ui.html 模板）
@@ -173,7 +173,7 @@ async function checkPostcss(): Promise<boolean> {
   return postcssAvailable
 }
 
-/** 解析入口路径：包名（weifuwu/layout）→ imports map，相对/绝对路径 → path.resolve */
+/** 解析入口路径：包名（weifuwu/client/layout）→ imports map，相对/绝对路径 → path.resolve */
 function resolveEntry(entryPath: string): string {
   // 相对/绝对路径：相对于 CWD 解析（不走 import.meta.resolve，避免相对框架文件位置）
   if (entryPath.startsWith('.') || entryPath.startsWith('/')) {
@@ -302,7 +302,7 @@ export function ui(options: UiOptions = {}): Middleware {
             format: 'esm',
             platform: 'browser',
             jsx: 'automatic',
-            jsxImportSource: 'weifuwu/vdom',
+            jsxImportSource: 'weifuwu/client/vdom',
             write: false,
             metafile: true, // 依赖闭包快照（新鲜度校验——依赖变更也重建）
             logLevel: 'silent',

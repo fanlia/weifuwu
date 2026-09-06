@@ -1,6 +1,6 @@
 /** PasswordInput：密码输入：眼睛按钮切换可见性（showcase /components/passwordinput） */
 /**
- * weifuwu/components — PasswordInput
+ * weifuwu/client/components — PasswordInput
  *
  * 密码输入：眼睛按钮切换可见性。Input 子集（label/error/hint/required/autoComplete 透传）。
  */

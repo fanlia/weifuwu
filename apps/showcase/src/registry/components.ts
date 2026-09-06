@@ -1053,7 +1053,7 @@ export const components: ComponentEntry[] = [
 {
     "id": "sheetgrid",
     "name": "SheetGrid",
-    "desc": "weifuwu/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 设计（）：文档 = fold(事件流)——SheetGrid 的每个",
+    "desc": "weifuwu/client/components/SheetGrid — xlsx 网格编辑器（ODES 事件流底座） 设计（）：文档 = fold(事件流)——SheetGrid 的每个",
     "family": "file-preview",
     "sourceFile": "src/client/components/SheetGrid/SheetGrid.ts",
     "cssFile": "src/client/components/SheetGrid/SheetGrid.css",
@@ -1062,7 +1062,7 @@ export const components: ComponentEntry[] = [
 {
     "id": "slidecanvas",
     "name": "SlideCanvas",
-    "desc": "weifuwu/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3） 设计（）：文档 = fold(事件流)——每个编辑 =",
+    "desc": "weifuwu/client/components/SlideCanvas — pptx 画布编辑器（ODES 事件流——阶段 3） 设计（）：文档 = fold(事件流)——每个编辑 =",
     "family": "file-preview",
     "sourceFile": "src/client/components/SlideCanvas/SlideCanvas.ts",
     "cssFile": "src/client/components/SlideCanvas/SlideCanvas.css",

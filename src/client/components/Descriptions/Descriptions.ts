@@ -1,6 +1,6 @@
 /** Descriptions：描述列表：label/value 栅格 + bordered + span（详情页）（showcase /components/descriptions） */
 /**
- * weifuwu/components — Descriptions
+ * weifuwu/client/components — Descriptions
  *
  * 详情字段展示：label/value 栅格（<dl> 语义结构，屏幕阅读器友好）。
  * 用于 Agent 配置展示、实体详情、订单信息等只读字段场景。

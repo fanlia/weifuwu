@@ -1,8 +1,8 @@
 /**
  * 知识库文档区（AgentDetail 拆分子组件——KB 类型：上传/批量/检索/删除/分块配置）
  */
-import type { Component } from 'weifuwu/vdom'
-import { Button, Card, Field, Icon, Input, Textarea } from 'weifuwu/components'
+import type { Component } from 'weifuwu/client/vdom'
+import { Button, Card, Field, Icon, Input, Textarea } from 'weifuwu/client/components'
 import { errMsg } from '../blocks/ux'
 import { inputValue } from '../lib/types'
 import type { Agent, KbChunk, KbDocument } from '../lib/types'

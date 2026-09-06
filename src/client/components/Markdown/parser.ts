@@ -1,6 +1,6 @@
 /** Markdown：AI 回复渲染：安全子集 parser + 代码块 + 链接白名单（showcase /components/markdown） */
 /**
- * weifuwu/components — Markdown 安全子集 parser
+ * weifuwu/client/components — Markdown 安全子集 parser
  *
  * 零依赖自研解析器，输出结构化 token（非 HTML 字符串）——
  * 组件层以 VNode 渲染，天然转义任何用户/AI 内容（无 innerHTML 注入面）。

@@ -10,15 +10,15 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "weifuwu/vdom",
+    "jsxImportSource": "weifuwu/client/vdom",
     "types": [
       "node"
     ],
     "rootDir": ".",
     "paths": {
-      "weifuwu/vdom": ["./src/client/vdom/index.ts"],
-      "weifuwu/vdom/jsx-runtime": ["./src/client/vdom/jsx-runtime.ts"],
-      "weifuwu/vdom/testing": ["./src/client/vdom/testing.ts"]
+      "weifuwu/client/vdom": ["./src/client/vdom/index.ts"],
+      "weifuwu/client/vdom/jsx-runtime": ["./src/client/vdom/jsx-runtime.ts"],
+      "weifuwu/client/vdom/testing": ["./src/client/vdom/testing.ts"]
     }
   },
   "include": [

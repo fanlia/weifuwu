@@ -1,7 +1,7 @@
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, EmptyState, Loading, StatusDot, ListScaffold } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { PageHeader, EmptyState, Loading, StatusDot, ListScaffold } from 'weifuwu/client/components'
 import { Ava, TypeBadge, errMsg } from '../blocks/ux'
-import { Button, Card, Icon, Skeleton } from 'weifuwu/components'
+import { Button, Card, Icon, Skeleton } from 'weifuwu/client/components'
 import { canWrite, writeDenyReason } from '../lib/roles'
 import type { Agent, AgentListResponse } from '../lib/types'
 

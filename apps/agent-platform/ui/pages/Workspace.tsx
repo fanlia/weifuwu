@@ -7,8 +7,8 @@
  * - 空状态引导：建项目 → 加 AI → 放文件
  * 运营报表已拆至 /reports（管理组）
  */
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { Button, Card, EmptyState, Icon, Skeleton } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { Button, Card, EmptyState, Icon, Skeleton } from 'weifuwu/client/components'
 import { Ava, errMsg } from '../blocks/ux'
 import { clientRole, isTenantOwner, writeDenyReason } from '../lib/roles'
 import type { AgentListResponse, DepartmentListResponse, PendingApproval } from '../lib/types'

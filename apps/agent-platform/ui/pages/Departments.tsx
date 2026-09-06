@@ -1,7 +1,7 @@
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, EmptyState, Loading, ListScaffold } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { PageHeader, EmptyState, Loading, ListScaffold } from 'weifuwu/client/components'
 import { Ava } from '../blocks/ux'
-import { Badge, Button, Card, Icon } from 'weifuwu/components'
+import { Badge, Button, Card, Icon } from 'weifuwu/client/components'
 import { isTenantOwner, clientRole, writeDenyReason } from '../lib/roles'
 import type { Department, DepartmentListResponse } from '../lib/types'
 

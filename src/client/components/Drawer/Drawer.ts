@@ -1,6 +1,6 @@
 /** Drawer：侧边面板，左右滑入 + ESC 关闭（showcase /components/drawer） */
 /**
- * weifuwu/components — Drawer
+ * weifuwu/client/components — Drawer
  */
 
 import type {Component, VNodeChild} from '../../vdom/index.ts'

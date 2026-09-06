@@ -1,6 +1,6 @@
 /** DropZone：全区域拖放区——整容器拖入文件高亮 + onFiles 回调（现代 IM 标配——Chat 手搓证据）（showcase /components/dropzone） */
 /**
- * weifuwu/components — DropZone 全区域拖放区
+ * weifuwu/client/components — DropZone 全区域拖放区
  *
  * 整容器拖放目标：文件拖入指定区域任意位置（含悬停子元素）即高亮 + drop 回调
  * ——「现代 IM 标配」手搓实证 agent-platform Chat

@@ -1,6 +1,6 @@
 /** AuthPage：认证页骨架：居中卡片 + logo + 表单插槽 + 错误条 + 提交 loading（登录/注册复用）（showcase /components/authpage） */
 /**
- * weifuwu/components — AuthPage
+ * weifuwu/client/components — AuthPage
  *
  * 认证页骨架（登录/注册复用——agent-platform Login/Register 抽取）。
  * 布局：居中卡片 + logo + 标题/副标题 + 表单插槽 + 错误条 + 提交 loading + 底部链接。

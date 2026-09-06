@@ -1,6 +1,6 @@
 /** TabBar：底部标签栏——移动端 App 主导航（3-5 tab + icon/badge/受控激活 + safe-area 避让）（showcase /components/tabbar） */
 /**
- * weifuwu/components — TabBar 底部标签栏（移动端导航）
+ * weifuwu/client/components — TabBar 底部标签栏（移动端导航）
  *
  * 3-5 个底部 tab（icon + label + 可选 badge 角标）——移动端 App 主导航
  * （MUI BottomNavigation 对位；examples/patterns/Mobile.tsx 手搓底部导航的组件化）。

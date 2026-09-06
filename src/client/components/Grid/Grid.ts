@@ -1,6 +1,6 @@
 /** Grid：24 栅格 + gutter + flex 容器模式（Row/Col/Flex 等价）（showcase /components/grid） */
 /**
- * weifuwu/components — Grid 栅格 + Flex 容器
+ * weifuwu/client/components — Grid 栅格 + Flex 容器
  *
  * 三库等价：antd Row/Col/Flex、EP Row/Col。
  * 24 栅格 + gutter + flex 容器模式（单行弹性布局 = antd Flex 场景）：

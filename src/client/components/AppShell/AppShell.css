@@ -1,4 +1,4 @@
-/* weifuwu/components — AppShell（应用壳——品牌区/用户区细节——栅格复用 layout app-shell）
+/* weifuwu/client/components — AppShell（应用壳——品牌区/用户区细节——栅格复用 layout app-shell）
  * M1：旧 token 体系迁移（--wf-text-tertiary/--wf-bg-hover → 语义 token）+
  * CJK 感知（heading case/tracking 引用 token）+ 循环动效 token。
  */

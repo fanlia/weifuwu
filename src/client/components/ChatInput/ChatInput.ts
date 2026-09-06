@@ -1,6 +1,6 @@
 /** ChatInput：独立聊天输入条（AiChat 抽取）：单行/多行 + streaming 停止 + IME 安全——不自带聊天逻辑（showcase /components/chatinput） */
 /**
- * weifuwu/components — ChatInput
+ * weifuwu/client/components — ChatInput
  *
  * 独立复用的聊天输入条（从 AiChat 抽取——消 AiChat 内置 + 消费方手搓双重复）。
  * 纯输入层：不自带聊天逻辑（useChat 组合在消费方——AiChat 传入 chat handle，
@@ -48,6 +48,8 @@ export interface ChatInputProps {
   multiline?: boolean
   /** 标签（i18n 覆盖） */
   labels?: Partial<ChatInputLabels>
+  /** 占位文案（缺省 labels.placeholder） */
+  placeholder?: string
   /** 扩展位（附件/知识库/模型选择等） */
   actions?: VNode | null
   /** 外部程序化控制（@ 补全等场景）——mount 期回调上抛稳定 handle（{ setKeyword, setValue }）——
@@ -113,7 +115,7 @@ export const ChatInput: Component<ChatInputProps, { ui: Ui }> = (_init, ctx)=> {
       class: 'wf-chat-input',
       value: input.keyword,
       ref: (el: HTMLElement | null)=> { inputEl = el as HTMLInputElement | HTMLTextAreaElement | null },
-      placeholder: labels.placeholder,
+      placeholder: props.placeholder ?? labels.placeholder,
       disabled: props.disabled,
       // 输入期：内部 keyword + onChange 每键同步（消费方按需写共享态；组合期间跳过——IME 安全）
       onInput: (e: any)=> {

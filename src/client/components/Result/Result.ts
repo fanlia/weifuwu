@@ -1,6 +1,6 @@
 /** Result：结果页：success/error/warning/info + extra 操作区（showcase /components/result） */
 /**
- * weifuwu/components — Result
+ * weifuwu/client/components — Result
  *
  * 结果页：status + title + desc + extra（操作按钮区）。
  * 用于注册完成/操作成功/404/403 页。

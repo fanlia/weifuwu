@@ -4,7 +4,7 @@ import { h } from '../../vdom/index.ts'
 import { Badge } from '../Badge/Badge.ts'
 
 /**
- * weifuwu/components — StatusDot
+ * weifuwu/client/components — StatusDot
  *
  * 状态点原语（颜色语义——一个状态一个声音）。
  * 契约（agent-platform StatusDot 语言化——原名「自带默认文案的运行中/已暂停」

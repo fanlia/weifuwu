@@ -1,4 +1,4 @@
-/* weifuwu/components — ReasoningBlock（CoT 推理折叠展示） */
+/* weifuwu/client/components — ReasoningBlock（CoT 推理折叠展示） */
 
 .wf-reasoning {
   border: var(--wf-border-width) solid var(--wf-color-border);

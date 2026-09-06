@@ -1,4 +1,4 @@
-/* weifuwu/components — VirtualTable（固定表头 + 虚拟滚动表体） */
+/* weifuwu/client/components — VirtualTable（固定表头 + 虚拟滚动表体） */
 
 .wf-virtual-table {
   font-family: var(--wf-font-sans);

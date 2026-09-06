@@ -1,6 +1,6 @@
 /** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
- * weifuwu/components/Editor/model/history — undo/redo 栈（commit 粒度）
+ * weifuwu/client/components/Editor/model/history — undo/redo 栈（commit 粒度）
  *
  * 撤销粒度 = commit 粒度（AI 流式接受 = 1 个 commit = 1 个撤销步）。
  * 栈本身只存事件——状态折叠由调用方（Editor 层）执行 applyEdit。

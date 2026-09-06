@@ -1,6 +1,6 @@
 /** LogViewer：日志流：ANSI 着色 + 虚拟滚动 + 自动跟随 + 复制（showcase /components/logviewer） */
 /**
- * weifuwu/components — LogViewer
+ * weifuwu/client/components — LogViewer
  *
  * 日志流查看器（Agent 执行日志 / CI 输出）：ANSI 着色 + 虚拟滚动 + 自动跟随。
  * 复用 VirtualList 滚动基座（useScrollPosition + rAF 节流）。

@@ -1,6 +1,6 @@
 /** Chart：SVG 图表：line/bar/pie/radar/gauge/scatter——零依赖自绘（showcase /components/chart） */
 /**
- * weifuwu/components — Chart
+ * weifuwu/client/components — Chart
  */
 
 import type {Component, VNodeChild} from '../../vdom/index.ts'

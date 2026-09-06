@@ -38,7 +38,7 @@ export type { Ui }
  *  - 中间件注入面：`[key: string]: unknown` 索引签名 + **declare module 合并**
  *    （应用/中间件作者扩展——同后端 `declare module 'weifuwu' { interface Context }`）：
  *    ```ts
- *    declare module 'weifuwu/vdom' { interface UIContext { api: ApiClient } }
+ *    declare module 'weifuwu/client/vdom' { interface UIContext { api: ApiClient } }
  *    ```
  *  - 组件泛型：Component<P, C = UIContext>——默认增强后的 UIContext） */
 export interface UIContext {

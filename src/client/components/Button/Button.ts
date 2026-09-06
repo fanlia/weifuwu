@@ -1,6 +1,6 @@
 /** Button：4 variants × 3 sizes + loading + block + disabled（showcase /components/button） */
 /**
- * weifuwu/components — Button
+ * weifuwu/client/components — Button
  *
  * 2027-09 W3：状态类（variant/size/block/loading）+ aria-busy → createComponent
  * 声明（BEM 直拼单源）——render 只写结构/内容/事件（皮）。

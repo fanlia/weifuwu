@@ -1,5 +1,5 @@
 /**
- * weifuwu/layout — defineLayout（布局原语声明 + 生成器）
+ * weifuwu/client/layout — defineLayout（布局原语声明 + 生成器）
  *
  * 设计（2027-09——分层抽象 W4）：layout 174 类手写实证——原语 = **声明**：
  * 语义词 → 属性组合（stack/row/grid、组合缺省、零优先级默认、断点变体）。

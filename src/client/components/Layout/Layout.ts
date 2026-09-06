@@ -1,6 +1,6 @@
 /** Layout：布局外壳：Sider 折叠 + Header/Content/Footer 骨架（antd Layout / shadcn Sidebar 等价）（showcase /components/layout） */
 /**
- * weifuwu/components — Layout 布局外壳
+ * weifuwu/client/components — Layout 布局外壳
  *
  * 三库等价：antd Layout / Element Plus Container / shadcn Sidebar。
  * 复合子组件模式（无命名空间——独立导出）：

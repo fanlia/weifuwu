@@ -1,6 +1,6 @@
 /** Popover：通用弹出层，click/hover 触发，4 方向（showcase /components/popover） */
 /**
- * weifuwu/components — Popover
+ * weifuwu/client/components — Popover
  *
  * 命令式弹窗（一个形态——ctx.ui.openPopup——toast 心智）：click/hover 双触发
  * （hover 触屏自动降级 tap）+ 受控 open + 外部点击（document 级，取代原 overlay）

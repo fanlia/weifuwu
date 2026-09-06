@@ -1,6 +1,6 @@
 /** Dropdown：下拉菜单，支持 danger variant（showcase /components/dropdown） */
 /**
- * weifuwu/components — Dropdown
+ * weifuwu/client/components — Dropdown
  *
  * openPopup 内核：click 触发 + 受控 open + 外部点击/Escape（document 级，
  * 弹层在 portal 中按 Escape 也能关）+ 定位/视口 clamp + portal。

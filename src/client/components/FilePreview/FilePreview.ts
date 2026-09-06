@@ -1,6 +1,6 @@
 /** FilePreview：文件预览（md/html/pdf/office）——基于事件流，可编辑（showcase /components/filepreview） */
 /**
- * weifuwu/components/FilePreview — 文件预览（office/pdf/md/html/text）
+ * weifuwu/client/components/FilePreview — 文件预览（office/pdf/md/html/text）
  *
  * 架构（ —— ODES 事件流底座）：
  * - md 预览：复用 `<Markdown>` 组件（安全 token 渲染——表格/任务列表/URL 白名单）

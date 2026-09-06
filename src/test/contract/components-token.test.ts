@@ -1,5 +1,5 @@
 /**
- * weifuwu/components token 消费哨兵（LAYOUT-PLAN C2）——C1（px 分类）之后的第二防线
+ * weifuwu/client/components token 消费哨兵（LAYOUT-PLAN C2）——C1（px 分类）之后的第二防线
  *
  * 背景（探针实证 2027-xx）：C1 四桶后组件 px 面全 token 化——但探针揭示新三宗：
  *   ① line-height 近值未接线：手写 62 处——1.5×6 = `--wf-line-height`（1.5）恒等 ·

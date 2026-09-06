@@ -5,11 +5,11 @@
  * 组件消费面：workflowToDag 在服务端（GET /:id 提供 dag）、toJsonSchema 在 meta 端点——
  * 客户端零转换（架构验证：组件库零改动）。
  */
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { Alert, Badge, Button, Card, CodeEditor, Descriptions, DiffView, Input, JSONViewer, Loading, Modal, Pipeline, Select, Tabs, Textarea } from 'weifuwu/components'
-import { PageHeader } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { Alert, Badge, Button, Card, CodeEditor, Descriptions, DiffView, Input, JSONViewer, Loading, Modal, Pipeline, Select, Tabs, Textarea } from 'weifuwu/client/components'
+import { PageHeader } from 'weifuwu/client/components'
 import { errMsg } from '../blocks/ux'
-import { CronPicker } from 'weifuwu/components'
+import { CronPicker } from 'weifuwu/client/components'
 
 interface DagNode { id: string; label: string }
 interface DagEdge { from: string; to: string }

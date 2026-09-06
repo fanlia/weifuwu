@@ -16,14 +16,14 @@ import { fileURLToPath } from 'node:url'
 import { transformSync } from 'esbuild'
 
 // bare specifier → 源码路径（与 tsconfig paths 一致——测试/dev 单模块图，
-// 防 dist/src 双实例：页面 JSX 编出的 weifuwu/vdom import 必须与测试同图）
+// 防 dist/src 双实例：页面 JSX 编出的 weifuwu/client/vdom import 必须与测试同图）
 const SRC_ROOT = new URL('..', import.meta.url).pathname
 const BARE_ALIASES: Record<string, string> = {
-  'weifuwu/vdom/jsx-runtime': SRC_ROOT + 'vdom/jsx-runtime.ts',
-  'weifuwu/vdom/testing': SRC_ROOT + 'vdom/testing.ts',
-  'weifuwu/vdom': SRC_ROOT + 'vdom/index.ts',
-  'weifuwu/components': SRC_ROOT + 'components/index.ts',
-  'weifuwu': SRC_ROOT + 'index.ts',
+  'weifuwu/client/vdom/jsx-runtime': SRC_ROOT + 'vdom/jsx-runtime.ts',
+  'weifuwu/client/vdom/testing': SRC_ROOT + 'vdom/testing.ts',
+  'weifuwu/client/vdom': SRC_ROOT + 'vdom/index.ts',
+  'weifuwu/client/components': SRC_ROOT + 'components/index.ts',
+  'weifuwu': SRC_ROOT + 'server/index.ts', // 包默认 = server（src 结构直映——src 无顶层 index）
 }
 
 registerHooks({
@@ -45,7 +45,7 @@ registerHooks({
       const result = transformSync(code, {
         loader: url.endsWith('.tsx') ? 'tsx' : 'ts',
         jsx: 'automatic',
-        jsxImportSource: 'weifuwu/vdom',
+        jsxImportSource: 'weifuwu/client/vdom',
         format: 'esm',
         sourcemap: 'inline',
         target: 'node22',

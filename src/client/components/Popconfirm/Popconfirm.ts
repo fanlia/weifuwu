@@ -1,6 +1,6 @@
 /** Popconfirm：气泡确认：危险操作防误触 + 复用 usePopup 基座（showcase /components/popconfirm） */
 /**
- * weifuwu/components — Popconfirm 气泡确认
+ * weifuwu/client/components — Popconfirm 气泡确认
  *
  * 三库等价：antd Popconfirm / Element Plus Popconfirm。
  * 复用 openPopup 内核（Popover 同级基座）——验证弹层体系可组合性：

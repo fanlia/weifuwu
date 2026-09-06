@@ -1,5 +1,5 @@
 /**
- * weifuwu/components/OfficeEditor/ai — ODES × AI 事件流对接
+ * weifuwu/client/components/OfficeEditor/ai — ODES × AI 事件流对接
  *
  * 设计（ §9）：AI 落地 = 普通 op + ai 元数据。
  * 本模块：AI 回复 → OfficeOp[] 默认解析（按 mode）+ 事件流桥接发射。

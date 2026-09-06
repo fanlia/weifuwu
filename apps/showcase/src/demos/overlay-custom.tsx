@@ -1,6 +1,6 @@
 /** 分层抽象演示——useOverlay 换皮（行为契约 + 自绘皮——三用法之一） */
-import type { Component } from 'weifuwu/vdom'
-import { h } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/client/vdom'
+import { h } from 'weifuwu/client/vdom'
 
 export const OverlayCustomDemo: Component = (_i, ctx) => {
   let open = false

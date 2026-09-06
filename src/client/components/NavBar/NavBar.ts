@@ -1,6 +1,6 @@
 /** NavBar：移动端顶栏——left 槽（返回/菜单）+ 标题截断 + right 槽（antd-mobile NavBar 对位）（showcase /components/navbar） */
 /**
- * weifuwu/components — NavBar 移动端顶栏（antd-mobile NavBar / MUI AppBar 对位）
+ * weifuwu/client/components — NavBar 移动端顶栏（antd-mobile NavBar / MUI AppBar 对位）
  *
  * 移动端 App 应用外壳顶栏：left 槽（返回/菜单按钮）+ 标题（单行截断）+ right 槽
  * （操作按钮）——消费侧手搓实证 agent-platform `ap-topbar`

@@ -32,7 +32,7 @@
 
 ```tsx
 // routes.tsx —— 路由树（UIRouter——前后端同一棵树——单一实现源）
-import { UIRouter, h } from 'weifuwu/vdom'
+import { UIRouter, h } from 'weifuwu/client/vdom'
 
 export function buildRouter() {
   const router = new UIRouter()
@@ -57,7 +57,7 @@ serve(router, { port: 3000 })
 
 ```ts
 // src/client.ts —— 浏览器 boot
-import { uiServe } from 'weifuwu/vdom'
+import { uiServe } from 'weifuwu/client/vdom'
 import { buildRouter } from './routes.tsx'
 uiServe(buildRouter(), { root: '#root' })
 ```
@@ -95,9 +95,9 @@ router.get('*', async (req, ctx) => {
 | `weifuwu` | postgres / redis / Memory | 自研 PG v3 + RESP2 协议（`ctx.orm` / `ctx.redis`——数据面 = 声明式 ORM AST，业务零 SQL 文本）；Memory 零数据库测试 |
 | `weifuwu` | shape / bodyOf / listQuery / errorResponse | 数据样板收口：shape 声明 → `bodyOf`（body 校验·类型精确）/ `listQuery`（URL 参数）/ `errorResponse`（catch 映射）——手写 route 三件套（docs/server.md §5.3/§5.4.1） |
 | `weifuwu` | ui | SSR 渲染 + esbuild JS/CSS 动态编译（`ctx.ui`） |
-| `weifuwu/vdom` | UIRouter / uiServe / uiSsr | 前端路由唯一入口 + 浏览器 boot + SSR（结构吸收） |
-| `weifuwu/vdom` | 命令流引擎 + hooks 全家 | 渲染周期/事件代理/三状态机 + useAsyncData/usePopup/useControlled/… |
-| `weifuwu/components` | **134 个组件** | Button/Table/Modal/AiChat/… + `toast()`/`confirm()` 命令式中间件 |
+| `weifuwu/client/vdom` | UIRouter / uiServe / uiSsr | 前端路由唯一入口 + 浏览器 boot + SSR（结构吸收） |
+| `weifuwu/client/vdom` | 命令流引擎 + hooks 全家 | 渲染周期/事件代理/三状态机 + useAsyncData/usePopup/useControlled/… |
+| `weifuwu/client/components` | **134 个组件** | Button/Table/Modal/AiChat/… + `toast()`/`confirm()` 命令式中间件 |
 | `weifuwu/layout` | CSS 布局 | 50 个布局原语 + 98 个工具类 + 176 个主题 Token |
 | `weifuwu` | rateLimit / email / userSystem / messager / queue / scheduler / ai / graphql | SaaS 地基中间件（ctx 注入） |
 | `weifuwu/dev` | dev loader | `--import weifuwu/dev` 直接跑 `.ts/.tsx` |

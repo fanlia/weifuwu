@@ -1,6 +1,6 @@
 /** CodeBlock：代码块：语言标签 + 复制按钮 + 横向滚动（showcase /components/codeblock） */
 /**
- * weifuwu/components — CodeBlock
+ * weifuwu/client/components — CodeBlock
  *
  * 代码展示块：语言标签 + 复制按钮 + 横向滚动 + 自研轻量语法高亮
  * （highlight.ts tokenizer——零依赖 FS-05）。

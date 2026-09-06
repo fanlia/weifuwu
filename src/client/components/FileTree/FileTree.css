@@ -1,4 +1,4 @@
-/* weifuwu/components — FileTree（文件树浏览器：面包屑 + 列表/编辑态）
+/* weifuwu/client/components — FileTree（文件树浏览器：面包屑 + 列表/编辑态）
  * 语义 token 化（旧 token 体系迁移——M1）：全部颜色/间距/字号/圆角/动效引用 layout --wf-*，暗色自动适配。
  */
 .wf-filetree {

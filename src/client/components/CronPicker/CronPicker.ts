@@ -5,7 +5,7 @@ import { Input } from '../Input/Input.ts'
 import { Select, type SelectOption } from '../Select/Select.ts'
 
 /**
- * weifuwu/components — CronPicker
+ * weifuwu/client/components — CronPicker
  *
  * cron 表达式输入原语：预置语义 + 自由编辑双通道。
  * - 预置面：常见档（每分钟/每 5 分钟/每小时/每天/工作日——单源 PRESETS）

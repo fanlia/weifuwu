@@ -1,6 +1,6 @@
 /** Input：text/email/password/number，支持 label/error/hint/required（showcase /components/input） */
 /**
- * weifuwu/components — Input
+ * weifuwu/client/components — Input
  *
  * 2027-09 W5：label/required/error/hint 块 + aria 连接（aria-invalid/
  * aria-describedby/aria-required/label for）→ useField 契约——组件只写输入面。

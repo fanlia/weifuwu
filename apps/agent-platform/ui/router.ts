@@ -4,8 +4,8 @@
  * 单一实现源（2026-08——A1 首屏 SSR）：路由定义不拆两份（漂移风险）——
  * 客户端 uiServe 接管渲染；服务端 uiSsr 渲染登录/注册首屏。
  */
-import { UIRouter, h } from 'weifuwu/vdom'
-import type { RenderCtx } from 'weifuwu/vdom'
+import { UIRouter, h } from 'weifuwu/client/vdom'
+import type { RenderCtx } from 'weifuwu/client/vdom'
 import { AppChrome } from './blocks/app-chrome'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'

@@ -1,7 +1,7 @@
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, EmptyState, Loading } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { PageHeader, EmptyState, Loading } from 'weifuwu/client/components'
 import { Ava, errMsg } from '../blocks/ux'
-import { Badge, Button, Card, Checkbox, Icon } from 'weifuwu/components'
+import { Badge, Button, Card, Checkbox, Icon } from 'weifuwu/client/components'
 import { canWrite, writeDenyReason } from '../lib/roles'
 import type { PendingApproval } from '../lib/types'
 

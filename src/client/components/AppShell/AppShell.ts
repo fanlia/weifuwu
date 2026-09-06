@@ -1,13 +1,13 @@
 /** AppShell：应用壳——品牌 + 分组导航 + 用户区 + 主内容（受控——父层驱动）（showcase /components/appshell） */
 /**
- * weifuwu/components — AppShell
+ * weifuwu/client/components — AppShell
  *
  * 应用壳（SaaS 侧栏布局）：品牌区 + 导航菜单 + 用户区 + 主内容区——
  * 认证守卫/导航/用户数据由父层驱动（受控——组件零 fetch 零路由依赖）。
  *
  * 来源：agent-platform AppLayout（侧栏壳——Menu/Avatar/Button 组装样板）
  * 沉淀——每个 SPA 应用的重复样板：品牌 + 分组菜单 + 用户信息 + 设置/
- * 退出操作 + 守卫加载态。样式复用 weifuwu/layout 的 app-shell 原语
+ * 退出操作 + 守卫加载态。样式复用 weifuwu/client/layout 的 app-shell 原语
  * （wf-app-shell + wf-sidebar 系列 + wf-main——grid 栅格 + 移动端降级），
  * 组件只补品牌区/用户区细节（AppShell.css）。
  *

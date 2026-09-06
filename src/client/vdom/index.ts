@@ -1,5 +1,5 @@
 /**
- * weifuwu/vdom — 新版本 vdom 公共面（独立实现区）
+ * weifuwu/client/vdom — 新版本 vdom 公共面（独立实现区）
  *
  * 决策（2026-12）：
  * - ui-dom 保持不变——本目录**完全独立实现**（零引用 ui-dom——不 re-export）——
@@ -53,7 +53,7 @@ export { uiServeV2 } from './core/v2/serve.ts'
 // UIContext = 前端 ctx 类型（对齐后端 Context 模式——接口 + 索引签名 +
 // **declare module 合并增强**（应用/中间件扩展））：
 // ```ts
-// declare module 'weifuwu/vdom' { interface UIContext { api: ApiClient } }
+// declare module 'weifuwu/client/vdom' { interface UIContext { api: ApiClient } }
 // ```
 export type { UIContext, DataPipe } from './context/UIContext.ts'
 export type { Component, RenderFn, VNode, VNodeChild } from './core/vnode.ts'
@@ -77,7 +77,7 @@ export { ws } from './middlewares/ws.ts'
 export { toast, injectCommands, type ToastType } from './commands.ts'
 
 // ── 命令式宿主/AI 能力（组件库 dist 消费形态需要——components 构建外部化
-//  '../../vdom/*' 为 weifuwu/vdom——非公共面导入也必须可解析）──
+//  '../../vdom/*' 为 weifuwu/client/vdom——非公共面导入也必须可解析）──
 export { renderToStreamV2 as renderToStream } from './core/v2/integrate.ts' // v1 退役——v2 兼容桥
 export { diffToStreamV2 as diffStream } from './core/v2/integrate.ts' // v1 退役——v2 兼容桥
 export { CommandApplier } from './core/patch/index.ts'

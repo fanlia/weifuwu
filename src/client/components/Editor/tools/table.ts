@@ -1,6 +1,6 @@
 /** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
- * weifuwu/components/Editor/tools — 表格工具
+ * weifuwu/client/components/Editor/tools — 表格工具
  *
  * 事件流事务层（ 阶段 1）：表格 = embed 事件——
  * 本模块只生成 HTML（不再操作 DOM/execCommand）。

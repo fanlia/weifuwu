@@ -1,6 +1,6 @@
 /** Highlight：搜索词高亮：分词渲染 mark，大小写不敏感（showcase /components/highlight） */
 /**
- * weifuwu/components — Highlight
+ * weifuwu/client/components — Highlight
  *
  * 搜索词高亮：给定文本 + 高亮词数组 → 分词渲染 <mark>（零依赖，VNode 拼接）。
  * 配合 SearchInput/Table 搜索结果命中展示。

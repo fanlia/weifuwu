@@ -1,6 +1,6 @@
 /** DatePicker：日期选择器，四种模式：date/datetime/time/range（showcase /components/datepicker） */
 /**
- * weifuwu/components — DatePicker 日期计算工具
+ * weifuwu/client/components — DatePicker 日期计算工具
  *
  * 纯函数，无 DOM 依赖，可测试。
  */

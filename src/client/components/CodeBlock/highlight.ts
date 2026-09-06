@@ -1,6 +1,6 @@
 /** CodeBlock：代码块：语言标签 + 复制按钮 + 横向滚动（showcase /components/codeblock） */
 /**
- * weifuwu/components — 轻量语法高亮 tokenizer
+ * weifuwu/client/components — 轻量语法高亮 tokenizer
  *
  * 零依赖（FS-05）：正则单 pass 扫描，覆盖常见语法（注释/字符串/关键字/
  * 数字/函数调用/JSX 标签/操作符）。不追求完美分词（不做括号配对、多行

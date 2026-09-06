@@ -1,6 +1,6 @@
 /** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
- * weifuwu/components/Editor/tools — 工具栏渲染
+ * weifuwu/client/components/Editor/tools — 工具栏渲染
  */
 
 import type { VNode } from '../../../vdom/index.ts'

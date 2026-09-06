@@ -1,6 +1,6 @@
 /** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
- * weifuwu/components/Editor/tools — 类型定义
+ * weifuwu/client/components/Editor/tools — 类型定义
  */
 
 export type ToolbarItem =

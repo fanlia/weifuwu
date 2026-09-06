@@ -19,15 +19,29 @@
 ## 1. 快速上手
 
 ```tsx
-import { createApp, Router, Button, Modal } from 'weifuwu'
-
-const app = createApp({ mount: '#root' })
-app.router(Router())
-// 组件 = 工厂同步 + 渲染纯同步——见 §5.1
+// 服务端（默认主入口 = src/server/index.ts）
+import { serve, Router, z } from 'weifuwu'
+// 前端内核（src/client/vdom——h/jsx/uiServe/UIRouter/renderToStream）
+import { uiServe, UIRouter, h } from 'weifuwu/client/vdom'
+// 组件库（src/client/components——139 组件 + style.css 全量样式）
+import { Button, Modal } from 'weifuwu/client/components'
+import 'weifuwu/client/components/style.css'
 ```
 
-前端三层：`uiServe`（应用引导）/ `uiSsr`（服务端渲染）/ `components`（UI 组件库）。
-入口实现：`src/client/index.ts` · 中间件：`src/client/middleware/`。
+**导出 = src/ 目录结构直映**（无别名）：
+
+| import | 源码 |
+| --- | --- |
+| `weifuwu` / `weifuwu/server` | `src/server/index.ts`（serve/Router/z/workflow） |
+| `weifuwu/server/workflow` | `src/server/workflow/index.ts`（声明式执行引擎） |
+| `weifuwu/client/vdom` | `src/client/vdom/index.ts`（h/jsx/uiServe/jsx-runtime） |
+| `weifuwu/client/components` | `src/client/components/index.ts`（139 组件） |
+| `weifuwu/client/components/style.css` | dist 聚合样式（layout + 组件全量） |
+| `weifuwu/client/layout/weifuwu-layout.css` | 布局原语 CSS（独立面） |
+| `weifuwu/dev` | `src/dev/index.ts`（`node --import weifuwu/dev server.ts`） |
+
+**JSX 配置**：`tsconfig` 的 `jsxImportSource: "weifuwu/client/vdom"`（jsx-runtime
+子路径自动解析——见仓库 tsconfig 先例）。组件 = 工厂同步 + 渲染纯同步——见 §5.1。
 
 ## 2. 组件清单
 
@@ -104,9 +118,9 @@ app.router(Router())
 层叠语义的浏览器计算值读数见场景层 `e2e-layout-semantics.test.ts`。
 
 **载荷面（W6 minify）**：dist 发布产物 `weifuwu-layout.css` **28.1K**（gzip 5.7K · brotli 5.1K）·
-`weifuwu/components/style.css` **220.9K**（gzip 29.4K · brotli 24.3K）——esbuild minify（
+`weifuwu/client/components/style.css` **220.9K**（gzip 29.4K · brotli 24.3K）——esbuild minify（
 `build.mjs` 实装：`@layer`/`@property`/`@supports`/转义类名全保留，注释全剥离）；
-**无组件应用只引 `weifuwu/layout`**（28.1K / br 5.1K——独立面，零组件 CSS 成本）。
+**无组件应用只引 `weifuwu/client/layout/weifuwu-layout.css`**（28.1K / br 5.1K——独立面，零组件 CSS 成本）。
 按需子集（per-component 子路径 / purge）**判负**：动态类名漏删风险 + 构建期改造成本
 + br 后 24.3K 非瓶颈——推翻条件：真实应用首屏 CSS 成为 LCP 阻塞的实测数据。
 

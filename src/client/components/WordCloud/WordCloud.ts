@@ -1,6 +1,6 @@
 /** WordCloud：词云——权重→字号映射 · 圆心同心环发散布局 · SVG textLength 定宽（零依赖自绘——SSR 一致零重叠）（showcase /components/wordcloud） */
 /**
- * weifuwu/components — WordCloud
+ * weifuwu/client/components — WordCloud
  *
  * 词云——权重→字号映射 · **中心同心环发散布局**（SVG textLength 定宽——
  * 渲染宽度精确 = 估算宽——同输入同输出——SSR≡SPA 零差异 + 词矩形零重叠）

@@ -1,6 +1,6 @@
 /** InputNumber：数字输入：min/max/step + 增减按钮 + precision（showcase /components/inputnumber） */
 /**
- * weifuwu/components — InputNumber
+ * weifuwu/client/components — InputNumber
  *
  * 数字输入：min/max/step + 增减按钮 + precision 格式化 + 长按连增。
  * 受控 value: number | null；空值 → null；输入 clamp 到 min/max。

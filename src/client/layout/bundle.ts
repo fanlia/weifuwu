@@ -1,5 +1,5 @@
 /**
- * weifuwu/layout — CSS 装配单源（LAYOUT-PLAN W1）
+ * weifuwu/client/layout — CSS 装配单源（LAYOUT-PLAN W1）
  *
  * **为什么在这里**：装配逻辑曾有三份内联实现（`scripts/build.mjs` 五层 LAYER_OF ·
  * `apps/showcase/server.ts` 与 `src/test/scenario/server.ts` 把全部文件塞进
@@ -117,7 +117,7 @@ export async function bundleLayout(layoutDir: string): Promise<CssBundle> {
     chunks.push(layer === TOKENS_LAYER ? content : `@layer ${layer} {\n${content}\n}`)
   }
   // 层序声明必须**在注释之外**（旧 build 的未闭合 head 注释吞掉本行——层序退化为块首现顺序）
-  const css = `/* weifuwu/layout — CSS 布局原语 + 设计 Token（装配单源：src/client/layout/bundle.ts） */\n\n@layer ${LAYER_ORDER.join(', ')};\n\n${chunks.join('\n\n')}\n`
+  const css = `/* weifuwu/client/layout — CSS 布局原语 + 设计 Token（装配单源：src/client/layout/bundle.ts） */\n\n@layer ${LAYER_ORDER.join(', ')};\n\n${chunks.join('\n\n')}\n`
   return { css, inputs }
 }
 

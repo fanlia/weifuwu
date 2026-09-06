@@ -1,6 +1,6 @@
 /** Space：间距容器：size/direction/wrap + split 分隔符（showcase /components/space） */
 /**
- * weifuwu/components — Space 间距容器
+ * weifuwu/client/components — Space 间距容器
  *
  * 三库等价：antd Space / EP Space。flex gap 布局原语组件化：
  * size/direction/wrap/align + split 分隔符。

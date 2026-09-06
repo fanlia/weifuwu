@@ -1,6 +1,6 @@
 /** InView：进入视窗后懒加载内容，支持 IntersectionObserver（showcase /components/inview） */
 /**
- * weifuwu/components — InView
+ * weifuwu/client/components — InView
  *
  * 进入视窗后替换占位符为真实内容。
  * 实现：ctx.ui.useInView（IO 封装）——滚动/尺寸变化由合成器线程评估，无 scroll 监听。

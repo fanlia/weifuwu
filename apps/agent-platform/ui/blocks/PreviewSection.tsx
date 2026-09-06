@@ -1,8 +1,8 @@
 /**
  * 测试对话区（AgentDetail 拆分子组件）
  */
-import type { Component } from 'weifuwu/vdom'
-import { Button, Card, Icon, Input } from 'weifuwu/components'
+import type { Component } from 'weifuwu/client/vdom'
+import { Button, Card, Icon, Input } from 'weifuwu/client/components'
 import { errMsg } from '../blocks/ux'
 import { inputValue } from '../lib/types'
 

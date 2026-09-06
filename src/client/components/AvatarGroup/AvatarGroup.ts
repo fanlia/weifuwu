@@ -1,6 +1,6 @@
 /** AvatarGroup：头像组：堆叠 + max 溢出 +N（showcase /components/avatargroup） */
 /**
- * weifuwu/components — AvatarGroup
+ * weifuwu/client/components — AvatarGroup
  *
  * 堆叠头像组（负 margin 重叠）+ max 溢出显示 +N。
  * 用于群聊成员、协作人列表。

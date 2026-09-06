@@ -1,6 +1,6 @@
 /** Link：文字链接：语义色/下划线/disabled/新窗口（showcase /components/link） */
 /**
- * weifuwu/components — Link 文字链接
+ * weifuwu/client/components — Link 文字链接
  *
  * 三库等价：EP Link / antd Typography.Link（内嵌）。
  * 语义色/下划线/disabled/新窗口/图标——原语 a 的组件化。

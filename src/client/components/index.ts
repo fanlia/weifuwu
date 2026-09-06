@@ -1,9 +1,9 @@
 /**
- * weifuwu/components — HTML 原语
+ * weifuwu/client/components — HTML 原语
  *
  * 使用方式:
- *   import { Button, Input } from 'weifuwu/components'
- *   import 'weifuwu/components/style.css'
+ *   import { Button, Input } from 'weifuwu/client/components'
+ *   import 'weifuwu/client/components/style.css'
  */
 
 export { Icon } from './Icon/Icon.ts'

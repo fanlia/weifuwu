@@ -1,4 +1,4 @@
-/* weifuwu/components — MessageBubble（依赖 layout wf-bubble 原语） */
+/* weifuwu/client/components — MessageBubble（依赖 layout wf-bubble 原语） */
 
 .wf-bubble--error {
   border: var(--wf-border-width) solid var(--wf-color-error-text);

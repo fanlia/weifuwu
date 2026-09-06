@@ -1,8 +1,8 @@
 /**
  * 版本管理区（AgentDetail 拆分子组件——保存快照/回滚）
  */
-import type { Component } from 'weifuwu/vdom'
-import { Button, Card, Icon, Input } from 'weifuwu/components'
+import type { Component } from 'weifuwu/client/vdom'
+import { Button, Card, Icon, Input } from 'weifuwu/client/components'
 import { inputValue, type AgentVersion } from '../lib/types'
 
 export const VersionsSection: Component<{ agentId: string }> = (_init, ctx) => {

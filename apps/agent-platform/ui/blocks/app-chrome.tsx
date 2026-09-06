@@ -2,7 +2,7 @@
  * 应用壳装配器（AppLayout 业务面 + 库 AppShell 组件）
  *
  * 分层（agent-platform 组件入库后形态——W3）：
- * - **库 AppShell**（weifuwu/components）：品牌 + 分组导航 + 用户区 + 抽屉
+ * - **库 AppShell**（weifuwu/client/components）：品牌 + 分组导航 + 用户区 + 抽屉
  *   （移动端——mobile 父层驱动）+ 徽标（Menu badge）——通用壳零业务
  * - **本装配器（平台层——ui/blocks）**：业务接线面——认证守卫（未登录 →
  *   /login）· 管理员导航（/api/admin/me 会话级缓存）· 审批徽章（pending
@@ -13,10 +13,10 @@
  * AppLayout.tsx 已随组件入库删除（2027-09——功能面拆分：通用 → AppShell，
  * 业务 → 本装配器）。
  */
-import type { RenderCtx, UIContext } from 'weifuwu/vdom'
-import { h } from 'weifuwu/vdom'
-import { AppShell, Icon, Loading } from 'weifuwu/components'
-import type { AppShellNavItem } from 'weifuwu/components'
+import type { RenderCtx, UIContext } from 'weifuwu/client/vdom'
+import { h } from 'weifuwu/client/vdom'
+import { AppShell, Icon, Loading } from 'weifuwu/client/components'
+import type { AppShellNavItem } from 'weifuwu/client/components'
 import { NAV, ADMIN_NAV } from '../lib/nav'
 
 // ── isAdmin 会话级缓存（模块级单飞：一次会话拉一次——角色变更需重新登录）──

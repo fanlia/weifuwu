@@ -1,7 +1,7 @@
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, EmptyState, Loading } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { PageHeader, EmptyState, Loading } from 'weifuwu/client/components'
 import { Ava } from '../blocks/ux'
-import { Button, Card, Icon } from 'weifuwu/components'
+import { Button, Card, Icon } from 'weifuwu/client/components'
 import type { Department, DepartmentListResponse } from '../lib/types'
 
 interface NewChatState {

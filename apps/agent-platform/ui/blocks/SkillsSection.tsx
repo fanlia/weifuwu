@@ -1,8 +1,8 @@
 /**
  * 技能管理区（AgentDetail 拆分子组件——自有状态，工厂 await 取数）
  */
-import type { Component } from 'weifuwu/vdom'
-import { Button, Card, Icon, Input } from 'weifuwu/components'
+import type { Component } from 'weifuwu/client/vdom'
+import { Button, Card, Icon, Input } from 'weifuwu/client/components'
 import type { AvailableSkill, BoundSkill } from '../lib/types'
 
 export interface SectionProps { agentId: string }

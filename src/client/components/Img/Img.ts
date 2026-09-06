@@ -1,6 +1,6 @@
 /** Img：图片 \\<img\\> 组件：fallback / lazy / preview 点击放大（showcase /components/img） */
 /**
- * weifuwu/components — Img
+ * weifuwu/client/components — Img
  */
 
 import type { Component } from '../../vdom/index.ts'

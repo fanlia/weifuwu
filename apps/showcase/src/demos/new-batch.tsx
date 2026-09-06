@@ -2,7 +2,7 @@
  * new-batch 分类 demo（由 scripts/migrate-demos.mjs 从 components-demo 自动迁移——勿手改）
  */
 /**
- * weifuwu/components cheatsheet
+ * weifuwu/client/components cheatsheet
  *
  * 每个 demo 组件都是 (initProps, ctx) => (props) => VNode，
  * 使用闭包变量 + ctx.render() 管理交互状态。
@@ -10,10 +10,11 @@
  * 启动: node apps/components-demo/server.ts
  */
 
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { h } from 'weifuwu/vdom'
-import { FilePreview } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { h } from 'weifuwu/client/vdom'
+import { FilePreview } from 'weifuwu/client/components'
 
+import type { TableColumn } from 'weifuwu/client/components'
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -34,8 +35,8 @@ import {
   Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter, Popconfirm, AutoComplete, Link,
   Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, FloatButtonGroup, NavMenu,
   JsonSchemaForm, ReasoningBlock, CitationCard, SessionList, WordCloud,
-} from 'weifuwu/components'
-import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
+} from 'weifuwu/client/components'
+import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/client/components'
 
 // 子应用组件（vdom——普通组件嵌入——应用实例状态闭包持有）
 const MiniTodo = (_init: any, ctx: any) => {
@@ -610,11 +611,11 @@ const DemoVirtualTable: Component = (_props, ctx) => {
   let sortKey: string | undefined
   let sortOrder: 'asc' | 'desc' | undefined
   let selectedKeys: (string | number)[] = []
-  const cols = [
+  const cols: TableColumn[] = [
     { key: 'id', label: 'ID', width: 80, sortable: true },
     { key: 'name', label: '用户名', width: 180, sortable: true },
     { key: 'email', label: '邮箱', width: 240 },
-    { key: 'status', label: '状态', width: 100, render: (v: string) => v === 'active' ? <span class="wf-tag wf-tag--success">活跃</span> : <span class="wf-tag">停用</span> },
+    { key: 'status', label: '状态', width: 100, render: (v: any) => v === 'active' ? <span class="wf-tag wf-tag--success">活跃</span> : <span class="wf-tag">停用</span> },
   ]
   const data = Array.from({ length: 10000 }, (_, i) => ({
     id: i + 1,
@@ -1033,7 +1034,7 @@ if (ok) { /* 执行 */ }`,
 }
 
 // 命令式
-import { applyTheme, getTheme } from 'weifuwu/components'
+import { applyTheme, getTheme } from 'weifuwu/client/components'
 applyTheme('dark')
 getTheme()  // 'auto' | 'light' | 'dark'
 `,

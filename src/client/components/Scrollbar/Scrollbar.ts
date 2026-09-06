@@ -1,6 +1,6 @@
 /** Scrollbar：自定义滚动容器：webkit 样式 + hover 显示（showcase /components/scrollbar） */
 /**
- * weifuwu/components — Scrollbar 自定义滚动容器
+ * weifuwu/client/components — Scrollbar 自定义滚动容器
  *
  * 三库等价：EP Scrollbar / shadcn ScrollArea（容器滚动区域）。
  * webkit 滚动条样式封装 + hover 显示：

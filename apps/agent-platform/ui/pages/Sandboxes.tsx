@@ -4,10 +4,10 @@
  * 列表卡片（与 Agents 页同构）：状态徽章/镜像/网络/内存/最后使用/容器实际状态 + 生命周期操作
  * 权限：管理操作（启动/停止/重启/终止）由 API 校验（owner/admin）——失败 toast 提示
  */
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader, EmptyState, Loading, StatusDot } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { PageHeader, EmptyState, Loading, StatusDot } from 'weifuwu/client/components'
 import { errMsg } from '../blocks/ux'
-import { Button, Card, Icon } from 'weifuwu/components'
+import { Button, Card, Icon } from 'weifuwu/client/components'
 
 interface SandboxItem {
   id: string

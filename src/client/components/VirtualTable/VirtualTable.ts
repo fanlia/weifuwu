@@ -1,6 +1,6 @@
 /** VirtualTable：虚拟表格：10k 行固定表头 + 可见窗口渲染 + 排序（showcase /components/virtualtable） */
 /**
- * weifuwu/components — VirtualTable
+ * weifuwu/client/components — VirtualTable
  *
  * 虚拟表格（数据密集场景）：固定表头 + 虚拟滚动表体，10k+ 行只渲染可见窗口。
  * 复用 VirtualList 滚动基座（useScrollPosition 像素级 scrollTop + rAF 节流）。

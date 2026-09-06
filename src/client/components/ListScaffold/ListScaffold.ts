@@ -6,7 +6,7 @@ import { EmptyState } from '../EmptyState/EmptyState.ts'
 import { Loading } from '../Loading/Loading.ts'
 
 /**
- * weifuwu/components — ListScaffold
+ * weifuwu/client/components — ListScaffold
  *
  * 列表页骨架原语：PageHeader + 搜索/工具区 + loading/empty 态 + 内容插槽。
  * 各页面差异在内容循环（render 插槽）——头部/状态区单点一致。

@@ -4,9 +4,9 @@
  * 列表 + 新建（wfjs 源码——compileGate 门：创建校验失败即拒绝）。
  * 行点击 → /workflows/:id 详情（三视图）。
  */
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { Alert, Badge, Button, Card, CodeEditor, Field, Input, Loading, Textarea } from 'weifuwu/components'
-import { PageHeader } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { Alert, Badge, Button, Card, CodeEditor, Field, Input, Loading, Textarea } from 'weifuwu/client/components'
+import { PageHeader } from 'weifuwu/client/components'
 import { errMsg } from '../blocks/ux'
 import { inputValue } from '../lib/types'
 

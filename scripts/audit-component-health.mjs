@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * weifuwu/components 健康审计（LAYOUT-PLAN C3——组件健康度体检三线）
+ * weifuwu/client/components 健康审计（LAYOUT-PLAN C3——组件健康度体检三线）
  *
  * ① a11y 静态违规：`h('div'/'span'/'a', { onClick })` 无键盘语义
  *    （role/tabIndex/onKeyDown/href）——div 冒充按钮 = 可达性违规。

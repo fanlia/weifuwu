@@ -1,6 +1,6 @@
 /** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
- * weifuwu/components/Editor/model/html — HTML ⇄ DocState 序列化
+ * weifuwu/client/components/Editor/model/html — HTML ⇄ DocState 序列化
  *
  * 只认 Editor 格式子集（诚实裁剪）：p/div/h1-3/blockquote/ul/ol（块）、
  * b/strong/i/em/u/a（内联）、img/table/hr（embed 快照——内部不解析）、

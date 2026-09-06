@@ -1,6 +1,6 @@
 /** List：通用列表：renderItem + divided + header/footer/empty（showcase /components/list） */
 /**
- * weifuwu/components — List
+ * weifuwu/client/components — List
  *
  * 通用列表：items + renderItem + header/footer/empty 占位。
  * 定位：Table 大材小用的消息/文件/成员列表场景。

@@ -211,7 +211,7 @@ agent-browser open http://localhost:3000/login
 
 ### 5.1 设计 token 一致性
 - **路径**：全局扫样式
-- **断言**：颜色全部走 CSS 变量（`var(--wf-color-*)`）无裸值；间距/圆角/字号走 `wf-*` 原语；组件样式来自 `weifuwu/components/style.css`
+- **断言**：颜色全部走 CSS 变量（`var(--wf-color-*)`）无裸值；间距/圆角/字号走 `wf-*` 原语；组件样式来自 `weifuwu/client/components/style.css`
 - **命令**：`agent-browser eval "getComputedStyle(document.body).backgroundColor"` 与 token 一致；抽查按钮/卡片 computed style
 
 ### 5.2 图标统一性

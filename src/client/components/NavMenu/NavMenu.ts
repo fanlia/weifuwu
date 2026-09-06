@@ -1,6 +1,6 @@
 /** NavMenu：顶部导航：多级 hover 弹出 + 键盘（shadcn NavigationMenu）（showcase /components/navmenu） */
 /**
- * weifuwu/components — NavMenu 顶部导航
+ * weifuwu/client/components — NavMenu 顶部导航
  *
  * 三库等价：shadcn NavigationMenu（特有——antd/EP 用 Menu 横向模式）。
  * 顶部水平导航 + 多级 hover 弹出 + 键盘（→ 进入子菜单 / ← 返回 / Escape 关闭）：

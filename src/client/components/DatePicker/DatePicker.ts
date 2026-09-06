@@ -1,6 +1,6 @@
 /** DatePicker：日期选择器，四种模式：date/datetime/time/range（showcase /components/datepicker） */
 /**
- * weifuwu/components — DatePicker
+ * weifuwu/client/components — DatePicker
  *
  * 四合一日期选择器，支持 mode: date | datetime | time | range
  * 统一 openPopup 内核：focus 触发 + mask 遮罩 + 自由定位（left 对齐 + width 跟随 trigger）。

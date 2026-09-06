@@ -1,6 +1,6 @@
 /** Timeline：时间线：节点状态色 + 时间 + 内容（执行日志/审批历史）（showcase /components/timeline） */
 /**
- * weifuwu/components — Timeline
+ * weifuwu/client/components — Timeline
  *
  * 时间线：节点（状态色圆点/自定义）+ 标题 + 时间 + 内容 + 连接线。
  * 竖向（left/alternate）+ 横向（horizontal）。

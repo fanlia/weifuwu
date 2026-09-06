@@ -24,14 +24,14 @@
   <script type="importmap">
     {
       "imports": {
-        "weifuwu/vdom": "/static/ui-dom/index.js",
-        "weifuwu/components": "/static/components/index.js"
+        "weifuwu/client/vdom": "/static/ui-dom/index.js",
+        "weifuwu/client/components": "/static/components/index.js"
       }
     }
   </script>
 
-  <script type="module">import { h, ws, UIRouter, uiServe } from "weifuwu/vdom";
-import { Card, Badge, Alert, StatCard, Table, EmptyState, ProgressBar, Space } from "weifuwu/components";
+  <script type="module">import { h, ws, UIRouter, uiServe } from "weifuwu/client/vdom";
+import { Card, Badge, Alert, StatCard, Table, EmptyState, ProgressBar, Space } from "weifuwu/client/components";
 const QUESTIONS = ["1.\u5E74\u9F84", "2.\u884C\u4E1A", "3.\u5173\u6CE8\u80FD\u529B", "4.\u6EE1\u610F\u5EA6", "5.\u5EFA\u8BAE\u53CD\u9988"];
 const StatsPage = (_init, ctx) => {
   let viewCampaign = new URLSearchParams(location.search).get("c") || "";

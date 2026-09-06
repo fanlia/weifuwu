@@ -5,9 +5,9 @@
  * 中间件（api/auth/i18n/ws）+ 命令式（toast/confirm/notification）经
  * uiServe options 注入 ctx——页面 ctx.api/ctx.auth/ctx.toast 等消费面不变。
  */
-import { UIRouter, uiServe, h, api, auth, i18n, ws, toast, injectCommands } from 'weifuwu/vdom'
+import { UIRouter, uiServe, h, api, auth, i18n, ws, toast, injectCommands } from 'weifuwu/client/vdom'
 import { refreshSession } from './lib/api'
-import { confirm, notification } from 'weifuwu/components'
+import { confirm, notification } from 'weifuwu/client/components'
 
 import { router } from './router'
 import { APP_MESSAGES } from './lib/i18n'

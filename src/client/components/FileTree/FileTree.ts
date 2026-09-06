@@ -1,6 +1,6 @@
 /** FileTree：文件树浏览器——面包屑 + 列表/编辑态 + 上传（受控——数据源无关）（showcase /components/filetree） */
 /**
- * weifuwu/components — FileTree
+ * weifuwu/client/components — FileTree
  *
  * 文件树浏览器（工作空间/目录浏览场景）：面包屑 + 工具行（上传/刷新）+
  * 目录/文件列表（图标/大小/时间）+ 文件编辑态（textarea + 保存/返回）。

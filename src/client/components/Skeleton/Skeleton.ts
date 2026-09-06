@@ -1,6 +1,6 @@
 /** Skeleton：text/circle/rect/image/avatar/table 六种变体（showcase /components/skeleton） */
 /**
- * weifuwu/components — Skeleton
+ * weifuwu/client/components — Skeleton
  */
 
 import type { Component } from '../../vdom/index.ts'

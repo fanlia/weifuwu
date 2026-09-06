@@ -1,6 +1,6 @@
 /** Modal：自定义宽度 + closable 控制关闭按钮（showcase /components/modal） */
 /**
- * weifuwu/components — Modal
+ * weifuwu/client/components — Modal
  *
  * 行为面（2027-09 分层抽象 W2）：openPopup 生命周期/焦点 trap/滚动锁/Esc/
  * 遮罩点击 → useOverlay 契约（手搓面消除——行为正确性结构性保证）。

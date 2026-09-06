@@ -1,5 +1,5 @@
 /**
- * weifuwu/components/OfficeEditor/model — ODES（office 文档事件流标准）协议层
+ * weifuwu/client/components/OfficeEditor/model — ODES（office 文档事件流标准）协议层
  *
  * 设计（）：
  * - 文档状态 = fold(事件流)（与 Editor/ai/sandbox 四端同构）

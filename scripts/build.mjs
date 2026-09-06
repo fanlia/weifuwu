@@ -66,7 +66,7 @@ await esbuild.build({
 })
 
 // ── vdom bundle（新一代前端运行时——h/jsx/uiServe/UIRouter 公共面——
-//   P3 包面切换——组件库已迁移到 src/client/vdom——构建为 weifuwu/vdom）──
+//   P3 包面切换——组件库已迁移到 src/client/vdom——构建为 weifuwu/client/vdom）──
 await mkdir(join(distDir, 'client', 'vdom'), { recursive: true })
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'vdom', 'index.ts')],
@@ -74,7 +74,7 @@ await esbuild.build({
   format: 'esm',
   platform: 'browser',
   jsx: 'automatic',
-  jsxImportSource: 'weifuwu/vdom',
+  jsxImportSource: 'weifuwu/client/vdom',
   bundle: true,
   minify: true,
 })
@@ -112,9 +112,9 @@ await esbuild.build({
 const externalizeUiDomPlugin = {
   name: 'externalize-ui-dom',
   setup(build) {
-    // 匹配相对导入：../../vdom/xxx.ts（components 契约归 weifuwu/vdom）
+    // 匹配相对导入：../../vdom/xxx.ts（components 契约归 weifuwu/client/vdom）
     build.onResolve({ filter: /\.\.\/(vdom)\// }, (args) => ({
-      path: 'weifuwu/vdom',
+      path: 'weifuwu/client/vdom',
       external: true,
     }))
   },
@@ -122,15 +122,15 @@ const externalizeUiDomPlugin = {
 
 await esbuild.build({
   entryPoints: [join(srcDir, 'client', 'components', 'index.ts')],
-  tsconfigRaw: { compilerOptions: { jsxImportSource: 'weifuwu/vdom' } },
+  tsconfigRaw: { compilerOptions: { jsxImportSource: 'weifuwu/client/vdom' } },
   outfile: join(distDir, 'client', 'components', 'index.js'),
   format: 'esm',
   platform: 'browser',
   jsx: 'automatic',
-  jsxImportSource: 'weifuwu/vdom',
+  jsxImportSource: 'weifuwu/client/vdom',
   bundle: true,
   minify: true,
-  external: ['weifuwu/vdom', 'weifuwu/vdom/jsx-runtime'],
+  external: ['weifuwu/client/vdom', 'weifuwu/client/vdom/jsx-runtime'],
   plugins: [externalizeUiDomPlugin],
 })
 

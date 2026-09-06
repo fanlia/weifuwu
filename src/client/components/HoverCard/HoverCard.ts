@@ -1,6 +1,6 @@
 /** HoverCard：悬停富内容卡：openDelay 延迟 + 任意 VNode（shadcn）（showcase /components/hovercard） */
 /**
- * weifuwu/components — HoverCard
+ * weifuwu/client/components — HoverCard
  *
  * 命令式弹窗（一个形态——ctx.ui.openPopup——toast 心智）：hover 触发
  * （触屏自动降级 tap）+ openDelay/closeDelay + 定位/视口 clamp + Escape。

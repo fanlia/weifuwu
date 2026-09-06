@@ -1,8 +1,8 @@
 /**
  * 执行日志区（AgentDetail 拆分子组件——ai 类型自动加载）
  */
-import type { Component } from 'weifuwu/vdom'
-import { Button, Card, Icon, Loading, Timeline } from 'weifuwu/components'
+import type { Component } from 'weifuwu/client/vdom'
+import { Button, Card, Icon, Loading, Timeline } from 'weifuwu/client/components'
 import type { AgentLog } from '../lib/types'
 
 export const LogsSection: Component<{ agentId: string }> = (_init, ctx) => {

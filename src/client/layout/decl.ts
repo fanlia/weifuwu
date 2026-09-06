@@ -1,5 +1,5 @@
 /**
- * weifuwu/layout — 原语声明（defineLayout——生成器消费——BEM 直拼单源）
+ * weifuwu/client/layout — 原语声明（defineLayout——生成器消费——BEM 直拼单源）
  *
  * W4 样本：row/stack 族（机制验证——生成 = 手写逐属性等价——等价后手写
  * _row.css/_stack.css 删除——生成器输出进 bundle 汇编）。

@@ -1,6 +1,6 @@
 /** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
- * weifuwu/components/Editor/model/dom — offset ↔ DOM 桥
+ * weifuwu/client/components/Editor/model/dom — offset ↔ DOM 桥
  *
  * doc.text 的 offset 与 contentEditable DOM 的双向映射：
  * - 文本节点：按 nodeValue.length 累加

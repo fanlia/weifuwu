@@ -7,9 +7,9 @@
  * **SSR 同源纪律（2026-08）**：服务端 uiSsr 渲染本组件（无 location 全局）——
  * current() 回退 props.active（路由 handler 从请求 URL 推导——与浏览器同值）。
  */
-import { h } from 'weifuwu/vdom'
-import type { Component } from 'weifuwu/vdom'
-import { ThemeSwitch, Icon } from 'weifuwu/components'
+import { h } from 'weifuwu/client/vdom'
+import type { Component } from 'weifuwu/client/vdom'
+import { ThemeSwitch, Icon } from 'weifuwu/client/components'
 
 export const DOMAINS = [
   { id: 'components', name: '组件', path: '/components' },

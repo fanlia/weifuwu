@@ -1,6 +1,6 @@
 /** AutoComplete：输入联想：自由输入 + 过滤下拉 + 键盘流 + 选中回填（showcase /components/autocomplete） */
 /**
- * weifuwu/components — AutoComplete 输入联想
+ * weifuwu/client/components — AutoComplete 输入联想
  *
  * 三库等价：antd AutoComplete / EP Autocomplete / shadcn Combobox（输入侧）。
  * 自由输入 + 实时联想下拉：包含匹配（不区分大小写）、键盘 ↓↑/Enter/Escape、

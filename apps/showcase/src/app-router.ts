@@ -14,8 +14,8 @@
  * 同一棵组件树（差异 = 刷新闪烁 + 滚动跳变）。main.tsx（浏览器 boot）
  * 与 server.ts（uiSsr）共用本文件——零分支漂移。
  */
-import { UIRouter, h } from 'weifuwu/vdom'
-import type { Component, RenderCtx, UIContext } from 'weifuwu/vdom'
+import { UIRouter, h } from 'weifuwu/client/vdom'
+import type { Component, RenderCtx, UIContext } from 'weifuwu/client/vdom'
 import { toast } from '../../../src/client/vdom/commands.ts'
 import { confirm } from '../../../src/client/components/Confirm/Confirm.ts'
 import { notification } from '../../../src/client/components/Notification/Notification.ts'

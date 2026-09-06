@@ -2,9 +2,9 @@
  * 运营报表页（P0 从 Dashboard 拆出——工作台聚焦「项目空间」，报表归管理面）
  * 管理员/运营视角：统计卡 / 趋势 / 成本 / 活跃成员 / 激活漏斗
  */
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { Alert, Badge, Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
-import { PageHeader } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { Alert, Badge, Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/client/components'
+import { PageHeader } from 'weifuwu/client/components'
 import { Ava } from '../blocks/ux'
 import type { AgentListResponse, CostAgentRow, FunnelData, StatsData } from '../lib/types'
 

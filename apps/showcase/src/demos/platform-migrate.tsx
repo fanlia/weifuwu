@@ -2,9 +2,9 @@
  * showcase — platform-migrate 组（agent-platform 入库组件展示）
  * CronPicker · ListScaffold · StatusDot —— 三个平台原语的活体 demo
  */
-import type { UIContext } from 'weifuwu/vdom'
-import { h } from 'weifuwu/vdom'
-import { CronPicker, ListScaffold, StatusDot, Button, Tag } from 'weifuwu/components'
+import type { UIContext } from 'weifuwu/client/vdom'
+import { h } from 'weifuwu/client/vdom'
+import { CronPicker, ListScaffold, StatusDot, Button, Tag } from 'weifuwu/client/components'
 
 /* ── CronPicker —— preset/自由编辑双通道 ── */
 export const DemoCronPicker = (_init: {}, ctx: UIContext) => {

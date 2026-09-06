@@ -1,6 +1,6 @@
 /** FloatButton：悬浮按钮组：展开状态机 + badge（showcase /components/floatbutton） */
 /**
- * weifuwu/components — FloatButton 悬浮操作按钮
+ * weifuwu/client/components — FloatButton 悬浮操作按钮
  *
  * 三库等价：antd FloatButton（特有——EP/shadcn 无独立等价）。
  * 固定视口定位 + badge + 组展开状态机：

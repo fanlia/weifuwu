@@ -1,8 +1,10 @@
+// demo 局部全局（__citeOpen——引用 demo 交互探针）
+declare global { interface Window { __citeOpen?: string } }
 /**
  * ai-chat 分类 demo（由 scripts/migrate-demos.mjs 从 components-demo 自动迁移——勿手改）
  */
 /**
- * weifuwu/components cheatsheet
+ * weifuwu/client/components cheatsheet
  *
  * 每个 demo 组件都是 (initProps, ctx) => (props) => VNode，
  * 使用闭包变量 + ctx.render() 管理交互状态。
@@ -10,9 +12,9 @@
  * 启动: node apps/components-demo/server.ts
  */
 
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { h } from 'weifuwu/vdom'
-import { FilePreview } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { h } from 'weifuwu/client/vdom'
+import { FilePreview } from 'weifuwu/client/components'
 import {
   Button, Input, Textarea, Select,
   Checkbox, Switch, RadioGroup, Slider,
@@ -34,8 +36,8 @@ import {
   Layout, LayoutHeader, LayoutSider, LayoutContent, LayoutFooter, Popconfirm, AutoComplete, Link,
   Space, Grid, Col, Scrollbar, AlertGroup, FloatButton, FloatButtonGroup, NavMenu,
   JsonSchemaForm, ReasoningBlock, CitationCard, SessionList,
-} from 'weifuwu/components'
-import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/components'
+} from 'weifuwu/client/components'
+import type { ToastItem, ToastType, ToastPosition, ToastInjected, JsonSchema } from 'weifuwu/client/components'
 
 const DemoToolCallCard: Component = () => () => (
   <div class="wf-stack wf-gap-sm">

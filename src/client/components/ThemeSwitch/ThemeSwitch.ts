@@ -1,6 +1,6 @@
 /** ThemeSwitch：主题切换：auto/light/dark，localStorage 持久化（showcase /components/themeswitch） */
 /**
- * weifuwu/components — ThemeSwitch 主题切换器
+ * weifuwu/client/components — ThemeSwitch 主题切换器
  *
  * 三段式切换：auto（跟随系统偏好）/ light（强制亮色）/ dark（强制暗色）。
  * 对应 layout 的暗色双段激活机制：

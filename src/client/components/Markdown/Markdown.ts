@@ -1,6 +1,6 @@
 /** Markdown：AI 回复渲染：安全子集 parser + 代码块 + 链接白名单（showcase /components/markdown） */
 /**
- * weifuwu/components — Markdown
+ * weifuwu/client/components — Markdown
  *
  * AI 回复/富文本渲染。安全子集解析 → VNode 渲染（天然转义，无 innerHTML 注入面）。
  * 与 CodeBlock 组合渲染代码围栏。

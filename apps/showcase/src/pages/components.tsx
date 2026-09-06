@@ -5,9 +5,9 @@
  * 分类层取消、字母序、组件即首页（/）——用户路径：落地即目录 → 搜索/扫读
  * → 详情 → 用起来。CategoryPage 已删（git 历史可查）。
  */
-import { h } from 'weifuwu/vdom'
-import type { Component } from 'weifuwu/vdom'
-import { Tag } from 'weifuwu/components'
+import { h } from 'weifuwu/client/vdom'
+import type { Component } from 'weifuwu/client/vdom'
+import { Tag } from 'weifuwu/client/components'
 import { fetchIndexCached } from '../data.ts'
 import * as demosAny from '../demos/index.ts'
 import { NotFound } from './not-found.tsx'

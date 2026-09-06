@@ -8,29 +8,35 @@
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
     },
-    "./layout": "./dist/client/layout/weifuwu-layout.css",
-    "./layout/style.css": "./dist/client/layout/weifuwu-layout.css",
-    "./components": {
-      "types": "./dist/client/components/index.d.ts",
-      "default": "./dist/client/components/index.js"
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
     },
-    "./components/style.css": "./dist/client/components/style.css",
-    "./dev": "./dist/dev/index.js",
-    "./workflow": {
+    "./server/workflow": {
       "types": "./dist/server/workflow/index.d.ts",
       "default": "./dist/server/workflow/index.js"
     },
-    "./vdom": {
+    "./client/vdom": {
       "types": "./dist/client/vdom/index.d.ts",
       "default": "./dist/client/vdom/index.js"
     },
-    "./vdom/jsx-runtime": {
+    "./client/vdom/jsx-runtime": {
       "types": "./dist/client/vdom/index.d.ts",
       "default": "./dist/client/vdom/jsx-runtime.js"
     },
-    "./vdom/testing": {
+    "./client/vdom/testing": {
       "types": "./dist/client/vdom/testing.d.ts",
       "default": "./dist/client/vdom/testing.js"
+    },
+    "./client/components": {
+      "types": "./dist/client/components/index.d.ts",
+      "default": "./dist/client/components/index.js"
+    },
+    "./client/components/style.css": "./dist/client/components/style.css",
+    "./client/layout/weifuwu-layout.css": "./dist/client/layout/weifuwu-layout.css",
+    "./dev": {
+      "types": "./dist/dev/index.d.ts",
+      "default": "./dist/dev/index.js"
     }
   },
   "files": [

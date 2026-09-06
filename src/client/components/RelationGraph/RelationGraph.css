@@ -1,4 +1,4 @@
-/* weifuwu/components — RelationGraph（关系图谱：SVG 画布 + 图例）
+/* weifuwu/client/components — RelationGraph（关系图谱：SVG 画布 + 图例）
  * 语义 token 化（M1——旧 token 体系迁移：--wf-border/--wf-text* → --wf-color-*）。
  */
 .wf-rg {

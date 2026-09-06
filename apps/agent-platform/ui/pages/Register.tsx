@@ -1,5 +1,5 @@
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { AuthPage, Avatar, Field, Input, PasswordInput } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { AuthPage, Avatar, Field, Input, PasswordInput } from 'weifuwu/client/components'
 import { inputValue } from '../lib/types'
 import { authErrorKey } from '../lib/i18n'
 import { track } from '../lib/track'

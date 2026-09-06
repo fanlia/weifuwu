@@ -1,4 +1,4 @@
-/* weifuwu/components — ContextMenu */
+/* weifuwu/client/components — ContextMenu */
 
 .wf-context-menu-trigger {
   /* 锚定容器收缩（flex 父容器 blockify 兜底——同 Dropdown） */

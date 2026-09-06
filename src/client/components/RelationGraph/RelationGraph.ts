@@ -1,6 +1,6 @@
 /** RelationGraph：关系图谱——环形/网格布局 + 类型着色 + 选中交互（人物/组织/网络）（showcase /components/relationgraph） */
 /**
- * weifuwu/components — RelationGraph
+ * weifuwu/client/components — RelationGraph
  *
  * 关系图谱可视化（人物关系/社会网络/组织协作——agent 世界的核心交互面）：
  * 确定性布局（环形/网格——零物理模拟——组件库零依赖纪律）+ SVG 渲染

@@ -5,9 +5,9 @@
  * ctx.api（ApiClient）/ ctx.auth（AuthClient）/ ctx.ws / ctx.i18n /
  * ctx.toast / ctx.confirm / ctx.app（{ navigate }）——页面消费类型安全。
  */
-import type { ApiClient, AuthClient, WsClient, I18nState } from 'weifuwu/vdom'
+import type { ApiClient, AuthClient, WsClient, I18nState } from 'weifuwu/client/vdom'
 
-declare module 'weifuwu/vdom' {
+declare module 'weifuwu/client/vdom' {
   interface UIContext {
     /** API 客户端（自动鉴权 + 401 刷新重试） */
     api: ApiClient

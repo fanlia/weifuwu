@@ -1,6 +1,6 @@
 /** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
- * weifuwu/components/Editor/edit-events — 编辑事件流（第四端）
+ * weifuwu/client/components/Editor/edit-events — 编辑事件流（第四端）
  *
  * 与 ai/sandbox 事件流同构（ / sandbox-events-plan.md）：
  * 环形缓冲 + 查询（按动作过滤）+ 订阅 + 全局调试工具。

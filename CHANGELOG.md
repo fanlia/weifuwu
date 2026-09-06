@@ -990,7 +990,7 @@
 - P5 全部完成——替换计划收官（1656 全绿 + tsc 0）
 - P5 退役主体——ui-dom 删除 + 构建清理 + 全量迁移收尾
 - P4 apps 迁移——showcase + agent-platform + examples 模板全切 vdom
-- P3 包面切换——weifuwu/vdom 成为组件契约面
+- P3 包面切换——weifuwu/client/vdom 成为组件契约面
 - P2 收尾——office 迁移（pptx/docx/xlsx/xml-serialize——vdom3 → vdom）
 - P2 组件库迁移完成——132 组件 + 1327 测试全绿（ui-dom → vdom）
 - P1 契约补齐完成——5 hooks 移植（useTween/useDrag/useVisualViewport/useReducedMotion/usePopupPosition）
@@ -1416,7 +1416,7 @@
 - **命名收尾**：`wf-text-primary`/`wf-bg-primary`（`brand` 保留别名）、`wf-leading-{tight,base,relaxed}`（行高）、`wf-pointer`/`wf-not-allowed`（cursor）
 - **组件新能力**：`SegmentedControl`（分段单选，aria-pressed + focus-visible）、`Card` `active`（选中态）+ `hover`（抬升）、`Avatar` `color` prop（按类型着色）、`Textarea` `showCount`/`maxLength`（字数统计）、`Input` `variant="borderless"`（可编辑标题）、`StatCard` `onClick`（可点击指标卡）
 - **layout 工具类补全**：`wf-p/m/gap-*` 间距（含 `wf-mx-auto`）、`wf-border(-t/b/l/r)`、`wf-rounded-*` + `wf-pill`、`wf-bg-*`/`wf-text-*` 语义色（6 色体系）、`wf-bubble(-own/-ai)` 聊天气泡、`wf-app-shell` 应用外壳（sidebar/nav/main）、`wf-print-hidden/block`、`wf-dim`、`wf-pre-wrap`/`wf-truncate` 排版
-- **应用零 style.css**：agent-platform（删除 `routes.ts` 内 409 行 GLOBAL_CSS + index.html 27 行）、aippt（删除 190 行 style.css）、components-demo（61 行 + 94 处内联）、weifuwu-demo（style.css 删除）——全站只引用 `weifuwu/components/style.css`，浏览器实测 0 非 `wf-*` 类
+- **应用零 style.css**：agent-platform（删除 `routes.ts` 内 409 行 GLOBAL_CSS + index.html 27 行）、aippt（删除 190 行 style.css）、components-demo（61 行 + 94 处内联）、weifuwu-demo（style.css 删除）——全站只引用 `weifuwu/client/components/style.css`，浏览器实测 0 非 `wf-*` 类
 
 ### 📚 Docs
 
@@ -1443,7 +1443,7 @@
 - **wf: 协议**（`docs/ai-contract.md`）：`wf:` 命名空间事件（message_start/token/tool_call/tool_progress/usage/done/error + agent 扩展 step/approval_request），SSE 下行 + POST 上行，错误即值、未知事件透传、`x:*` 自定义事件、错误码表、工具进度 emit、HITL 语义（拒绝≠终止、modified 改参、超时兜底）、追踪关联
 - **aiStream**（`weifuwu/client`）：前端解码器——事件分发（onToken/onToolCall/onStep/onApproval/onError…）、`x:*` 透传兜底、事件录制（可导出测试 fixture）、abort、**trace 桥（自动生成 X-Trace-Id → 后端 message_start.id 关联）**
 - **agent 引擎**（`src/ai/agent.ts`）：`a.agent({ systemPrompt, tools, maxSteps, humanInTheLoop })` 工具循环——LLM 流式 → tool_call → 执行工具 → 结果回喂 → 重复；工具 `run(args, { emit, signal })`（emit 进度/自定义事件、signal 取消）；HITL 审批（`ctx.ai.approve` 响应，拒绝≠终止、modified 改参、超时按拒绝）
-- **交互原语**（`weifuwu/components`）：**ToolCallCard**（工具调用三态卡片：running 进度条 / ok / error，`renderArgs` 自定义渲染）+ **ApprovalCard**（审批四态卡片：待批 允许/拒绝+备注 / 已批 / 已拒 / 超时，纯受控上抛决策）
+- **交互原语**（`weifuwu/client/components`）：**ToolCallCard**（工具调用三态卡片：running 进度条 / ok / error，`renderArgs` 自定义渲染）+ **ApprovalCard**（审批四态卡片：待批 允许/拒绝+备注 / 已批 / 已拒 / 超时，纯受控上抛决策）
 - **追踪关联**：`X-Trace-Id` 请求头 → `wf:message_start.id` → 工具内请求继承同一 traceId（serve.ts 已有 traceId 机制，响应头回显）
 
 ### 🐛 Fixes
@@ -1549,12 +1549,12 @@
 
 ### 🔧 Breaking Changes
 
-- `confirm` 从 `weifuwu/client` 移到 `weifuwu/components`：`import { confirm } from 'weifuwu/components'`
+- `confirm` 从 `weifuwu/client` 移到 `weifuwu/client/components`：`import { confirm } from 'weifuwu/client/components'`
 
 ### 🚀 Features
 
 - Confirm 由「直接 DOM + 内联样式」改为组件化渲染，主题可定制（`.wf-modal` 系列），与 Modal 视觉/行为统一
-- Toast/Confirm 归位组件库，`weifuwu/components` 共 42 个组件 + 2 个命令式中间件
+- Toast/Confirm 归位组件库，`weifuwu/client/components` 共 42 个组件 + 2 个命令式中间件
 
 ### 🐛 Fixes
 

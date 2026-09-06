@@ -1,6 +1,6 @@
 /** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
- * weifuwu/components/Editor — 富文本编辑器（事件流事务层，阶段 1）
+ * weifuwu/client/components/Editor — 富文本编辑器（事件流事务层，阶段 1）
  *
  * 架构（）：文档 = fold(edit 事件流)。
  * - 模型真相：DocState（contentEditable DOM 是渲染）

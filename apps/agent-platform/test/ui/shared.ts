@@ -1,5 +1,5 @@
 /**
- * agent-platform UI 测试基建（OPTIMIZE-PLAN-3——对齐 weifuwu/vdom 测试纪律）
+ * agent-platform UI 测试基建（OPTIMIZE-PLAN-3——对齐 weifuwu/client/vdom 测试纪律）
  *
  * 旧基建（jsdom + ui-dom createRouter）已随框架重构（ui-dom 删除）失效——
  * 新形态 = 场景层纪律（src/test/scenario/ 与 apps/showcase/test/ 同构）：

@@ -1,6 +1,6 @@
 /** Menu：侧栏导航：分组 + 图标 + 选中态 + 方向键（showcase /components/menu） */
 /**
- * weifuwu/components — Menu
+ * weifuwu/client/components — Menu
  *
  * 导航菜单（侧栏导航）：分组项 + 图标 + 选中态 + 方向键导航 + Enter 激活 + 子菜单 + 折叠。
  * 用于 SaaS 应用侧边导航（替代手写 nav-item 循环）。

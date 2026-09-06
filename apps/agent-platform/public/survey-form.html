@@ -15,13 +15,13 @@
   <script type="importmap">
     {
       "imports": {
-        "weifuwu/vdom": "/static/ui-dom/index.js",
-        "weifuwu/components": "/static/components/index.js"
+        "weifuwu/client/vdom": "/static/ui-dom/index.js",
+        "weifuwu/client/components": "/static/components/index.js"
       }
     }
   </script>
 
-  <script type="module">import { h, ws, UIRouter, uiServe } from "weifuwu/vdom";
+  <script type="module">import { h, ws, UIRouter, uiServe } from "weifuwu/client/vdom";
 import {
   Card,
   Button,
@@ -32,7 +32,7 @@ import {
   RadioGroup,
   CheckboxGroup,
   Rate
-} from "weifuwu/components";
+} from "weifuwu/client/components";
 const source = new URLSearchParams(location.search).get("s") || "\u8BBF\u5BA2-" + Math.random().toString(36).slice(2, 5);
   const campaignId = new URLSearchParams(location.search).get("c") || "";
 const SurveyForm = (_init, ctx) => {

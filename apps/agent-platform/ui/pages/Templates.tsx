@@ -6,8 +6,8 @@
  * 数据在工厂层 await（§3.3 异步工厂——首次渲染即带数据；导航往返工厂重跑重拉）。
  */
 
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { Button, Card, EmptyState, Icon, Tag } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { Button, Card, EmptyState, Icon, Tag } from 'weifuwu/client/components'
 
 interface RoleTemplate {
   slug: string

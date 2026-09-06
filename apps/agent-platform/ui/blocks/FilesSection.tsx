@@ -3,8 +3,8 @@
  * 按部门浏览（/api/departments/:id/workspace/*）——成员共享同一目录：
  * AI 在沙盒里写文件 / 用户放资料，双向可见。
  */
-import type { Component } from 'weifuwu/vdom'
-import { Button, Card, EmptyState, Icon, Img, Loading } from 'weifuwu/components'
+import type { Component } from 'weifuwu/client/vdom'
+import { Button, Card, EmptyState, Icon, Img, Loading } from 'weifuwu/client/components'
 import { errMsg } from '../blocks/ux'
 import { onFilesReload, offFilesReload } from '../lib/project-store.ts'
 

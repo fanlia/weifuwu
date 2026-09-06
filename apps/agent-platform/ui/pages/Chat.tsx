@@ -1,6 +1,6 @@
-import type { UIContext, Component } from 'weifuwu/vdom'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
 import { Ava, errMsg } from '../blocks/ux'
-import { BackTop, Badge, Button, ChatInput, DropZone, EmptyState, Icon, Input } from 'weifuwu/components'
+import { BackTop, Badge, Button, ChatInput, DropZone, EmptyState, Icon, Input } from 'weifuwu/client/components'
 import { inputValue } from '../lib/types'
 
 /** 部门工作区聚合响应（/api/departments/:id/workspace——一次拿部门+成员+环境） */
@@ -55,7 +55,7 @@ import { MessageItem } from '../blocks/MessageItem.tsx'
 import { FilesSection } from '../blocks/FilesSection.tsx'
 import { bumpFilesVersion, setAiWorking, aiStatus, notifyFilesReload } from '../lib/project-store.ts'
 
-/** ChatInput 程序化控制（与 weifuwu/components ChatInputControl 同形） */
+/** ChatInput 程序化控制（与 weifuwu/client/components ChatInputControl 同形） */
 interface ChatInputControl {
   setKeyword: (v: string) => void
   setValue: (v: string) => void

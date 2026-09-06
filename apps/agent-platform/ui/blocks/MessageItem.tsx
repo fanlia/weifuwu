@@ -4,9 +4,9 @@
  * 职责：消息渲染（内容/工具步骤/审批/操作/编辑态）——纯展示 + 回调上抛，
  * 状态与 WS 逻辑留在 Chat 页（createStore 化 P2）。
  */
-import type { Component } from 'weifuwu/vdom'
+import type { Component } from 'weifuwu/client/vdom'
 import { Ava } from '../blocks/ux'
-import { Alert, Badge, Button, CopyButton, Icon, Img, Input, Markdown, MessageBubble } from 'weifuwu/components'
+import { Alert, Badge, Button, CopyButton, Icon, Img, Input, Markdown, MessageBubble } from 'weifuwu/client/components'
 import { inputValue } from '../lib/types'
 import type { ChatMessage, MessageTool } from '../lib/types'
 import { detectTaskMarker } from '../../src/services/task-markers.ts'

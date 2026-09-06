@@ -1,6 +1,6 @@
 /** Confirm：确认对话框，Promise 化 await 调用（showcase /components/confirm） */
 /**
- * weifuwu/components — Confirm 确认对话框
+ * weifuwu/client/components — Confirm 确认对话框
  *
  * 声明式：基于 Modal 封装，footer 自带「取消 / 确定」按钮。
  * 命令式：confirm() 中间件注入 ctx.confirm()，返回 Promise<boolean>。

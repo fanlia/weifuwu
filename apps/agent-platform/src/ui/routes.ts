@@ -22,9 +22,9 @@ export function registerUiRoutes(app: Router<any>, baseDir: string): void {
     { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'max-age=86400' } },
   ))
 
-  // ── 唯一样式来源：weifuwu/components（Token + 布局原语 + 组件样式） ──
+  // ── 唯一样式来源：weifuwu/client/components（Token + 布局原语 + 组件样式） ──
   app.get('/static/style.css', async (_req: Request, ctx: Context): Promise<Response> =>
-    ctx.ui.css('weifuwu/components/style.css')
+    ctx.ui.css('weifuwu/client/components/style.css')
   )
 
   // ── 应用层样式（UX-PLAN-2 波次 3：移动端抽屉外壳——框架明确属应用层职责） ──

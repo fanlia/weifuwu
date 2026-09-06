@@ -1,4 +1,4 @@
-/* weifuwu/components — Card */
+/* weifuwu/client/components — Card */
 
 .wf-card {
   border-radius: var(--wf-card-radius,  var(--wf-surface-radius));

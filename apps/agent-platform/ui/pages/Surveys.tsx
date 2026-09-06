@@ -5,9 +5,9 @@
  * + 活动创建——活动列表：进度 / 失败摘要 / 重试 / 取消。
  * 替代路径：手工 seed-survey-agents.mjs（注册租户后先跑脚本——无开箱——已歼灭）。
  */
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { Alert, Badge, Button, Card, Checkbox, Field, Input, Loading, Select } from 'weifuwu/components'
-import { PageHeader } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { Alert, Badge, Button, Card, Checkbox, Field, Input, Loading, Select } from 'weifuwu/client/components'
+import { PageHeader } from 'weifuwu/client/components'
 import { errMsg } from '../blocks/ux'
 import { inputValue } from '../lib/types'
 

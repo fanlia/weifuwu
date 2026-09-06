@@ -160,7 +160,7 @@ app.post('/api/notes', async (req, ctx) => {
 ### 1.3 段③：前端页面组件（useAsyncData 8 行——页面跑起来）
 
 ```tsx
-import { h } from 'weifuwu/vdom'
+import { h } from 'weifuwu/client/vdom'
 const NotesPage: Component = (_p, ctx) => {
   const [get] = ctx.ui.useAsyncData(fetchNotes, 'notes-page')   // 唯一异步边界
   return () => h('ul', {}, (get() ?? []).map((n) => h('li', {}, n.title)))

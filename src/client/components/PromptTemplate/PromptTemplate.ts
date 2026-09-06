@@ -1,6 +1,6 @@
 /** PromptTemplate：提示词模板编辑器——变量 chips 插入 + 实时预览填充（AI 场景痛点）（showcase /components/prompttemplate） */
 /**
- * weifuwu/components — PromptTemplate 提示词模板编辑器（AI 场景）
+ * weifuwu/client/components — PromptTemplate 提示词模板编辑器（AI 场景）
  *
  * agent-platform 类应用的提示词管理痛点：变量占位 `{{var}}` 记忆/拼写错误 +
  * 填充结果不可见。组件提供：

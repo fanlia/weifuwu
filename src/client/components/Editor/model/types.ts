@@ -1,6 +1,6 @@
 /** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
- * weifuwu/components/Editor/model — 文档模型（事件流底座）
+ * weifuwu/client/components/Editor/model — 文档模型（事件流底座）
  *
  * 核心不变量（）：文档状态 = fold(edit 事件流)。
  * 本文档模型是纯 TS 数据结构 + 纯函数（无 DOM、无 UI）——阶段 0 验收：

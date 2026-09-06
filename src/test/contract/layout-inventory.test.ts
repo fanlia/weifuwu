@@ -1,5 +1,5 @@
 /**
- * weifuwu/layout 清单契约(设计依据: docs/layout.md §4 类清单 + docs/client.md §4 命名规则)
+ * weifuwu/client/layout 清单契约(设计依据: docs/layout.md §4 类清单 + docs/client.md §4 命名规则)
  *
  * 布局层单一事实源防线——锁定清理/命名成果,防回潮:
  *   L1 计数基线(登记制):原语/工具/内部/变体——变更必须有意
@@ -103,7 +103,7 @@ test('L2 死类 = 0(消费证据制——四件套豁免登记)', () => {
   // 四件套语义完备豁免：self-* 对齐四态 3/4 消费——整体保留
   const quartz = new Set(QUARTET_KEEP)
   // **库公共面豁免(2027-XX 登记——showcase components-only 裁剪)**:展示域移除
-  // (layout 域/首页 hero/六域导航)后消费证据消失——类属 weifuwu/layout npm
+  // (layout 域/首页 hero/六域导航)后消费证据消失——类属 weifuwu/client/layout npm
   // 公共清单(50 原语 + 90 工具基线)——库类面治理归 layout 包,不随 showcase
   // 消费面裁剪删除。恢复消费或库侧裁剪时从本集合移除。
   const libSurface = new Set(LIB_SURFACE_KEEP)

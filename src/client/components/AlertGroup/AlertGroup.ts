@@ -1,6 +1,6 @@
 /** AlertGroup：通知合并组：≥3 条折叠为 +N，点击展开（showcase /components/alertgroup） */
 /**
- * weifuwu/components — AlertGroup 通知合并组
+ * weifuwu/client/components — AlertGroup 通知合并组
  *
  * 三库等价：EP AlertGroup（2.8 新增）。
  * 同类通知合并折叠：≥3 条折叠为摘要 +N，点击展开：

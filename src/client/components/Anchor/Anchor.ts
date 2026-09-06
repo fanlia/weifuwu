@@ -1,6 +1,6 @@
 /** Anchor：锚点导航：滚动高亮跟随 + 点击平滑滚动（showcase /components/anchor） */
 /**
- * weifuwu/components — Anchor
+ * weifuwu/client/components — Anchor
  *
  * 锚点导航（长文页）：items 列表 + 滚动高亮跟随 + 点击平滑滚动。
  * 滚动侦听：ctx.ui.useScrollPosition（全局/容器 scroll 监听 + rAF 节流，内置方案）。

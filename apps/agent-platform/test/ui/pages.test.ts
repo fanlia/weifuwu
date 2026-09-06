@@ -1,5 +1,5 @@
 /**
- * 主页面渲染基线测试（OPTIMIZE-PLAN-3 重写——对齐 weifuwu/vdom 测试纪律）
+ * 主页面渲染基线测试（OPTIMIZE-PLAN-3 重写——对齐 weifuwu/client/vdom 测试纪律）
  *
  * 旧形态（jsdom + ui-dom createRouter）随框架重构删除——新形态 = 场景层纪律：
  * **playwright + 真实 server（uiServe）**——真实浏览器渲染管线 + 真实认证/

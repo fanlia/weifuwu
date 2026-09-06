@@ -1,6 +1,6 @@
 /** MessageBubble：消息气泡：user/assistant + streaming/error 状态 + actions（showcase /components/messagebubble） */
 /**
- * weifuwu/components — MessageBubble
+ * weifuwu/client/components — MessageBubble
  *
  * 独立消息气泡（从 AiChat 气泡层抽取，业务聊天页复用）。
  * 复用 layout 的 wf-bubble 原语：user → --own，assistant → --ai。

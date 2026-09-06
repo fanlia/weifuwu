@@ -325,7 +325,7 @@ if (ok) { /* 执行 */ }`,
 }
 
 // 命令式
-import { applyTheme, getTheme } from 'weifuwu/components'
+import { applyTheme, getTheme } from 'weifuwu/client/components'
 applyTheme('dark')
 getTheme()  // 'auto' | 'light' | 'dark'
 `,

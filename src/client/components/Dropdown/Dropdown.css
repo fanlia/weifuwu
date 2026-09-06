@@ -1,4 +1,4 @@
-/* weifuwu/components — Dropdown */
+/* weifuwu/client/components — Dropdown */
 
 .wf-dropdown {
   /* inline-block 在 flex 父容器（flex item blockify）下失效——fit-content 兜底收缩

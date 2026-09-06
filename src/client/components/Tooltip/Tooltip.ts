@@ -1,6 +1,6 @@
 /** Tooltip：hover 浮动提示，4 方向（showcase /components/tooltip） */
 /**
- * weifuwu/components — Tooltip
+ * weifuwu/client/components — Tooltip
  *
  * 命令式弹窗（一个形态——ctx.ui.openPopup——toast 心智）：hover 触发
  * （触屏自动降级 tap）+ 定位/视口 clamp + Escape + 外部点击关闭。

@@ -1,6 +1,6 @@
 /** JSONViewer：结构化 JSON：递归折叠 + 类型色 + 路径复制 + 懒展开（showcase /components/jsonviewer） */
 /**
- * weifuwu/components — JSONViewer
+ * weifuwu/client/components — JSONViewer
  *
  * 结构化 JSON 浏览（工具调用 args / API 响应）：递归树 + 折叠 + 类型色 + 路径复制 + 懒展开。
  * 零依赖（无 raw JSON.parse 展示——VNode 渲染天然转义）。

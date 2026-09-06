@@ -1,5 +1,5 @@
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { Button, Card, Chart, Icon, Skeleton, StatCard } from 'weifuwu/client/components'
 import { Ava } from '../blocks/ux'
 import type { Agent, AgentListResponse, CostAgentRow, DepartmentListResponse, FunnelData, PendingApproval, StatsData } from '../lib/types'
 

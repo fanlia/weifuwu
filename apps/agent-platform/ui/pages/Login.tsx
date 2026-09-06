@@ -1,6 +1,6 @@
-import type { UIContext, Component } from 'weifuwu/vdom'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
 import { setRefreshToken } from '../lib/api'
-import { AuthPage, Avatar, Field, Icon, Input, PasswordInput } from 'weifuwu/components'
+import { AuthPage, Avatar, Field, Icon, Input, PasswordInput } from 'weifuwu/client/components'
 import { inputValue } from '../lib/types'
 import { authErrorKey } from '../lib/i18n'
 

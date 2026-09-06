@@ -5,7 +5,7 @@
 > 上一波（ROADMAP A-E）已交付：A1 SSR / A2 断线补拉 / B1-B2 交付物 /
 > C1 容量视图 / D 部署交付链 / E 可靠性收尾。
 >
-> **本波主题：测试纪律全面对齐 weifuwu/vdom——UI 测试从失效的 jsdom 直挂
+> **本波主题：测试纪律全面对齐 weifuwu/client/vdom——UI 测试从失效的 jsdom 直挂
 > 改为场景层形态（playwright + 真实 server/uiServe）——改造途中连抓 5 个
 > 真实 bug（含 1 个框架层）——全部修复并测试锁定。**
 

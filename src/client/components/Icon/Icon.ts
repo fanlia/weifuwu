@@ -1,6 +1,6 @@
 /** Icon：stroke SVG 图标集，currentColor 着色，随字号缩放（showcase /components/icon） */
 /**
- * weifuwu/components — Icon 内联 SVG 图标
+ * weifuwu/client/components — Icon 内联 SVG 图标
  *
  * 24px stroke 风格（feather-like），currentColor 着色随文字/上下文，
  * 零外部依赖（FS-05）。组件内部图标统一走这里，替换文本字形/emoji。

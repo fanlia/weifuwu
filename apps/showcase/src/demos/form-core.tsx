@@ -2,8 +2,8 @@
  * 表单核心分类 demo（从 components-demo 迁移——P1 第一批活体 demo）
  * 组件页活体区渲染：DEMOS[组件名] —— 未迁移分类显示文档（P2 批量接入）
  */
-import type { Component } from 'weifuwu/vdom'
-import { Button, Input, Textarea, Select, SearchInput } from 'weifuwu/components'
+import type { Component } from 'weifuwu/client/vdom'
+import { Button, Input, Textarea, Select, SearchInput } from 'weifuwu/client/components'
 
 export const DemoButton: Component = (_props, ctx) => {
   let loading = false

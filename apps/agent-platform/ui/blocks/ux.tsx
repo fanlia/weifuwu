@@ -2,15 +2,15 @@
  * 平台 UI 部件（组件入库后形态——W3）
  *
  * 分层说明（agent-platform 组件入库）：
- * - 通用组件全直引 weifuwu/components（PageHeader/EmptyState/Loading/
+ * - 通用组件全直引 weifuwu/client/components（PageHeader/EmptyState/Loading/
  *   ListScaffold/StatusDot/CronPicker——无平台转发层）
  * - 本文件仅剩**业务部件**（AGENT_TYPES 平台类型元数据绑定——非通用组件）：
  *   errMsg（ApiError 响应提取）· TYPE_META/TypeBadge/Ava（类型徽章/头像
  *   ——平台业务枚举面）
- * - StatusDot 已入库（weifuwu/components——W1）——页面改直引
+ * - StatusDot 已入库（weifuwu/client/components——W1）——页面改直引
  */
-import type { UIContext } from 'weifuwu/vdom'
-import { Badge, Avatar } from 'weifuwu/components'
+import type { UIContext } from 'weifuwu/client/vdom'
+import { Badge, Avatar } from 'weifuwu/client/components'
 import { AGENT_TYPES } from '../lib/types'
 
 /** 从请求错误提取可读消息（ApiError.message 是响应体文本，可能含 {"error": ...} JSON） */

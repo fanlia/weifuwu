@@ -1,5 +1,5 @@
 /**
- * weifuwu/components px 分类登记制（LAYOUT-PLAN C1）——对标 layout L14 的组件面防线
+ * weifuwu/client/components px 分类登记制（LAYOUT-PLAN C1）——对标 layout L14 的组件面防线
  *
  * 背景（探针实证 2027-xx）：组件 CSS 133 文件 · var(--wf-*) 引用 3343 次 · 硬编码色 0 ·
  * !important 0——token 化基础已高，但残留三宗手写：

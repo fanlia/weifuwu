@@ -1,7 +1,7 @@
-import type { UIContext, Component } from 'weifuwu/vdom'
-import { PageHeader } from 'weifuwu/components'
+import type { UIContext, Component } from 'weifuwu/client/vdom'
+import { PageHeader } from 'weifuwu/client/components'
 import { errMsg } from '../blocks/ux'
-import { Alert, Badge, Button, Card, Checkbox, Field, Input, InputNumber, Loading, Select, Slider, Textarea } from 'weifuwu/components'
+import { Alert, Badge, Button, Card, Checkbox, Field, Input, InputNumber, Loading, Select, Slider, Textarea } from 'weifuwu/client/components'
 import { inputValue, AGENT_TYPES as ALL_AGENT_TYPES } from '../lib/types'
 
 const AGENT_TYPES = ALL_AGENT_TYPES.filter(t => t.creatable)

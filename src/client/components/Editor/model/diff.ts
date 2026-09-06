@@ -1,6 +1,6 @@
 /** Editor：富文本编辑器，contentEditable + toolbar，零依赖（showcase /components/editor） */
 /**
- * weifuwu/components/Editor/model/diff — 文本 diff（AI 建议对比用）
+ * weifuwu/client/components/Editor/model/diff — 文本 diff（AI 建议对比用）
  *
  * 零依赖：公共前缀/后缀剪枝 + 中间 LCS（滚动数组 O(m) 空间）。
  * 裁剪：总长度超 DIFF_MAX_LEN 退化为整体替换（诚实裁剪——大文本不追求

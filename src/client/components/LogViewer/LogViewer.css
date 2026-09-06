@@ -1,4 +1,4 @@
-/* weifuwu/components — LogViewer（日志流：ANSI 着色 + 虚拟滚动） */
+/* weifuwu/client/components — LogViewer（日志流：ANSI 着色 + 虚拟滚动） */
 
 .wf-log-viewer {
   font-family: var(--wf-font-mono);

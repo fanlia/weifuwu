@@ -6,10 +6,10 @@
  *  - 搜索（文件名过滤——纯前端）
  *  - 空态：提示 AI 干活后此处可见（价值主张引导）
  */
-import type { Component } from 'weifuwu/vdom'
-import { EmptyState, Loading, PageHeader } from 'weifuwu/components'
+import type { Component } from 'weifuwu/client/vdom'
+import { EmptyState, Loading, PageHeader } from 'weifuwu/client/components'
 import { errMsg } from '../blocks/ux'
-import { Badge, Button, Card, Icon, Input } from 'weifuwu/components'
+import { Badge, Button, Card, Icon, Input } from 'weifuwu/client/components'
 import { inputValue } from '../lib/types'
 
 /** B-打开（2026-08）= **下载**——v2 曾「打开」＝ window.open(不带 download=1

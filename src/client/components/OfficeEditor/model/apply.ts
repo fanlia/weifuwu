@@ -1,5 +1,5 @@
 /**
- * weifuwu/components/OfficeEditor/model/apply — ODES 折叠（fold）纯函数
+ * weifuwu/client/components/OfficeEditor/model/apply — ODES 折叠（fold）纯函数
  *
  * 核心不变量：snapshot = fold(全部事件)——apply 每个 op 得到新状态（不可变）。
  * - docx：委托 Editor applyEdit（EditEvent 全量复用——零新逻辑）
