@@ -8,6 +8,8 @@
   display: flex;
   gap: 0;
   border-bottom: var(--wf-border-width) solid var(--wf-color-border);
+  overflow-x: auto;
+  scrollbar-width: none;
   position: relative;
 }
 
@@ -38,6 +40,7 @@
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition: border-color var(--wf-transition), box-shadow var(--wf-transition), background-color var(--wf-transition), color var(--wf-transition);
+  transition: color var(--wf-dur-fast) var(--wf-ease-out), border-color var(--wf-dur-fast) var(--wf-ease-out);
   white-space: nowrap;
 }
 
@@ -57,19 +60,12 @@
 }
 
 /* 激活指示平滑滑动（下边框） */
-.wf-tab {
-  transition: color var(--wf-dur-fast) var(--wf-ease-out), border-color var(--wf-dur-fast) var(--wf-ease-out);
-}
 
 .wf-tab-content {
   padding-top: var(--wf-space-md);
 }
 
 /* 移动端适配（P2）：窄屏标签横向滚动（隐藏滚动条） */
-.wf-tab-list {
-  overflow-x: auto;
-  scrollbar-width: none;
-}
 .wf-tab-list::-webkit-scrollbar {
   display: none;
 }

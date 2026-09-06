@@ -77,6 +77,12 @@
   border: var(--wf-border-width) solid var(--wf-color-border);
   border-radius: var(--wf-radius);
   background: var(--wf-color-bg);
+  display: flex;
+  align-items: center;
+  gap: var(--wf-gap-sm);
+  padding: var(--wf-space-sm);
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-color-bg-secondary);
 }
 
 .wf-upload-item-info {
@@ -106,17 +112,6 @@
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-xs);
   color: var(--wf-color-error-text);
-}
-
-/* ── 第六批增强：缩略图 / 进度条 ────────────────────────── */
-
-.wf-upload-item {
-  display: flex;
-  align-items: center;
-  gap: var(--wf-gap-sm);
-  padding: var(--wf-space-sm);
-  border-radius: var(--wf-radius-sm);
-  background: var(--wf-color-bg-secondary);
 }
 
 .wf-upload-thumb {

@@ -171,16 +171,29 @@ export function audit() {
       }
     }
 
-    // ── S8 重复选择器（warn——顶层同选择器双定义 = 隐藏覆盖隐患；@media/keyframes 上下文排除） ──
+    // ── S8 重复选择器（warn——顶层同选择器双定义；@media 块（命中区合法覆盖）先剥离） ──
     {
+      // 剥离 @media 块（平衡花括号）——剩余为顶层规则
+      let stripped = css
+      const mediaRe = /@media[^{]+\{/g
+      let mm
+      while ((mm = mediaRe.exec(stripped))) {
+        let depth = 1, i = mm.index + mm[0].length
+        for (; i < stripped.length && depth > 0; i++) {
+          if (stripped[i] === '{') depth++
+          else if (stripped[i] === '}') depth--
+        }
+        stripped = stripped.slice(0, mm.index) + stripped.slice(i)
+        mediaRe.lastIndex = mm.index
+      }
       const map = new Map()
-      for (const m of css.matchAll(/([^{}]+)\{/g)) {
+      for (const m of stripped.matchAll(/(?:^|\s)([.@][^{}]+?)\s*\{/g)) {
         const sel = m[1].trim()
-        if (!sel || sel.startsWith('@') || sel === 'from' || sel === 'to') continue
+        if (sel.startsWith('@') || sel === 'from' || sel === 'to') continue
         map.set(sel, (map.get(sel) ?? 0) + 1)
       }
       for (const [sel, n] of map) {
-        if (n > 1) warningsF.push(`S8 重复选择器 ${sel.slice(0, 44)}×${n}（同文件两次定义——内容同删一/不同合并+注释）`)
+        if (n > 1) warningsF.push(`S8 重复选择器 ${sel.slice(0, 44)}×${n}（同文件顶层两次定义——内容同删一/不同合并+注释）`)
       }
     }
 

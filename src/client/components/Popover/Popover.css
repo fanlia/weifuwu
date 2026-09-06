@@ -14,6 +14,7 @@
   padding: var(--wf-space);
   min-width: var(--wf-popover-width,  160px);
   max-width: min(var(--wf-popup-max, 320px), calc(100vw - 32px));
+  animation: wf-popover-in var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-popover--bottom {
@@ -41,11 +42,6 @@
   font-size: var(--wf-font-size-sm);
   color: var(--wf-color-text);
   line-height: var(--wf-line-height);
-}
-
-/* ── 入场动画：fade（浮层族 popover/tooltip 保持 fade，时长 Token 驱动） ── */
-.wf-popover {
-  animation: wf-popover-in var(--wf-dur-fast) var(--wf-ease-out);
 }
 @keyframes wf-popover-in {
   from { opacity: 0; }

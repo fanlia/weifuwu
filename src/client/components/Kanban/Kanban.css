@@ -59,12 +59,10 @@
 }
 .wf-kanban-card:hover {
   border-color: var(--wf-color-primary);
+  border-color: var(--wf-color-primary);
 }
 .wf-kanban-card:active {
   cursor: grabbing;
-}
-.wf-kanban-card:hover {
-  border-color: var(--wf-color-primary);
 }
 .wf-kanban-card[aria-grabbed='true'] {
   opacity: 0.4;

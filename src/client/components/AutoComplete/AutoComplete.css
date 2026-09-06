@@ -36,9 +36,6 @@
 .wf-autocomplete-option:hover,
 .wf-autocomplete-option--active {
   background: var(--wf-color-bg-hover);
-}
-
-.wf-autocomplete-option--active {
   color: var(--wf-color-primary-text);
 }
 

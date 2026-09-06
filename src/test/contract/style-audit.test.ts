@@ -19,8 +19,8 @@ const S4_WARN_BASELINE = 66
 /** S6 硬编码字号基线（登记制——图标/头像/徽标白名单 12 处；正文 token 化后下降） */
 const S6_WARN_BASELINE = 12
 
-/** S8 重复选择器基线（W2 清 0——顶层同选择器双定义 = 隐藏覆盖隐患） */
-const S8_WARN_BASELINE = 26
+/** S8 重复选择器基线（W2 清 0——顶层同选择器双定义 = 隐藏覆盖隐患；@media 内命中区覆盖合法排除） */
+const S8_WARN_BASELINE = 0
 
 test('S1-S7 样式审计零错误（防回潮红线）', () => {
   const res = audit()

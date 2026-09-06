@@ -47,8 +47,5 @@
 .wf-resizable-handle:hover,
 .wf-resizable-handle:focus-visible {
   background: var(--wf-color-primary);
-}
-
-.wf-resizable-handle:focus-visible {
   outline: none;
 }

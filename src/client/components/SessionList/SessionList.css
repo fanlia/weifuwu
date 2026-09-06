@@ -108,16 +108,12 @@
 .wf-session-rename:focus-visible,
 .wf-session-del:focus-visible {
   opacity: 1;
+  outline: 2px solid var(--wf-color-primary);
+  outline-offset: 1px;
 }
 
 .wf-session-rename:hover { color: var(--wf-color-info-text); }
 .wf-session-del:hover { color: var(--wf-color-error-text); }
-
-.wf-session-rename:focus-visible,
-.wf-session-del:focus-visible {
-  outline: 2px solid var(--wf-color-primary);
-  outline-offset: 1px;
-}
 
 /* 重命名输入行 */
 .wf-session-item--rename {

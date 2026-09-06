@@ -19,6 +19,7 @@
   white-space: nowrap;
   pointer-events: none;
   max-width: min(var(--wf-popup-max, 240px), calc(100vw - 32px));
+  animation: wf-tooltip-in var(--wf-dur-fast) var(--wf-ease-out);
 }
 
 .wf-tooltip--hidden {
@@ -83,11 +84,6 @@
 
 .wf-tooltip-content {
   line-height: 1.4;
-}
-
-/* ── 入场动画：fade（浮层族，时长 Token 驱动） ── */
-.wf-tooltip {
-  animation: wf-tooltip-in var(--wf-dur-fast) var(--wf-ease-out);
 }
 @keyframes wf-tooltip-in {
   from { opacity: 0; }

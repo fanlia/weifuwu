@@ -49,10 +49,6 @@
 .wf-filepreview-actions {
   display: flex;
   justify-content: flex-end;
-}
-
-/* 编辑保存工具条 */
-.wf-filepreview-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
