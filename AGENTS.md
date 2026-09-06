@@ -11,6 +11,18 @@
 shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 155** · audit:all **十三线**（semantics/interactivity/vdom/theme/api/bundle/showcase/docs/**health**（C3 三线+C4 二线）） exit 0——C3 健康基线：a11y 0 违规（豁免登记 8 类——拦截语义/父面键盘/装饰/指针等价）· as any 0（组件面——只降不升）· app.js 511KB（tree-shake 残留 0）· **C4**：i18n 裸 0 违例（机制接线 11 处——ThemeSwitch/Editor/AppShell——数据层定义表豁免登记）· 死类 0（登记表空——17 清）· token 176 · **C5/banner**：文件头 banner 155 全量（registry desc 单源——首行格式哨兵）· svg aria 0（role:img 语义容器补全 4）· **C6**：VNodeChild 接线 100（children 家族 any 注解单源化——数据面任何 19 登记）· **C7**：console log/error 0（warn 17 dev 提示）· **S8** 重复选择器 0（顶层双定义 14 清）· 契约 **453**· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· tsc **0 错**。
 
 **内核资产**：
+- **分层抽象思维（架构总纲——2027-09 定案）**：三层（vdom/components/layout）各上浮为
+  **可生成的抽象**，组件从「目录清单」变「抽象实例」——框架开发者的一切新增**先问形态**：
+  ① **行为契约 hooks**（`useOverlay/useField/useCombobox/useMenu/useForm/useVirtualList/useTabs`
+  ——行为域完整语义：开/关/焦点困禁/恢复/Esc/滚动锁·受控值/label 连接/error aria·选项/搜索/
+  键盘导航——**契约是行为正确性的结构性保证**（一处修·全家族好——不是各组件自觉））
+  ② **组件抽象**（`createComponent/createOverlay/createScaffold`——状态变体类·aria 角色映射·
+  焦点面·行为挂载全生成——组件 = 契约 + 结构声明 + 皮——**机械部分不可能错**）
+  ③ **布局原语**（`defineLayout`——语义词 → 属性组合的**声明**（非手写 CSS 类——类从声明生成·
+  断点变体自动·组合缺省内建·`extend` 可扩展布局语言）
+  **开发者的三种用法**（每一层同构）：用现成（默认皮/类）· 换皮（契约+自己的皮——行为继承）·
+  拓场景（组合契约/声明原语——**成为共同作者**）。
+  **机械生成判据**（防过度抽象护栏）：声明比实现短且机械部分全消失——否则抽象失败。
 - **layout**（`src/client/layout/`——CSS 布局系统）：装配单源 `bundle.ts`（build/showcase/scenario/`ctx.ui.css`
   四管线共用 + D4 审计）· 层序 `@layer tokens, base, layout, components, utilities`（**工具类恒胜组件**——
   消费侧显式覆盖意图）+ display 族基类 `:where()` 零优先级（变体恒胜基类，零 `!important`——仅
