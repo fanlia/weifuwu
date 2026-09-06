@@ -404,15 +404,34 @@ const root = h('div', { class: 'my-panel', ...ov.panelProps }, [
 ov.sync(() => root, { open, maskClosable: false }) // 渲染期同步
 ```
 
-#### ② 组件抽象（components 层——`createComponent`）
+#### ② 组件抽象（components 层——`createComponent` / `createItem`）
 
-声明（class 词根 · enumStates 直拼/映射 · boolStates 显式 · ariaBools ·
-role · render 皮）——**机械面生成，结构/内容/事件自由**。首个消费：Button。
-```ts
-const Badge = createComponent({ class: 'wf-badge',
-  enumStates: { variant: null }, ariaBools: { ... } })
-```
-判据：**声明比实现短且机械部分全消失**（防配置地狱）。
+**抽象单位判据（原语全面化 W3 判负调查定案——2027-09）**：
+组件 = **容器 + 可交互子项**（Tabs 的 tab / Segmented 的 option）——状态类和
+aria 布尔几乎总在**子项**（43 组件含状态面 · 12 组件同条件类+aria 双面）。
+两种抽象按单位选：
+
+- **`createComponent`**（组件即元素——Button 型）：声明（class 词根 ·
+  enumStates 直拼/映射 · boolStates 显式 · ariaBools · role · render 皮）
+  ——机械面生成，结构/内容/事件自由。首个消费：Button。全库匹配面窄（
+  多形态/子项面/单拼接/数值 aria 均判负——登记）。
+  ```ts
+  const Button = createComponent({ class: 'wf-btn', enumStates: { variant: null } })
+  ```
+- **`createItem`**（交互元素 props 生成器——子项/单元素组件）：声明
+  （cls/suffix/role/aria/ariaText/roving）→ `(active, extra) => props`。
+  类后缀 + aria 布尔**捆绑声明**（改一面漏一面 = a11y bug——单源回报）。
+  aria 布尔直传内核（归一 'true'/'false'——**禁手写三元**）；ariaText 文本值
+  （非 active undefined 移除语义）；extra.class **追加**（disabled/focus 第
+  二类面共存）。首个消费：Tabs/9 组件。
+  ```ts
+  const tab = createItem({ cls: 'wf-tab', role: 'tab', aria: 'aria-selected', roving: true })
+  h('button', tab(key === active, { onClick }), label)
+  ```
+  边界（诚实）：单活动态（Menu current+expanded 双状态判负——多槽设计后迁）；
+  aria 多值（Tree 'mixed'）判负。
+
+判据（两者）：**声明比实现短且机械部分全消失**（防配置地狱）。
 
 #### ③ 布局原语（layout 层——`defineLayout`）
 
