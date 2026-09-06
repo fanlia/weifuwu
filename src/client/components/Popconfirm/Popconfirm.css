@@ -51,7 +51,7 @@
   gap: var(--wf-gap-xs);
   margin-bottom: var(--wf-space-xs);
   color: var(--wf-color-text);
-  line-height: 1.5;
+  line-height: var(--wf-line-height);
 }
 
 .wf-popconfirm-icon {

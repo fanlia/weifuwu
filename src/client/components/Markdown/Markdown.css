@@ -11,7 +11,7 @@
 .wf-md > :first-child { margin-top: 0; }
 .wf-md > :last-child { margin-bottom: 0; }
 
-.wf-md-h { margin: var(--wf-space-md) 0 var(--wf-space-sm); font-weight: var(--wf-font-weight-bold); line-height: 1.25; }
+.wf-md-h { margin: var(--wf-space-md) 0 var(--wf-space-sm); font-weight: var(--wf-font-weight-bold); line-height: var(--wf-line-height-tight); }
 .wf-md-h1 { font-size: var(--wf-font-size-xl); }
 .wf-md-h2 { font-size: var(--wf-font-size-lg); }
 .wf-md-h3 { font-size: var(--wf-font-size-base); }

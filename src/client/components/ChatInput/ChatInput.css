@@ -32,5 +32,5 @@
 .wf-chat-inputbar textarea.wf-chat-input {
   height: auto;
   min-height: var(--wf-control-height);
-  line-height: 1.5;
+  line-height: var(--wf-line-height);
 }

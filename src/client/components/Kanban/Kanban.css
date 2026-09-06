@@ -72,7 +72,7 @@
 
 .wf-kanban-card-title {
   font-size: var(--wf-font-size-sm); /* 13px 同值 token 化——compact 预设可缩放 */
-  line-height: 1.5;
+  line-height: var(--wf-line-height);
   min-width: 0;
 }
 

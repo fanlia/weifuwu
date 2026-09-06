@@ -10,7 +10,7 @@
 }
 
 .wf-title--1 { font-size: var(--wf-font-size-5xl); line-height: 1.2; }
-.wf-title--2 { font-size: var(--wf-font-size-4xl); line-height: 1.25; }
+.wf-title--2 { font-size: var(--wf-font-size-4xl); line-height: var(--wf-line-height-tight); }
 .wf-title--3 { font-size: var(--wf-font-size-3xl); line-height: 1.3; }
 .wf-title--4 { font-size: var(--wf-font-size-2xl); line-height: 1.35; }
 .wf-title--5 { font-size: var(--wf-font-size-xl); line-height: 1.4; }

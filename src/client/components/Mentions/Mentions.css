@@ -15,7 +15,7 @@
   padding: var(--wf-space-sm) var(--wf-space);
   font-family: var(--wf-font-sans);
   font-size: var(--wf-font-size-base);
-  line-height: 1.5;
+  line-height: var(--wf-line-height);
   resize: vertical;
   transition: border-color var(--wf-dur-fast) var(--wf-ease-out),
               box-shadow var(--wf-dur-fast) var(--wf-ease-out);
