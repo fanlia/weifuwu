@@ -27,37 +27,12 @@
  */
 import type { ZodRawShape, ZodType } from '../../shared/zod.ts'
 import type { Shape } from './shape.ts'
+import type { RestHooks, RestShapeOptions, RestShapeOutput } from './generator-contracts.ts'
+import { registerOrmGenerators } from './orm.ts'
 import { filterToWhere } from './filter.ts'
 import { listQuery, errorResponse } from './http.ts'
 
-export interface RestHooks {
-  beforeList?: (req: Request, ctx: unknown) => Promise<void> | void
-  afterList?: (rows: Record<string, unknown>[], req: Request, ctx: unknown) => Record<string, unknown>[] | Promise<Record<string, unknown>[]>
-  beforeInsert?: (data: Record<string, unknown>, req: Request, ctx: unknown) => Promise<void> | void
-  beforeUpdate?: (id: string, patch: Record<string, unknown>, req: Request, ctx: unknown) => Promise<void> | void
-  beforeDelete?: (id: string, req: Request, ctx: unknown) => Promise<void> | void
-}
-
-export interface RestShapeOptions {
-  /** 资源名（默认表名——仅元数据） */
-  name?: string
-  /** 默认分页上限（默认 100） */
-  maxLimit?: number
-  /** 字段策略（fieldPolicy——敏感列豁免：列表/单查/返回不出现；写入面保留） */
-  hidden?: string[]
-  /** 业务接缝（hooks——分层纪律：业务 handler 插点） */
-  hooks?: RestHooks
-}
-
-export interface RestShapeOutput {
-  /** 挂载面（app.get/post/patch/delete 注册——`/api/agents` 等 base） */
-  mount: (app: {
-    get: (p: string, h: (req: Request, ctx: never) => Promise<Response>) => unknown
-    post: (p: string, h: (req: Request, ctx: never) => Promise<Response>) => unknown
-    patch: (p: string, h: (req: Request, ctx: never) => Promise<Response>) => unknown
-    delete: (p: string, h: (req: Request, ctx: never) => Promise<Response>) => unknown
-  }, base: string) => void
-}
+export type { RestHooks, RestShapeOptions, RestShapeOutput } from './generator-contracts.ts'
 
 export function restFromShape<S extends ZodRawShape>(shapeDef: Shape<S>, opts: RestShapeOptions = {}): RestShapeOutput {
   const name = opts.name ?? shapeDef.table
@@ -158,3 +133,6 @@ export function restFromShape<S extends ZodRawShape>(shapeDef: Shape<S>, opts: R
     },
   }
 }
+
+// ── 生成器注册（装备面接入 core orm——模块加载即生效） ─────────
+registerOrmGenerators({ rest: restFromShape })

@@ -11,9 +11,24 @@
  *
  * 变更纪律（ 协议层）：改契约须 TDD 先行 + 真库验证（CS-04/CS-05）。
  */
-import type { RespValue } from './redis/resp.ts'
-import type { RedisPipeline } from './redis/pipeline.ts'
-import type { RedisSubscriber } from './redis/subscriber.ts'
+import type { RespError } from './errors.ts'
+
+/**
+ * RESP 值（协议层数据面——实现/编解码见 db/redis/resp.ts）。
+ * 定义于契约层：消费方（ctx.redis/内存替身）不依赖线协议实现。
+ */
+export type RespValue = string | number | null | RespError | RespValue[] | Uint8Array
+
+/**
+ * Redis 订阅者面（Pub/Sub 独立连接——messager 跨进程广播消费）。
+ * 结构化接口：RedisSubscriber（真库）与替身均满足。
+ */
+export interface RedisSubscriberFace {
+  connect(): Promise<void>
+  subscribe(channel: string, fn: (channel: string, message: string) => void): Promise<void>
+  psubscribe(pattern: string, fn: (channel: string, message: string) => void): Promise<void>
+  close(): Promise<void>
+}
 
 /**
  * Pipeline 面（S5——SERVER-PERF-PLAN 波次 2）：批量命令单次网络往返发送。
@@ -90,7 +105,7 @@ export interface Redis {
    */
   pipeline(): Promise<RedisPipelineFace>
   /** 创建订阅者（Pub/Sub，独立连接——messager 跨进程广播用） */
-  createSubscriber(): RedisSubscriber
+  createSubscriber(): RedisSubscriberFace
   /** 发布消息到频道（订阅者回调触发） */
   publish(channel: string, message: string | number): Promise<number>
   /** 关闭（幂等） */

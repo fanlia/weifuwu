@@ -18,33 +18,17 @@
  */
 import { type Shape } from './shape.ts'
 import { filterToWhere } from './filter.ts'
+import type { GqlShapeOptions, GqlShapeOutput } from './generator-contracts.ts'
+import { registerOrmGenerators } from './orm.ts'
 import {
   z, ZodString, ZodNumber, ZodBoolean, ZodDate, ZodEnum, ZodLiteral, ZodArray,
   ZodVector, ZodOptional, ZodNullable, ZodDefault, ZodTransform, ZodEffects,
   type ZodType, type ZodRawShape,
 } from '../../shared/zod.ts'
 
-// ── 类型面 ────────────────────────────────────────────────
+// ── 类型面（单源：db/generator-contracts.ts——L0 契约，本模块重出） ────────
 
-export interface GqlShapeOptions {
-  /** 生成类型名（默认表名 PascalCase） */
-  name?: string
-  /** 执行面取数（默认 ctx.orm——协议层 = AST；orm.gql 内部绑定 ormBase） */
-  sql?: (ctx: unknown) => unknown
-  /** 租户 scope：字段名 + 上下文取值（自动注入 where/insert——跨租户隔离；
-   *  与 OrmTenant.value 同签名——undefined=无值（不注入） */
-  tenant?: { field: string; value: (ctx: unknown) => string | undefined }
-  /** 默认分页上限（默认 100） */
-  maxLimit?: number
-  /** 字段策略（命名契约 W0——fieldPolicy 首版）：敏感列豁免——
-   *  SDL 不生成（字段/Filter/Sort/Insert/Patch 全不出现）+ resolver 不返回 */
-  hidden?: string[]
-}
-
-export interface GqlShapeOutput {
-  typeDefs: string
-  resolvers: Record<string, Record<string, (...args: any[]) => any>>
-}
+export type { GqlShapeOptions, GqlShapeOutput } from './generator-contracts.ts'
 
 // ── 类型映射 ──────────────────────────────────────────────
 
@@ -296,3 +280,6 @@ function buildResolvers<S extends ZodRawShape>(
     },
   }
 }
+
+// ── 生成器注册（装备面接入 core orm——模块加载即生效） ─────────
+registerOrmGenerators({ gql: gqlFromShape })

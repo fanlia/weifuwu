@@ -18,14 +18,14 @@
   ],
   "summary": {
     "l0": {
-      "files": 23,
-      "loc": 2607,
-      "exports": 189
+      "files": 24,
+      "loc": 2691,
+      "exports": 196
     },
     "l1": {
       "files": 83,
-      "loc": 12799,
-      "exports": 375
+      "loc": 12812,
+      "exports": 376
     },
     "l2": {
       "files": 7,
@@ -34,8 +34,8 @@
     },
     "equipment": {
       "files": 17,
-      "loc": 4729,
-      "exports": 72
+      "loc": 4690,
+      "exports": 69
     }
   },
   "files": {
@@ -497,22 +497,27 @@
     "src/server/db/contracts.ts": {
       "level": "l0",
       "env": "universal",
-      "loc": 99
+      "loc": 114
     },
     "src/server/db/errors.ts": {
       "level": "l0",
       "env": "universal",
-      "loc": 79
+      "loc": 90
     },
     "src/server/db/filter.ts": {
       "level": "l0",
       "env": "universal",
       "loc": 66
     },
+    "src/server/db/generator-contracts.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 59
+    },
     "src/server/db/gql-from-shape.ts": {
       "level": "equipment",
       "env": "n/a",
-      "loc": 299
+      "loc": 286
     },
     "src/server/db/http.ts": {
       "level": "l2",
@@ -537,7 +542,7 @@
     "src/server/db/orm.ts": {
       "level": "l1",
       "env": "server",
-      "loc": 375
+      "loc": 388
     },
     "src/server/db/postgres/connection.ts": {
       "level": "equipment",
@@ -607,17 +612,17 @@
     "src/server/db/redis/resp.ts": {
       "level": "equipment",
       "env": "n/a",
-      "loc": 252
+      "loc": 247
     },
     "src/server/db/redis/subscriber.ts": {
       "level": "equipment",
       "env": "n/a",
-      "loc": 35
+      "loc": 36
     },
     "src/server/db/rest-from-shape.ts": {
       "level": "equipment",
       "env": "n/a",
-      "loc": 161
+      "loc": 139
     },
     "src/server/db/schema.ts": {
       "level": "l1",
@@ -647,7 +652,7 @@
     "src/server/types.ts": {
       "level": "l0",
       "env": "universal",
-      "loc": 155
+      "loc": 154
     },
     "src/shared/router/chain.ts": {
       "level": "l0",

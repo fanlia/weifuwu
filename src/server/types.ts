@@ -26,7 +26,6 @@ export interface Hub {
   send(key: string, message: string): void
   close(): Promise<void>
 }
-export type { Redis, RedisOptions } from './redis/types.ts'
 
 /** User injected by user() or custom auth middleware. */
 export interface User {

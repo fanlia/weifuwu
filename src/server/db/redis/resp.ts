@@ -7,17 +7,12 @@
  * 解码为增量式：连接层可喂入任意分片，累积到完整消息后取回。
  */
 
-import { DbError } from '../errors.ts'
+import { DbError, RespError } from '../errors.ts'
+import type { RespValue } from '../contracts.ts'
 
-export type RespValue = string | number | null | RespError | RespValue[] | Uint8Array
-
-/** 服务器错误响应（-ERR ...） */
-export class RespError extends DbError {
-  constructor(message: string) {
-    super('protocol', message, { code: 'RESP' })
-    this.name = 'RespError'
-  }
-}
+/** RESP 错误值/值类型——单源在 L0（errors.ts/contracts.ts）——此处重出兼容旧路径 */
+export { RespError } from '../errors.ts'
+export type { RespValue } from '../contracts.ts'
 
 /** 数据不完整（等待更多分片） */
 export class IncompleteError extends Error {

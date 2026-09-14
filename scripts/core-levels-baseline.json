@@ -2,14 +2,14 @@
   "version": 1,
   "summary": {
     "l0": {
-      "files": 23,
-      "loc": 2607,
-      "exports": 189
+      "files": 24,
+      "loc": 2691,
+      "exports": 196
     },
     "l1": {
       "files": 83,
-      "loc": 12799,
-      "exports": 375
+      "loc": 12812,
+      "exports": 376
     },
     "l2": {
       "files": 7,
@@ -18,8 +18,8 @@
     },
     "equipment": {
       "files": 17,
-      "loc": 4729,
-      "exports": 72
+      "loc": 4690,
+      "exports": 69
     }
   },
   "thirdParty": [],
@@ -29,13 +29,7 @@
     "src/client/vdom/core/protocol.ts → src/client/vdom/middlewares/auth-i18n.ts",
     "src/client/vdom/core/protocol.ts → src/client/vdom/middlewares/auth-i18n.ts (type)",
     "src/client/vdom/core/protocol.ts → src/client/vdom/middlewares/ws.ts (type)",
-    "src/client/vdom/hooks/chat.ts → src/server/ai/types.ts",
-    "src/server/db/contracts.ts → src/server/db/redis/pipeline.ts (type)",
-    "src/server/db/contracts.ts → src/server/db/redis/resp.ts (type)",
-    "src/server/db/contracts.ts → src/server/db/redis/subscriber.ts (type)",
-    "src/server/db/orm.ts → src/server/db/gql-from-shape.ts",
-    "src/server/db/orm.ts → src/server/db/rest-from-shape.ts",
-    "src/server/types.ts → src/server/redis/types.ts (type)"
+    "src/client/vdom/hooks/chat.ts → src/server/ai/types.ts"
   ],
   "upward": [
     "src/client/vdom/core/vnode.ts(l0) → src/client/vdom/context/UIContext.ts(l1) (type)"

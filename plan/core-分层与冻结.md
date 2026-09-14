@@ -124,6 +124,9 @@ src/core/
 - **W2②（2026-09-14）ws 出核（端口化）**：core 定义 `WsHandlePort`（`handleUpgrade` + 可选 `shutdown`）；`ws` 实现移装备 `src/server/ws/adapter.ts`（1001 握手逻辑随迁）；`Router` 去 `WebSocketServer`/`_wss`（新增 `hasWsRoutes()` 计数 + `websocketHandler(port)`）；`serve()` 仅当有 WS 路由才挂 upgrade，缺适配器显式报错；入口 `serve` 包装默认注入适配器（自研 RFC6455 可换）；`hub.ts`/`messager` 改用 L0 `WebSocket`/`Hub` 结构类型（零 ws 类型依赖）。
   - 回归：ws+serve 契约 **24/24** · `test:server` **865（864 + 1）** · 场景 e2e-10 6/6 · showcase 冒烟 3/3 · `tsc` 0。
   - **core 三方 import = 0**（基线 `thirdParty: []`）；上行 **2 → 1**（剩 `vnode(L0)→UIContext(L1)` type——W2④/W3）；泄漏仍 12（vdom 端口/orm/redis 类型——W2③④）。
+- **W2③（2026-09-14）数据面割外**：RESP 类型下沉 L0（`RespError` → `db/errors.ts` · `RespValue`/`RedisSubscriberFace` → `db/contracts.ts`——装备面重出兼容旧路径）；`types.ts` 去 redis 类型重出（泄漏 −1）；生成器契约单源下沉 `db/generator-contracts.ts`（L0）+ `orm.gql/rest` 插件注册制（`orm.ts` 零生成器 import；gql/rest 模块加载自注册；未注册显式报错）+ 入口导出生成器。
+  - 回归：`test:core` **830（829+1）** · `test:server` **865（864+1）** · `tsc` 0。
+  - 泄漏 **12 → 6**（仅剩 vdom 端口 5 + `chat→ai/types` 1）；三方 0；上行 1。
 
 ## 验收标准
 

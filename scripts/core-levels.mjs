@@ -66,6 +66,7 @@ const RULES = [
   { match: 'src/server/db/query.ts', level: 'l0', env: 'universal' },
   { match: 'src/server/db/contracts.ts', level: 'l0', env: 'universal' },
   { match: 'src/server/db/errors.ts', level: 'l0', env: 'universal' },
+  { match: 'src/server/db/generator-contracts.ts', level: 'l0', env: 'universal' },
   { match: 'src/server/db/filter.ts', level: 'l0', env: 'universal' },
   { match: 'src/client/vdom/core/vnode.ts', level: 'l0', env: 'universal' },
   { match: 'src/client/vdom/core/command/', level: 'l0', env: 'universal' },

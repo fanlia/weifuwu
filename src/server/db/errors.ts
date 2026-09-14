@@ -76,3 +76,14 @@ export class ValidationError extends DbError {
 export function isRetryable(err: unknown): boolean {
   return err instanceof RetryableError
 }
+
+/**
+ * RESP 协议错误值（服务器 -ERR ...——协议层纯数据类，L0）。
+ * 定义于错误族（db/redis/resp.ts 重出兼容旧导入路径）。
+ */
+export class RespError extends DbError {
+  constructor(message: string) {
+    super('protocol', message, { code: 'RESP' })
+    this.name = 'RespError'
+  }
+}

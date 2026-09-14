@@ -18,6 +18,7 @@ import { z } from '../../shared/zod.ts'
 import { compileQuery } from './query.ts'
 import { compileSchemaDdl } from './schema.ts'
 import { eq, ilike, and, gt } from './ops.ts'
+import './gql-from-shape.ts' // 生成器自注册（W2——orm.gql 插件面）
 import { graphql } from 'graphql'
 import { makeExecutableSchema } from '../make-executable-schema.ts'
 

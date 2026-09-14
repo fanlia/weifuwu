@@ -7,7 +7,7 @@
  *   Agent.insert(values).run()                    // shape 变体校验→列名翻译
  *   Agent.update(patch).where(eq(Agent.c.id, id)).run()
  *   Agent.delete().where(eq(Agent.c.id, id)).run()
- *   orm.gql(Agent) → { typeDefs, resolvers }      // 内置 GraphQL 链路
+ *   orm.gql(Agent) → { typeDefs, resolvers }      // gql 面（装备生成器自注册——零装备依赖）
  *
  * adapter（可插拔——执行面）：
  *   postgresAdapter(pg)   —— Query AST → compileQuery（参数化 SQL）→ 服务器(PG)
@@ -21,11 +21,22 @@ import type { Query } from './query.ts'
 import type { QueryResult } from './contracts.ts'
 import type { ZodRawShape } from '../../shared/zod.ts'
 import { shape } from './shape.ts'
-import { gqlFromShape, type GqlShapeOptions, type GqlShapeOutput } from './gql-from-shape.ts'
-import { restFromShape } from './rest-from-shape.ts'
+import type { GqlShapeOptions, GqlShapeOutput, RestShapeOptions, RestShapeOutput } from './generator-contracts.ts'
 import type { SelectBuilder, InsertBuilder, UpdateBuilder, DeleteBuilder, QueryBuilder, WhereExpr } from './query.ts'
 import type { Infer } from '../../shared/zod.ts'
 import { ValidationError } from './errors.ts'
+
+// ── 生成器插件面（W2——生成器属装备：gql/rest 模块加载时自注册） ──
+// core orm 不 import 生成器实现（零装备依赖）；未注册时调用 = 显式报错。
+type OrmGenerator = (...args: any[]) => any
+let gqlGenerator: OrmGenerator | null = null
+let restGenerator: OrmGenerator | null = null
+
+/** 生成器注册（装备面调用——gql-from-shape/rest-from-shape 模块加载即生效） */
+export function registerOrmGenerators(gens: { gql?: OrmGenerator; rest?: OrmGenerator }): void {
+  if (gens.gql) gqlGenerator = gens.gql
+  if (gens.rest) restGenerator = gens.rest
+}
 
 // ── adapter（执行面——SQL 服务器/内存引擎）─────────────────
 
@@ -99,7 +110,7 @@ export interface Orm {
   /** GraphQL 生成（shape → SDL + resolvers——内置链路输入） */
   gql<S extends ZodRawShape>(table: OrmTable<S>, opts?: GqlShapeOptions): GqlShapeOutput
   /** RESTful 面（W4——restFromShape 入口对称：`rest = orm.rest(table); rest.mount(app, base)`） */
-  rest<S extends ZodRawShape>(table: OrmTable<S>, opts?: import('./rest-from-shape.ts').RestShapeOptions): import('./rest-from-shape.ts').RestShapeOutput
+  rest<S extends ZodRawShape>(table: OrmTable<S>, opts?: RestShapeOptions): RestShapeOutput
   /** 事务（fn 内同连接执行——commit 可见/rollback 撤销；memory 单线程 no-op 等价） */
   transaction<T>(fn: (tx: Orm) => Promise<T>): Promise<T>
   /** AST 执行面（协议层 = AST——Query 纯数据可序列化；测试播种/嵌入执行入口） */
@@ -281,6 +292,7 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
     query,
     gql: (t, opts) => {
       if (!(t as { __shape?: unknown }).__shape) throw new Error('orm.gql: 表未注册（orm.table 先行）')
+      if (!gqlGenerator) throw new Error('orm.gql: 生成器未注册（从 weifuwu 导入自带 gql 面，或先加载 db/gql-from-shape.ts）')
       // resolver 执行面绑定 orm（query builder——不依赖 ctx.sql）
       // I3（W1）：createOrm.tenant 自动派生 gql opts.tenant——单源（gql 面不可绕过租户隔离；
       // 显式 opts.tenant 优先——覆盖面保留）
@@ -290,11 +302,12 @@ function makeOrm(adapter: DbAdapter, tenant: OrmTenant | undefined, tables: Map<
         ...(explicit?.tenant === undefined && tenant ? { tenant: { field: tenant.field, value: tenant.value } } : {}),
         sql: () => ormBase,
       }
-      return gqlFromShape((t as { __shape: Parameters<typeof gqlFromShape>[0] }).__shape, bound)
+      return gqlGenerator((t as { __shape: unknown }).__shape, bound) as GqlShapeOutput
     },
     rest: (t, opts) => {
       if (!(t as { __shape?: unknown }).__shape) throw new Error('orm.rest: 表未注册（orm.table 先行）')
-      return restFromShape((t as { __shape: Parameters<typeof restFromShape>[0] }).__shape, opts)
+      if (!restGenerator) throw new Error('orm.rest: 生成器未注册（从 weifuwu 导入自带 rest 面，或先加载 db/rest-from-shape.ts）')
+      return restGenerator((t as { __shape: unknown }).__shape, opts) as RestShapeOutput
     },
     withCtx: scoped,
     execute: (q: Query) => adapter.executeQuery(q),

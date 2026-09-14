@@ -6,8 +6,9 @@
  */
 
 import { RedisConnection, type RedisConnectionOptions } from './connection.ts'
+import type { RedisSubscriberFace } from '../contracts.ts'
 
-export class RedisSubscriber {
+export class RedisSubscriber implements RedisSubscriberFace {
   private conn: RedisConnection
 
   constructor(options: RedisConnectionOptions = {}) {
