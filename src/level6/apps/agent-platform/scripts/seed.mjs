@@ -114,11 +114,12 @@ async function main() {
 
   // 应用（= 产品/公司——一个 app 就是一个公司）
   await ins('_weifuwu_apps', [{ id: DEMO_APP_ID, slug: 'demo', name: '演示科技有限公司', owner_user_id: admin.id, sandbox_quota: 20 }], { conflict: 'id', update: true, merge: { sandbox_quota: 20 } })
-  // 成员关系（owner + member）
+  // 成员关系（owner + member）——PK (app_id, user_id) 冲突 upsert（仅 role/invited_by 刷新）
+  // 可重复执行：re-seed 不撞 _weifuwu_app_members_pkey（2027-xx 实证）
   await ins('_weifuwu_app_members', [
     { app_id: DEMO_APP_ID, user_id: admin.id, role: 'owner', invited_by: admin.id },
     { app_id: DEMO_APP_ID, user_id: user.id, role: 'member', invited_by: admin.id },
-  ], { conflict: undefined, update: false })
+  ], { conflict: ['app_id', 'user_id'], update: true })
   console.log('  ✓ 应用: 演示科技有限公司（demo）')
 
   // ════════════════════════════════════════════════════
@@ -534,7 +535,7 @@ df -h / | awk 'NR==2 {print \"磁盘使用率: \" \$5}'
   await ins('_weifuwu_app_members', [
     { app_id: ACME_APP_ID, user_id: boss.id, role: 'owner', invited_by: boss.id },
     { app_id: ACME_APP_ID, user_id: staff.id, role: 'member', invited_by: boss.id },
-  ], { conflict: undefined })
+  ], { conflict: ['app_id', 'user_id'], update: true })
   const [bossAgent] = await ins('agents', [{ app_id: ACME_APP_ID, type: 'user', name: boss.name, user_id: boss.id, is_active: true }], { returning: ['id'] })
   const [staffAgent] = await ins('agents', [{ app_id: ACME_APP_ID, type: 'user', name: staff.name, user_id: staff.id, is_active: true }], { returning: ['id'] })
   const [acmeAi] = await ins('agents', [{
