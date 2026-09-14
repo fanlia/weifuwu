@@ -127,22 +127,6 @@
     "esbuild": "^0.28.1",
     "graphql": "^16"
   },
-  "peerDependencies": {
-    "@tailwindcss/postcss": "^4.3.3",
-    "postcss": "^8.5.19",
-    "tailwindcss": "^4.3.3"
-  },
-  "peerDependenciesMeta": {
-    "@tailwindcss/postcss": {
-      "optional": true
-    },
-    "postcss": {
-      "optional": true
-    },
-    "tailwindcss": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@types/node": "^26.5.1",
     "playwright": "^1.62.1"
