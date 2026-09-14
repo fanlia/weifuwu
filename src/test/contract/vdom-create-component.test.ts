@@ -50,7 +50,7 @@ test('boolStates + ariaBools + role 生成', async () => {
   const hh = await mount(C, { checked: true } as any)
   const el: any = [...createTable(hh.cmds).values()].find((c: any) => c.tag === 'div')
   assert.ok(el?.attrs?.class?.includes('wf-z--checked'), 'bool 类')
-  assert.equal(el?.attrs?.['aria-checked'], true, 'aria 布尔')
+  assert.equal(el?.attrs?.['aria-checked'], 'true', 'aria 布尔（create 面显式字符串——内核归一）')
   assert.equal(el?.attrs?.role, 'switch', 'role')
   // 假值——无类无 aria
   const hh2 = await mount(C, { checked: false } as any)

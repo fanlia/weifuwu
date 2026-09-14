@@ -31,7 +31,7 @@
     },
     "3": {
       "files": 51,
-      "loc": 7702,
+      "loc": 7707,
       "exports": 203,
       "assets": 0,
       "tests": 0
@@ -660,7 +660,7 @@
       "level": 3,
       "env": "client",
       "target": "src/level3/vdom/node/native.ts",
-      "loc": 80
+      "loc": 85
     },
     "src/level3/vdom/patch/fields.ts": {
       "kind": "level",

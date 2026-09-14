@@ -13,6 +13,7 @@ import type { VNode } from '../../../level0/vdom/vnode.ts'
 import { childrenOf, slotCount } from '../../../level1/vdom/node/children.ts'
 import { detectDuplicateKey } from '../../../level1/vdom/node/keyed.ts'
 import type { Command } from '../../../level0/vdom/command/index.ts'
+import { ariaBoolValue } from '../field/attributes.ts'
 import type { ComponentSink } from './component.ts'
 
 /** 节点 id——确定性路径（root.0.a0——锚点法——组件实例隔离） */
@@ -25,14 +26,18 @@ export function pathId(parent: string, i: number): string {
  *  JSON 编解码（undefined 键被丢弃——误过滤）；v2 命令直连 applier——
  *  attrs.value=undefined → applyAttribute property 赋值 → DOM value
  *  = "undefined"（SearchInput 非受控 value: undefined——deep-search
- *  场景实证）——序列化面向统一过滤（SSR 侧同受益） */
+ *  场景实证）——序列化面向统一过滤（SSR 侧同受益）
+ * - **aria-* 布尔归一（W4 回归）**：`ariaBoolValue` 单源归一为显式 'true'/'false'
+ *  ——命令流即协议（回放/SSR/契约同一读法——applyAttribute/attrsToHtml 同源判定）；
+ *  boolean 直传会落入命令流（CitationCard/Switch/Tabs/SegmentedControl 契约红根因） */
 export function serializableAttrs(props: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(props)) {
     if (k === 'children' || k === 'key' || k === 'ref') continue
     if (typeof v === 'function') continue
     if (v === undefined) continue
-    out[k] = v
+    const ariaBool = ariaBoolValue(k, v)
+    out[k] = ariaBool !== null ? ariaBool : v
   }
   return out
 }

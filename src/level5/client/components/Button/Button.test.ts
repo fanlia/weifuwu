@@ -58,5 +58,5 @@ test('基础面：variant/size 类组合 + disabled + loading（aria-busy）', a
   const h2 = await mount(Button, { loading: true })
   const ct2 = createTable(h2.cmds)
   const btn2 = [...ct2.entries()].find(([, v]) => v.tag === 'button')
-  assert.equal(btn2![1].attrs['aria-busy'], true, 'loading → aria-busy')
+  assert.equal(btn2![1].attrs['aria-busy'], 'true', 'loading → aria-busy（create 面显式字符串——内核 aria 布尔归一）')
 })
