@@ -8,6 +8,14 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.95.1] - 2026-09-14
+
+按域统计：pkg 1
+
+### Fixed
+
+- pkg：安装包运行面修复——APP_ROOT 锚点 + jsxImportSource 绝对化 + CSS 正典纠正
+
 ## [0.95.0] - 2026-09-14
 
 按域统计：pkg 1 · ws 1 · core 25 · vdom 3 · platform-test 1 · plan 4 · level 1
