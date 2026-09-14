@@ -27,9 +27,6 @@ const external = [
   'graphql',
   'ws',
   'esbuild',
-  'postcss',
-  'tailwindcss',
-  '@tailwindcss/postcss',
 ]
 
 // 后端 bundle

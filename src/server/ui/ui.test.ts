@@ -16,6 +16,7 @@ import { join } from 'node:path'
 import { serve, ui } from '../index.ts'
 import { Router } from '../core/router.ts'
 import { layerMapOf, LAYER_OF } from '../../client/layout/bundle.ts'
+import { parseCss } from '../../test/helpers/css-parse.ts'
 
 interface UiStats {
   builds: number
@@ -213,14 +214,14 @@ describe('ui compile cache (S4)', () => {
     await s.ready
 
     const body1 = await (await fetch(`http://localhost:${s.port}/asset`)).text()
-    const inlined = body1.includes('red') // postcss/tailwind 可用时 @import 被内联（可选 peerDep）
+    // 无 postcss/tailwind——raw CSS 直出，@import 不内联（新鲜度键仍含闭包）
+    assert.ok(!body1.includes('red'), '@import 不被内联（raw 直出）')
     const buildsBefore = statsOf(mw).builds
 
     // 只改依赖（入口 mtime/size 不变）——size 也变（防同 ms 同长 flaky）
     await writeFile(dep, '.dep { color: blue }\n.dep2 { margin: 0 }\n')
-    const body2 = await (await fetch(`http://localhost:${s.port}/asset`)).text()
+    await (await fetch(`http://localhost:${s.port}/asset`)).text()
     assert.equal(statsOf(mw).builds, buildsBefore + 1, '依赖变更 → 重编译（旧实现只 stat 入口 → 陈旧缓存）')
-    if (inlined) assert.ok(body2.includes('blue'), '内联管线下依赖内容随之更新')
   })
 
   it('layout 源面走装配单源（层序声明是活 atrule + 层归属 == LAYER_OF）', async () => {
@@ -232,10 +233,9 @@ describe('ui compile cache (S4)', () => {
 
     // ① 层序声明必须是**活的** atrule（旧 build head bug：取 entry 首行 → 未闭合注释
     //    把 `@layer …;` 整条吞掉 → postcss 解析出 0 个层序语句 → 优先级退化为块首现顺序）
-    const postcss = (await import('postcss')).default
-    const parsed = postcss.parse(body)
+    const parsed = parseCss(body)
     const stmt = parsed.nodes.find(
-      (n: any) => n.type === 'atrule' && n.name === 'layer' && !n.nodes && String(n.params).includes('utilities'),
+      (n: any) => n.type === 'atrule' && n.name === 'layer' && !n.hasBlock && String(n.params).includes('utilities'),
     )
     assert.ok(stmt, `层序声明必须是活 atrule（非注释内文本）——产物开头: ${body.slice(0, 100)}`)
 

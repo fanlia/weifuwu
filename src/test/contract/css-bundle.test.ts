@@ -13,11 +13,11 @@
  *   B2 发布面一致：dist 产物层归属 == bundle 输出（含 style.css 的 components 层——
  *      语义标记类空规则除外：W6 minify 剥离空规则——非样式面，按约定排除）
  *   B3 层序声明是**活 atrule**：旧 build 取 entry 首行当 head → 未闭合注释把
- *      `@layer tokens, base, layout, utilities, components;` 整条吞掉（postcss 实证
+ *      `@layer tokens, base, layout, utilities, components;` 整条吞掉（AST 实证
  *      层序语句 0 个 → 优先级退化为块首现顺序 → 改层序声明是空操作）
  *   B4 单源静态断言：四处装配点必须 import bundle.ts 且不含内联 `@layer …{` 拼接
  *   B5 inputs 完备：新鲜度键含 entry + 全部分量文件（+ 全部组件 CSS）
- *   B6 产物可解析：PostCSS parse 通过（tokens 不包裹的冗余 `}` 根因防线）
+ *   B6 产物可解析：AST parse 通过（tokens 不包裹的冗余 `}` 根因防线）
  *
  * node:test 直跑——零浏览器（契约层纪律）。
  */
@@ -25,7 +25,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import postcss from 'postcss'
+import { parseCss } from '../helpers/css-parse.ts'
 import { bundleLayout, bundleComponents, layerMapOf, LAYER_OF, LAYER_ORDER } from '../../../src/client/layout/bundle.ts'
 import { inventory } from '../../../scripts/layout-inventory.mjs'
 
@@ -37,9 +37,9 @@ const DIST_STYLE = join(root, 'dist', 'client', 'components', 'style.css')
 
 /** 层序声明是否为活 atrule（非注释内文本） */
 function liveLayerStatement(css: string): string | undefined {
-  const parsed = postcss.parse(css)
+  const parsed = parseCss(css)
   const stmt = parsed.nodes.find(
-    (n: any) => n.type === 'atrule' && n.name === 'layer' && !n.nodes && String(n.params).includes(','),
+    (n: any) => n.type === 'atrule' && n.name === 'layer' && !n.hasBlock && String(n.params).includes(','),
   ) as any
   return stmt ? String(stmt.params) : undefined
 }
@@ -71,7 +71,7 @@ function hookClasses(dir: string): Set<string> {
   const collect = (p: string) => {
     let entries: ReturnType<typeof readdirSync>
     try { entries = readdirSync(p, { withFileTypes: true }) } catch {
-      const root = postcss.parse(readFileSync(p, 'utf-8'))
+      const root = parseCss(readFileSync(p, 'utf-8'))
       root.walkRules((r) => {
         const hasDecl = (r.nodes ?? []).some((n) => n.type === 'decl')
         if (hasDecl) return
@@ -177,12 +177,12 @@ test('B5 inputs 完备（新鲜度键含 entry + 全部分量 + 全部组件 CSS
   assert.ok(comps.inputs.length >= layout.inputs.length + cssDirs.length, 'inputs 计数（layout + 组件 CSS）')
 })
 
-test('B6 产物可解析（PostCSS——tokens 不包裹的冗余 } 根因防线）', async () => {
+test('B6 产物可解析（AST——tokens 不包裹的冗余 } 根因防线）', async () => {
   const layout = await bundleLayout(LAYOUT_DIR)
   const comps = await bundleComponents(LAYOUT_DIR, COMPONENTS_DIR)
   for (const [label, css] of [['layout', layout.css], ['components', comps.css]] as const) {
     try {
-      postcss.parse(css)
+      parseCss(css)
     } catch (e: any) {
       assert.fail(`${label} 装配产物 PostCSS 解析失败: ${String(e.message).slice(0, 140)}`)
     }

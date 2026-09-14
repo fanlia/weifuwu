@@ -17,7 +17,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import postcss from 'postcss'
+import { parseCss } from '../helpers/css-parse.ts'
 
 const root = join(import.meta.dirname, '..', '..', '..')
 const COMPONENTS = join(root, 'src/client/components')
@@ -58,7 +58,7 @@ function classify(): { hairline: Map<string, string>; scale: Map<string, string>
       if (!e.name.endsWith('.css')) continue
       const name = fp.slice(COMPONENTS.length + 1)
       const css = readFileSync(fp, 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
-      postcss.parse(css).walkDecls((d: any) => {
+      parseCss(css).walkDecls((d: any) => {
         const prop = d.prop as string
         const val = String(d.value).trim()
         // ① 发丝：border* 宽 = **1px**（--wf-border-width 等价面）+ 样式 solid/dashed

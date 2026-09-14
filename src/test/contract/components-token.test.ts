@@ -17,7 +17,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import postcss from 'postcss'
+import { parseCss } from '../helpers/css-parse.ts'
 
 const root = join(import.meta.dirname, '..', '..', '..')
 const COMPONENTS = join(root, 'src/client/components')
@@ -44,7 +44,7 @@ function classify() {
       const name = fp.slice(COMPONENTS.length + 1)
       const css = readFileSync(fp, 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
       for (const m of css.matchAll(/var\(--wf-[\w-]+/g)) consume.set(m[0].slice(4), (consume.get(m[0].slice(4)) || 0) + 1)
-      postcss.parse(css).walkDecls((d: any) => {
+      parseCss(css).walkDecls((d: any) => {
         const prop = d.prop as string
         const val = String(d.value).trim()
         // ① line-height：手写（无 var）数值——豁免面 {1, 0, Npx}（重置/图标/结构）

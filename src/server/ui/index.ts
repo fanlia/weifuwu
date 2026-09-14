@@ -3,7 +3,7 @@
  *
  * ctx.ui.html  是 tagged template，返回完整 HTML Response。
  * ctx.ui.js    编译 TSX 入口，返回 JS bundle Response。
- * ctx.ui.css   读取 CSS 文件（如安装 postcss + @tailwindcss/postcss 则自动编译），返回 CSS Response。
+ * ctx.ui.css   读取 CSS 文件（@import 闭包进新鲜度键 —— 无外部编译依赖），返回 CSS Response。
  *
  * ```ts
  * import { ui } from 'weifuwu'
@@ -139,7 +139,7 @@ async function statAll(paths: string[]): Promise<Record<string, InputStat>> {
 /**
  * CSS `@import` 相对闭包（递归 + visited 防环）——新鲜度键必须含依赖：
  * 旧实现只 stat 入口文件 → 改 `_tokens.css` 不失效（陈旧缓存）——与 js 面
- * esbuild metafile 全量校验同构。只解析 `./x.css` 相对形态（包名/url() 交 postcss 面）。
+ * esbuild metafile 全量校验同构。只解析 `./x.css` 相对形态（包名/url() 原样保留）。
  */
 async function importClosure(absPath: string, seen: Set<string> = new Set()): Promise<string[]> {
   if (seen.has(absPath)) return []
@@ -157,20 +157,6 @@ async function importClosure(absPath: string, seen: Set<string> = new Set()): Pr
     out.push(dep, ...(await importClosure(dep, seen)))
   }
   return out
-}
-
-/** 检测 postcss + tailwindcss 是否可用（只检测一次） */
-let postcssAvailable: boolean | undefined
-async function checkPostcss(): Promise<boolean> {
-  if (postcssAvailable !== undefined) return postcssAvailable
-  try {
-    await import('postcss')
-    await import('@tailwindcss/postcss')
-    postcssAvailable = true
-  } catch {
-    postcssAvailable = false
-  }
-  return postcssAvailable
 }
 
 /** 解析入口路径：包名（weifuwu/client/layout）→ imports map，相对/绝对路径 → path.resolve */
@@ -329,8 +315,8 @@ export function ui(options: UiOptions = {}): Middleware {
           const dir = dirname(absPath)
           // **layout 源面 → 装配单源**（LAYOUT-PLAN W1）：入口是 src/client/layout/
           // weifuwu-layout.css 时走 bundle.ts（与 build.mjs / dev server 同一实现——
-          // 层序语义一致 + inputs 含全部分量文件）。旧路径：直读入口 → 靠 postcss/
-          // tailwind 顺带内联 @import → 产物**零 @layer**（覆盖语义 ≠ 发布产物）。
+          // 层序语义一致 + inputs 含全部分量文件）。旧路径：直读入口 → 外部工具
+          // 顺带内联 @import → 产物**零 @layer**（覆盖语义 ≠ 发布产物）。
           // dist 入口无分量兄弟文件 → isLayoutSourceDir false → 走下方直读路径。
           if (basename(absPath) === 'weifuwu-layout.css' && (await isLayoutSourceDir(dir))) {
             const bundle = await bundleLayout(dir)
@@ -339,19 +325,6 @@ export function ui(options: UiOptions = {}): Middleware {
           let code = await readFile(absPath, 'utf-8')
           // 新鲜度键 = 入口 + @import 闭包（依赖变更也重建——旧只 stat 入口 = 陈旧缓存）
           const inputs = await statAll([absPath, ...(await importClosure(absPath))])
-          // 如果安装了 postcss + @tailwindcss/postcss，自动编译 Tailwind CSS
-          if (await checkPostcss()) {
-            try {
-              const postcss: any = await import('postcss')
-              const tw: any = await import('@tailwindcss/postcss')
-              const plugin = tw.default || tw
-              const instance = typeof plugin === 'function' ? plugin() : plugin
-              const result = await postcss.default([instance]).process(code, { from: absPath })
-              code = result.css
-            } catch (e: any) {
-              throw new Error(`PostCSS 编译失败 (${absPath}): ${e.message}`, { cause: e })
-            }
-          }
           return { code, inputs }
         })
         return respond(_req, code, etag, 'text/css; charset=utf-8')

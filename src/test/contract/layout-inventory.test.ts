@@ -31,6 +31,7 @@ import { inventory, conflictMatrix, QUARTET_KEEP, LIB_SURFACE_KEEP, SHOWCASE_PRI
 import { LAYER_ORDER, bundleLayout } from '../../client/layout/bundle.ts'
 import { generateLayoutCss } from '../../client/layout/define.ts'
 import { structures } from '../../client/layout/decl.ts'
+import { parseCss } from '../helpers/css-parse.ts'
 
 const root = join(import.meta.dirname, '..', '..', '..')
 const LAYOUT = join(root, 'src/client/layout')
@@ -229,10 +230,9 @@ test('L7 构建产物 CSS 可解析（dist PostCSS 合格——style.css 500 根
   for (const f of distFiles) {
     const exists = (await import('node:fs')).existsSync(f)
     if (!exists) continue // dist 未构建——跳过（构建后用 test:client 验证）
-    const postcss = await import('postcss')
     try {
       const css = readFileSync(f, 'utf-8')
-      await postcss.default.parse(css)
+      parseCss(css)
       // LAYOUT-PLAN W6：minify 机制完整性——@layer 声明必须在（W1 曾因头注释吞掉层序——
       // minify 不得再吞）；注释必须为零（esbuild 剥离——任何残留 = 未 minify 回归）
       assert.match(css, /@layer [^{]+\{/, `${f}: minify 后 @layer 层序声明丢失`)
@@ -242,7 +242,7 @@ test('L7 构建产物 CSS 可解析（dist PostCSS 合格——style.css 500 根
         assert.ok(css.includes('wf-padding-none'), `${f}: 零值档位类丢失（W2 补齐面）`)
       }
     } catch (e: any) {
-      assert.fail(`${f}: PostCSS 解析失败（构建产物损坏——500 根因）: ${String(e.message).slice(0, 120)}`)
+      assert.fail(`${f}: CSS 解析失败（构建产物损坏——500 根因）: ${String(e.message).slice(0, 120)}`)
     }
   }
 })
@@ -290,7 +290,6 @@ test('L8 冲突矩阵（登记制——同属性不同值 = 源顺序定胜负�
 })
 
 test('L9a 层叠机制锁定（层序 utilities 最后 · display 族 :where · 零 !important 变通）', async () => {
-  const postcss = (await import('postcss')).default
   // ① 层序：工具类 = 消费侧显式覆盖意图 → 必须胜组件自身样式
   //   （旧序实证：`.wf-card--pad-lg + .wf-padding-xs` → 24px 工具类被吞 ·
   //    `.wf-btn + .wf-hidden` → inline-flex 隐藏失效——当时靠 !important 变通）
@@ -304,7 +303,7 @@ test('L9a 层叠机制锁定（层序 utilities 最后 · display 族 :where · 
   const plain: string[] = []
   const whereForm = new Set<string>()
   for (const f of ['_block.css', '_flex.css', '_hidden.css']) {
-    const parsed = postcss.parse(readFileSync(join(LAYOUT, f), 'utf-8'))
+    const parsed = parseCss(readFileSync(join(LAYOUT, f), 'utf-8'))
     parsed.walkRules((r) => {
       for (const sel of r.selector.split(',').map((s) => s.trim())) {
         const bare = sel.match(/^\.wf-(block|flex|hidden)$/)
@@ -320,7 +319,7 @@ test('L9a 层叠机制锁定（层序 utilities 最后 · display 族 :where · 
   // ③ !important 白名单：仅 prefers-reduced-motion（无障碍强制）——断点变体/display 族零使用
   const sites: string[] = []
   for (const f of readdirSync(LAYOUT).filter((x) => x.endsWith('.css'))) {
-    const parsed = postcss.parse(readFileSync(join(LAYOUT, f), 'utf-8'))
+    const parsed = parseCss(readFileSync(join(LAYOUT, f), 'utf-8'))
     parsed.walkDecls((d) => {
       if (!d.important) return
       let reducedMotion = false
@@ -338,8 +337,7 @@ test('L9a 层叠机制锁定（层序 utilities 最后 · display 族 :where · 
 })
 
 test('L9b 变量钩子注册完备（@property inherits:false——污染根治 + 零幽灵钩子）', async () => {
-  const postcss = (await import('postcss')).default
-  const parse = (f: string) => postcss.parse(readFileSync(join(LAYOUT, f), 'utf-8'))
+  const parse = (f: string) => parseCss(readFileSync(join(LAYOUT, f), 'utf-8'))
 
   // token 面已声明的变量（_tokens/_dark/_presets）
   const declared = new Set<string>()
@@ -359,7 +357,7 @@ test('L9b 变量钩子注册完备（@property inherits:false——污染根治 
   // layout 全面的钩子消费：var(--wf-X, fallback) 且 X 未在 token 面声明 = 钩子
   const hooks = new Map<string, string[]>()
   const collect = (raw: string, file: string) => {
-    const parsed = postcss.parse(raw)
+    const parsed = parseCss(raw)
     parsed.walkDecls((d) => {
       for (const m of String(d.value).matchAll(/var\(\s*(--wf-[a-z0-9-]+)\s*,/g)) {
         const name = m[1]
@@ -570,7 +568,6 @@ test('L14 layout 类文件 px 字面量登记制（结构魔数白名单——�
     '_surface.css#.wf-pill#border-radius': '999px——胶囊圆角（远大于任何盒高即全圆端；不是标尺档位——token 化无意义）',
     '_surface.css#.wf-elevate:hover#transform': '-2px——hover 微抬升（= motion-sm 4px 半档，无独立档位；入场幅度已走 motion 标尺）',
   }
-  const postcss = (await import('postcss')).default
   const stripVars = (v) => {
     let out = v, i
     while ((i = out.indexOf('var(')) !== -1) {
@@ -587,7 +584,7 @@ test('L14 layout 类文件 px 字面量登记制（结构魔数白名单——�
   const found = new Map()
   // 生成段（decl.ts 声明）与物理文件同面参与 px 登记（W5：fill-hover 已入声明）
   const scanD = (raw: string, f: string) => {
-    postcss.parse(raw).walkDecls((d) => {
+    parseCss(raw).walkDecls((d) => {
       const px = [...stripVars(String(d.value)).matchAll(/-?[\d.]+px/g)].map((m) => m[0])
       if (!px.length) return
       const sel = d.parent && d.parent.selector ? String(d.parent.selector).trim() : '(root)'

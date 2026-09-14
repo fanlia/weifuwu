@@ -145,13 +145,10 @@
   },
   "devDependencies": {
     "@graphql-tools/schema": "^10.0.38",
-    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^25",
     "@types/ws": "^8",
     "playwright": "^1.62.1",
-    "postcss": "^8.5.19",
     "puppeteer-core": "^25.9.0",
-    "tailwindcss": "^4.3.3",
     "ws": "^8"
   },
   "keywords": [
