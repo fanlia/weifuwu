@@ -8,8 +8,6 @@ import {
   type Hub,
   createWsUpgradeHandler,
 } from './ws.ts'
-import type { GraphQLHandler } from '../graphql.ts'
-import { createGraphqlRouter } from '../graphql.ts'
 import { createTrie, trieRegister, trieMatch, trieFind, splitPath, type TrieNode } from '../../shared/router/trie.ts'
 import { collectAll, collectAllWs, collectRoutes, collectWsRoutes, type RouteValue, type WsValue } from './collect.ts'
 import { runChain } from '../../shared/router/chain.ts'
@@ -195,25 +193,7 @@ export class Router<T extends object = Context> {
     return this
   }
 
-  /**
-   * Add GraphQL endpoint.
-   * Mounts a sub-router with GET (for queries + GraphiQL) and POST (for mutations).
-   *
-   * ```ts
-   * // At root
-   * app.graphql(async (req, ctx) => ({ schema: 'type Query { hello: String }' }))
-   *
-   * // Or at a custom path
-   * app.graphql('/graphql', async (req, ctx) => ({ schema: '...' }))
-   * ```
-   */
-  graphql(pathOrHandler: string | GraphQLHandler, maybeHandler?: GraphQLHandler): this {
-    const path = typeof pathOrHandler === 'string' ? pathOrHandler : '/'
-    const handler = typeof pathOrHandler === 'string' ? maybeHandler! : pathOrHandler
-    const sub = createGraphqlRouter(handler)
-    this.mount(path, sub)
-    return this
-  }
+  // graphql 端点：用中间件 `app.use(graphql('/path', handler))`（W2 出核——Router.graphql 已删）
 
   // ── Handler compilation ────────────────────────────────────
 

@@ -24,7 +24,7 @@
     },
     "l1": {
       "files": 83,
-      "loc": 12803,
+      "loc": 12783,
       "exports": 374
     },
     "l2": {
@@ -472,7 +472,7 @@
     "src/server/core/router.ts": {
       "level": "l1",
       "env": "server",
-      "loc": 400
+      "loc": 380
     },
     "src/server/core/serve.ts": {
       "level": "l1",

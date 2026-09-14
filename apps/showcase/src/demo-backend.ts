@@ -5,7 +5,7 @@
  * makeExecutableSchema/Router 路由）——"接口与实现分离"的活体教材：
  * 演示用内存实现（零 docker），文档诚实标注"真实部署换 postgres()/redis() 一行代码"。
  */
-import { createMemoryOrm, MemoryRedis, queue, rateLimit } from '../../../src/server/index.ts'
+import { createMemoryOrm, MemoryRedis, queue, rateLimit, graphql } from '../../../src/server/index.ts'
 import type { Router, Context } from '../../../src/server/index.ts'
 
 const json = (data: unknown, status = 200): Response =>
@@ -88,8 +88,8 @@ export function installDemoBackend(app: Router, ctx: Context): void {
   app.get('/api/demo/cron', (req: Request): Response =>
     json({ ticks: cronTick, note: '演示用 setInterval；生产：ctx.schedule(\'*/30 * * * * *\', fn) 或 ctx.cron 注册' }))
 
-  // 8. graphql — 框架原生端点（app.graphql——SDL + resolvers 绑定）
-  app.graphql('/api/demo/graphql', async () => ({
+  // 8. graphql — 框架原生端点（graphql() 中间件——SDL + resolvers 绑定）
+  app.use(graphql('/api/demo/graphql', async () => ({
     schema: `
       type Query { hello: String, add(a: Int!, b: Int!): Int! }
     `,
@@ -99,7 +99,7 @@ export function installDemoBackend(app: Router, ctx: Context): void {
         add: (_: any, { a, b }: { a: number; b: number }) => a + b,
       },
     },
-  }))
+  })))
 
   // 9. WebSocket echo（实时能力——handler 对象形式：open/message/close）
   app.ws('/ws/echo', {

@@ -619,11 +619,11 @@ insert/update/delete——query 参数 schema/limit clamp/枚举白名单/404·2
 
 ```ts
 const agentGql = pg.orm.gql(pg.orm.table('agents'), { hidden: ['webhook_secret'] })
-app.graphql('/api/gql', async (req, ctx) => ({
+app.use(graphql('/api/gql', async (req, ctx) => ({
   schema: agentGql.typeDefs,          // SDL（shape 投影——声明即有行为）
   resolvers: agentGql.resolvers,
   context: () => ({ orm: ctx.orm, appId: ctx.appId }),  // tenant.value 读 appId
-}))
+})))
 // query { agentsList(filter: {type: {eq: ai}}, sort: [{field: created_at, dir: desc}], limit: 10) { id name } }
 // mutation { agentsInsert(data: {type: ai, name: "x"}) { id } }   // app_id 自动注入
 ```

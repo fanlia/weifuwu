@@ -2,7 +2,7 @@
  * W5 试点契约：平台 agents 的 GraphQL 面（/api/gql——gqlFromShape 第二消费者）
  *
  * 平台 0 消费 → 试点判据：agents 表 gql 面（SDL/resolvers 自动生成）——
- * 验证：路由挂载（app.graphql）· 租户 scope（contextValue appId → 自动隔离）·
+ * 验证：路由挂载（graphql() 中间件）· 租户 scope（contextValue appId → 自动隔离）·
  * webhook_secret fieldPolicy.hidden 豁免 · insert 自动 id + app_id 注入。
  */
 import { describe, it, before, after } from 'node:test'
@@ -31,16 +31,16 @@ before(async () => {
   const { SHAPES } = await import('../src/db/shapes.ts')
   pg.orm.table('agents', SHAPES.agents as never)
 
-  const { Router } = await import('weifuwu')
+  const { Router, graphql } = await import('weifuwu')
   const app = new Router()
   app.use(pg)
   // 试点：/api/gql 挂 agents 的 gql 面（hidden: webhook_secret——敏感列豁免）
   const agentGql = pg.orm.gql(pg.orm.table('agents'), { hidden: ['webhook_secret'] })
-  app.graphql('/api/gql', async (req, ctx) => ({
+  app.use(graphql('/api/gql', async (req, ctx) => ({
     schema: agentGql.typeDefs,
     resolvers: agentGql.resolvers,
     context: () => ({ orm: (ctx as AppCtx).orm, appId: (ctx as AppCtx).appId }),
-  }))
+  })))
   handle = app.handler()
 
   // 播种（agent-one/agent-two 两租户）

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { Router } from './core/router.ts'
-import { createGraphqlRouter } from './graphql.ts'
+import { Router } from '../core/router.ts'
+import { createGraphqlRouter, graphql } from './graphql.ts'
 
 /** POST 查询 helper（wire 断言） */
 async function postQuery(r: ReturnType<typeof createGraphqlRouter>, query: string, options?: Record<string, unknown>): Promise<Response> {
@@ -14,6 +14,46 @@ async function postQuery(r: ReturnType<typeof createGraphqlRouter>, query: strin
     { params: {}, query: {} } as any,
   )
 }
+
+describe('graphql() 中间件（W2——Router.graphql 退役）', () => {
+  const handler = () => ({
+    schema: 'type Query { hello: String }',
+    resolvers: { Query: { hello: () => 'world' } },
+  })
+
+  const dispatch = (app: Router, path: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) =>
+    app.handler()(new Request(`http://localhost${path}`, init), { params: {}, query: {} } as any)
+
+  it('命中路径 → GraphQL 响应', async () => {
+    const app = new Router()
+    app.use(graphql('/api/gql', handler))
+    const res = await dispatch(app, '/api/gql', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query: '{ hello }' }),
+    })
+    assert.equal(res.status, 200)
+    assert.deepEqual(await res.json(), { data: { hello: 'world' } })
+  })
+
+  it('未命中 → next（不吞后续路由）', async () => {
+    const app = new Router()
+    app.get('/other', () => new Response('ok'))
+    app.use(graphql('/api/gql', handler))
+    assert.equal(await (await dispatch(app, '/other')).text(), 'ok')
+  })
+
+  it('前缀相似路径不误吞（/api/gqlx）', async () => {
+    const app = new Router()
+    app.get('/api/gqlx', () => new Response('x'))
+    app.use(graphql('/api/gql', handler))
+    assert.equal(await (await dispatch(app, '/api/gqlx')).text(), 'x')
+  })
+
+  it('缺 handler → 显式报错', () => {
+    assert.throws(() => graphql('/api/gql' as never), /缺少 handler/)
+  })
+})
 
 describe('graphql', () => {
   it('returns a Router', () => {

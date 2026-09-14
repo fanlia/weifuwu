@@ -118,6 +118,9 @@ src/core/
   - `audit:core-levels`：`core-levels.mjs --check`（基线逐项比对——**注入探针实测**：临时加 `errors.ts → graphql` 即红 exit 1，还原即绿）+ `core-graph.mjs --check`（esbuild metafile 全核打包——core 真实闭包三方 = **graphql, ws** 两项，与直接扫描一致；新增即红）。
   - `test:core`：`src/test/contract/**` + `src/shared/**` + `src/core/**` + `src/server/core/**` + `src/server/db/*.test.ts`（**排除 postgres/、redis/ 装备线协议真库测试**）——**830 测试 / 829 通过 / 1 docker-gated skip / 0 失败 / 6.3s**，无 docker 无浏览器（实测：docker 停止状态下全绿）。
   - 重定位登记：`test:core` 过渡期在原计划（contract+shared+core）上增收 `server/core` 与 db 直层（内核域测试预迁移——W3 目录迁移后收敛为 `src/core/**`）。
+- **W2①（2026-09-14）graphql 出核**：`Router.graphql` 删除；`src/server/graphql.ts` → `src/server/middleware/graphql.ts`（git rename）+ 新 `graphql(path, handler)` 中间件（父 Router mount 机制——前缀剥离；未命中 `next` 不吞路；缺 handler 显式抛；路径相似不误吞）；消费点全迁移（showcase demo-backend · 平台 `routes-protected.ts` · 平台测试）+ `src/server/index.ts` 导出 + `docs/server.md` 示例同步。
+  - 回归：graphql 契约 **20/20**（含中间件新增 4）· `test:server` **865（864 pass + 1 skip）** · `test:core` **830（829 + 1）** · 平台 gql **4/4**（先 `npm run build` 刷新 dist——平台经 exports 解析 dist）· `tsc` 0 · showcase 冒烟 3/3。
+  - 泄漏基线 **14 → 12**（`router→graphql` 双向消除）；三方仍 3（`ws`——W2②）。
 
 ## 验收标准
 

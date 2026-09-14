@@ -83,7 +83,8 @@ export type {
   ToolDefinition,
 } from './ai/types.ts'
 export { ui } from './ui/index.ts'
-export type { GraphQLOptions, GraphQLHandler } from './graphql.ts'
+export { graphql } from './middleware/graphql.ts'
+export type { GraphQLOptions, GraphQLHandler } from './middleware/graphql.ts'
 export { postgres, MIGRATIONS_TABLE } from './postgres/index.ts'
 export type { PostgresOptions, PostgresClient, PostgresInjected } from './postgres/types.ts'
 export { redis } from './redis/index.ts'

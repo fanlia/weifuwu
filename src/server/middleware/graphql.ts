@@ -6,9 +6,9 @@ import {
   parse,
   type DocumentNode,
 } from 'graphql'
-import { makeExecutableSchema } from './make-executable-schema.ts'
-import type { Context } from './types.ts'
-import { Router } from './core/router.ts'
+import { makeExecutableSchema } from '../make-executable-schema.ts'
+import type { Context, Middleware } from '../types.ts'
+import { Router } from '../core/router.ts'
 
 export interface GraphQLOptions {
   schema: string | GraphQLSchema
@@ -389,4 +389,41 @@ export function createGraphqlRouter(handler: GraphQLHandler): Router {
   )
 
   return r
+}
+
+/**
+ * GraphQL 中间件（W2——graphql 出核，`Router.graphql` 退役）。
+ *
+ * 命中路径（精确或子路径）→ 交给内部 GraphQL 路由（GET=查询+GraphiQL，
+ * POST=变更）；未命中 → `next`（不吞后续路由）。
+ *
+ * @example
+ * ```ts
+ * app.use(graphql('/api/gql', async (req, ctx) => ({ schema, resolvers })))
+ * ```
+ */
+export function graphql(
+  pathOrHandler: string | GraphQLHandler,
+  maybeHandler?: GraphQLHandler,
+): Middleware {
+  const path = typeof pathOrHandler === 'string' ? pathOrHandler : '/graphql'
+  const handler = typeof pathOrHandler === 'string' ? maybeHandler : pathOrHandler
+  if (!handler) throw new Error('graphql(): 缺少 handler')
+  // 用父 Router 的 mount 机制（前缀剥离/子路由匹配与 app.graphql 旧实现同源——零特例）
+  const app = new Router()
+  app.mount(path, createGraphqlRouter(handler))
+  const handle = app.handler()
+  const base = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
+  return (req, ctx, next) => {
+    let pathname: string
+    try {
+      pathname = new URL(req.url).pathname
+    } catch {
+      pathname = req.url.split('?')[0]
+    }
+    if (base === '/' ? pathname === '/' : pathname === base || pathname.startsWith(base + '/')) {
+      return handle(req, ctx)
+    }
+    return next(req, ctx)
+  }
 }

@@ -8,7 +8,7 @@
     },
     "l1": {
       "files": 83,
-      "loc": 12803,
+      "loc": 12783,
       "exports": 374
     },
     "l2": {
@@ -34,8 +34,6 @@
     "src/client/vdom/core/protocol.ts → src/client/vdom/middlewares/auth-i18n.ts (type)",
     "src/client/vdom/core/protocol.ts → src/client/vdom/middlewares/ws.ts (type)",
     "src/client/vdom/hooks/chat.ts → src/server/ai/types.ts",
-    "src/server/core/router.ts → src/server/graphql.ts",
-    "src/server/core/router.ts → src/server/graphql.ts (type)",
     "src/server/db/contracts.ts → src/server/db/redis/pipeline.ts (type)",
     "src/server/db/contracts.ts → src/server/db/redis/resp.ts (type)",
     "src/server/db/contracts.ts → src/server/db/redis/subscriber.ts (type)",
@@ -48,9 +46,5 @@
     "src/server/types.ts(l0) → src/server/core/ws.ts(l1) (type)"
   ],
   "nodeInUniversal": [],
-  "unknown": [],
-  "graphThirdParty": [
-    "graphql",
-    "ws"
-  ]
+  "unknown": []
 }

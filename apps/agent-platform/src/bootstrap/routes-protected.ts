@@ -5,7 +5,7 @@
  * 模块 + gql + workflow + messager + 内联 route + timer/恢复副作用。
  * 行为零变化（机械提取——平台 475 验证）。
  */
-import { Router, errorResponse, workflowSystem, messager, ops, HttpError, email, ui, verifyPassword, hashPassword, WEIFUWU_WORKFLOW_SCHEMA, WEIFUWU_MESSAGER_SCHEMA } from 'weifuwu'
+import { Router, errorResponse, workflowSystem, messager, ops, HttpError, email, ui, verifyPassword, hashPassword, WEIFUWU_WORKFLOW_SCHEMA, WEIFUWU_MESSAGER_SCHEMA, graphql } from 'weifuwu'
 import type { Context } from 'weifuwu'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -64,11 +64,11 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
   // 注意：tables(pg.orm) 先行使注册（平台注册面是惰性的——route 处理时注册；
   //   registry 幂等——route 面共享实例——启动路径先行调用是安全的）
   const agentGql = pg.orm.gql(tables(pg.orm).agents, { hidden: ['webhook_secret'] })
-  protectedRoutes.graphql('/api/gql', async (_req, ctx) => ({
+  protectedRoutes.use(graphql('/api/gql', async (_req, ctx) => ({
     schema: agentGql.typeDefs,
     resolvers: agentGql.resolvers,
     context: () => ({ orm: (ctx as unknown as AppCtx).orm, appId: (ctx as unknown as AppCtx).appId }),
-  }))
+  })))
 
   // ── workflow 系统（框架：引擎存储/编排——routes 必须在 mount 前注册——mount 快照收集） ──
   const workflowSystemInstance = workflowSystem({
