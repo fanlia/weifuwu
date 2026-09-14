@@ -9,19 +9,23 @@
  * - 只 SSR 登录/注册（无认证面——auth token 在 localStorage——其余页
  *   SPA 壳——ROADMAP A1 边界评估）
  */
-import { resolve, join, dirname } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { build as esbuild } from 'esbuild'
+import { APP_ROOT } from '../app-root.ts'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+// 框架根（src 或 dist）——APP_ROOT 上三层：agent-platform → apps → level6 → 根
+// jsxImportSource 必须绝对路径：安装包 exports 已删——'weifuwu/client/vdom' 不可解析
+// （0.95.0 安装包 SSR bundle 编译失败实证）
+const fwRoot = resolve(APP_ROOT, '..', '..', '..')
 
 /** 编译 + 加载 SSR bundle（无缓存——正确性优先——与 /app.js 同策略） */
 let ssrMod: any = null
 async function loadSsrApp(): Promise<any> {
   if (ssrMod) return ssrMod
-  const entry = resolve(__dirname, '..', 'ui', 'ssr-entry.ts')
+  const entry = resolve(APP_ROOT, 'ui', 'ssr-entry.ts')
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const result = await esbuild({
@@ -31,7 +35,7 @@ async function loadSsrApp(): Promise<any> {
         format: 'esm',
         write: false,
         jsx: 'automatic',
-        jsxImportSource: 'weifuwu/client/vdom',
+        jsxImportSource: resolve(fwRoot, 'level6', 'client', 'vdom'),
       })
       const tmp = resolve(tmpdir(), `wf-ap-ssr-${process.pid}-${Date.now()}.mjs`)
       await writeFile(tmp, result.outputFiles[0].text)

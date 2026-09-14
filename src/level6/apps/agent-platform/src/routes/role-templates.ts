@@ -7,6 +7,8 @@
 
 import type { Router, Context } from '../../../../index.ts'
 import { HttpError } from '../../../../index.ts'
+import { resolve } from 'node:path'
+import { APP_ROOT } from '../../app-root.ts'
 import type { AppCtx } from '../middleware/ctx.ts'
 import { BUILTIN_TOOL_DEFS } from './agents.ts'
 
@@ -222,10 +224,7 @@ export function registerRoleTemplateRoutes(app: Router<AppCtx>): void {
     const defaultSkills: string[] = template.default_skills ?? []
     for (const skillName of defaultSkills) {
       try {
-        const { resolve, dirname } = await import('node:path')
-        const { fileURLToPath } = await import('node:url')
-        const __dirname = dirname(fileURLToPath(import.meta.url))
-        const skillDir = resolve(__dirname, '..', '..', 'skills', 'builtin', skillName)
+        const skillDir = resolve(APP_ROOT, 'skills', 'builtin', skillName)
 
         await ctx.orm.query.insert('agent_skills')
           .values({ agent_id: String(agent.id), skill_name: skillName, skill_dir: skillDir })

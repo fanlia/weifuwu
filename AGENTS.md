@@ -76,6 +76,9 @@ shared **37** · 平台 **507**（492 pass + 15 docker-gated skip——协议 + 
   配置——同 embedding 平级——多 url 多 key）+ MemoryAiServer 协议替身
 - **shared/router**（`src/level0/router/`）——**前后端唯一共享模块五层单源**
   （trie/pipeline/context/chain/ctx-fields）
+- **应用 bundle 路径锚点**（`src/level6/apps/agent-platform/app-root.ts`）——esbuild 单文件 bundle 后
+  `import.meta.url` = bundle 位置（应用根）≠ 源文件目录；应用相对路径（skills/public/sandbox-agent/框架 dist）
+  一律由 `APP_ROOT` 推导（dev 与 dist 同语义——0.95.0 安装包实证：SSR 入口/public html/技能目录全部断链）
 - **workflow**（`src/level5/server/workflow/` 实现 + `src/level6/server/workflow/` 入口）——声明式执行引擎（表达式求值器/edge 去重状态机/步骤注册表/执行器——零运行时外部依赖）
 - **server 运行时**（`src/level2/`——Router（自研 Trie）/serve/WS hub/response/error-counter + db 协议引擎；中间件 `src/level5/server/middleware/`）
 - 计划规范：`plan/plan.md`——如何写计划（模板/纪律/收尾）——进行中计划

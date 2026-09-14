@@ -218,7 +218,7 @@ async function loadSsrApp(): Promise<any> {
         format: 'esm',
         write: false,
         jsx: 'automatic',
-        jsxImportSource: 'weifuwu/client/vdom',
+        jsxImportSource: resolve(fwRoot, 'level6', 'client', 'vdom'),
       })
       const tmp = resolve(osTmpdir(), `wf-ssr-${process.pid}-${Date.now()}.mjs`)
       await writeFile(tmp, result.outputFiles[0].text)

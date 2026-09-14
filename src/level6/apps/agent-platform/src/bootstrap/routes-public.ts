@@ -9,12 +9,11 @@ import { HttpError, ops } from '../../../../index.ts'
 import type { AppCtx } from '../middleware/ctx.ts'
 import type { PlatformDeps } from './deps.ts'
 import { readFileSync } from 'node:fs'
-import { resolve, join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { resolve, join } from 'node:path'
+import { APP_ROOT } from '../../app-root.ts'
 
 export function registerPublicRoutes(app: Router<AppCtx>, deps: PlatformDeps): void {
   const { pg, hasRedis, redisClient } = deps
-  const __dirname = dirname(fileURLToPath(import.meta.url)) + '/../..'
 
   // ── 公开 API（无需登录） ───────────────────────────────
 
@@ -33,10 +32,7 @@ export function registerPublicRoutes(app: Router<AppCtx>, deps: PlatformDeps): v
   // 可用技能列表（公开）+ C6 技能市场：?q= 搜索 + 全局评分聚合
   app.get('/api/skills/available', async (req: Request, _ctx: AppCtx): Promise<Response> => {
     const { discoverSkills } = await import('../services/skills.ts')
-    const { resolve, dirname } = await import('node:path')
-    const { fileURLToPath } = await import('node:url')
-    const __dirname = dirname(fileURLToPath(import.meta.url))
-    const skillsDir = resolve(__dirname, 'skills', 'builtin')
+    const skillsDir = resolve(APP_ROOT, 'skills', 'builtin')
     let skills = await discoverSkills(skillsDir)
 
     // C6 搜索：name/description 匹配（大小写不敏感）
@@ -174,7 +170,7 @@ export function registerPublicRoutes(app: Router<AppCtx>, deps: PlatformDeps): v
     const startTime = (globalThis as any).__platform_metrics?.startTime
     const uptimeSec = startTime ? Math.round((Date.now() - startTime) / 1000) : 0
     return Response.json(
-      { status: healthy ? 'ok' : 'degraded', uptimeSec, deps, disk, version: (() => { try { return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../package.json'), 'utf-8')).version } catch { return 'dev' } })(), ts: new Date().toISOString() },
+      { status: healthy ? 'ok' : 'degraded', uptimeSec, deps, disk, version: (() => { try { return JSON.parse(readFileSync(join(APP_ROOT, '..', '..', '..', '..', 'package.json'), 'utf-8')).version } catch { return 'dev' } })(), ts: new Date().toISOString() },
       { status: healthy ? 200 : 503 },
     )
   })

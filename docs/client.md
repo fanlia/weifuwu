@@ -41,7 +41,7 @@ TS/TSX 源码树，仅供 `ctx.ui` 浏览器编译，Node 在 `node_modules` 下
 | `weifuwu/dist/level6/client/components/index.js` | `src/level6/client/components/index.ts`（138 组件） |
 | `weifuwu/dist/level6/client/components/style.css` | dist 聚合样式（layout + 组件全量） |
 | `weifuwu/dist/level6/client/layout/index.js` | `src/level6/client/layout/index.ts`（defineLayout + 装配） |
-| `weifuwu/dist/level5/client/layout/weifuwu-layout.css` | 布局原语 CSS（独立面） |
+| `weifuwu/dist/level6/client/layout/weifuwu-layout.css` | 布局原语 CSS（独立面——聚合产物；`level5/.../weifuwu-layout.css` 为 @import 装配入口） |
 | `weifuwu/dist/level0/router/index.js` | `src/level0/router/index.ts`（trie/pipeline/context/chain 五件） |
 | `weifuwu/dist/level6/dev/index.js` | `src/level6/dev/index.ts`（`node --import weifuwu/dist/level6/dev/index.js server.ts`） |
 
@@ -156,7 +156,7 @@ TS/TSX 源码树，仅供 `ctx.ui` 浏览器编译，Node 在 `node_modules` 下
 **载荷面（W6 minify）**：dist 发布产物 `weifuwu-layout.css` **29.4K**（gzip 5.7K · brotli 5.0K）·
 `weifuwu/dist/level6/client/components/style.css` **221.4K**（gzip 29.1K · brotli 23.4K）——esbuild minify（
 `build.mjs` 实装：`@layer`/`@property`/`@supports`/转义类名全保留，注释全剥离）；
-**无组件应用只引 `weifuwu/dist/level5/client/layout/weifuwu-layout.css`**（29.4K / br 5.0K——独立面，零组件 CSS 成本）。
+**无组件应用只引 `weifuwu/dist/level6/client/layout/weifuwu-layout.css`**（29.4K / br 5.0K——独立面，零组件 CSS 成本）。
 按需子集（per-component 子路径 / purge）**判负**：动态类名漏删风险 + 构建期改造成本
 + br 后 24.3K 非瓶颈——推翻条件：真实应用首屏 CSS 成为 LCP 阻塞的实测数据。
 

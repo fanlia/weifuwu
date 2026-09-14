@@ -22,7 +22,7 @@ Node 在 `node_modules` 下拒绝 TS 类型剥离（`ERR_UNSUPPORTED_NODE_MODULE
 | `weifuwu/client/components` | `weifuwu/dist/level6/client/components/index.js` | 同上 |
 | `weifuwu/client/components/style.css` | `weifuwu/dist/level6/client/components/style.css` | — |
 | `weifuwu/client/layout` · `weifuwu/layout` | `weifuwu/dist/level6/client/layout/index.js` | 同上 |
-| `weifuwu/client/layout/weifuwu-layout.css` | `weifuwu/dist/level5/client/layout/weifuwu-layout.css` | — |
+| `weifuwu/client/layout/weifuwu-layout.css` | `weifuwu/dist/level6/client/layout/weifuwu-layout.css` | — |
 | `weifuwu/dev` | `weifuwu/dist/level6/dev/index.js` | — |
 | `weifuwu/shared/router` | `weifuwu/dist/level0/router/index.js` | 同上 |
 
@@ -72,6 +72,11 @@ showcase 无必需 env（`PORT` 可选）。
 `peerDependencies`: 无。
 
 ## 4. 框架开发者（源码级）
+
+- **应用 bundle 路径锚点**：esbuild 把 app server 打成单文件后，`import.meta.url` = bundle 位置——
+  源码目录相对的 `__dirname` 推导全部失真。应用相对路径（skills/public/sandbox-agent/框架 dist）
+  必须经 `app-root.ts` 的 `APP_ROOT` 推导（dev 与 dist 同语义——0.95.0 安装包实证）；
+  JSX 编译器 `jsxImportSource` 必须绝对路径（`weifuwu/client/vdom` 裸系已不可解析）。
 
 - 源码路径 `src/{core,client,server,shared}` → `src/level0`–`src/level6`（目录即层级）；
 - 分类清单 `src/levels.json`；守卫 `npm run audit:levels`（方向/环境/三方/规模/docs/L0 快照）；

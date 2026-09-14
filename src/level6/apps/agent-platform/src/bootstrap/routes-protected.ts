@@ -7,8 +7,8 @@
  */
 import { Router, errorResponse, workflowSystem, messager, ops, HttpError, email, ui, verifyPassword, hashPassword, WEIFUWU_WORKFLOW_SCHEMA, WEIFUWU_MESSAGER_SCHEMA, graphql } from '../../../../index.ts'
 import type { Context } from '../../../../index.ts'
-import { join, resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join, resolve } from 'node:path'
+import { APP_ROOT } from '../../app-root.ts'
 import { handleWebhookMessage } from '../services/webhook.ts'
 import type { AppCtx } from '../middleware/ctx.ts'
 import type { PlatformDeps } from './deps.ts'
@@ -31,7 +31,6 @@ import { registerUiRoutes } from '../ui/routes.ts'
 
 export async function registerProtectedRoutes(app: Router<AppCtx>, deps: PlatformDeps): Promise<void> {
   const { pg, redisClient, eventsPg, currentCtx } = deps
-  const __dirname = dirname(fileURLToPath(import.meta.url)) + '/../..'
 
   const protectedRoutes = new Router<AppCtx>()
   // W0：受保护面错误链（与主 app 同面）
@@ -819,7 +818,7 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
   // 本地 CDN（问卷页——v2 面——dist/client/vdom/index.js；旧 ui-dom 产物已随
   // v1 退役消失——问卷页 2027-09 迁移 vdom（S7 试点抓到：真实 LLM 打开问卷
   // 页静态资源 500——页面运行面断链——角色浏览器渲染失败卡死））
-  const distRoot = join(__dirname, '..', '..', '..', '..', 'dist')
+  const distRoot = join(APP_ROOT, '..', '..', '..', '..', 'dist')
   app.get('/static/ui-dom/index.js', async (): Promise<Response> => {
     const { readFileSync } = await import('node:fs')
     return new Response(readFileSync(join(distRoot, 'client', 'vdom', 'index.js'), 'utf-8'), { headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' } })
@@ -832,11 +831,8 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
   // ── 模拟数据收集问卷（客户 demo——多角色 AI 填写） ──────────
   app.get('/demo-survey', async (): Promise<Response> => {
     const { readFileSync } = await import('node:fs')
-    const { join, dirname } = await import('node:path')
-    const { fileURLToPath } = await import('node:url')
-    const __dirname = dirname(fileURLToPath(import.meta.url))
     // CDN 模式（weifuwu 组件库 + 原生表单控件——AI 填写可靠）
-    const html = readFileSync(join(__dirname, 'public', 'survey-form.html'), 'utf-8')
+    const html = readFileSync(join(APP_ROOT, 'public', 'survey-form.html'), 'utf-8')
     return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
   })
 
@@ -890,10 +886,7 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
 
   app.get('/demo-survey/campaigns', async (): Promise<Response> => {
     const { readFileSync } = await import('node:fs')
-    const { join, dirname } = await import('node:path')
-    const { fileURLToPath } = await import('node:url')
-    const __dirname = dirname(fileURLToPath(import.meta.url))
-    const html = readFileSync(join(__dirname, 'public', 'survey-campaigns.html'), 'utf-8')
+    const html = readFileSync(join(APP_ROOT, 'public', 'survey-campaigns.html'), 'utf-8')
     return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
   })
 
@@ -913,17 +906,14 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
 
   app.get('/demo-survey/stats', async (): Promise<Response> => {
     const { readFileSync } = await import('node:fs')
-    const { join, dirname } = await import('node:path')
-    const { fileURLToPath } = await import('node:url')
-    const __dirname = dirname(fileURLToPath(import.meta.url))
     // CDN 模式（weifuwu 组件库渲染——Card/Badge/EmptyState）
-    const html = readFileSync(join(__dirname, 'public', 'survey-stats.html'), 'utf-8')
+    const html = readFileSync(join(APP_ROOT, 'public', 'survey-stats.html'), 'utf-8')
     return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
   })
   // ── UI / SPA ───────────────────────────────────────────
   app.use(ui())
 
-  registerUiRoutes(app, __dirname)
+  registerUiRoutes(app, APP_ROOT)
 
   // ── 启动 ────────────────────────────────────────────────
 

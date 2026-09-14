@@ -19,13 +19,11 @@
  */
 
 import { execFile, spawn } from 'node:child_process'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
+import { APP_ROOT } from '../../app-root.ts'
 import { sandboxEmit } from './events.ts'
 import { type SandboxHost, HOST_ID } from './host.ts'
 import { randomUUID } from 'node:crypto'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export interface SandboxOptions {
   /** 默认容器镜像（ensure 时可按记录快照覆盖） */
@@ -76,7 +74,7 @@ const DEFAULT_OPTIONS: SandboxOptions = {
   enabled: process.env.SANDBOX_DISABLE !== '1',
   // Go agent（2027-09——挂载面而非烧入——镜像 ap-sandbox 保持不变——
   // agent 升级 = 替换宿主二进制——回滚 = 换回旧文件）
-  agentPath: resolve(__dirname, '../../dist/sandbox/sandbox-agent'),
+  agentPath: resolve(APP_ROOT, 'dist', 'sandbox', 'sandbox-agent'),
 }
 
 const CONTAINER_PREFIX = 'ap-sandbox-'

@@ -51,9 +51,9 @@
       "tests": 347
     },
     "6": {
-      "files": 172,
-      "loc": 35614,
-      "exports": 998,
+      "files": 173,
+      "loc": 35617,
+      "exports": 999,
       "assets": 17,
       "tests": 0
     }
@@ -4443,6 +4443,13 @@
       "target": "src/level5/shared/zod.test.ts",
       "loc": 180
     },
+    "src/level6/apps/agent-platform/app-root.ts": {
+      "kind": "level",
+      "level": 6,
+      "env": "mixed",
+      "target": "src/level6/apps/agent-platform/app-root.ts",
+      "loc": 16
+    },
     "src/level6/apps/agent-platform/probe-body.ts": {
       "kind": "level",
       "level": 6,
@@ -4630,14 +4637,14 @@
       "level": 6,
       "env": "mixed",
       "target": "src/level6/apps/agent-platform/src/bootstrap/routes-protected.ts",
-      "loc": 933
+      "loc": 923
     },
     "src/level6/apps/agent-platform/src/bootstrap/routes-public.ts": {
       "kind": "level",
       "level": 6,
       "env": "mixed",
       "target": "src/level6/apps/agent-platform/src/bootstrap/routes-public.ts",
-      "loc": 281
+      "loc": 277
     },
     "src/level6/apps/agent-platform/src/db/orm.ts": {
       "kind": "level",
@@ -4742,7 +4749,7 @@
       "level": 6,
       "env": "mixed",
       "target": "src/level6/apps/agent-platform/src/routes/role-templates.ts",
-      "loc": 247
+      "loc": 246
     },
     "src/level6/apps/agent-platform/src/routes/sandboxes.ts": {
       "kind": "level",
@@ -4784,7 +4791,7 @@
       "level": 6,
       "env": "mixed",
       "target": "src/level6/apps/agent-platform/src/sandbox/docker.ts",
-      "loc": 666
+      "loc": 664
     },
     "src/level6/apps/agent-platform/src/sandbox/events.ts": {
       "kind": "level",
@@ -6128,7 +6135,7 @@
       "level": 6,
       "env": "mixed",
       "target": "src/level6/apps/agent-platform/ui/ssr.ts",
-      "loc": 82
+      "loc": 86
     },
     "src/level6/apps/agent-platform/ui/v3-main.tsx": {
       "kind": "level",
