@@ -1408,7 +1408,7 @@
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/src/shared/roles.test.ts",
       "loc": 29
     },
     "apps/agent-platform/src/shared/roles.ts": {
@@ -1464,7 +1464,7 @@
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/01-auth.test.ts",
       "loc": 148
     },
     "apps/agent-platform/test/_template.contract.ts": {
@@ -1478,553 +1478,553 @@
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/agent-types.test.ts",
       "loc": 47
     },
     "apps/agent-platform/test/agents-gql.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/agents-gql.test.ts",
       "loc": 89
     },
     "apps/agent-platform/test/agents-rest.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/agents-rest.test.ts",
       "loc": 101
     },
     "apps/agent-platform/test/ai-events.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ai-events.test.ts",
       "loc": 57
     },
     "apps/agent-platform/test/ai.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ai.test.ts",
       "loc": 67
     },
     "apps/agent-platform/test/answer-cache.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/answer-cache.test.ts",
       "loc": 84
     },
     "apps/agent-platform/test/artifact-verify.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/artifact-verify.test.ts",
       "loc": 132
     },
     "apps/agent-platform/test/audit-filter.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/audit-filter.test.ts",
       "loc": 90
     },
     "apps/agent-platform/test/audit-versions.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/audit-versions.test.ts",
       "loc": 97
     },
     "apps/agent-platform/test/builtin-tools.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/builtin-tools.test.ts",
       "loc": 41
     },
     "apps/agent-platform/test/deliverables.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/deliverables.test.ts",
       "loc": 202
     },
     "apps/agent-platform/test/event-contracts.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/event-contracts.test.ts",
       "loc": 35
     },
     "apps/agent-platform/test/fetch-url.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/fetch-url.test.ts",
       "loc": 56
     },
     "apps/agent-platform/test/group-memory.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/group-memory.test.ts",
       "loc": 32
     },
     "apps/agent-platform/test/im-inbound.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/im-inbound.test.ts",
       "loc": 67
     },
     "apps/agent-platform/test/image-gen.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/image-gen.test.ts",
       "loc": 89
     },
     "apps/agent-platform/test/intent-route-integration.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/intent-route-integration.test.ts",
       "loc": 112
     },
     "apps/agent-platform/test/intent-route.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/intent-route.test.ts",
       "loc": 99
     },
     "apps/agent-platform/test/kb-search.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/kb-search.test.ts",
       "loc": 55
     },
     "apps/agent-platform/test/middleware.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/middleware.test.ts",
       "loc": 58
     },
     "apps/agent-platform/test/multi-agent.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/multi-agent.test.ts",
       "loc": 144
     },
     "apps/agent-platform/test/orchestration-tree.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/orchestration-tree.test.ts",
       "loc": 154
     },
     "apps/agent-platform/test/orchestrator.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/orchestrator.test.ts",
       "loc": 175
     },
     "apps/agent-platform/test/org-manager.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/org-manager.test.ts",
       "loc": 128
     },
     "apps/agent-platform/test/persona.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/persona.test.ts",
       "loc": 60
     },
     "apps/agent-platform/test/process-csv.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/process-csv.test.ts",
       "loc": 61
     },
     "apps/agent-platform/test/risk-policy.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/risk-policy.test.ts",
       "loc": 29
     },
     "apps/agent-platform/test/role-templates.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/role-templates.test.ts",
       "loc": 65
     },
     "apps/agent-platform/test/routes-gap-inline.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/routes-gap-inline.test.ts",
       "loc": 104
     },
     "apps/agent-platform/test/routes-gap-protected.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/routes-gap-protected.test.ts",
       "loc": 100
     },
     "apps/agent-platform/test/routes-gap-public.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/routes-gap-public.test.ts",
       "loc": 123
     },
     "apps/agent-platform/test/sandbox-events.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/sandbox-events.test.ts",
       "loc": 165
     },
     "apps/agent-platform/test/sandbox.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/sandbox.test.ts",
       "loc": 460
     },
     "apps/agent-platform/test/schema-ast-equivalence.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/schema-ast-equivalence.test.ts",
       "loc": 16
     },
     "apps/agent-platform/test/services-gap.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/services-gap.test.ts",
       "loc": 49
     },
     "apps/agent-platform/test/services-quick-replies.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/services-quick-replies.test.ts",
       "loc": 43
     },
     "apps/agent-platform/test/services.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/services.test.ts",
       "loc": 473
     },
     "apps/agent-platform/test/shapes-alignment.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/shapes-alignment.test.ts",
       "loc": 40
     },
     "apps/agent-platform/test/skill-market.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/skill-market.test.ts",
       "loc": 58
     },
     "apps/agent-platform/test/skills.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/skills.test.ts",
       "loc": 359
     },
     "apps/agent-platform/test/survey-campaign.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/survey-campaign.test.ts",
       "loc": 115
     },
     "apps/agent-platform/test/survey-ws.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/survey-ws.test.ts",
       "loc": 118
     },
     "apps/agent-platform/test/task-markers.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/task-markers.test.ts",
       "loc": 27
     },
     "apps/agent-platform/test/tenant-isolation.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/tenant-isolation.test.ts",
       "loc": 102
     },
     "apps/agent-platform/test/tenant-scope.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/tenant-scope.test.ts",
       "loc": 61
     },
     "apps/agent-platform/test/ui/admin-journey.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/admin-journey.test.ts",
       "loc": 171
     },
     "apps/agent-platform/test/ui/agents.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/agents.test.ts",
       "loc": 103
     },
     "apps/agent-platform/test/ui/approval-badge.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/approval-badge.test.ts",
       "loc": 113
     },
     "apps/agent-platform/test/ui/approvals.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/approvals.test.ts",
       "loc": 82
     },
     "apps/agent-platform/test/ui/auth-refresh.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/auth-refresh.test.ts",
       "loc": 68
     },
     "apps/agent-platform/test/ui/breathing-light.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/breathing-light.test.ts",
       "loc": 105
     },
     "apps/agent-platform/test/ui/bulk-approve.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/bulk-approve.test.ts",
       "loc": 162
     },
     "apps/agent-platform/test/ui/chat-404.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/chat-404.test.ts",
       "loc": 87
     },
     "apps/agent-platform/test/ui/chat-image-preview.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/chat-image-preview.test.ts",
       "loc": 82
     },
     "apps/agent-platform/test/ui/chat-standby.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/chat-standby.test.ts",
       "loc": 138
     },
     "apps/agent-platform/test/ui/chat-workflow.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/chat-workflow.test.ts",
       "loc": 148
     },
     "apps/agent-platform/test/ui/chat.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/chat.test.ts",
       "loc": 264
     },
     "apps/agent-platform/test/ui/click-smoke.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/click-smoke.test.ts",
       "loc": 137
     },
     "apps/agent-platform/test/ui/deliverables.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/deliverables.test.ts",
       "loc": 130
     },
     "apps/agent-platform/test/ui/demo-space.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/demo-space.test.ts",
       "loc": 76
     },
     "apps/agent-platform/test/ui/departments.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/departments.test.ts",
       "loc": 99
     },
     "apps/agent-platform/test/ui/dept-manager.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/dept-manager.test.ts",
       "loc": 78
     },
     "apps/agent-platform/test/ui/dept-member-picker.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/dept-member-picker.test.ts",
       "loc": 128
     },
     "apps/agent-platform/test/ui/files-section-ux.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/files-section-ux.test.ts",
       "loc": 76
     },
     "apps/agent-platform/test/ui/mobile-shell.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/mobile-shell.test.ts",
       "loc": 148
     },
     "apps/agent-platform/test/ui/pages.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/pages.test.ts",
       "loc": 171
     },
     "apps/agent-platform/test/ui/polish.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/polish.test.ts",
       "loc": 92
     },
     "apps/agent-platform/test/ui/polling.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/polling.test.ts",
       "loc": 91
     },
     "apps/agent-platform/test/ui/quick-replies.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/quick-replies.test.ts",
       "loc": 133
     },
     "apps/agent-platform/test/ui/reconnect.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/reconnect.test.ts",
       "loc": 90
     },
     "apps/agent-platform/test/ui/regression-walk.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/regression-walk.test.ts",
       "loc": 136
     },
     "apps/agent-platform/test/ui/regression.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/regression.test.ts",
       "loc": 132
     },
     "apps/agent-platform/test/ui/reports.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/reports.test.ts",
       "loc": 102
     },
     "apps/agent-platform/test/ui/role-masking.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/role-masking.test.ts",
       "loc": 153
     },
     "apps/agent-platform/test/ui/roles-journey.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/roles-journey.test.ts",
       "loc": 185
     },
     "apps/agent-platform/test/ui/roles.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/roles.test.ts",
       "loc": 168
     },
     "apps/agent-platform/test/ui/sandbox-status.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/sandbox-status.test.ts",
       "loc": 121
     },
     "apps/agent-platform/test/ui/scenario-smoke.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/scenario-smoke.test.ts",
       "loc": 187
     },
     "apps/agent-platform/test/ui/settings.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/settings.test.ts",
       "loc": 75
     },
     "apps/agent-platform/test/ui/shared.ts": {
@@ -2038,126 +2038,126 @@
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/smoke.test.ts",
       "loc": 76
     },
     "apps/agent-platform/test/ui/surveys.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/surveys.test.ts",
       "loc": 81
     },
     "apps/agent-platform/test/ui/templates.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/templates.test.ts",
       "loc": 65
     },
     "apps/agent-platform/test/ui/wave2-layout.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/wave2-layout.test.ts",
       "loc": 130
     },
     "apps/agent-platform/test/ui/wave3-density.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/wave3-density.test.ts",
       "loc": 143
     },
     "apps/agent-platform/test/ui/wave3-ux.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/wave3-ux.test.ts",
       "loc": 136
     },
     "apps/agent-platform/test/ui/wave4-enhance.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/wave4-enhance.test.ts",
       "loc": 181
     },
     "apps/agent-platform/test/ui/workflows.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/workflows.test.ts",
       "loc": 181
     },
     "apps/agent-platform/test/ui/workspace.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/workspace.test.ts",
       "loc": 111
     },
     "apps/agent-platform/test/ui/ws-files-loading.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/ui/ws-files-loading.test.ts",
       "loc": 109
     },
     "apps/agent-platform/test/upload.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/upload.test.ts",
       "loc": 81
     },
     "apps/agent-platform/test/video-gen.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/video-gen.test.ts",
       "loc": 265
     },
     "apps/agent-platform/test/webhook-platform.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/webhook-platform.test.ts",
       "loc": 38
     },
     "apps/agent-platform/test/wf-events.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/wf-events.test.ts",
       "loc": 125
     },
     "apps/agent-platform/test/workspace-department.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/workspace-department.test.ts",
       "loc": 60
     },
     "apps/agent-platform/test/workspace-handlers.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/workspace-handlers.test.ts",
       "loc": 48
     },
     "apps/agent-platform/test/workspace-index.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/workspace-index.test.ts",
       "loc": 42
     },
     "apps/agent-platform/test/workspace.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/agent-platform/test/workspace.test.ts",
       "loc": 55
     },
     "apps/agent-platform/ui/app.css": {
@@ -2668,966 +2668,966 @@
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-accordion.test.ts",
       "loc": 161
     },
     "apps/showcase/test/comp-actionsheet.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-actionsheet.test.ts",
       "loc": 148
     },
     "apps/showcase/test/comp-affix.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-affix.test.ts",
       "loc": 96
     },
     "apps/showcase/test/comp-aichat.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-aichat.test.ts",
       "loc": 118
     },
     "apps/showcase/test/comp-alert.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-alert.test.ts",
       "loc": 61
     },
     "apps/showcase/test/comp-alertgroup.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-alertgroup.test.ts",
       "loc": 75
     },
     "apps/showcase/test/comp-anchor.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-anchor.test.ts",
       "loc": 80
     },
     "apps/showcase/test/comp-approvalcard.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-approvalcard.test.ts",
       "loc": 85
     },
     "apps/showcase/test/comp-appshell.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-appshell.test.ts",
       "loc": 85
     },
     "apps/showcase/test/comp-aspectratio.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-aspectratio.test.ts",
       "loc": 74
     },
     "apps/showcase/test/comp-authpage.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-authpage.test.ts",
       "loc": 74
     },
     "apps/showcase/test/comp-autocomplete.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-autocomplete.test.ts",
       "loc": 98
     },
     "apps/showcase/test/comp-avatar.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-avatar.test.ts",
       "loc": 57
     },
     "apps/showcase/test/comp-avatargroup.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-avatargroup.test.ts",
       "loc": 55
     },
     "apps/showcase/test/comp-backtop.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-backtop.test.ts",
       "loc": 66
     },
     "apps/showcase/test/comp-badge.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-badge.test.ts",
       "loc": 60
     },
     "apps/showcase/test/comp-breadcrumb.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-breadcrumb.test.ts",
       "loc": 56
     },
     "apps/showcase/test/comp-button.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-button.test.ts",
       "loc": 71
     },
     "apps/showcase/test/comp-calendar.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-calendar.test.ts",
       "loc": 79
     },
     "apps/showcase/test/comp-card.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-card.test.ts",
       "loc": 89
     },
     "apps/showcase/test/comp-carousel.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-carousel.test.ts",
       "loc": 79
     },
     "apps/showcase/test/comp-cascader.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-cascader.test.ts",
       "loc": 86
     },
     "apps/showcase/test/comp-chart.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-chart.test.ts",
       "loc": 100
     },
     "apps/showcase/test/comp-chatinput.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-chatinput.test.ts",
       "loc": 89
     },
     "apps/showcase/test/comp-checkbox.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-checkbox.test.ts",
       "loc": 69
     },
     "apps/showcase/test/comp-checkboxgroup.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-checkboxgroup.test.ts",
       "loc": 87
     },
     "apps/showcase/test/comp-citationcard.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-citationcard.test.ts",
       "loc": 119
     },
     "apps/showcase/test/comp-codeblock.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-codeblock.test.ts",
       "loc": 66
     },
     "apps/showcase/test/comp-codeeditor.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-codeeditor.test.ts",
       "loc": 93
     },
     "apps/showcase/test/comp-collapse.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-collapse.test.ts",
       "loc": 80
     },
     "apps/showcase/test/comp-colorpicker.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-colorpicker.test.ts",
       "loc": 82
     },
     "apps/showcase/test/comp-command.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-command.test.ts",
       "loc": 102
     },
     "apps/showcase/test/comp-confirm.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-confirm.test.ts",
       "loc": 86
     },
     "apps/showcase/test/comp-contextmenu.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-contextmenu.test.ts",
       "loc": 89
     },
     "apps/showcase/test/comp-copybutton.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-copybutton.test.ts",
       "loc": 65
     },
     "apps/showcase/test/comp-cronpicker.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-cronpicker.test.ts",
       "loc": 67
     },
     "apps/showcase/test/comp-datepicker.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-datepicker.test.ts",
       "loc": 89
     },
     "apps/showcase/test/comp-descriptions.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-descriptions.test.ts",
       "loc": 61
     },
     "apps/showcase/test/comp-diffview.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-diffview.test.ts",
       "loc": 69
     },
     "apps/showcase/test/comp-divider.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-divider.test.ts",
       "loc": 52
     },
     "apps/showcase/test/comp-drawer.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-drawer.test.ts",
       "loc": 98
     },
     "apps/showcase/test/comp-dropdown.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-dropdown.test.ts",
       "loc": 61
     },
     "apps/showcase/test/comp-dropzone.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-dropzone.test.ts",
       "loc": 67
     },
     "apps/showcase/test/comp-editor.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-editor.test.ts",
       "loc": 104
     },
     "apps/showcase/test/comp-emptystate.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-emptystate.test.ts",
       "loc": 48
     },
     "apps/showcase/test/comp-exportcsv.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-exportcsv.test.ts",
       "loc": 48
     },
     "apps/showcase/test/comp-field.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-field.test.ts",
       "loc": 47
     },
     "apps/showcase/test/comp-filepreview.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-filepreview.test.ts",
       "loc": 54
     },
     "apps/showcase/test/comp-filetree.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-filetree.test.ts",
       "loc": 58
     },
     "apps/showcase/test/comp-fileupload.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-fileupload.test.ts",
       "loc": 76
     },
     "apps/showcase/test/comp-floatbutton.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-floatbutton.test.ts",
       "loc": 60
     },
     "apps/showcase/test/comp-form.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-form.test.ts",
       "loc": 70
     },
     "apps/showcase/test/comp-grid.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-grid.test.ts",
       "loc": 74
     },
     "apps/showcase/test/comp-highlight.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-highlight.test.ts",
       "loc": 44
     },
     "apps/showcase/test/comp-hovercard.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-hovercard.test.ts",
       "loc": 45
     },
     "apps/showcase/test/comp-icon.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-icon.test.ts",
       "loc": 45
     },
     "apps/showcase/test/comp-imagecropper.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-imagecropper.test.ts",
       "loc": 121
     },
     "apps/showcase/test/comp-img.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-img.test.ts",
       "loc": 62
     },
     "apps/showcase/test/comp-infinitescroll.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-infinitescroll.test.ts",
       "loc": 47
     },
     "apps/showcase/test/comp-input.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-input.test.ts",
       "loc": 47
     },
     "apps/showcase/test/comp-inputnumber.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-inputnumber.test.ts",
       "loc": 60
     },
     "apps/showcase/test/comp-inview.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-inview.test.ts",
       "loc": 42
     },
     "apps/showcase/test/comp-jsonschemaform.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-jsonschemaform.test.ts",
       "loc": 84
     },
     "apps/showcase/test/comp-jsonviewer.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-jsonviewer.test.ts",
       "loc": 74
     },
     "apps/showcase/test/comp-kanban.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-kanban.test.ts",
       "loc": 59
     },
     "apps/showcase/test/comp-label.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-label.test.ts",
       "loc": 44
     },
     "apps/showcase/test/comp-layout.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-layout.test.ts",
       "loc": 46
     },
     "apps/showcase/test/comp-link.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-link.test.ts",
       "loc": 44
     },
     "apps/showcase/test/comp-list.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-list.test.ts",
       "loc": 44
     },
     "apps/showcase/test/comp-listscaffold.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-listscaffold.test.ts",
       "loc": 78
     },
     "apps/showcase/test/comp-loading.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-loading.test.ts",
       "loc": 46
     },
     "apps/showcase/test/comp-logviewer.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-logviewer.test.ts",
       "loc": 70
     },
     "apps/showcase/test/comp-markdown.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-markdown.test.ts",
       "loc": 53
     },
     "apps/showcase/test/comp-markdowneditor.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-markdowneditor.test.ts",
       "loc": 58
     },
     "apps/showcase/test/comp-math.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-math.test.ts",
       "loc": 51
     },
     "apps/showcase/test/comp-mentions.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-mentions.test.ts",
       "loc": 48
     },
     "apps/showcase/test/comp-menu.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-menu.test.ts",
       "loc": 57
     },
     "apps/showcase/test/comp-menubar.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-menubar.test.ts",
       "loc": 46
     },
     "apps/showcase/test/comp-messagebubble.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-messagebubble.test.ts",
       "loc": 54
     },
     "apps/showcase/test/comp-modal.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-modal.test.ts",
       "loc": 79
     },
     "apps/showcase/test/comp-navbar.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-navbar.test.ts",
       "loc": 63
     },
     "apps/showcase/test/comp-navmenu.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-navmenu.test.ts",
       "loc": 57
     },
     "apps/showcase/test/comp-notification.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-notification.test.ts",
       "loc": 56
     },
     "apps/showcase/test/comp-pageheader.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-pageheader.test.ts",
       "loc": 43
     },
     "apps/showcase/test/comp-pagination.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-pagination.test.ts",
       "loc": 58
     },
     "apps/showcase/test/comp-passwordinput.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-passwordinput.test.ts",
       "loc": 59
     },
     "apps/showcase/test/comp-pininput.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-pininput.test.ts",
       "loc": 48
     },
     "apps/showcase/test/comp-pipeline.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-pipeline.test.ts",
       "loc": 44
     },
     "apps/showcase/test/comp-popconfirm.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-popconfirm.test.ts",
       "loc": 66
     },
     "apps/showcase/test/comp-popover.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-popover.test.ts",
       "loc": 54
     },
     "apps/showcase/test/comp-progressbar.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-progressbar.test.ts",
       "loc": 45
     },
     "apps/showcase/test/comp-prompttemplate.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-prompttemplate.test.ts",
       "loc": 45
     },
     "apps/showcase/test/comp-qrcode.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-qrcode.test.ts",
       "loc": 47
     },
     "apps/showcase/test/comp-radiogroup.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-radiogroup.test.ts",
       "loc": 44
     },
     "apps/showcase/test/comp-rate.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-rate.test.ts",
       "loc": 68
     },
     "apps/showcase/test/comp-reasoningblock.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-reasoningblock.test.ts",
       "loc": 63
     },
     "apps/showcase/test/comp-relationgraph.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-relationgraph.test.ts",
       "loc": 102
     },
     "apps/showcase/test/comp-resizable.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-resizable.test.ts",
       "loc": 50
     },
     "apps/showcase/test/comp-result.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-result.test.ts",
       "loc": 54
     },
     "apps/showcase/test/comp-scrollbar.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-scrollbar.test.ts",
       "loc": 71
     },
     "apps/showcase/test/comp-searchinput.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-searchinput.test.ts",
       "loc": 46
     },
     "apps/showcase/test/comp-segmentedcontrol.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-segmentedcontrol.test.ts",
       "loc": 54
     },
     "apps/showcase/test/comp-select.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-select.test.ts",
       "loc": 54
     },
     "apps/showcase/test/comp-sessionlist.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-sessionlist.test.ts",
       "loc": 80
     },
     "apps/showcase/test/comp-sheetgrid.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-sheetgrid.test.ts",
       "loc": 41
     },
     "apps/showcase/test/comp-skeleton.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-skeleton.test.ts",
       "loc": 47
     },
     "apps/showcase/test/comp-slidecanvas.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-slidecanvas.test.ts",
       "loc": 41
     },
     "apps/showcase/test/comp-slider.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-slider.test.ts",
       "loc": 235
     },
     "apps/showcase/test/comp-sortablelist.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-sortablelist.test.ts",
       "loc": 59
     },
     "apps/showcase/test/comp-space.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-space.test.ts",
       "loc": 42
     },
     "apps/showcase/test/comp-sparkline.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-sparkline.test.ts",
       "loc": 41
     },
     "apps/showcase/test/comp-statcard.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-statcard.test.ts",
       "loc": 57
     },
     "apps/showcase/test/comp-statusdot.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-statusdot.test.ts",
       "loc": 65
     },
     "apps/showcase/test/comp-steps.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-steps.test.ts",
       "loc": 53
     },
     "apps/showcase/test/comp-switch.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-switch.test.ts",
       "loc": 58
     },
     "apps/showcase/test/comp-tabbar.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-tabbar.test.ts",
       "loc": 74
     },
     "apps/showcase/test/comp-table.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-table.test.ts",
       "loc": 62
     },
     "apps/showcase/test/comp-tabs.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-tabs.test.ts",
       "loc": 66
     },
     "apps/showcase/test/comp-tag.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-tag.test.ts",
       "loc": 56
     },
     "apps/showcase/test/comp-tagsinput.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-tagsinput.test.ts",
       "loc": 72
     },
     "apps/showcase/test/comp-textarea.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-textarea.test.ts",
       "loc": 56
     },
     "apps/showcase/test/comp-themeswitch.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-themeswitch.test.ts",
       "loc": 91
     },
     "apps/showcase/test/comp-timeline.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-timeline.test.ts",
       "loc": 58
     },
     "apps/showcase/test/comp-toast.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-toast.test.ts",
       "loc": 76
     },
     "apps/showcase/test/comp-togglegroup.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-togglegroup.test.ts",
       "loc": 72
     },
     "apps/showcase/test/comp-toolcallcard.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-toolcallcard.test.ts",
       "loc": 43
     },
     "apps/showcase/test/comp-tooltip.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-tooltip.test.ts",
       "loc": 130
     },
     "apps/showcase/test/comp-tour.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-tour.test.ts",
       "loc": 132
     },
     "apps/showcase/test/comp-transfer.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-transfer.test.ts",
       "loc": 63
     },
     "apps/showcase/test/comp-tree.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-tree.test.ts",
       "loc": 53
     },
     "apps/showcase/test/comp-treeselect.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-treeselect.test.ts",
       "loc": 52
     },
     "apps/showcase/test/comp-typography.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-typography.test.ts",
       "loc": 54
     },
     "apps/showcase/test/comp-videoplayer.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-videoplayer.test.ts",
       "loc": 47
     },
     "apps/showcase/test/comp-virtuallist.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-virtuallist.test.ts",
       "loc": 53
     },
     "apps/showcase/test/comp-virtualtable.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-virtualtable.test.ts",
       "loc": 72
     },
     "apps/showcase/test/comp-watermark.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-watermark.test.ts",
       "loc": 57
     },
     "apps/showcase/test/comp-wave.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-wave.test.ts",
       "loc": 44
     },
     "apps/showcase/test/comp-wordcloud.test.ts": {
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/apps/showcase/test/comp-wordcloud.test.ts",
       "loc": 118
     },
     "apps/showcase/test/showcase-shared.ts": {
@@ -3641,14 +3641,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/cli/apps-typecheck.test.ts",
       "loc": 42
     },
     "src/cli/home-flash.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/cli/home-flash.test.ts",
       "loc": 27
     },
     "src/client/components/Accordion/Accordion.css": {
@@ -3760,7 +3760,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/AppShell/AppShell.test.ts",
       "loc": 77
     },
     "src/client/components/AppShell/AppShell.ts": {
@@ -3802,7 +3802,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/AuthPage/AuthPage.test.ts",
       "loc": 47
     },
     "src/client/components/AuthPage/AuthPage.ts": {
@@ -3865,7 +3865,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/BackTop/BackTop.test.ts",
       "loc": 32
     },
     "src/client/components/BackTop/BackTop.ts": {
@@ -3914,7 +3914,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Button/Button.test.ts",
       "loc": 63
     },
     "src/client/components/Button/Button.ts": {
@@ -3963,7 +3963,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Carousel/Carousel.test.ts",
       "loc": 132
     },
     "src/client/components/Carousel/Carousel.ts": {
@@ -4033,7 +4033,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Checkbox/Checkbox.test.ts",
       "loc": 44
     },
     "src/client/components/Checkbox/Checkbox.ts": {
@@ -4068,7 +4068,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/CitationCard/CitationCard.test.ts",
       "loc": 40
     },
     "src/client/components/CitationCard/CitationCard.ts": {
@@ -4089,7 +4089,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/CodeBlock/CodeBlock.test.ts",
       "loc": 100
     },
     "src/client/components/CodeBlock/CodeBlock.ts": {
@@ -4166,7 +4166,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/CommandsInjected.test.ts",
       "loc": 27
     },
     "src/client/components/Confirm/Confirm.ts": {
@@ -4201,7 +4201,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/CopyButton/CopyButton.test.ts",
       "loc": 93
     },
     "src/client/components/CopyButton/CopyButton.ts": {
@@ -4222,7 +4222,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/CronPicker/CronPicker.test.ts",
       "loc": 57
     },
     "src/client/components/CronPicker/CronPicker.ts": {
@@ -4327,7 +4327,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/DropZone/DropZone.test.ts",
       "loc": 48
     },
     "src/client/components/DropZone/DropZone.ts": {
@@ -4362,7 +4362,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Editor/Editor.test.ts",
       "loc": 82
     },
     "src/client/components/Editor/Editor.ts": {
@@ -4425,7 +4425,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Editor/model/sanitize.test.ts",
       "loc": 60
     },
     "src/client/components/Editor/model/types.ts": {
@@ -4698,7 +4698,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Input/Input.test.ts",
       "loc": 50
     },
     "src/client/components/Input/Input.ts": {
@@ -4719,7 +4719,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/InputNumber/InputNumber.test.ts",
       "loc": 96
     },
     "src/client/components/InputNumber/InputNumber.ts": {
@@ -4768,7 +4768,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Kanban/Kanban.test.ts",
       "loc": 74
     },
     "src/client/components/Kanban/Kanban.ts": {
@@ -4845,7 +4845,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/ListScaffold/ListScaffold.test.ts",
       "loc": 72
     },
     "src/client/components/ListScaffold/ListScaffold.ts": {
@@ -4957,7 +4957,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Menu/Menu.test.ts",
       "loc": 60
     },
     "src/client/components/Menu/Menu.ts": {
@@ -5020,7 +5020,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/NavBar/NavBar.test.ts",
       "loc": 71
     },
     "src/client/components/NavBar/NavBar.ts": {
@@ -5146,7 +5146,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Pipeline/Pipeline.test.ts",
       "loc": 45
     },
     "src/client/components/Pipeline/Pipeline.ts": {
@@ -5363,7 +5363,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/SegmentedControl/SegmentedControl.test.ts",
       "loc": 47
     },
     "src/client/components/SegmentedControl/SegmentedControl.ts": {
@@ -5454,7 +5454,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Slider/Slider.test.ts",
       "loc": 52
     },
     "src/client/components/Slider/Slider.ts": {
@@ -5524,7 +5524,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/StatCard/StatCard.test.ts",
       "loc": 131
     },
     "src/client/components/StatCard/StatCard.ts": {
@@ -5545,7 +5545,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/StatusDot/StatusDot.test.ts",
       "loc": 55
     },
     "src/client/components/StatusDot/StatusDot.ts": {
@@ -5580,7 +5580,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Switch/Switch.test.ts",
       "loc": 48
     },
     "src/client/components/Switch/Switch.ts": {
@@ -5629,7 +5629,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/Tabs/Tabs.test.ts",
       "loc": 59
     },
     "src/client/components/Tabs/Tabs.ts": {
@@ -5916,7 +5916,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/components/WordCloud/WordCloud.test.ts",
       "loc": 185
     },
     "src/client/components/WordCloud/WordCloud.ts": {
@@ -6156,7 +6156,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/client/office/office.test.ts",
       "loc": 361
     },
     "src/client/office/pptx.ts": {
@@ -6999,7 +6999,7 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/async-guard.ts",
+      "target": "src/level3/vdom/async-guard.ts",
       "loc": 34
     },
     "src/core/l1/client/vdom/browser/Browser.ts": {
@@ -7034,14 +7034,14 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/dev/effect-guard.ts",
+      "target": "src/level3/vdom/dev/effect-guard.ts",
       "loc": 66
     },
     "src/core/l1/client/vdom/dev/error-counter.ts": {
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/dev/error-counter.ts",
+      "target": "src/level3/vdom/dev/error-counter.ts",
       "loc": 63
     },
     "src/core/l1/client/vdom/dev/render-health.ts": {
@@ -7118,7 +7118,7 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/hooks/ai-stream.ts",
+      "target": "src/level3/vdom/hooks/ai-stream.ts",
       "loc": 180
     },
     "src/core/l1/client/vdom/hooks/basic.ts": {
@@ -7223,7 +7223,7 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/node/children.ts",
+      "target": "src/level3/vdom/node/children.ts",
       "loc": 37
     },
     "src/core/l1/client/vdom/node/component.ts": {
@@ -7237,21 +7237,21 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/node/fragment.ts",
+      "target": "src/level3/vdom/node/fragment.ts",
       "loc": 20
     },
     "src/core/l1/client/vdom/node/index.ts": {
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/node/index.ts",
+      "target": "src/level3/vdom/node/index.ts",
       "loc": 63
     },
     "src/core/l1/client/vdom/node/keyed.ts": {
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/node/keyed.ts",
+      "target": "src/level3/vdom/node/keyed.ts",
       "loc": 168
     },
     "src/core/l1/client/vdom/node/native.ts": {
@@ -7265,7 +7265,7 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/node/portal.ts",
+      "target": "src/level3/vdom/node/portal.ts",
       "loc": 16
     },
     "src/core/l1/client/vdom/observable/index.ts": {
@@ -7328,7 +7328,7 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/patch/state-machine.ts",
+      "target": "src/level3/vdom/patch/state-machine.ts",
       "loc": 143
     },
     "src/core/l1/client/vdom/patch/verify.ts": {
@@ -7342,7 +7342,7 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/ports.ts",
+      "target": "src/level3/vdom/ports.ts",
       "loc": 101
     },
     "src/core/l1/client/vdom/protocol.ts": {
@@ -7377,7 +7377,7 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/store.ts",
+      "target": "src/level3/vdom/store.ts",
       "loc": 137
     },
     "src/core/l1/client/vdom/transform/component.ts": {
@@ -7468,7 +7468,7 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/v2/schedule.ts",
+      "target": "src/level3/vdom/v2/schedule.ts",
       "loc": 92
     },
     "src/core/l1/client/vdom/v2/serve.ts": {
@@ -7482,7 +7482,7 @@
       "kind": "level",
       "level": 1,
       "env": "universal",
-      "target": "src/level1/vdom/v2/spy.ts",
+      "target": "src/level3/vdom/v2/spy.ts",
       "loc": 27
     },
     "src/core/l1/client/vdom/v2/ssr.ts": {
@@ -7679,7 +7679,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/ai/agent-emitter.test.ts",
       "loc": 52
     },
     "src/server/ai/agent.ts": {
@@ -7693,21 +7693,21 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/ai/ai-agent.test.ts",
       "loc": 626
     },
     "src/server/ai/ai-embed.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/ai/ai-embed.test.ts",
       "loc": 86
     },
     "src/server/ai/ai.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/ai/ai.test.ts",
       "loc": 381
     },
     "src/server/ai/approvals.ts": {
@@ -7750,14 +7750,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/ai/memory-ai.test.ts",
       "loc": 146
     },
     "src/server/ai/memory-server.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/ai/memory-server.test.ts",
       "loc": 85
     },
     "src/server/ai/memory-server.ts": {
@@ -7778,7 +7778,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/ai/multimodal.test.ts",
       "loc": 146
     },
     "src/server/ai/multimodal.ts": {
@@ -7834,14 +7834,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/core/router-contract.test.ts",
       "loc": 474
     },
     "src/server/core/router.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/core/router.test.ts",
       "loc": 264
     },
     "src/server/core/router.ts": {
@@ -7855,7 +7855,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/core/serve.test.ts",
       "loc": 396
     },
     "src/server/core/serve.ts": {
@@ -7869,7 +7869,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/core/ws.test.ts",
       "loc": 128
     },
     "src/server/core/ws.ts": {
@@ -7890,14 +7890,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/compile-fuzz.test.ts",
       "loc": 168
     },
     "src/server/db/consistency.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/consistency.test.ts",
       "loc": 89
     },
     "src/server/db/consistency.ts": {
@@ -7918,28 +7918,28 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/db-env-config.test.ts",
       "loc": 83
     },
     "src/server/db/departments-pilot.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/departments-pilot.test.ts",
       "loc": 202
     },
     "src/server/db/enum-vector.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/enum-vector.test.ts",
       "loc": 57
     },
     "src/server/db/errors.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/errors.test.ts",
       "loc": 62
     },
     "src/server/db/errors.ts": {
@@ -7953,7 +7953,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/filter.test.ts",
       "loc": 237
     },
     "src/server/db/filter.ts": {
@@ -7974,7 +7974,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/gql-from-shape.test.ts",
       "loc": 184
     },
     "src/server/db/gql-from-shape.ts": {
@@ -7988,7 +7988,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/http.test.ts",
       "loc": 85
     },
     "src/server/db/http.ts": {
@@ -8002,7 +8002,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/memory-pg-platform.test.ts",
       "loc": 133
     },
     "src/server/db/memory-redis.ts": {
@@ -8016,7 +8016,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/memory-semantics.test.ts",
       "loc": 444
     },
     "src/server/db/memory-sql.ts": {
@@ -8030,7 +8030,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/ops.test.ts",
       "loc": 106
     },
     "src/server/db/ops.ts": {
@@ -8044,7 +8044,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/orm.test.ts",
       "loc": 421
     },
     "src/server/db/orm.ts": {
@@ -8058,14 +8058,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/parse-body.test.ts",
       "loc": 131
     },
     "src/server/db/postgres/connection.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/postgres/connection.test.ts",
       "loc": 161
     },
     "src/server/db/postgres/connection.ts": {
@@ -8086,7 +8086,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/postgres/protocol.test.ts",
       "loc": 251
     },
     "src/server/db/postgres/protocol.ts": {
@@ -8114,7 +8114,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/query-language.test.ts",
       "loc": 366
     },
     "src/server/db/query.ts": {
@@ -8156,7 +8156,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/redis/connection.test.ts",
       "loc": 286
     },
     "src/server/db/redis/connection.ts": {
@@ -8170,7 +8170,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/redis/pipeline-contract.test.ts",
       "loc": 86
     },
     "src/server/db/redis/pipeline.ts": {
@@ -8191,14 +8191,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/redis/redis-ast.test.ts",
       "loc": 93
     },
     "src/server/db/redis/resp.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/redis/resp.test.ts",
       "loc": 113
     },
     "src/server/db/redis/resp.ts": {
@@ -8219,7 +8219,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/rest-from-shape.test.ts",
       "loc": 176
     },
     "src/server/db/rest-from-shape.ts": {
@@ -8233,7 +8233,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/schema-ast.test.ts",
       "loc": 26
     },
     "src/server/db/schema.ts": {
@@ -8261,14 +8261,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/state-machine.test.ts",
       "loc": 115
     },
     "src/server/db/typed-query.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/db/typed-query.test.ts",
       "loc": 165
     },
     "src/server/db/typed-query.ts": {
@@ -8296,7 +8296,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/email/email.test.ts",
       "loc": 278
     },
     "src/server/email/index.ts": {
@@ -8333,7 +8333,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/make-executable-schema.test.ts",
       "loc": 80
     },
     "src/server/make-executable-schema.ts": {
@@ -8355,28 +8355,28 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/messager/messager-realtime.test.ts",
       "loc": 140
     },
     "src/server/messager/messager-routes.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/messager/messager-routes.test.ts",
       "loc": 171
     },
     "src/server/messager/messager.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/messager/messager.test.ts",
       "loc": 194
     },
     "src/server/middleware/compress.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/middleware/compress.test.ts",
       "loc": 113
     },
     "src/server/middleware/compress.ts": {
@@ -8390,7 +8390,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/middleware/cors.test.ts",
       "loc": 52
     },
     "src/server/middleware/cors.ts": {
@@ -8404,7 +8404,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/middleware/graphql.test.ts",
       "loc": 266
     },
     "src/server/middleware/graphql.ts": {
@@ -8418,14 +8418,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/middleware/middleware-factory.test.ts",
       "loc": 84
     },
     "src/server/middleware/rate-limit.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/middleware/rate-limit.test.ts",
       "loc": 228
     },
     "src/server/middleware/rate-limit.ts": {
@@ -8439,7 +8439,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/middleware/static.test.ts",
       "loc": 132
     },
     "src/server/middleware/static.ts": {
@@ -8453,7 +8453,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/postgres/client.test.ts",
       "loc": 69
     },
     "src/server/postgres/client.ts": {
@@ -8475,7 +8475,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/postgres/tenant-wire.test.ts",
       "loc": 106
     },
     "src/server/postgres/types.ts": {
@@ -8497,7 +8497,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/queue/queue.test.ts",
       "loc": 451
     },
     "src/server/redis/client.ts": {
@@ -8526,7 +8526,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/request.test.ts",
       "loc": 59
     },
     "src/server/request.ts": {
@@ -8540,7 +8540,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/response.test.ts",
       "loc": 73
     },
     "src/server/response.ts": {
@@ -8554,14 +8554,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/scheduler/cron-integration.test.ts",
       "loc": 228
     },
     "src/server/scheduler/cron.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/scheduler/cron.test.ts",
       "loc": 111
     },
     "src/server/scheduler/cron.ts": {
@@ -8575,7 +8575,7 @@
       "kind": "test",
       "level": 6,
       "env": "mixed",
-      "target": null,
+      "target": "src/level6/server/scheduler/index.test.ts",
       "loc": 230
     },
     "src/server/scheduler/index.ts": {
@@ -8612,14 +8612,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/ui/ui.test.ts",
       "loc": 251
     },
     "src/server/user/app-auth.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/user/app-auth.test.ts",
       "loc": 123
     },
     "src/server/user/app-auth.ts": {
@@ -8655,21 +8655,21 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/user/user-multitenant.test.ts",
       "loc": 852
     },
     "src/server/user/user-timing.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/user/user-timing.test.ts",
       "loc": 73
     },
     "src/server/user/user.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/user/user.test.ts",
       "loc": 356
     },
     "src/server/workflow/contracts.ts": {
@@ -8683,14 +8683,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflow/e2e.test.ts",
       "loc": 119
     },
     "src/server/workflow/expression.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflow/expression.test.ts",
       "loc": 320
     },
     "src/server/workflow/expression.ts": {
@@ -8712,7 +8712,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflow/runner.test.ts",
       "loc": 256
     },
     "src/server/workflow/runner.ts": {
@@ -8740,7 +8740,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflow/store.test.ts",
       "loc": 103
     },
     "src/server/workflow/store.ts": {
@@ -8754,7 +8754,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflow/tojs.test.ts",
       "loc": 280
     },
     "src/server/workflow/tojs.ts": {
@@ -8768,7 +8768,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflow/try.test.ts",
       "loc": 124
     },
     "src/server/workflow/validate.ts": {
@@ -8782,14 +8782,14 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflow/views-patch.test.ts",
       "loc": 102
     },
     "src/server/workflow/views.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflow/views.test.ts",
       "loc": 73
     },
     "src/server/workflow/views.ts": {
@@ -8803,7 +8803,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflow/wfjs.test.ts",
       "loc": 317
     },
     "src/server/workflow/wfjs.ts": {
@@ -8817,7 +8817,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflows/cron.test.ts",
       "loc": 51
     },
     "src/server/workflows/cron.ts": {
@@ -8839,21 +8839,21 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflows/scheduler.test.ts",
       "loc": 75
     },
     "src/server/workflows/workflow-routes.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflows/workflow-routes.test.ts",
       "loc": 185
     },
     "src/server/workflows/workflow-system.test.ts": {
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/workflows/workflow-system.test.ts",
       "loc": 111
     },
     "src/server/ws/native/connection.ts": {
@@ -8867,7 +8867,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/ws/native/frame.test.ts",
       "loc": 117
     },
     "src/server/ws/native/frame.ts": {
@@ -8888,7 +8888,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/server/ws/native/server.test.ts",
       "loc": 204
     },
     "src/server/ws/native/server.ts": {
@@ -8909,7 +8909,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/shared/router/api.test.ts",
       "loc": 50
     },
     "src/shared/router/chain.ts": {
@@ -8945,7 +8945,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/shared/router/pipeline.test.ts",
       "loc": 203
     },
     "src/shared/router/pipeline.ts": {
@@ -8959,7 +8959,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/shared/router/trie.test.ts",
       "loc": 235
     },
     "src/shared/router/trie.ts": {
@@ -8980,7 +8980,7 @@
       "kind": "test",
       "level": 5,
       "env": "mixed",
-      "target": null,
+      "target": "src/level5/shared/zod.test.ts",
       "loc": 180
     },
     "src/shared/zod.ts": {

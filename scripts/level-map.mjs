@@ -193,12 +193,33 @@ function levelOfPath(rel) {
   return null
 }
 
+// ── 迁移目标（pre-move 规则投影——含测试文件；post-move 恒等）──────────
+function targetOf(rel) {
+  const testM = rel.match(/^(.*)\.test\.(tsx?)$/)
+  if (testM) {
+    const t = targetOf(`${testM[1]}.${testM[2]}`)
+    return t ? t.replace(new RegExp(`\\.${testM[2]}$`), `.test.${testM[2]}`) : null
+  }
+  if (MODE === 'post') return rel
+  if (ENTRIES.has(rel)) return ENTRIES.get(rel)
+  if (rel.startsWith('src/core/l0/')) return 'src/level0/' + rel.slice('src/core/l0/'.length)
+  if (rel.startsWith('src/core/l1/client/')) {
+    const inClient = CLIENT_SET.has(rel) || [...CLIENT_SET].some((c) => c.startsWith(dirname(rel) + '/'))
+    return (inClient ? 'src/level3/' : 'src/level1/') + rel.slice(L1_CLIENT.length)
+  }
+  if (rel.startsWith('src/core/l1/server/')) return 'src/level2/' + rel.slice('src/core/l1/server/'.length)
+  if (rel.startsWith('src/core/l2/')) return 'src/level4/' + rel.slice('src/core/l2/'.length)
+  if (rel.startsWith('src/')) return 'src/level5/' + rel.slice('src/'.length)
+  if (rel.startsWith('apps/')) return 'src/level6/apps/' + rel.slice('apps/'.length)
+  return null
+}
+
 function classify(rel) {
   if (isTest(rel)) {
     const base = rel.replace(/\.test\.tsx?$/, '.ts')
     const owner = levelOfPath(base) ?? levelOfPath(rel)
     if (!owner) return NULL
-    return { ...owner, kind: 'test', target: null }
+    return { ...owner, kind: 'test', target: owner.kind === 'test-support' ? null : targetOf(rel) }
   }
   if (MODE === 'post') {
     const m = rel.match(/^src\/level([0-6])\//)
@@ -212,16 +233,7 @@ function classify(rel) {
     return NULL
   }
   // pre-move：target = W1 后路径（规则投影）
-  const target = (() => {
-    if (ENTRIES.has(rel)) return ENTRIES.get(rel)
-    if (rel.startsWith('src/core/l0/')) return 'src/level0/' + rel.slice('src/core/l0/'.length)
-    if (rel.startsWith('src/core/l1/client/')) return (CLIENT_SET.has(rel) ? 'src/level3/' : 'src/level1/') + rel.slice(L1_CLIENT.length)
-    if (rel.startsWith('src/core/l1/server/')) return 'src/level2/' + rel.slice('src/core/l1/server/'.length)
-    if (rel.startsWith('src/core/l2/')) return 'src/level4/' + rel.slice('src/core/l2/'.length)
-    if (rel.startsWith('src/')) return 'src/level5/' + rel.slice('src/'.length)
-    if (rel.startsWith('apps/')) return 'src/level6/apps/' + rel.slice('apps/'.length)
-    return null
-  })()
+  const target = targetOf(rel)
   const base = levelOfPath(rel)
   if (!base) return NULL
   const kind = ENTRIES.has(rel) ? 'entry' : isShim(rel) ? 'shim' : isAsset(rel) ? 'asset' : base.kind
