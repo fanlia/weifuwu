@@ -114,11 +114,15 @@ src/core/
   - **重定位（探针修正原建议）**：`hooks/**` L2 → **L1**（L1 引擎运行时直接调用 `createUi`/`asyncDataPreload`/`asyncDataSeed`——按三问属运行时行为；L2 收敛为纯生成器 7 文件）；`core/field/key.ts` → **L0**（零依赖纯函数——修 `vnode(L0)→field/key(L1)` 上行 1 条）。
   - 存量违规基线（W2 目标 0）：core 三方 `ws` ×3 项 · core→装备泄漏 14 条（graphql 1 · vdom 中间件 5 · orm→生成器 2 · contracts→redis 3 · hooks/chat→server/ai 1 · types→redis 1 · UIContext→auth 1）· 层内上行 2 条（`vnode→UIContext` type · `types→core/ws` type）。
   - `audit:core-levels` 通过（无新增未知/三方/泄漏/上行）。
+- **W1（2026-09-14）**：防线三件套上线。
+  - `audit:core-levels`：`core-levels.mjs --check`（基线逐项比对——**注入探针实测**：临时加 `errors.ts → graphql` 即红 exit 1，还原即绿）+ `core-graph.mjs --check`（esbuild metafile 全核打包——core 真实闭包三方 = **graphql, ws** 两项，与直接扫描一致；新增即红）。
+  - `test:core`：`src/test/contract/**` + `src/shared/**` + `src/core/**` + `src/server/core/**` + `src/server/db/*.test.ts`（**排除 postgres/、redis/ 装备线协议真库测试**）——**830 测试 / 829 通过 / 1 docker-gated skip / 0 失败 / 6.3s**，无 docker 无浏览器（实测：docker 停止状态下全绿）。
+  - 重定位登记：`test:core` 过渡期在原计划（contract+shared+core）上增收 `server/core` 与 db 直层（内核域测试预迁移——W3 目录迁移后收敛为 `src/core/**`）。
 
 ## 验收标准
 
 - [x] W0：清单 100% 分类；`levels.json` + 三层基线入库
-- [ ] W1：`audit:core-levels` + `test:core` + import-graph 断言上线（黄→红机制验证）
+- [x] W1：`audit:core-levels` + `test:core` + import-graph 断言上线（黄→红机制验证）
 - [ ] W2：泄漏边 = 0；core 三方 import = 0；graphql 中间件化消费点全迁移
 - [ ] W3：目录迁移完成；收编类型/运行时到位；旧路径 shim 生效；全量回归绿
 - [ ] W4：L0 快照 + 规模基线 + `docs/core.md` + `audit:all` 接入

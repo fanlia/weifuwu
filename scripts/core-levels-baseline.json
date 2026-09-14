@@ -48,5 +48,9 @@
     "src/server/types.ts(l0) → src/server/core/ws.ts(l1) (type)"
   ],
   "nodeInUniversal": [],
-  "unknown": []
+  "unknown": [],
+  "graphThirdParty": [
+    "graphql",
+    "ws"
+  ]
 }

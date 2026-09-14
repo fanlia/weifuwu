@@ -100,6 +100,7 @@
     "release": "node scripts/release.mjs",
     "release:dry": "node scripts/release.mjs --dry-run",
     "test:client": "node --env-file=.env --test --test-concurrency=4 'src/test/contract/**/*.test.ts'",
+    "test:core": "node --env-file=.env --test --test-concurrency=4 'src/test/contract/**/*.test.ts' 'src/shared/**/*.test.ts' 'src/core/**/*.test.ts' 'src/server/core/**/*.test.ts' 'src/server/db/*.test.ts'",
     "test:server": "node --env-file=.env --test --experimental-test-module-mocks --test-concurrency=8 'src/server/**/*.test.ts'",
     "test:showcase": "node --env-file=.env --test --test-concurrency=6 --test-timeout=8000 apps/showcase/test/comp-*.test.ts",
     "test:scenario": "node --env-file=.env --test --test-timeout=8000 --test-concurrency=14 'src/test/scenario/e2e*.test.ts'",
@@ -116,7 +117,7 @@
     "audit:docs": "node scripts/audit-docs-api.mjs",
     "audit:health": "node scripts/audit-component-health.mjs",
     "core:levels": "node scripts/core-levels.mjs",
-    "audit:core-levels": "node scripts/core-levels.mjs --check",
+    "audit:core-levels": "node scripts/core-levels.mjs --check && node scripts/core-graph.mjs --check",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
     "test:perf": "PERF_BASELINE=1 node --env-file=.env --test src/server/core/router-contract.test.ts",
     "test:format": "node --test scripts/changelog-format.test.mjs"

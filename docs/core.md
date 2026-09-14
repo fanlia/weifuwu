@@ -50,7 +50,8 @@ src/core/
 
 ```bash
 npm run core:levels          # 生成清单与基线（src/core/levels.json + scripts/core-levels-baseline.json）
-npm run audit:core-levels    # 校验：新增未知/三方/泄漏/上行 = exit 1（存量基线登记）
+npm run audit:core-levels    # 校验：新增未知/三方/泄漏/上行/闭包依赖 = exit 1（存量基线登记）
+npm run test:core            # 内核回归（无 docker/无浏览器：契约 + shared + core + 内核域）
 ```
 
 基线数字（W0 实测，随迁移更新）：
@@ -63,3 +64,4 @@ npm run audit:core-levels    # 校验：新增未知/三方/泄漏/上行 = exit
 | 装备（范围内豁免） | 17 | 4729 | 72 |
 
 存量违规（W2 目标 0，基线登记可见）：core 三方 `ws` ×3 项 · core→装备泄漏 14 条 · 层内上行 2 条。
+import-graph 闭包断言（esbuild metafile）：core 全核打包真实依赖 = `graphql` + `ws`（与直接扫描一致——无隐藏传递依赖）。
