@@ -19,19 +19,27 @@ import { join } from 'node:path'
 
 const root = process.cwd()
 
-/** 域限定（core/ 与 hooks/——组件层不在红线域） */
-const DOMAINS = ['src/client/vdom/core', 'src/client/vdom/hooks']
+/** 域限定（W3 迁移后：旧 core/ + hooks/ = l1/l0/l2 vdom——排除旧 DOMAINS 未覆盖的兄弟目录） */
+const DOMAINS = [
+  'src/core/l0/vdom',
+  'src/core/l1/client/vdom',
+  'src/core/l2/client/vdom',
+]
+/** 旧 DOMAINS（core+hooks）未覆盖的兄弟目录——保持历史扫描域 */
+const SKIP = /[/\\](context|browser|dev|observable)[/\\]|[/\\]store\.ts$/
 
 /** 豁免清单（登记制——每项带理由——新增需审计确认） */
 const EXEMPT = [
   // 调度器拍（batching 时机——非隐式时序）
-  [/\bsetTimeout\(/, 'src/client/vdom/core/v2/schedule.ts'],
+  [/\bsetTimeout\(/, 'src/core/l1/client/vdom/v2/schedule.ts'],
   // 心跳/重连指数退避（中间件可靠性——显式可取消（clearTimeout））
   [/\bsetTimeout\(/, 'src/client/vdom/middlewares/ws.ts'],
   // 异步超时守卫（async-guard——Promise side race——显式 clearTimeout）
-  [/\bsetTimeout\(/, 'src/client/vdom/core/async-guard.ts'],
+  [/\bsetTimeout\(/, 'src/core/l1/client/vdom/async-guard.ts'],
+  // useTween 卡滞兑底（rAF 受可见性门控不走——超时强制落终值 + clearTimeout 显式取消）
+  [/\bsetTimeout\(/, 'src/core/l1/client/vdom/hooks/stable.ts'],
   // afterRender 兜底调度（serve 未设 afterRender 时宏任务兜底——注释含断链实证）
-  [/\bsetTimeout\(fn, 0\)/, 'src/client/vdom/core/v2/diff.ts'],
+  [/\bsetTimeout\(fn, 0\)/, 'src/core/l1/client/vdom/v2/diff.ts'],
 ]
 
 /** 剥离注释后的有效代码（// 行注释——避免注释文本误报） */
@@ -54,10 +62,14 @@ function* walk(dir) {
 const violations = []
 
 // ── 检查 2：双轨清理（v2 Segment 无 onUnmounts 字段） ──
-for (const f of walk(join(root, 'src/client/vdom/core'))) {
-  if (!f.endsWith('.ts')) continue
-  const src = readFileSync(f, 'utf8')
-  if (/onUnmounts\s*:\s*\(\)\s*=>\s*void/.test(src)) violations.push(`双轨清理：${rel(f)} —— onUnmounts 字段（应为 destroy$ 单信号）`)
+for (const domain of DOMAINS) {
+  for (const f of walk(join(root, domain))) {
+    const relf = rel(f)
+    if (SKIP.test(relf) || relf.includes('/hooks/')) continue
+    if (!f.endsWith('.ts')) continue
+    const src = readFileSync(f, 'utf8')
+    if (/onUnmounts\s*:\s*\(\)\s*=>\s*void/.test(src)) violations.push(`双轨清理：${relf} —— onUnmounts 字段（应为 destroy$ 单信号）`)
+  }
 }
 
 // ── 检查 1+3：渲染周期 await 串联 + setTimeout 裸调用（隐式时序） ──
@@ -65,10 +77,11 @@ for (const domain of DOMAINS) {
   const dir = join(root, domain)
   if (!statSync(dir).isDirectory()) continue
   for (const f of walk(dir)) {
+    const relp = rel(f)
+    if (SKIP.test(relp)) continue
     const src = readFileSync(f, 'utf8')
     const code = stripComments(src)
     const lines = code.split('\n')
-    const relp = rel(f)
 
     // 检查 3：setTimeout 裸调用（排除豁免 + 注释）
     lines.forEach((line, i) => {

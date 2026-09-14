@@ -18,7 +18,15 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const CORE_DIR = join(root, 'src/client/vdom/core')
+/** W3 目录迁移：vdom core 现分居 l0/l1/l2——审计面 = 三根合并 */
+const CORE_DIRS = [
+  join(root, 'src/core/l0/vdom'),
+  join(root, 'src/core/l1/client/vdom'),
+  join(root, 'src/core/l2/client/vdom'),
+]
+const PROCESSORS = join(root, 'src/core/l1/client/vdom/patch/processors.ts')
+/** C2 历史扫描域 = 旧 core/**（不含 hooks/context/browser/dev/store/observable 兄弟目录） */
+const C2_SKIP = /[/\\](hooks|context|browser|dev|observable)[/\\]|[/\\]store\.ts$/
 
 /** C1 标注词（防御性 return 的语义显式化清单） */
 const ANNOTATION_RE = /防御|审计|幂等|合法|违例|静默|兜底|Reject|回退|断言|规范/
@@ -64,7 +72,7 @@ export function coreAudit() {
 
   // ── C1：proc* 裸 return 标注 ──
   {
-    const src = readFileSync(join(CORE_DIR, 'patch/processors.ts'), 'utf-8')
+    const src = readFileSync(PROCESSORS, 'utf-8')
     const lines = src.split('\n')
     for (const fn of procFunctionBodies(src, lines)) {
       for (let li = fn.start; li <= fn.end; li++) {
@@ -89,13 +97,16 @@ export function coreAudit() {
       }
       return files
     }
-    for (const f of collect(CORE_DIR)) {
-      const src = readFileSync(f, 'utf-8')
-      const rel = f.replace(root + '/', '')
-      for (const line of src.split('\n')) {
-        if (!line.includes('as any')) continue
-        const exempt = AS_ANY_EXEMPTIONS.some((e) => line.includes(e.pattern))
-        if (!exempt) errors.push(`C2 ${rel}: 未登记 as any（白名单外——须登记理由或重构）: ${line.trim().slice(0, 80)}`)
+    for (const dir of CORE_DIRS) {
+      for (const f of collect(dir)) {
+        if (C2_SKIP.test(f)) continue
+        const src = readFileSync(f, 'utf-8')
+        const rel = f.replace(root + '/', '')
+        for (const line of src.split('\n')) {
+          if (!line.includes('as any')) continue
+          const exempt = AS_ANY_EXEMPTIONS.some((e) => line.includes(e.pattern))
+          if (!exempt) errors.push(`C2 ${rel}: 未登记 as any（白名单外——须登记理由或重构）: ${line.trim().slice(0, 80)}`)
+        }
       }
     }
   }

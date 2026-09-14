@@ -36,15 +36,23 @@ weifuwu 的内核不是目录，而是**一组"去掉就不再是 weifuwu"的机
 - **L2**：provisional——三面论 / 原语全面化收口前不承诺，之后按 L1 冻结。
 - **装备**：自由演进/可弃；core 不得依赖装备。
 
-## 目录形态（目标）
+## 目录形态（W3 已落地）
 
 ```
 src/core/
 ├── levels.json        # 生成物：模块 → {level, env, loc}
-├── l0/                # universal
-├── l1/{server,client}/
-└── l2/{server,client}/
+├── l0/                # universal（协议/纯数据）
+├── l1/{server,client}/ # 运行时（IO/DOM/node）
+└── l2/{server,client}/ # 生成器（声明 → 行为）
 ```
+
+**目录即层级**：审计（`scripts/core-levels.mjs`）以 `src/core` 为唯一 scope，
+按目录前缀定级——新增能力先答三问，再入对应目录。
+
+**兼容 shim**：旧路径（`src/shared/router/**`、`src/server/db/{shape,errors,…}.ts`、
+`src/client/vdom/{core,hooks,context,…}/**` 等 116 个）保留 `export *` 重出——
+装备面/测试/dist 入口零改动；移除条件：1.0 或消费点全迁移。
+core 自身**不得**经 shim 导入（审计对 core→非 core 导入 = 泄漏即红）。
 
 ## 工具
 
@@ -54,14 +62,14 @@ npm run audit:core-levels    # 校验：新增未知/三方/泄漏/上行/闭包
 npm run test:core            # 内核回归（无 docker/无浏览器：契约 + shared + core + 内核域）
 ```
 
-基线数字（W2 收口——随迁移更新）：
+基线数字（W3 目录迁移后——内容未变，随迁移更新）：
 
 | 层 | 文件 | 行数 | 导出 |
 | --- | --- | --- | --- |
 | L0 | 25 | 2856 | 215 |
 | L1 | 84 | 12912 | 383 |
 | L2 | 7 | 693 | 22 |
-| 装备（范围内豁免） | 17 | 4690 | 69 |
 
-违规基线（W2 收口）：**core→装备泄漏 0 · 三方依赖 0 · 未知 0**；层内上行 1（`vnode(L0)→UIContext(L1)` type——W3 收编处理）。
-import-graph 闭包断言（esbuild metafile）：core 全核打包真实依赖 = **空**（零三方——与直接扫描一致）。
+（装备面不在 scope —— 组件/中间件/线协议/工具为范围外，自由演进。）
+
+违规基线（W3 收口）：**core→装备泄漏 0 · 三方依赖 0 · 未知 0 · 闭包三方 0**；层内上行 1（`vnode(L0)→UIContext(L1)` type——待收编/登记）。

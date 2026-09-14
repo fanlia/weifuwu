@@ -1,35 +1,5 @@
 /**
- * vdom core — key 字段（业务身份声明协议——独立文件）
- *
- * 规则（设计规则 §4.0/§5.7——key 业务身份声明）：
- * - 框架**不生成身份 key**——数组项 key 只由业务声明（数据 id → keyBy /
- *   组件内部生成 / 用户显式 key）；无 key = 位置身份（unkeyed 按位置 patch）
- * - h()/jsx 剥离 key 进 vnode.key（**props 不泄漏 key**——组件不见 key）
- * - key 必须是 string|number（其余类型 warn + 忽略——不静默）
- * - keyed 列表 diff（身份跟随内容——增删/重排复用正确）与 A 级检测
- *   （数组长度变化 + 无 key 组件项 → dev error）在 diff 层消费
+ * W3 兼容 shim——真实实现已迁至 `src/core/l0/vdom/field/key.ts`。
+ * 保留：旧路径消费点（装备面/测试/dist 入口）稳定——移除条件：1.0 或消费点全迁移。
  */
-
-export const KEY = 'key'
-
-/** key 归一化（单一实现源——jsx 显式 key 参数与 props 路径同入口——
- *  数字 key 不归一 → keyedId 的 key.replace 崩（key 必须字符串）） */
-export function normalizeKey(k: unknown): string | null {
-  if (k === null || k === undefined) return null
-  if (typeof k === 'string') return k
-  if (typeof k === 'number') return String(k)
-  console.warn(`[vdom] key 必须是 string|number——当前 ${typeof k}（忽略——位置身份）`)
-  return null
-}
-
-/** key 提取（props → vnode.key——string|number 有效——其余 warn + null） */
-export function extractKey(props: Record<string, unknown> | null | undefined): string | null {
-  return normalizeKey(props?.key)
-}
-
-/** 从 props 拷贝中剥离 key（h/jsx 用——props 不泄漏 key） */
-export function stripKey(props: Record<string, unknown> | null | undefined): Record<string, unknown> {
-  const p = { ...(props ?? {}) }
-  delete p.key
-  return p
-}
+export * from '../../../../core/l0/vdom/field/key.ts'

@@ -130,13 +130,19 @@ src/core/
 - **W2④（2026-09-14）vdom 端口 + AI 类型下沉（W2 收口）**：客户端中间件端口类型单源 `core/ports.ts`（`AuthClient`/`I18nState`/`StorageAdapter`/`ApiClient`/`ApiRequestOptions`/`WsClient`/`WsLike`——中间件只留实现并重出兼容）；`UIContext`/`protocol` 改引端口（去 4 条内联 import 泄漏）；AI 线协议类型 `server/ai/types.ts` → `shared/ai/types.ts`（L0；server 面 shim 重出——core hooks 直引 shared）。
   - 回归：`test:core` **830（829+1）** · `test:server` **865（864+1）** · 场景 **129/129** · 平台 **507（492 pass + 15 docker-gated skip）** · `tsc` 0。
   - **W2 收口：泄漏 14 → 0 · 三方 3 → 0 · 未知 0 · 闭包三方 0**（上行 1——`vnode(L0)→UIContext(L1)` type，W3 收编）。
+- **W3（2026-09-14）目录迁移 + 收编**：
+  - 物理迁移 **116 文件** → `src/core/{l0,l1/{server,client},l2/{server,client}}`（git rename——一次性脚本：**479 处**相对 import 重写 + 2 处多行 import 手工修正；未命中 0）；旧路径 **116 个 `export *` shim**（装备/测试/dist 入口零改动——移除条件 1.0）。
+  - 审计转「目录即层级」：`core-levels.mjs` SCOPE=`src/core` + 5 条目录规则（删装备豁免表）；`build.mjs` shared/router 入口 → l0；`audit-vdom`/`audit-core-semantics`/`core-audit`/`audit-observable`×2 路径与扫描域同步（合成前缀保持历史豁免语义）；契约 L11 token 消费面补 `src/core`。
+  - **v1 残留登记**：引擎文件已无残留；公共入口 v2 兼容别名（`renderToStream`/`diffStream` 等）有在库消费者（契约测试/工具面）——保留登记（推翻条件：1.0 破坏窗口 + 消费点迁移）。
+  - 顺手：health 两条既有 i18n 裸文案（FileUpload/ToolCallCard progress label）接 `ctx.i18n.components` 机制（`??` fallback）——**audit:all 十三线全绿**。
+  - 回归：`test:core` **830** · `test:server` **865** · 场景 **129/129** · 平台 **507（492+15）** · `audit:all` exit 0 · `tsc` 0。
 
 ## 验收标准
 
 - [x] W0：清单 100% 分类；`levels.json` + 三层基线入库
 - [x] W1：`audit:core-levels` + `test:core` + import-graph 断言上线（黄→红机制验证）
 - [x] W2：泄漏边 = 0；core 三方 import = 0；graphql 中间件化消费点全迁移
-- [ ] W3：目录迁移完成；收编类型/运行时到位；旧路径 shim 生效；全量回归绿
+- [x] W3：目录迁移完成；收编类型/运行时到位；旧路径 shim 生效；全量回归绿
 - [ ] W4：L0 快照 + 规模基线 + `docs/core.md` + `audit:all` 接入
 - [ ] W5（条件）：Autobahn + 差分门槛达标，或按判负回退 ws 适配器
 - [ ] W6：平台升级零 core 改动；再生成实验通过

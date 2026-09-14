@@ -448,6 +448,7 @@ test('L11 token 死面 = 0（登记制——消费证据跨 src+apps）', () => 
       }
     }
   }
+  scan(join(root, 'src/core'))
   scan(join(root, 'src/client'))
   scan(join(root, 'apps'))
 

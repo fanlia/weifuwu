@@ -1,20 +1,7 @@
 {
   "version": 1,
   "scope": [
-    "src/shared",
-    "src/client/vdom/core",
-    "src/client/vdom/context",
-    "src/client/vdom/browser",
-    "src/client/vdom/dev",
-    "src/client/vdom/store.ts",
-    "src/client/vdom/observable",
-    "src/client/vdom/hooks",
-    "src/client/layout/define.ts",
-    "src/client/layout/decl.ts",
-    "src/server/core",
-    "src/server/db",
-    "src/server/types.ts",
-    "src/server/response.ts"
+    "src/core"
   ],
   "summary": {
     "l0": {
@@ -31,678 +18,588 @@
       "files": 7,
       "loc": 693,
       "exports": 22
-    },
-    "equipment": {
-      "files": 17,
-      "loc": 4690,
-      "exports": 69
     }
   },
   "files": {
-    "src/client/layout/decl.ts": {
-      "level": "l2",
-      "env": "client",
-      "loc": 62
-    },
-    "src/client/layout/define.ts": {
-      "level": "l2",
-      "env": "client",
-      "loc": 97
-    },
-    "src/client/vdom/browser/Browser.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 79
-    },
-    "src/client/vdom/browser/create-client-browser.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 104
-    },
-    "src/client/vdom/context/UIContext.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 70
-    },
-    "src/client/vdom/context/data.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 70
-    },
-    "src/client/vdom/core/async-guard.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 34
-    },
-    "src/client/vdom/core/command/create.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 29
-    },
-    "src/client/vdom/core/command/index.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 40
-    },
-    "src/client/vdom/core/command/insert.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 36
-    },
-    "src/client/vdom/core/command/lifecycle.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 54
-    },
-    "src/client/vdom/core/command/props.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 25
-    },
-    "src/client/vdom/core/create-component.ts": {
-      "level": "l2",
-      "env": "client",
-      "loc": 78
-    },
-    "src/client/vdom/core/create-item.ts": {
-      "level": "l2",
-      "env": "client",
-      "loc": 181
-    },
-    "src/client/vdom/core/diff/attrs.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 55
-    },
-    "src/client/vdom/core/diff/cleanup.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 155
-    },
-    "src/client/vdom/core/field/attributes.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 75
-    },
-    "src/client/vdom/core/field/events.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 171
-    },
-    "src/client/vdom/core/field/index.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 21
-    },
-    "src/client/vdom/core/field/input-sync.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 39
-    },
-    "src/client/vdom/core/field/key.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 36
-    },
-    "src/client/vdom/core/field/props.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 60
-    },
-    "src/client/vdom/core/field/ref.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 103
-    },
-    "src/client/vdom/core/field/style.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 64
-    },
-    "src/client/vdom/core/node/children.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 37
-    },
-    "src/client/vdom/core/node/component.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 269
-    },
-    "src/client/vdom/core/node/fragment.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 20
-    },
-    "src/client/vdom/core/node/hole.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 59
-    },
-    "src/client/vdom/core/node/index.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 63
-    },
-    "src/client/vdom/core/node/keyed.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 168
-    },
-    "src/client/vdom/core/node/native.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 80
-    },
-    "src/client/vdom/core/node/portal.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 16
-    },
-    "src/client/vdom/core/patch/fields.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 59
-    },
-    "src/client/vdom/core/patch/index.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 226
-    },
-    "src/client/vdom/core/patch/processors.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 364
-    },
-    "src/client/vdom/core/patch/state-machine.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 143
-    },
-    "src/client/vdom/core/patch/verify.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 48
-    },
-    "src/client/vdom/core/ports.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 101
-    },
-    "src/client/vdom/core/protocol.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 153
-    },
-    "src/client/vdom/core/router.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 102
-    },
-    "src/client/vdom/core/semantic.ts": {
-      "level": "l2",
-      "env": "client",
-      "loc": 114
-    },
-    "src/client/vdom/core/ssr/absorb.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 150
-    },
-    "src/client/vdom/core/ssr/html.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 117
-    },
-    "src/client/vdom/core/transform/component.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 57
-    },
-    "src/client/vdom/core/transform/element.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 28
-    },
-    "src/client/vdom/core/transform/fragment.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 38
-    },
-    "src/client/vdom/core/transform/hole.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 19
-    },
-    "src/client/vdom/core/transform/index.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 55
-    },
-    "src/client/vdom/core/transform/states.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 37
-    },
-    "src/client/vdom/core/transform/table.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 57
-    },
-    "src/client/vdom/core/transform/text.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 16
-    },
-    "src/client/vdom/core/v2/cycle.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 141
-    },
-    "src/client/vdom/core/v2/diff.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 979
-    },
-    "src/client/vdom/core/v2/integrate.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 86
-    },
-    "src/client/vdom/core/v2/render.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 269
-    },
-    "src/client/vdom/core/v2/schedule.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 92
-    },
-    "src/client/vdom/core/v2/serve.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 364
-    },
-    "src/client/vdom/core/v2/spy.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 27
-    },
-    "src/client/vdom/core/v2/ssr.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 106
-    },
-    "src/client/vdom/core/vnode.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 103
-    },
-    "src/client/vdom/dev/effect-guard.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 66
-    },
-    "src/client/vdom/dev/error-counter.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 63
-    },
-    "src/client/vdom/dev/render-health.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 179
-    },
-    "src/client/vdom/hooks/ai-stream.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 180
-    },
-    "src/client/vdom/hooks/basic.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 113
-    },
-    "src/client/vdom/hooks/chat.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 400
-    },
-    "src/client/vdom/hooks/controlled.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 59
-    },
-    "src/client/vdom/hooks/drag-media.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 133
-    },
-    "src/client/vdom/hooks/env.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 331
-    },
-    "src/client/vdom/hooks/field.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 98
-    },
-    "src/client/vdom/hooks/input.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 93
-    },
-    "src/client/vdom/hooks/observe.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 258
-    },
-    "src/client/vdom/hooks/overlay.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 106
-    },
-    "src/client/vdom/hooks/popup-manager.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 563
-    },
-    "src/client/vdom/hooks/popup.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 148
-    },
-    "src/client/vdom/hooks/signal.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 42
-    },
-    "src/client/vdom/hooks/stable.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 260
-    },
-    "src/client/vdom/hooks/use-observable.ts": {
-      "level": "l1",
-      "env": "client",
-      "loc": 54
-    },
-    "src/client/vdom/observable/index.ts": {
-      "level": "l1",
-      "env": "universal",
-      "loc": 14
-    },
-    "src/client/vdom/observable/observable.ts": {
-      "level": "l1",
-      "env": "universal",
-      "loc": 90
-    },
-    "src/client/vdom/observable/operators.ts": {
-      "level": "l1",
-      "env": "universal",
-      "loc": 400
-    },
-    "src/client/vdom/observable/sources.ts": {
-      "level": "l1",
-      "env": "universal",
-      "loc": 132
-    },
-    "src/client/vdom/observable/types.ts": {
-      "level": "l1",
-      "env": "universal",
-      "loc": 49
-    },
-    "src/client/vdom/store.ts": {
-      "level": "l1",
-      "env": "universal",
-      "loc": 137
-    },
-    "src/server/core/collect.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 90
-    },
-    "src/server/core/error-counter.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 54
-    },
-    "src/server/core/hub.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 45
-    },
-    "src/server/core/router.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 366
-    },
-    "src/server/core/serve.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 350
-    },
-    "src/server/core/ws.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 143
-    },
-    "src/server/db/body.ts": {
-      "level": "l2",
-      "env": "server",
-      "loc": 75
-    },
-    "src/server/db/consistency.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 80
-    },
-    "src/server/db/contracts.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 114
-    },
-    "src/server/db/errors.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 90
-    },
-    "src/server/db/filter.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 66
-    },
-    "src/server/db/generator-contracts.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 59
-    },
-    "src/server/db/gql-from-shape.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 286
-    },
-    "src/server/db/http.ts": {
-      "level": "l2",
-      "env": "server",
-      "loc": 86
-    },
-    "src/server/db/memory-redis.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 658
-    },
-    "src/server/db/memory-sql.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 949
-    },
-    "src/server/db/ops.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 154
-    },
-    "src/server/db/orm.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 388
-    },
-    "src/server/db/postgres/connection.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 705
-    },
-    "src/server/db/postgres/pool.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 422
-    },
-    "src/server/db/postgres/protocol.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 399
-    },
-    "src/server/db/postgres/schema.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 71
-    },
-    "src/server/db/query-builder.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 245
-    },
-    "src/server/db/query.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 561
-    },
-    "src/server/db/redis-server.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 348
-    },
-    "src/server/db/redis/ast.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 54
-    },
-    "src/server/db/redis/client.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 251
-    },
-    "src/server/db/redis/commands.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 185
-    },
-    "src/server/db/redis/connection.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 425
-    },
-    "src/server/db/redis/pipeline.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 72
-    },
-    "src/server/db/redis/pool.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 362
-    },
-    "src/server/db/redis/resp.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 247
-    },
-    "src/server/db/redis/subscriber.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 36
-    },
-    "src/server/db/rest-from-shape.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 139
-    },
-    "src/server/db/schema.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 375
-    },
-    "src/server/db/server.ts": {
-      "level": "equipment",
-      "env": "n/a",
-      "loc": 30
-    },
-    "src/server/db/shape.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 211
-    },
-    "src/server/db/typed-query.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 154
-    },
-    "src/server/response.ts": {
-      "level": "l1",
-      "env": "server",
-      "loc": 118
-    },
-    "src/server/types.ts": {
-      "level": "l0",
-      "env": "universal",
-      "loc": 154
-    },
-    "src/shared/ai/types.ts": {
+    "src/core/l0/ai/types.ts": {
       "level": "l0",
       "env": "universal",
       "loc": 165
     },
-    "src/shared/router/chain.ts": {
+    "src/core/l0/db/contracts.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 114
+    },
+    "src/core/l0/db/errors.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 90
+    },
+    "src/core/l0/db/filter.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 66
+    },
+    "src/core/l0/db/generator-contracts.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 59
+    },
+    "src/core/l0/db/ops.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 154
+    },
+    "src/core/l0/db/query.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 561
+    },
+    "src/core/l0/db/shape.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 211
+    },
+    "src/core/l0/router/chain.ts": {
       "level": "l0",
       "env": "universal",
       "loc": 31
     },
-    "src/shared/router/context.ts": {
+    "src/core/l0/router/context.ts": {
       "level": "l0",
       "env": "universal",
       "loc": 68
     },
-    "src/shared/router/ctx-fields.ts": {
+    "src/core/l0/router/ctx-fields.ts": {
       "level": "l0",
       "env": "universal",
       "loc": 43
     },
-    "src/shared/router/index.ts": {
+    "src/core/l0/router/index.ts": {
       "level": "l0",
       "env": "universal",
       "loc": 18
     },
-    "src/shared/router/pipeline.ts": {
+    "src/core/l0/router/pipeline.ts": {
       "level": "l0",
       "env": "universal",
       "loc": 131
     },
-    "src/shared/router/trie.ts": {
+    "src/core/l0/router/trie.ts": {
       "level": "l0",
       "env": "universal",
       "loc": 203
     },
-    "src/shared/router/types.ts": {
+    "src/core/l0/router/types.ts": {
       "level": "l0",
       "env": "universal",
       "loc": 35
     },
-    "src/shared/zod.ts": {
+    "src/core/l0/types.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 154
+    },
+    "src/core/l0/vdom/command/create.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 29
+    },
+    "src/core/l0/vdom/command/index.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 40
+    },
+    "src/core/l0/vdom/command/insert.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 36
+    },
+    "src/core/l0/vdom/command/lifecycle.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 54
+    },
+    "src/core/l0/vdom/command/props.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 25
+    },
+    "src/core/l0/vdom/field/key.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 36
+    },
+    "src/core/l0/vdom/node/hole.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 59
+    },
+    "src/core/l0/vdom/vnode.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 103
+    },
+    "src/core/l0/zod.ts": {
       "level": "l0",
       "env": "universal",
       "loc": 371
+    },
+    "src/core/l1/client/vdom/async-guard.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 34
+    },
+    "src/core/l1/client/vdom/browser/Browser.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 79
+    },
+    "src/core/l1/client/vdom/browser/create-client-browser.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 104
+    },
+    "src/core/l1/client/vdom/context/UIContext.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 70
+    },
+    "src/core/l1/client/vdom/context/data.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 70
+    },
+    "src/core/l1/client/vdom/dev/effect-guard.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 66
+    },
+    "src/core/l1/client/vdom/dev/error-counter.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 63
+    },
+    "src/core/l1/client/vdom/dev/render-health.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 179
+    },
+    "src/core/l1/client/vdom/diff/attrs.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 55
+    },
+    "src/core/l1/client/vdom/diff/cleanup.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 155
+    },
+    "src/core/l1/client/vdom/field/attributes.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 75
+    },
+    "src/core/l1/client/vdom/field/events.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 171
+    },
+    "src/core/l1/client/vdom/field/index.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 21
+    },
+    "src/core/l1/client/vdom/field/input-sync.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 39
+    },
+    "src/core/l1/client/vdom/field/props.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 60
+    },
+    "src/core/l1/client/vdom/field/ref.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 103
+    },
+    "src/core/l1/client/vdom/field/style.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 64
+    },
+    "src/core/l1/client/vdom/hooks/ai-stream.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 180
+    },
+    "src/core/l1/client/vdom/hooks/basic.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 113
+    },
+    "src/core/l1/client/vdom/hooks/chat.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 400
+    },
+    "src/core/l1/client/vdom/hooks/controlled.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 59
+    },
+    "src/core/l1/client/vdom/hooks/drag-media.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 133
+    },
+    "src/core/l1/client/vdom/hooks/env.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 331
+    },
+    "src/core/l1/client/vdom/hooks/field.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 98
+    },
+    "src/core/l1/client/vdom/hooks/input.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 93
+    },
+    "src/core/l1/client/vdom/hooks/observe.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 258
+    },
+    "src/core/l1/client/vdom/hooks/overlay.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 106
+    },
+    "src/core/l1/client/vdom/hooks/popup-manager.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 563
+    },
+    "src/core/l1/client/vdom/hooks/popup.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 148
+    },
+    "src/core/l1/client/vdom/hooks/signal.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 42
+    },
+    "src/core/l1/client/vdom/hooks/stable.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 260
+    },
+    "src/core/l1/client/vdom/hooks/use-observable.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 54
+    },
+    "src/core/l1/client/vdom/node/children.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 37
+    },
+    "src/core/l1/client/vdom/node/component.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 269
+    },
+    "src/core/l1/client/vdom/node/fragment.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 20
+    },
+    "src/core/l1/client/vdom/node/index.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 63
+    },
+    "src/core/l1/client/vdom/node/keyed.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 168
+    },
+    "src/core/l1/client/vdom/node/native.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 80
+    },
+    "src/core/l1/client/vdom/node/portal.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 16
+    },
+    "src/core/l1/client/vdom/observable/index.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 14
+    },
+    "src/core/l1/client/vdom/observable/observable.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 90
+    },
+    "src/core/l1/client/vdom/observable/operators.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 400
+    },
+    "src/core/l1/client/vdom/observable/sources.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 132
+    },
+    "src/core/l1/client/vdom/observable/types.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 49
+    },
+    "src/core/l1/client/vdom/patch/fields.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 59
+    },
+    "src/core/l1/client/vdom/patch/index.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 226
+    },
+    "src/core/l1/client/vdom/patch/processors.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 364
+    },
+    "src/core/l1/client/vdom/patch/state-machine.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 143
+    },
+    "src/core/l1/client/vdom/patch/verify.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 48
+    },
+    "src/core/l1/client/vdom/ports.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 101
+    },
+    "src/core/l1/client/vdom/protocol.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 153
+    },
+    "src/core/l1/client/vdom/router.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 102
+    },
+    "src/core/l1/client/vdom/ssr/absorb.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 150
+    },
+    "src/core/l1/client/vdom/ssr/html.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 117
+    },
+    "src/core/l1/client/vdom/store.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 137
+    },
+    "src/core/l1/client/vdom/transform/component.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 57
+    },
+    "src/core/l1/client/vdom/transform/element.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 28
+    },
+    "src/core/l1/client/vdom/transform/fragment.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 38
+    },
+    "src/core/l1/client/vdom/transform/hole.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 19
+    },
+    "src/core/l1/client/vdom/transform/index.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 55
+    },
+    "src/core/l1/client/vdom/transform/states.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 37
+    },
+    "src/core/l1/client/vdom/transform/table.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 57
+    },
+    "src/core/l1/client/vdom/transform/text.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 16
+    },
+    "src/core/l1/client/vdom/v2/cycle.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 141
+    },
+    "src/core/l1/client/vdom/v2/diff.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 979
+    },
+    "src/core/l1/client/vdom/v2/integrate.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 86
+    },
+    "src/core/l1/client/vdom/v2/render.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 269
+    },
+    "src/core/l1/client/vdom/v2/schedule.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 92
+    },
+    "src/core/l1/client/vdom/v2/serve.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 364
+    },
+    "src/core/l1/client/vdom/v2/spy.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 27
+    },
+    "src/core/l1/client/vdom/v2/ssr.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 106
+    },
+    "src/core/l1/server/collect.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 90
+    },
+    "src/core/l1/server/db/consistency.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 80
+    },
+    "src/core/l1/server/db/memory-sql.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 949
+    },
+    "src/core/l1/server/db/orm.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 388
+    },
+    "src/core/l1/server/db/query-builder.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 245
+    },
+    "src/core/l1/server/db/schema.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 375
+    },
+    "src/core/l1/server/db/typed-query.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 154
+    },
+    "src/core/l1/server/error-counter.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 54
+    },
+    "src/core/l1/server/hub.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 45
+    },
+    "src/core/l1/server/response.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 118
+    },
+    "src/core/l1/server/router.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 366
+    },
+    "src/core/l1/server/serve.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 350
+    },
+    "src/core/l1/server/ws.ts": {
+      "level": "l1",
+      "env": "server",
+      "loc": 143
+    },
+    "src/core/l2/client/layout/decl.ts": {
+      "level": "l2",
+      "env": "client",
+      "loc": 62
+    },
+    "src/core/l2/client/layout/define.ts": {
+      "level": "l2",
+      "env": "client",
+      "loc": 97
+    },
+    "src/core/l2/client/vdom/create-component.ts": {
+      "level": "l2",
+      "env": "client",
+      "loc": 78
+    },
+    "src/core/l2/client/vdom/create-item.ts": {
+      "level": "l2",
+      "env": "client",
+      "loc": 181
+    },
+    "src/core/l2/client/vdom/semantic.ts": {
+      "level": "l2",
+      "env": "client",
+      "loc": 114
+    },
+    "src/core/l2/server/db/body.ts": {
+      "level": "l2",
+      "env": "server",
+      "loc": 75
+    },
+    "src/core/l2/server/db/http.ts": {
+      "level": "l2",
+      "env": "server",
+      "loc": 86
     }
   }
 }

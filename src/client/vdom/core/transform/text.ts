@@ -1,15 +1,5 @@
 /**
- * vdom transform — text（文本转换——text ↔ X）
- *
- * 场景：条件渲染/列表项类型切换（'a' <-> <div/> <-> 组件...）。
- * 转换职责（old=text → new=X）：旧文本节点移除（让位）——新节点由 diff
- * 渲染到同一位置。同态 text → text 不在本表（就地 setText——diff 层）。
+ * W3 兼容 shim——真实实现已迁至 `src/core/l1/client/vdom/transform/text.ts`。
+ * 保留：旧路径消费点（装备面/测试/dist 入口）稳定——移除条件：1.0 或消费点全迁移。
  */
-
-import type { TransformContext, TransitionFn } from './index.ts'
-
-/** text → X：旧文本节点移除（让位） */
-export const transitionText: TransitionFn = (_old, next, ctx) => {
-  ctx.emit({ op: 'remove', id: ctx.oldId })
-  ctx.emitNode(next, ctx.parent, ctx.index, ctx.ref)
-}
+export * from '../../../../core/l1/client/vdom/transform/text.ts'

@@ -1,28 +1,5 @@
 /**
- * vdom command — create（节点创建命令）
- *
- * create 携带 attrs = 可序列化面（class/id/style/data-*——服务端 create 即吐
- * 完整开标签——不依赖后续 setProp）；运行时面（事件/ref）走 setProp。
+ * W3 兼容 shim——真实实现已迁至 `src/core/l0/vdom/command/create.ts`。
+ * 保留：旧路径消费点（装备面/测试/dist 入口）稳定——移除条件：1.0 或消费点全迁移。
  */
-
-/** 创建元素（attrs 序列化面——服务端吐 HTML 开标签） */
-export type CreateCommand = {
-  op: 'create'
-  id: string
-  tag: string
-  attrs: Record<string, unknown>
-}
-
-/** 创建文本节点 */
-export type CreateTextCommand = {
-  op: 'createText'
-  id: string
-  value: string
-}
-
-/** 创建占位锚（空洞槽——childNodes 同构——detail 诊断信息） */
-export type CreateAnchorCommand = {
-  op: 'createAnchor'
-  id: string
-  detail?: string
-}
+export * from '../../../../core/l0/vdom/command/create.ts'

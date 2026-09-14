@@ -63,7 +63,7 @@ for (const sub of ['ai', 'email', 'messager', 'postgres', 'queue', 'redis', 'sch
 }
 await mkdir(join(distDir, 'shared', 'router'), { recursive: true })
 await esbuild.build({
-  entryPoints: [join(srcDir, 'shared', 'router', 'index.ts')],
+  entryPoints: [join(srcDir, 'core', 'l0', 'router', 'index.ts')],
   outfile: join(distDir, 'shared', 'router', 'index.js'),
   format: 'esm',
   platform: 'neutral',

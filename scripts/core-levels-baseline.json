@@ -15,17 +15,12 @@
       "files": 7,
       "loc": 693,
       "exports": 22
-    },
-    "equipment": {
-      "files": 17,
-      "loc": 4690,
-      "exports": 69
     }
   },
   "thirdParty": [],
   "leaks": [],
   "upward": [
-    "src/client/vdom/core/vnode.ts(l0) → src/client/vdom/context/UIContext.ts(l1) (type)"
+    "src/core/l0/vdom/vnode.ts(l0) → src/core/l1/client/vdom/context/UIContext.ts(l1) (type)"
   ],
   "nodeInUniversal": [],
   "unknown": [],

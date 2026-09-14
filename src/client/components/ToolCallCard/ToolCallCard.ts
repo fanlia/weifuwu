@@ -31,8 +31,9 @@ type ToolState = 'running' | 'ok' | 'error'
 
 const stateIcon: Record<ToolState, IconName> = { running: 'settings', ok: 'check', error: 'close' }
 
-export const ToolCallCard: Component<ToolCallCardProps> = (_init, _ctx)=>
-  (props)=> {
+export const ToolCallCard: Component<ToolCallCardProps> = (_init, _ctx)=> {
+  const TL = _ctx?.i18n?.components?.ToolCallCard ?? {}
+  return (props)=> {
     const { call, progress, result, renderArgs } = props
 
     const state: ToolState = result ? (result.ok ? 'ok' : 'error') : 'running'
@@ -46,7 +47,7 @@ export const ToolCallCard: Component<ToolCallCardProps> = (_init, _ctx)=>
           progress.message
             ? h('div', { class: 'wf-toolcall-msg' }, `${progress.message} (${progress.step}/${progress.total})`)
             : null,
-          h('div', { class: 'wf-toolcall-bar', ...semantic('progressbar', { label: '执行进度', values: { 'aria-valuenow': progress.step, 'aria-valuemin': 0, 'aria-valuemax': progress.total } }) }, [
+          h('div', { class: 'wf-toolcall-bar', ...semantic('progressbar', { label: TL.progress ?? '执行进度', values: { 'aria-valuenow': progress.step, 'aria-valuemin': 0, 'aria-valuemax': progress.total } }) }, [
             h('div', {
               class: 'wf-toolcall-bar-fill',
               style: { width: `${Math.min(100, (progress.step / Math.max(1, progress.total)) * 100)}%` },
@@ -67,3 +68,4 @@ export const ToolCallCard: Component<ToolCallCardProps> = (_init, _ctx)=>
       h('div', { class: 'wf-toolcall-body' }, [argsNode, progressNode, errorNode].filter(Boolean)),
     ])
   }
+}

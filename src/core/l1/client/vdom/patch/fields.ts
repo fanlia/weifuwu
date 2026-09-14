@@ -1,0 +1,58 @@
+/**
+ * vdom core/patch — fields（属性应用——三通道分发）
+ *
+ * 职责：create attrs 静态面应用（attribute/style）；setProp 三通道
+ * （ref → RefRegistry / 事件 → EventRegistry / property / attribute）。
+ */
+
+import type { Command } from '../../../../l0/vdom/command/index.ts'
+import { applyAttribute } from '../field/attributes.ts'
+import { applyStyle } from '../field/style.ts'
+import { applyProperty, isPropertyKey } from '../field/props.ts'
+import { eventName, EVENT_RE } from '../field/events.ts'
+import type { EventRegistry } from '../field/events.ts'
+
+/** create 携带的 attrs——静态可序列化面（class/id/style/data-*） */
+export function applyAttrs(el: HTMLElement, attrs: Record<string, unknown>): void {
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'style') {
+      applyStyle(el, v)
+    } else {
+      applyAttribute(el, k, v)
+    }
+  }
+}
+
+/** setProp 三通道分发（事件 → **代理注册**（事件表——不直接绑定）——
+ *  **函数面统一（core2 探索移植——2027-02）**：非事件函数 props（customFn
+ *  等）不写 DOM attribute——vnode 内存持有（diff 引用比较）——原
+ *  setAttribute String 化（'function() {}'）污染 DOM 且有损——与事件
+ *  同通道（跳过 DOM）——解绑（prev 函数 + undefined）同样跳过） */
+export function applySetProp(
+  registry: EventRegistry, nodeId: string, el: HTMLElement, key: string, value: unknown, prev?: unknown,
+): void {
+  if (key === 'ref') {
+    // ref 由 RefRegistry 管理（patch 处理——此处不直接应用）
+    return
+  } else if (typeof value === 'function' || (value === undefined && typeof prev === 'function')) {
+    // 函数面统一：事件 → 事件表；非事件函数 → 无 DOM 写入（跳过）
+    if (EVENT_RE.test(key)) {
+      const name = eventName(key)
+      if (name) registry.set(nodeId, name, value)
+    }
+    return
+  } else if (EVENT_RE.test(key)) {
+    const name = eventName(key)
+    if (name) registry.set(nodeId, name, value)
+  } else if (key === 'style') {
+    // **style 独立通道**（真实 bug）：diff 更新走 applyAttribute（对象
+    // String 化不生效——style 永不更新——拖拽 live 等）——create 路径
+    // 有 style 分支——setProp 路径必须一致
+    applyStyle(el, value)
+  } else if (isPropertyKey(key)) {
+    applyProperty(el, key, value)
+  } else {
+    applyAttribute(el, key, value)
+  }
+}
+

@@ -22,98 +22,26 @@ import { fileURLToPath } from 'node:url'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const K = (p) => p.split(sep).join('/')
 
-// ── 扫描范围（范围内每个非测试文件必须有明确归属——未知即错）────────────
-const SCOPE = [
-  'src/shared',
-  'src/client/vdom/core',
-  'src/client/vdom/context',
-  'src/client/vdom/browser',
-  'src/client/vdom/dev',
-  'src/client/vdom/store.ts',
-  'src/client/vdom/observable',
-  'src/client/vdom/hooks',
-  'src/client/layout/define.ts',
-  'src/client/layout/decl.ts',
-  'src/server/core',
-  'src/server/db',
-  'src/server/types.ts',
-  'src/server/response.ts',
-]
+// ── 扫描范围（W3 目录迁移后：src/core 即全部内核——目录即层级） ──────
+const SCOPE = ['src/core']
 
-// ── 装备豁免（范围内但不入 core 的显式登记）────────────────────────────
-const EQUIPMENT_EXCEPTIONS = [
-  'src/client/vdom/index.ts',
-  'src/client/vdom/jsx-runtime.ts',
-  'src/client/vdom/testing.ts',
-  'src/client/vdom/middlewares/',
-  'src/server/db/postgres/',
-  'src/server/db/redis/',
-  'src/server/db/memory-redis.ts',
-  'src/server/db/redis-server.ts',
-  'src/server/db/gql-from-shape.ts',
-  'src/server/db/rest-from-shape.ts',
-  'src/server/db/server.ts',
-]
-
-// ── 归属规则（首匹配优先——path 前缀或精确文件）────────────────────────
+// ── 归属规则（路径前缀 → 层级/环境——目录即契约） ────────────────────
 const RULES = [
-  // L0 协议（universal——纯数据/协议/不变量）
-  { match: 'src/shared/router/', level: 'l0', env: 'universal' },
-  { match: 'src/shared/zod.ts', level: 'l0', env: 'universal' },
-  { match: 'src/shared/ai/', level: 'l0', env: 'universal' },
-  { match: 'src/server/types.ts', level: 'l0', env: 'universal' },
-  { match: 'src/server/db/shape.ts', level: 'l0', env: 'universal' },
-  { match: 'src/server/db/ops.ts', level: 'l0', env: 'universal' },
-  { match: 'src/server/db/query.ts', level: 'l0', env: 'universal' },
-  { match: 'src/server/db/contracts.ts', level: 'l0', env: 'universal' },
-  { match: 'src/server/db/errors.ts', level: 'l0', env: 'universal' },
-  { match: 'src/server/db/generator-contracts.ts', level: 'l0', env: 'universal' },
-  { match: 'src/server/db/filter.ts', level: 'l0', env: 'universal' },
-  { match: 'src/client/vdom/core/vnode.ts', level: 'l0', env: 'universal' },
-  { match: 'src/client/vdom/core/command/', level: 'l0', env: 'universal' },
-  { match: 'src/client/vdom/core/node/hole.ts', level: 'l0', env: 'universal' },
-  { match: 'src/client/vdom/core/field/key.ts', level: 'l0', env: 'universal' },
-
-  // L2 生成（声明 → 行为/机械部分——迁移期 provisional）
-  { match: 'src/client/vdom/core/create-component.ts', level: 'l2', env: 'client' },
-  { match: 'src/client/vdom/core/create-item.ts', level: 'l2', env: 'client' },
-  { match: 'src/client/vdom/core/semantic.ts', level: 'l2', env: 'client' },
-  { match: 'src/client/vdom/hooks/', level: 'l1', env: 'client' },
-  { match: 'src/client/layout/define.ts', level: 'l2', env: 'client' },
-  { match: 'src/client/layout/decl.ts', level: 'l2', env: 'client' },
-  { match: 'src/server/db/body.ts', level: 'l2', env: 'server' },
-  { match: 'src/server/db/http.ts', level: 'l2', env: 'server' },
-
-  // L1 运行时（引擎——产生效果）
-  { match: 'src/client/vdom/core/', level: 'l1', env: 'client' },
-  { match: 'src/client/vdom/context/', level: 'l1', env: 'client' },
-  { match: 'src/client/vdom/browser/', level: 'l1', env: 'client' },
-  { match: 'src/client/vdom/dev/', level: 'l1', env: 'client' },
-  { match: 'src/client/vdom/store.ts', level: 'l1', env: 'universal' },
-  { match: 'src/client/vdom/observable/', level: 'l1', env: 'universal' },
-  { match: 'src/server/core/', level: 'l1', env: 'server' },
-  { match: 'src/server/response.ts', level: 'l1', env: 'server' },
-  { match: 'src/server/db/orm.ts', level: 'l1', env: 'server' },
-  { match: 'src/server/db/query-builder.ts', level: 'l1', env: 'server' },
-  { match: 'src/server/db/typed-query.ts', level: 'l1', env: 'server' },
-  { match: 'src/server/db/schema.ts', level: 'l1', env: 'server' },
-  { match: 'src/server/db/consistency.ts', level: 'l1', env: 'server' },
-  { match: 'src/server/db/memory-sql.ts', level: 'l1', env: 'server' },
+  { match: 'src/core/l0/', level: 'l0', env: 'universal' },
+  { match: 'src/core/l1/server/', level: 'l1', env: 'server' },
+  { match: 'src/core/l1/client/', level: 'l1', env: 'client' },
+  { match: 'src/core/l2/server/', level: 'l2', env: 'server' },
+  { match: 'src/core/l2/client/', level: 'l2', env: 'client' },
 ]
 
-const LEVELS = new Set(['l0', 'l1', 'l2', 'equipment'])
+const LEVELS = new Set(['l0', 'l1', 'l2'])
 const isTest = (p) => /\.test\.tsx?$/.test(p)
 const isSource = (p) => /\.tsx?$/.test(p) && !isTest(p)
 
-function inScope(rel) {
-  return SCOPE.some((s) => rel === s || rel.startsWith(s.endsWith('/') ? s : s + '/'))
-}
-function isException(rel) {
-  return EQUIPMENT_EXCEPTIONS.some((s) => rel === s || (s.endsWith('/') ? rel.startsWith(s) : false))
-}
+/** 目标是否在 core（src/core 下）——不在即泄漏（装备面旧路径/shim/外部） */
+const inScope = (rel) => rel.startsWith('src/core/')
 function classify(rel) {
   for (const r of RULES) if (rel === r.match || rel.startsWith(r.match)) return { level: r.level, env: r.env }
-  if (isException(rel)) return { level: 'equipment', env: 'n/a' }
   return null
 }
 
@@ -174,7 +102,7 @@ const thirdParty = []
 const leaks = []
 const upward = []
 const nodeInUniversal = []
-const summary = { l0: { files: 0, loc: 0, exports: 0 }, l1: { files: 0, loc: 0, exports: 0 }, l2: { files: 0, loc: 0, exports: 0 }, equipment: { files: 0, loc: 0, exports: 0 } }
+const summary = { l0: { files: 0, loc: 0, exports: 0 }, l1: { files: 0, loc: 0, exports: 0 }, l2: { files: 0, loc: 0, exports: 0 } }
 
 for (const rel of files) {
   const cls = classify(rel)
@@ -186,7 +114,7 @@ for (const rel of files) {
   summary[cls.level].loc += loc
   summary[cls.level].exports += (src.match(/^\s*export\b/gm) ?? []).length
 
-  const isCore = cls.level !== 'equipment'
+  const isCore = true
   for (const { spec, typeOnly } of extractImports(src)) {
     if (spec.startsWith('node:')) {
       if (isCore && cls.env === 'universal') nodeInUniversal.push(`${rel} → ${spec}`)
@@ -198,18 +126,14 @@ for (const rel of files) {
     }
     const target = resolveRelative(rel, spec)
     if (!isSource(target) || !inScope(target)) {
-      // 目标不在范围内 = 装备（且不在 scope 里）
+      // 目标不在 core（旧路径 shim/装备/越界）——泄漏（core 闭包必须自足）
       if (isCore) leaks.push(`${rel} → ${target}${typeOnly ? ' (type)' : ''}`)
       continue
     }
     const tcls = classify(target)
     if (!tcls) { unknown.push(`${rel} → ${target}（目标未分类）`); continue }
-    if (!isCore) continue
-    if (tcls.level === 'equipment') leaks.push(`${rel} → ${target}${typeOnly ? ' (type)' : ''}`)
-    else if (tcls.level !== cls.level) {
-      const rank = { l2: 2, l1: 1, l0: 0 }
-      if (rank[tcls.level] > rank[cls.level]) upward.push(`${rel}(${cls.level}) → ${target}(${tcls.level})${typeOnly ? ' (type)' : ''}`)
-    }
+    const rank = { l2: 2, l1: 1, l0: 0 }
+    if (rank[tcls.level] > rank[cls.level]) upward.push(`${rel}(${cls.level}) → ${target}(${tcls.level})${typeOnly ? ' (type)' : ''}`)
   }
 }
 
@@ -236,7 +160,7 @@ const BASELINE = join(ROOT, 'scripts/core-levels-baseline.json')
 
 function fmt(s) {
   const one = (x, n) => `${n} ${x.files} 文件/${x.loc} 行/${x.exports} 导出`
-  return `${one(s.l0, 'L0')} · ${one(s.l1, 'L1')} · ${one(s.l2, 'L2')} · ${one(s.equipment, '装备')}`
+  return `${one(s.l0, 'L0')} · ${one(s.l1, 'L1')} · ${one(s.l2, 'L2')}`
 }
 
 if (CHECK) {

@@ -33,6 +33,12 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = 'src/client/vdom'
+/** W3 迁移：vdom core 分居 l0/l1/l2——扫描多根；合成前缀保持豁免表相对路径语义 */
+const CORE_ROOTS = [
+  ['src/core/l0/vdom', 'core/'],
+  ['src/core/l1/client/vdom', 'core/'],
+  ['src/core/l2/client/vdom', 'core/'],
+]
 
 /** 豁免登记（file → 行必须匹配的模式 + why——只能缩小不可扩大） */
 const EXEMPT = {
@@ -130,7 +136,8 @@ function scan(relFile, src) {
     }
     // ⑥ 手写空洞判定（=== null || === undefined 组合——kindOf 外）
     if (/(=== null \|\| \w+ === undefined)|(=== undefined \|\| \w+ === null)/.test(code) && !relFile.includes('node/')) {
-      const hf = EXEMPT.holeFree.find((e) => relFile.startsWith(e.dir))
+      const relNorm = relFile.replace(/^core\//, '')
+      const hf = EXEMPT.holeFree.find((e) => relNorm.startsWith(e.dir.replace(/^core\//, '')))
       if (hf) { allowed.push(`⑥ ${where}（${hf.why}）`); continue }
       violations.push(`⑥ ${where} 手写空洞判定（须 isHoleKind——kindOf 单一实现源）`)
       continue
@@ -138,15 +145,16 @@ function scan(relFile, src) {
   }
 }
 
-function walk(dir) {
+function walk(dir, prefix = '', rootDir = dir) {
   for (const entry of readdirSync(dir)) {
     const abs = join(dir, entry)
-    if (statSync(abs).isDirectory()) { walk(abs); continue }
+    if (statSync(abs).isDirectory()) { walk(abs, prefix, rootDir); continue }
     if (!abs.endsWith('.ts') || abs.includes('.test.')) continue
-    scan(abs.replace(/^src\/client\/vdom\//, ''), readFileSync(abs, 'utf8'))
+    scan(prefix + abs.slice(rootDir.length + 1), readFileSync(abs, 'utf8'))
   }
 }
 walk(ROOT)
+for (const [root, prefix] of CORE_ROOTS) walk(root, prefix, root)
 
 console.log(`vdom 缺陷模式哨兵：合法登记 ${allowed.length} 行 / 违例 ${violations.length} 行`)
 for (const v of violations) console.log(`  ✖ ${v}`)

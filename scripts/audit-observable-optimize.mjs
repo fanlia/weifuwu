@@ -21,21 +21,21 @@ const violations = []
 const read = (p) => readFileSync(join(root, p), 'utf8')
 
 // ── 检查 1：调度器无隐式时序 ──
-const sched = read('src/client/vdom/core/v2/schedule.ts')
+const sched = read('src/core/l1/client/vdom/v2/schedule.ts')
 if (!/STORM_GAP_MS|lastFlushAt/.test(sched)) violations.push('调度器缺事件间隔判定（应为时间戳判定而非 timer 清零）')
 if (/setTimeout\(\s*\(\)\s*=>\s*\{?\s*if\s*\(\s*consecutive/.test(sched)) violations.push('调度器 setTimeout 风暴清零 hack 残留')
 
 // ── 检查 2：组合算子面 ──
-const idx = read('src/client/vdom/observable/index.ts')
+const idx = read('src/core/l1/client/vdom/observable/index.ts')
 const wanted = ['combineLatest', 'merge', 'debounceTime', 'throttleTime', 'distinctUntilChanged', 'finalize', 'take', 'startWith']
 for (const op of wanted) {
   if (!new RegExp(`\\b${op}\\b`).test(idx)) violations.push(`组合算子缺失：${op}`)
 }
 
 // ── 检查 3：失败可观测 + 派生单源 ──
-const envSrc = read('src/client/vdom/hooks/env.ts')
+const envSrc = read('src/core/l1/client/vdom/hooks/env.ts')
 if (!/asyncErrors\$\.next/.test(envSrc)) violations.push('useAsyncData 错误未入流（asyncErrors$ 缺失）')
-const storeSrc = read('src/client/vdom/store.ts')
+const storeSrc = read('src/core/l1/client/vdom/store.ts')
 if (!/export function derived/.test(storeSrc)) violations.push('derived 单一实现源缺失（store.ts）')
 const derivCount = (read('src/client/vdom/index.ts').match(/\bderived\b/g) ?? []).length
 if (derivCount < 1) violations.push('derived 公共面未导出')

@@ -1,0 +1,365 @@
+import { HttpError, type Context, type Handler, type Middleware, type MiddlewareMeta, type ErrorHandler, type WebSocket, type Closeable, type Hub } from '../../l0/types.ts'
+import { errorResponse } from './response.ts'
+import { DbError, ValidationError } from '../../l0/db/errors.ts'
+import {
+  type WebSocketHandler,
+  type WsUpgradeHandler,
+  type WsHandlePort,
+  createWsUpgradeHandler,
+} from './ws.ts'
+import { createTrie, trieRegister, trieMatch, trieFind, splitPath, type TrieNode } from '../../l0/router/trie.ts'
+import { collectAll, collectAllWs, collectRoutes, collectWsRoutes, type RouteValue, type WsValue } from './collect.ts'
+import { runChain } from '../../l0/router/chain.ts'
+import { dispatchRouter, type RouterPipeline, type RouteMatch } from '../../l0/router/pipeline.ts'
+import { createCtxFieldRegistry } from '../../l0/router/ctx-fields.ts'
+import { parseQuery } from '../../l0/router/context.ts'
+import { createInMemoryHub } from './hub.ts'
+import { noteHandlerError, clearHandlerError } from './error-counter.ts'
+
+/**
+ * WebSocket room hub — manages pub/sub groups for real-time messaging.
+ *
+ * Rooms are identified by string keys. Multiple WebSocket connections
+ * can join/leave rooms, and messages are broadcast to all members.
+ *
+ * The default implementation is in-memory (single process).
+ * Pass a custom Hub with Redis backend for multi-instance deployments.
+ */
+export type { Hub } from './ws.ts'
+
+// ── Trie 负载（method 表——精确与通配同构——shared Trie 泛型 value） ──
+// RouteValue/WsValue 类型与 collect 纯函数在 collect.ts（E 波次拆解）
+
+const createRouteValue = (): RouteValue => ({
+  handlers: new Map(),
+  middlewares: new Map(),
+})
+
+// ── Router ──────────────────────────────────────────────────────
+
+export class Router<T extends object = Context> {
+  private root = createTrie<RouteValue>()
+  private wsRoot = createTrie<WsValue>()
+  private globalMws: Middleware[] = []
+  private errorHandler?: ErrorHandler<T>
+  private _hasWildcard = false
+  private _hub?: Hub
+  private _wsCount = 0
+  private _ctxRegistry = createCtxFieldRegistry()
+  private _closeables: Closeable[] = []
+  private _pipeline?: RouterPipeline<RouteValue, T>
+
+  /** 路由内核 pipeline（惰性构建——闭包 this 读 globalMws/errorHandler 最新态） */
+  private get pipeline(): RouterPipeline<RouteValue, T> {
+    return (this._pipeline ??= this.buildPipeline())
+  }
+
+  private buildPipeline(): RouterPipeline<RouteValue, T> {
+    return {
+      // **verb 差异点**（method 表负载——HEAD fallback mw 联动 B2 在案）
+      resolveHandler: (m: RouteMatch<RouteValue>, req, ctx) => {
+        const value = m.value as RouteValue
+        const method = req.method
+        // 通配命中：method 表直接查（通配不产生 405——method 落空 → 404）
+        if (m.wildcard) {
+          const handler = value.handlers.get(method) || value.handlers.get('*')
+          if (!handler) return { kind: 'not-found' as const }
+          const mws = value.middlewares.get(method) || value.middlewares.get('*') || []
+          return { kind: 'route' as const, run: () => this.runWithChain(mws, handler, req, ctx) }
+        }
+        let handler = value.handlers.get(method) || value.handlers.get('*')
+        // **HEAD fallback 的 mw 联动（B2）**：handler 回退 GET 时 mws 同步回退
+        if (!handler && method === 'HEAD') handler = value.handlers.get('GET')
+        if (handler) {
+          const rmws = value.middlewares.get(method)
+            || value.middlewares.get('*')
+            || (method === 'HEAD' ? value.middlewares.get('GET') : undefined)
+            || []
+          return { kind: 'route' as const, run: () => this.runWithChain(rmws, handler, req, ctx) }
+        }
+        if (value.handlers.size > 0) {
+          return { kind: 'not-allowed' as const, methods: [...value.handlers.keys()].filter((k) => k !== '*') }
+        }
+        return { kind: 'not-found' as const }
+      },
+      // 404 兜底（JSON 形态 + globalMws 链——原语义精确保留）
+      onNotFound: (req, ctx, path) => {
+        const nf = () => Response.json({ error: 'Not Found', path, method: req.method }, { status: 404 })
+        if (this.globalMws.length > 0) return runChain(this.globalMws as any, nf as any, req, ctx)
+        return nf()
+      },
+      // 405 兜底（globalMws 链 + Allow 头）
+      onMethodNotAllowed: (methods, req, ctx) => {
+        const respond = () => new Response('Method Not Allowed', { status: 405, headers: { Allow: methods.join(', ') } })
+        if (this.globalMws.length > 0) return runChain(this.globalMws as any, respond as any, req, ctx)
+        return respond()
+      },
+      onError: (e, req, ctx, path) => this.handleError(e, req, ctx, path),
+      // 恢复清出（C1——错误状态清出——再错再报）
+      onRouteSuccess: (req, _ctx, path) => clearHandlerError(`${req.method} ${path}`),
+      // params merge 进既有 ctx.params（404/405 原语义精确保留——m null 不注入）
+      enrichCtx: (ctx, m) => {
+        if (m) Object.assign((ctx as any).params, m.params)
+      },
+    }
+  }
+
+  /** 链组装（S6：routeMws 空常态复用 globalMws 引用——免每请求数组分配） */
+  private runWithChain(routeMws: Middleware[], handler: Handler, req: Request, ctx: T): Promise<Response> {
+    const mws = routeMws.length === 0 ? this.globalMws : [...this.globalMws, ...routeMws]
+    return runChain(mws as any, handler as any, req, ctx)
+  }
+
+  private get hub(): Hub {
+    if (!this._hub) this._hub = createInMemoryHub()
+    return this._hub as Hub
+  }
+
+  wsHub(hub: Hub): this { this._hub = hub; return this }
+
+  // ── Middleware & mounting ─────────────────────────────────
+
+  use(mw: Middleware<Context, Context>): Router<T> {
+    this.globalMws.push(mw as Middleware)
+    this._checkMiddlewareMeta(mw, 'global')
+    // If the middleware is also Closeable (e.g., postgres(), redis()), register it for cleanup.
+    if (typeof (mw as any).close === 'function') {
+      this._closeables.push(mw as unknown as Closeable)
+    }
+    return this
+  }
+
+  /**
+   * Install a plugin — a function that configures the Router with
+   * routes, middleware, and error handlers. Use when `.use()` isn't
+   * enough because you need to call `app.get()`, `app.onError()`, etc.
+   *
+   * @example
+   * ```ts
+   * app.plugin(app => createReactApp(app, { pages: {...}, layout: '...', tailwind: {...} }))
+   * ```
+   */
+  plugin(fn: (app: this) => void): this {
+    fn(this)
+    return this
+  }
+
+  mount(path: string, router: Router<any>): Router<T> {
+    this._mountRouter(path, router)
+    return this
+  }
+
+  onError(handler: ErrorHandler<T>): Router<T> {
+    this.errorHandler = handler; return this
+  }
+
+  // ── Route registration ────────────────────────────────────
+
+  get(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
+    return this._route('GET', path, ...rest)
+  }
+  post(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
+    return this._route('POST', path, ...rest)
+  }
+  put(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
+    return this._route('PUT', path, ...rest)
+  }
+  delete(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
+    return this._route('DELETE', path, ...rest)
+  }
+  patch(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
+    return this._route('PATCH', path, ...rest)
+  }
+  head(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
+    return this._route('HEAD', path, ...rest)
+  }
+  options(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
+    return this._route('OPTIONS', path, ...rest)
+  }
+  all(path: string, ...rest: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
+    return this._route('*', path, ...rest)
+  }
+
+  ws(path: string, ...args: [...Middleware[], WebSocketHandler]): Router<T> {
+    const handler = args.pop()! as WebSocketHandler
+    const mws = args as Middleware[]
+    trieRegister(this.wsRoot, path, { handler, middlewares: mws })
+    this._wsCount++
+    return this
+  }
+
+  /** 是否注册过 WS 路由（serve 据此决定是否挂 upgrade + 是否需要适配器） */
+  hasWsRoutes(): boolean {
+    return this._wsCount > 0
+  }
+
+  // graphql 端点：用中间件 `app.use(graphql('/path', handler))`（W2 出核——Router.graphql 已删）
+
+  // ── Handler compilation ────────────────────────────────────
+
+  handler(): Handler<T> {
+    return (req, ctx) => dispatchRouter(this.root, this.pipeline, req, ctx)
+  }
+
+  websocketHandler(port: WsHandlePort): WsUpgradeHandler {
+    return createWsUpgradeHandler(
+      port,
+      (segments) => this.matchWsTrie(this.wsRoot, segments),
+      this.hub,
+    )
+  }
+
+  // ── Debug ──────────────────────────────────────────────────
+
+  routes(): string[] {
+    const result: string[] = []
+    if (this.globalMws.length > 0) result.push(`MIDDLEWARE  [${this.globalMws.length} global]`)
+    collectRoutes(this.root, '', result)
+    collectWsRoutes(this.wsRoot, '', result)
+    return result
+  }
+
+  // ── Private: Route impl ────────────────────────────────────
+
+  private _route(method: string, path: string, ...args: [...Middleware[], Handler<T> | Router<T>]): Router<T> {
+    return this._routeImpl(method, path, args as any[])
+  }
+
+  // args type is intentionally loose — _route() already validates the public API types.
+  private _routeImpl(method: string, path: string, args: any[]): Router<T> {
+    const last = args[args.length - 1]
+    if (last instanceof Router) {
+      this._mountRouter(path, last, args.slice(0, -1))
+      return this
+    }
+    const handler = args.pop()
+    const mws: Middleware[] = args
+
+    // **route 级 meta 检查（ROUTER-CORE B1——2027-10 探针实证缺口）**：
+    // route 中间件的 depends 语义与 global/mount 一致（未注册 ctx 依赖
+    // 即抛错——静默跳过是违例：机制存在但只覆盖 global/mount）
+    for (const mw of mws) this._checkMiddlewareMeta(mw, `${method} ${path}`)
+
+    // 多方法合并（get+post 同路径并存——value 累积 method 表）
+    const existing = trieFind(this.root, path)
+    const isWildcard = path.includes('*')
+    const prev = isWildcard ? existing?.wildcardValue : existing?.value
+    // 同 method 重复注册抛错（set 前检查——合并对象同引用）
+    if (!isWildcard && prev?.handlers.has(method)) {
+      throw new Error(`[router] route conflict: ${method} ${path} already registered`)
+    }
+    const value: RouteValue = prev ?? createRouteValue()
+    value.handlers.set(method, handler)
+    if (mws.length > 0) value.middlewares.set(method, mws)
+
+    const node = trieRegister(this.root, path, value)
+    if (isWildcard) this._hasWildcard = true
+
+    return this
+  }
+
+  // ── Private: Mount ─────────────────────────────────────────
+
+  private _mountRouter(prefix: string, sub: Router<Context>, extraMws: Middleware[] = []): void {
+    const base = prefix === '/' ? '' : prefix.replace(/\/$/, '')
+
+    const mountMw: Middleware = (req, ctx, next) => {
+      ctx.mountPath = (ctx.mountPath || '') + base
+      return next(req, ctx)
+    }
+
+    const allExtra = extraMws.length === 0 && sub.globalMws.length === 0
+      ? [mountMw]
+      : [mountMw, ...extraMws, ...sub.globalMws]
+
+    // Validate middleware meta for mounted sub-router middlewares
+    for (const mw of allExtra) {
+      this._checkMiddlewareMeta(mw, `mount:${prefix}`)
+    }
+
+    const routes = collectAll(sub.root)
+    for (const { method, path, handler, middlewares } of routes) {
+      this._routeImpl(method, base + path, [...allExtra, ...middlewares, handler])
+    }
+
+    const wsRoutes = collectAllWs(sub.wsRoot)
+    for (const { path, handler, middlewares } of wsRoutes) {
+      this.ws(base + path, ...allExtra as any[], ...middlewares, handler)
+    }
+  }
+
+  // ── Private: Mount collect（新结构——node.value 负载） ──
+
+  // ── Private: Matching ──────────────────────────────────────
+
+  private matchWsTrie(root: TrieNode<WsValue>, segments: string[]): {
+    handler: WebSocketHandler; middlewares: Middleware[]; params: Record<string, string>
+  } | null {
+    const m = trieMatch(root, segments)
+    if (!m) return null
+    return { handler: m.value.handler, middlewares: m.value.middlewares, params: m.params }
+  }
+
+  // ── Private: Request handling ──────────────────────────────
+
+  private async handleError(e: unknown, req: Request, ctx: any, path?: string): Promise<Response> {
+    const err = e instanceof Error ? e : new Error(String(e))
+    // 自定义 onError 优先（可覆盖一切，含 HttpError）
+    if (this.errorHandler) return this.errorHandler(err, req, ctx as T)
+    // 默认链（W0 api 计划——错误面单源：errorResponse 总面——
+    // HttpError → status 权威 · DbError/ValidationError → 400/409（orm 错误
+    // 不该 500）· 普通 Error → 500（意外诚实现形——不泄漏消息））
+    if (err instanceof HttpError || err instanceof DbError || err instanceof ValidationError) {
+      return errorResponse(err)
+    }
+    // **日志去重（C1——error-counter 思想移植）**：同路由错误只报一次
+    // （风暴不刷日志——恢复清出再报）；path 传入避免二次 new URL
+    noteHandlerError(`${req.method} ${path ?? new URL(req.url).pathname}`, e)
+    // 错误形态统一（S9）：500 = JSON { error }——与 response.ts serverError() 助手一致
+    return Response.json({ error: 'Internal Server Error' }, { status: 500 })
+  }
+
+
+  // ── Private: Meta checking ──────────────────────────────────
+
+  /**
+   * Register a Closeable resource for graceful shutdown.
+   * Used for modules created outside of middleware chain (e.g., sub-router state).
+   */
+  onClose(closeable: Closeable): this {
+    this._closeables.push(closeable)
+    return this
+  }
+
+  /**
+   * Gracefully shut down all registered Closeable resources.
+   * Called by serve() during shutdown.
+   *
+   * S2（SERVER-PERF-PLAN）：WS 客户端 1001 握手已移装备适配器
+   * （`WsHandlePort.shutdown`——serve stop 时先行调用）；此处只处置 closeables。
+   */
+  private _closed = false
+
+  async close(): Promise<void> {
+    // **幂等（C2——2027-10 探针实证：重复 close 重复执行 closeables）**：
+    // 优雅关闭是终态操作——第二次调用 no-op（serve 生命周期 StopPhase
+    // 同语义——双调用无副作用）
+    if (this._closed) return
+    this._closed = true
+    for (const c of this._closeables) {
+      try { await c.close() } catch { /* ignore close errors */ }
+    }
+  }
+
+  private _checkMiddlewareMeta(mw: unknown, location: string): void {
+    const meta: MiddlewareMeta | undefined =
+      (mw as Middleware).__meta ??
+      (typeof mw === 'object' && mw && 'middleware' in mw
+        ? (mw as { middleware(): Middleware }).middleware().__meta : undefined)
+    if (!meta) return
+    // **ctx-fields 注册表（SHARED-TRIE B0'）**：机制移 shared——双端统一
+    // （client 未来中间件声明 injects 同样受检——类型/运行时双层对齐）
+    this._ctxRegistry.check(meta.depends, location)
+    this._ctxRegistry.register(meta.injects)
+  }
+}

@@ -20,7 +20,13 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-const CORE = resolve(process.cwd(), 'src/client/vdom/core')
+const CORES = [
+  resolve(process.cwd(), 'src/core/l0/vdom'),
+  resolve(process.cwd(), 'src/core/l1/client/vdom'),
+  resolve(process.cwd(), 'src/core/l2/client/vdom'),
+]
+/** 历史扫描域 = 旧 core/**（不含 hooks/context/browser/dev/store/observable 兄弟目录） */
+const SKIP = [/[/\\](hooks|context|browser|dev|observable)[/\\]/, /[/\\]store\.ts$/]
 
 // 手写空洞判定（分裂点模式）
 const HOLE_PATTERNS = [
@@ -59,18 +65,21 @@ async function* walk(dir) {
 }
 
 const violations = []
-for await (const file of walk(CORE)) {
-  if (EXEMPT.some((re) => re.test(file))) continue
-  const src = await readFile(file, 'utf-8')
-  const lines = src.split('\n')
-  lines.forEach((line, i) => {
-    if (line.trim().startsWith('//') || line.trim().startsWith('*')) return
-    for (const [kind, patterns] of [['hole', HOLE_PATTERNS], ['text', TEXT_PATTERNS]]) {
-      if (patterns.some((re) => re.test(line))) {
-        violations.push(`${file.replace(CORE + '/', '')}:${i + 1} [${kind}] ${line.trim().slice(0, 100)}`)
+for (const CORE of CORES) {
+  for await (const file of walk(CORE)) {
+    if (SKIP.some((re) => re.test(file))) continue
+    if (EXEMPT.some((re) => re.test(file))) continue
+    const src = await readFile(file, 'utf-8')
+    const lines = src.split('\n')
+    lines.forEach((line, i) => {
+      if (line.trim().startsWith('//') || line.trim().startsWith('*')) return
+      for (const [kind, patterns] of [['hole', HOLE_PATTERNS], ['text', TEXT_PATTERNS]]) {
+        if (patterns.some((re) => re.test(line))) {
+          violations.push(`${file.replace(CORE + '/', '')}:${i + 1} [${kind}] ${line.trim().slice(0, 100)}`)
+        }
       }
-    }
-  })
+    })
+  }
 }
 
 if (violations.length > 0) {

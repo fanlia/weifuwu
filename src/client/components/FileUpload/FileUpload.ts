@@ -155,7 +155,7 @@ export const FileUpload: Component<FileUploadProps> = (_init, ctx)=> {
       : null
 
     const progressBar = uploading
-      ? h('div', { class: 'wf-upload-progress', ...semantic('progressbar', { label: '上传进度', values: { 'aria-valuenow': progress ?? 0, 'aria-valuemin': 0, 'aria-valuemax': 100 } }) },
+      ? h('div', { class: 'wf-upload-progress', ...semantic('progressbar', { label: FL.progress ?? '上传进度', values: { 'aria-valuenow': progress ?? 0, 'aria-valuemin': 0, 'aria-valuemax': 100 } }) },
           h('div', { class: 'wf-upload-progress-fill', style: { width: `${progress ?? 0}%` } }))
       : null
 
