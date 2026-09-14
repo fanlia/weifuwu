@@ -144,12 +144,8 @@
     }
   },
   "devDependencies": {
-    "@graphql-tools/schema": "^10.0.38",
     "@types/node": "^25",
-    "@types/ws": "^8",
-    "playwright": "^1.62.1",
-    "puppeteer-core": "^25.9.0",
-    "ws": "^8"
+    "playwright": "^1.62.1"
   },
   "keywords": [
     "ai",

@@ -33,7 +33,6 @@ async function main() {
   console.log(`✅ 一键派单：${launch.sent} 个角色（错峰 1.2s）\n`)
 
   // 4) WS 监控：提交数 + 在线人数（直到 10/0 或超时）
-  const WebSocket = (await import('ws')).default
   const obs = new WebSocket('ws://localhost:3000/survey-live')
   let submitted = 0
   let online = -1
@@ -51,8 +50,8 @@ async function main() {
     process.exit(ok ? 0 : 1)
   }
 
-  obs.on('message', (d) => {
-    const msg = JSON.parse(String(d))
+  obs.addEventListener('message', (e) => {
+    const msg = JSON.parse(String(e.data))
     if (msg.type === 'survey:state') {
       submitted = msg.count ?? 0
       online = msg.online?.count ?? 0

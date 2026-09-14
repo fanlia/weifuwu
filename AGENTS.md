@@ -49,7 +49,7 @@ shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 15
   L1 **84/12918/383** · L2 **7/693/22**）· 守卫 `npm run audit:core-levels`（依赖方向/泄漏/三方/闭包 + 规模只降不升
   + docs 漂移 + **L0 出口快照 230 声明**——L0 立即冻结 · L1 待 1.0 · L2 provisional，细则 [docs/core.md](docs/core.md)）·
   内核回归 `npm run test:core`（830——无 docker/无浏览器）· 端口注入（`WsHandlePort`）——默认**自研 RFC6455**
-  `src/server/ws/native/`（Autobahn **301/0 FAILED** · native vs ws 差分 **200/0 不等价** · `ws` 已降 devDependency）·
+  `src/server/ws/native/`（Autobahn **301/0 FAILED** · Node 全局 WebSocket（undici）互操作——`ws` 包已清理）·
   旧路径 116 shim（1.0 移除）
 - **外部依赖内存化矩阵**（四类核心依赖——Memory 实现 + Server 协议替身双层——主包全导出）：
 

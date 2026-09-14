@@ -333,16 +333,15 @@ describe('serve graceful shutdown (S2)', () => {
   })
 
   it('stop() closes WebSocket connections with 1001', async () => {
-    const { WebSocket } = await import('ws')
-    const { createWsAdapter } = await import('../ws/adapter.ts')
+    const { createNativeWsAdapter } = await import('../ws/native/index.ts')
     const app = new Router()
     app.ws('/ws', { open: (ws) => { ws.send('hi') } })
-    const s = serve(app, { port: 0, shutdown: false, wsAdapter: createWsAdapter })
+    const s = serve(app, { port: 0, shutdown: false, wsAdapter: createNativeWsAdapter })
     await s.ready
 
     const closed = new Promise<number>((resolve) => {
       const ws = new WebSocket(`ws://127.0.0.1:${s.port}/ws`)
-      ws.on('close', (code) => resolve(code))
+      ws.addEventListener('close', (e) => resolve((e as CloseEvent).code))
     })
     await sleep(100) // 客户端完成握手
     await s.stop(1000)

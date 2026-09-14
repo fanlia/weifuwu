@@ -23,9 +23,7 @@ await mkdir(join(distDir, 'client', 'layout'), { recursive: true })
 
 
 const external = [
-  '@graphql-tools/schema',
   'graphql',
-  'ws',
   'esbuild',
 ]
 

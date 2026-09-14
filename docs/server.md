@@ -407,9 +407,10 @@ export type Agent = RowOf<(typeof SHAPES)['agents']> & {
 - **WebSocket**：`src/server/ws/`——**自研 RFC6455 适配器为默认**（W5）：
   - 端口（core）：`WsHandlePort`——`handleUpgrade + shutdown`；core 零协议依赖
   - 默认实现：`src/server/ws/native/`（握手/帧编解码/分片/控制帧/UTF-8 fail-fast/关闭码/限额）
-  - 差分参考：`src/server/ws/adapter.ts`（`ws` 包——已降 devDependency，仅供测试对账）
   - 验收：Autobahn **301 用例 0 FAILED**（290 OK + 8 NON-STRICT + 3 INFORMATIONAL——压缩类 12/13 诚实裁剪）
-    · native vs `ws` 差分 fuzz **200 用例 0 不等价** · 消息类型归一（text→string / binary→Buffer）
+    · **Node 全局 WebSocket（undici）互操作**（serve/ws handler 契约——独立实现客户端）· 消息类型归一（text→string / binary→Buffer）
+  - 判负登记（2026-09 依赖清理）：`ws` 包与 `src/server/ws/adapter.ts`（差分参考实现，含 200 用例 fuzz）删除——
+    替代防线 = Autobahn + native 向量测试 + undici 客户端互操作；推翻条件：需要字节级双实现对账时（可临时装回 `ws` 复跑）
   - 诚实裁剪：无扩展/无压缩/无子协议协商；`maxPayload` 默认 100 MiB（可配）
   - 自定义协议：`serve(router, { wsAdapter })` 覆盖；未注册 WS 路由时零开销
 

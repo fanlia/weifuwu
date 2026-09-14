@@ -5,34 +5,38 @@
  *   - 有 error hook → 转交（应用获得感知点）
  *   - 无 error hook → console.error（审计可见——静默吞错是违例）
  * 连接与消息循环保持可用（单个 handler 失败不拖垮服务）。
+ *
+ * 客户端：Node 全局 WebSocket（undici——独立实现，兼作跨实现互操作验证；
+ * 原 `ws` 包客户端已随依赖清理删除）。
  */
 
 import { describe, it, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import WebSocket from 'ws'
 import { serve } from './serve.ts'
-import { createWsAdapter } from '../ws/adapter.ts'
+import { createNativeWsAdapter } from '../ws/native/index.ts'
 import { Router } from './router.ts'
+
+type WS = InstanceType<typeof globalThis.WebSocket>
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
-function openWS(url: string): Promise<WebSocket> {
+function openWS(url: string): Promise<WS> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url)
-    ws.on('open', () => resolve(ws))
-    ws.on('error', reject)
+    ws.addEventListener('open', () => resolve(ws), { once: true })
+    ws.addEventListener('error', () => reject(new Error(`ws connect failed: ${url}`)), { once: true })
   })
 }
 
-function nextMessage(ws: WebSocket): Promise<string> {
-  return new Promise((resolve) => ws.once('message', (d) => resolve(String(d))))
+function nextMessage(ws: WS): Promise<string> {
+  return new Promise((resolve) => ws.addEventListener('message', (e) => resolve(String((e as MessageEvent).data)), { once: true }))
 }
 
 /** 等待 close 握手完成（fire-and-forget close 会残留客户端 socket——文件级挂起） */
-function closeWS(ws: WebSocket): Promise<void> {
+function closeWS(ws: WS): Promise<void> {
   return new Promise((resolve) => {
-    if (ws.readyState === WebSocket.CLOSED) return resolve()
-    ws.once('close', () => resolve())
+    if (ws.readyState === 3) return resolve() // CLOSED
+    ws.addEventListener('close', () => resolve(), { once: true })
     ws.close()
   })
 }
@@ -46,7 +50,7 @@ describe('ws handler error containment (S3)', () => {
   })
 
   function start(app: Router) {
-    const s = serve(app, { port: 0, shutdown: false, wsAdapter: createWsAdapter })
+    const s = serve(app, { port: 0, shutdown: false, wsAdapter: createNativeWsAdapter })
     servers.push(s)
     return s
   }
