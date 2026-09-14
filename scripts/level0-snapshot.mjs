@@ -24,7 +24,7 @@ const SNAPSHOT = join(ROOT, 'scripts/level0-snapshot.json')
 
 const levels = JSON.parse(readFileSync(join(ROOT, 'src/levels.json'), 'utf8'))
 const l0Files = Object.entries(levels.files)
-  .filter(([, v]) => v.level === 'l0')
+  .filter(([, v]) => v.kind === 'level' && v.level === 0)
   .map(([f]) => f)
   .sort()
 

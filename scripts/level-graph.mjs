@@ -1,19 +1,18 @@
 #!/usr/bin/env node
 /**
- * weifuwu/core import-graph 断言（W1——core-分层与冻结计划）
+ * weifuwu 分层 import-graph 断言（level 分层重构 W0）
  *
- * 目的：防"传递依赖偷渡"——core 的直接 import 干净，不代表其闭包干净
- * （index/再导出链可把 esbuild/graphql/ws 拖进来）。用 esbuild metafile
- * 对全部 core 文件做一次全量打包，收集 node_modules 输入 = core 真实依赖面。
+ * 目的：防"传递依赖偷渡"——L0–L4 的直接 import 干净，不代表其闭包干净
+ * （index/再导出链可把 esbuild/graphql 拖进来）。用 esbuild metafile
+ * 对 L0–L4 全部文件做一次全量打包，收集 node_modules 输入 = 真实依赖面。
  *
  * 用法：
  *   node scripts/level-graph.mjs          # 报告分层依赖面
  *   node scripts/level-graph.mjs --check  # 新增依赖（不在基线）= exit 1
  *
- * 基线登记：scripts/level-map-baseline.json → graphThirdParty
- * （W2 目标：0——ws/graphql 全部出核或端口化）
+ * 基线登记：scripts/level-graph-baseline.json → graphThirdParty（目标：0）
  */
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -23,7 +22,7 @@ const { build } = await import('esbuild')
 
 const levels = JSON.parse(readFileSync(join(ROOT, 'src/levels.json'), 'utf8'))
 const coreFiles = Object.entries(levels.files)
-  .filter(([, v]) => v.level !== 'equipment')
+  .filter(([, v]) => v.kind === 'level' && typeof v.level === 'number' && v.level <= 4)
   .map(([k]) => join(ROOT, k))
 
 // 虚拟入口：import 全部 core 文件（副作用导入——不关心导出）
@@ -58,8 +57,8 @@ for (const input of Object.keys(result.metafile.inputs)) {
 }
 const graphThirdParty = [...pkgs].sort()
 
-const BASELINE = join(ROOT, 'scripts/level-map-baseline.json')
-const baseline = JSON.parse(readFileSync(BASELINE, 'utf8'))
+const BASELINE = join(ROOT, 'scripts/level-graph-baseline.json')
+const baseline = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')) : {}
 const CHECK = process.argv.includes('--check')
 const old = new Set(baseline.graphThirdParty ?? [])
 const added = graphThirdParty.filter((p) => !old.has(p))
