@@ -52,7 +52,7 @@
     },
     "6": {
       "files": 173,
-      "loc": 35617,
+      "loc": 35629,
       "exports": 999,
       "assets": 17,
       "tests": 0
@@ -4532,7 +4532,7 @@
       "level": 6,
       "env": "mixed",
       "target": "src/level6/apps/agent-platform/scripts/seed.mjs",
-      "loc": 625
+      "loc": 634
     },
     "src/level6/apps/agent-platform/scripts/shape-check.mjs": {
       "kind": "asset",
@@ -7431,7 +7431,7 @@
       "level": 6,
       "env": "mixed",
       "target": "src/level6/server/user/index.ts",
-      "loc": 1219,
+      "loc": 1231,
       "effectiveLevel": 5
     },
     "src/level6/server/workflow/index.ts": {

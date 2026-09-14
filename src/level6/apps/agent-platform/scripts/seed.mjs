@@ -120,7 +120,15 @@ async function main() {
     { app_id: DEMO_APP_ID, user_id: admin.id, role: 'owner', invited_by: admin.id },
     { app_id: DEMO_APP_ID, user_id: user.id, role: 'member', invited_by: admin.id },
   ], { conflict: ['app_id', 'user_id'], update: true })
-  console.log('  ✓ 应用: 演示科技有限公司（demo）')
+  // UI 单应用模式（agent-platform = _default 应用——登录页 /api/auth/apps/_default/auth/login）
+  // 演示凭据必须能登录：admin/user 幂等挂入 _default（fresh 库首 owner 由 migrate 关联，
+  // 存量库/二次运行由此补足——0.95.1 实证登录 401）
+  const [defApp] = await orm.query.from('_weifuwu_apps').select('id').where({ slug: { eq: '_default' } }).run()
+  if (defApp) await ins('_weifuwu_app_members', [
+    { app_id: defApp.id, user_id: admin.id, role: 'owner', invited_by: admin.id },
+    { app_id: defApp.id, user_id: user.id, role: 'member', invited_by: admin.id },
+  ], { conflict: ['app_id', 'user_id'], update: true })
+  console.log('  ✓ 应用: 演示科技有限公司（demo）+ _default 登录成员（admin/user）')
 
   // ════════════════════════════════════════════════════
   // 2. Agent — 真实用户映射

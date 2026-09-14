@@ -939,6 +939,18 @@ export function userSystem(options: UserSystemOptions): UserSystemClient {
         open_registration: false,
       }).run()
     }
+    // _default 存量补挂（0.95.1 实证：_default 建于 _builtin owner 之后——首 owner 关联分支
+    //   永远错过 → UI 单应用模式（agent-platform = _default）登录 401 "Not a member"）
+    // 定案：_builtin owner（超级管理员）→ _default owner 成员——幂等循环补足（存量库修复面）
+    const defAppId = await findAppIdBySlug('_default')
+    if (defAppId) {
+      const owners = await M.select('user_id').where({ app_id: { eq: BUILTIN_APP_ID }, role: { eq: 'owner' } }).run()
+      for (const o of owners) {
+        const uid = String(o.user_id)
+        if (await findMemberRole(defAppId, uid)) continue
+        await M.insert({ app_id: defAppId, user_id: uid, role: 'owner', invited_by: null, source: 'migrate' }).onConflict().run()
+      }
+    }
     // 存量补挂（定案：全员应用管理面入册——旧库 users 无 _builtin 成员行着补——
     //   query builder 循环——memory/真库双后端一致——迁移期一次性 O(N) 可接受）
     const leftover = await U.select('id').run()
