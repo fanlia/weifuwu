@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * weifuwu/core 分层清单生成器（W0——core-分层与冻结计划）
+ * weifuwu 分层清单生成器（level 分层重构 W0）
  *
- * 单一事实源：规则表（本文件）→ 生成 src/core/levels.json（逐文件 level/env）
- * + scripts/core-levels-baseline.json（三层基线 + 泄漏/上行/三方清单）。
+ * 单一事实源：规则表（本文件）→ 生成 src/levels.json（逐文件 level/env）
+ * + scripts/level-map-baseline.json（三层基线 + 泄漏/上行/三方清单）。
  *
  * 用法：
- *   node scripts/core-levels.mjs           # 生成清单与基线（写入）
- *   node scripts/core-levels.mjs --check   # 只读校验：新增未知/泄漏/上行/三方 = exit 1
+ *   node scripts/level-map.mjs           # 生成清单与基线（写入）
+ *   node scripts/level-map.mjs --check   # 只读校验：新增未知/泄漏/上行/三方 = exit 1
  *
- * 分层判据（分类三问——详见 plan/core-分层与冻结.md）：
+ * 分层判据（分类三问——详见 plan/level-分层重构.md）：
  *   L0 协议：没有运行时也存在？（纯数据/协议/不变量——零效果）
  *   L1 运行时：它执行某件事？（I/O/DOM/node）
  *   L2 生成：它生成什么？（声明 → 行为/机械部分）
@@ -155,18 +155,18 @@ const baseline = {
 }
 
 const CHECK = process.argv.includes('--check')
-const ARTIFACT = join(ROOT, 'src/core/levels.json')
-const BASELINE = join(ROOT, 'scripts/core-levels-baseline.json')
-const DOCS = join(ROOT, 'docs/core.md')
-const DOC_START = '<!-- core-inventory:start（由 npm run core:levels 生成——勿手改） -->'
-const DOC_END = '<!-- core-inventory:end -->'
+const ARTIFACT = join(ROOT, 'src/levels.json')
+const BASELINE = join(ROOT, 'scripts/level-map-baseline.json')
+const DOCS = join(ROOT, 'docs/level.md')
+const DOC_START = '<!-- level-inventory:start（由 npm run level:map 生成——勿手改） -->'
+const DOC_END = '<!-- level-inventory:end -->'
 
 function fmt(s) {
   const one = (x, n) => `${n} ${x.files} 文件/${x.loc} 行/${x.exports} 导出`
   return `${one(s.l0, 'L0')} · ${one(s.l1, 'L1')} · ${one(s.l2, 'L2')}`
 }
 
-/** docs/core.md 清单块（W4——生成面：levels.json 的文档投影） */
+/** docs/level.md 清单块（W4——生成面：levels.json 的文档投影） */
 function renderInventory() {
   const lines = ['| 层 | 文件 | 行数 | 导出 |', '| --- | --- | --- | --- |']
   for (const [lv, name] of [['l0', 'L0'], ['l1', 'L1'], ['l2', 'L2']]) {
@@ -203,7 +203,7 @@ if (CHECK) {
     const added = now.filter((x) => !old.has(x))
     if (added.length) errs.push(`新增 ${key} ${added.length}:\n    ${added.slice(0, 10).join('\n    ')}`)
   }
-  // 规模基线（W4——只降不升；扩面须显式 npm run core:levels 更新基线，diff 可见）
+  // 规模基线（W4——只降不升；扩面须显式 npm run level:map 更新基线，diff 可见）
   for (const lv of ['l0', 'l1', 'l2']) {
     for (const k of ['files', 'loc', 'exports']) {
       const nowV = summary[lv][k]
@@ -213,21 +213,20 @@ if (CHECK) {
   }
   // docs 漂移哨兵（W4——生成块 == 文件内容）
   const cur = currentDocsBlock()
-  if (cur === null) errs.push('docs/core.md 缺少 core-inventory 生成块标记（见脚本 DOC_START/DOC_END）')
-  else if (cur !== docsBlock()) errs.push('docs/core.md 清单块漂移（跑 npm run core:levels 重生成）')
-  console.log(`[core-levels] ${fmt(summary)}`)
+  if (cur === null) errs.push('docs/level.md 缺少 level-inventory 生成块标记（见脚本 DOC_START/DOC_END）')
+  else if (cur !== docsBlock()) errs.push('docs/level.md 清单块漂移（跑 npm run level:map 重生成）')
+  console.log(`[level-map] ${fmt(summary)}`)
   for (const k of ['thirdParty', 'leaks', 'upward', 'nodeInUniversal']) {
     if (baseline[k].length) console.log(`  存量 ${k}: ${baseline[k].length}（基线登记）`)
   }
   if (errs.length) {
-    console.error(`✖ core-levels 校验失败：\n  ${errs.join('\n  ')}`)
+    console.error(`✖ level-map 校验失败：\n  ${errs.join('\n  ')}`)
     process.exit(1)
   }
-  console.log('✔ core-levels 校验通过（无新增未知/三方/泄漏/上行 · 规模不升 · docs 无漂移）')
+  console.log('✔ level-map 校验通过（无新增未知/三方/泄漏/上行 · 规模不升 · docs 无漂移）')
   process.exit(0)
 }
 
-mkdirSync(join(ROOT, 'src/core'), { recursive: true })
 writeFileSync(ARTIFACT, JSON.stringify(artifact, null, 2) + '\n')
 writeFileSync(BASELINE, JSON.stringify(baseline, null, 2) + '\n')
 if (existsSync(DOCS)) {
@@ -235,12 +234,12 @@ if (existsSync(DOCS)) {
   const a = s.indexOf(DOC_START)
   const b = s.indexOf(DOC_END)
   if (a < 0 || b < 0) {
-    console.error('✖ docs/core.md 缺少 core-inventory 标记——先补标记再生成')
+    console.error('✖ docs/level.md 缺少 level-inventory 标记——先补标记再生成')
     process.exit(1)
   }
   writeFileSync(DOCS, s.slice(0, a) + docsBlock() + s.slice(b + DOC_END.length))
 }
-console.log(`[core-levels] ${fmt(summary)}`)
+console.log(`[level-map] ${fmt(summary)}`)
 console.log(`写入 ${K(relative(ROOT, ARTIFACT))}（${files.length} 文件）`)
 console.log(`写入 ${K(relative(ROOT, BASELINE))}`)
 if (existsSync(DOCS)) console.log(`写入 ${K(relative(ROOT, DOCS))}（清单块）`)

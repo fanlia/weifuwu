@@ -15,7 +15,7 @@
  * - node/keyed.ts（keyOf/显示分类——字面量语义）
  * - diff/same.ts（vnode.type 元素判定）
  *
- * 用法：node scripts/audit-core-semantics.mjs（退出码 1 = 违规）
+ * 用法：node scripts/audit-level-semantics.mjs（退出码 1 = 违规）
  */
 import { readdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'

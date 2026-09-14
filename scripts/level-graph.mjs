@@ -7,10 +7,10 @@
  * 对全部 core 文件做一次全量打包，收集 node_modules 输入 = core 真实依赖面。
  *
  * 用法：
- *   node scripts/core-graph.mjs          # 报告 core 依赖面
- *   node scripts/core-graph.mjs --check  # 新增依赖（不在基线）= exit 1
+ *   node scripts/level-graph.mjs          # 报告分层依赖面
+ *   node scripts/level-graph.mjs --check  # 新增依赖（不在基线）= exit 1
  *
- * 基线登记：scripts/core-levels-baseline.json → graphThirdParty
+ * 基线登记：scripts/level-map-baseline.json → graphThirdParty
  * （W2 目标：0——ws/graphql 全部出核或端口化）
  */
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
@@ -21,13 +21,13 @@ import { fileURLToPath } from 'node:url'
 const ROOT = dirname(fileURLToPath(import.meta.url)).replace(/\/scripts$/, '')
 const { build } = await import('esbuild')
 
-const levels = JSON.parse(readFileSync(join(ROOT, 'src/core/levels.json'), 'utf8'))
+const levels = JSON.parse(readFileSync(join(ROOT, 'src/levels.json'), 'utf8'))
 const coreFiles = Object.entries(levels.files)
   .filter(([, v]) => v.level !== 'equipment')
   .map(([k]) => join(ROOT, k))
 
 // 虚拟入口：import 全部 core 文件（副作用导入——不关心导出）
-const dir = mkdtempSync(join(tmpdir(), 'core-graph-'))
+const dir = mkdtempSync(join(tmpdir(), 'level-graph-'))
 const entry = join(dir, 'entry.ts')
 writeFileSync(entry, coreFiles.map((f) => `import ${JSON.stringify(f)}`).join('\n') + '\n')
 
@@ -44,7 +44,7 @@ try {
     absWorkingDir: ROOT,
   })
 } catch (e) {
-  console.error('✖ core-graph 打包失败（core 存在不可解析依赖）：')
+  console.error('✖ level-graph 打包失败（存在不可解析依赖）：')
   console.error(e.message?.split('\n').slice(0, 12).join('\n') ?? e)
   process.exit(1)
 } finally {
@@ -58,22 +58,22 @@ for (const input of Object.keys(result.metafile.inputs)) {
 }
 const graphThirdParty = [...pkgs].sort()
 
-const BASELINE = join(ROOT, 'scripts/core-levels-baseline.json')
+const BASELINE = join(ROOT, 'scripts/level-map-baseline.json')
 const baseline = JSON.parse(readFileSync(BASELINE, 'utf8'))
 const CHECK = process.argv.includes('--check')
 const old = new Set(baseline.graphThirdParty ?? [])
 const added = graphThirdParty.filter((p) => !old.has(p))
 const removed = [...old].filter((p) => !pkgs.has(p))
 
-console.log(`[core-graph] core 闭包三方依赖：${graphThirdParty.length ? graphThirdParty.join(', ') : '（无）'}`)
+console.log(`[level-graph] 闭包三方依赖：${graphThirdParty.length ? graphThirdParty.join(', ') : '（无）'}`)
 if (removed.length) console.log(`  已移除（基线收缩——请更新基线）：${removed.join(', ')}`)
 
 if (CHECK) {
   if (added.length) {
-    console.error(`✖ core-graph 校验失败：新增三方依赖 ${added.join(', ')}（core 禁三方——W2 目标 0）`)
+    console.error(`✖ level-graph 校验失败：新增三方依赖 ${added.join(', ')}（L0–L4 禁三方——目标 0）`)
     process.exit(1)
   }
-  console.log('✔ core-graph 校验通过（无新增依赖）')
+  console.log('✔ level-graph 校验通过（无新增依赖）')
 } else {
   baseline.graphThirdParty = graphThirdParty
   writeFileSync(BASELINE, JSON.stringify(baseline, null, 2) + '\n')

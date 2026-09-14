@@ -4,11 +4,11 @@
 > 文档即代码：计划写作规范见 [plan/plan.md](plan/plan.md)（计划完成后
 > 规则并入本文档——历史过程由 git log 承接）；组件编写规范见
 > [docs/client.md §5](docs/client.md#5-组件编写规范唯一入口)；用户文档见
-> [docs/client.md](docs/client.md) / [docs/server.md](docs/server.md) / [docs/core.md](docs/core.md)（内核分层与冻结）。
+> [docs/client.md](docs/client.md) / [docs/server.md](docs/server.md) / [docs/level.md](docs/level.md)（内核分层与冻结）。
 
 **防线快照（2027-xx）**：
 契约 **515** · 场景 **129** · showcase **336**（134 组件全覆盖）· server **883**（882 pass + 1 docker-gated skip）·
-shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 155** · audit:all **十四线**（semantics/interactivity/vdom/theme/api/bundle/showcase/docs/**health**（C3 三线+C4 二线）/**core-levels**（依赖+规模+docs+L0 快照）） exit 0——C3 健康基线：a11y 0 违规（豁免登记 8 类——拦截语义/父面键盘/装饰/指针等价）· as any 0（组件面——只降不升）· app.js 511KB（tree-shake 残留 0）· **C4**：i18n 裸 0 违例（机制接线 11 处——ThemeSwitch/Editor/AppShell——数据层定义表豁免登记）· 死类 0（登记表空——17 清）· token 176 · **C5/banner**：文件头 banner 155 全量（registry desc 单源——首行格式哨兵）· svg aria 0（role:img 语义容器补全 4）· **C6**：VNodeChild 接线 100（children 家族 any 注解单源化——数据面任何 19 登记）· **C7**：console log/error 0（warn 17 dev 提示）· **S8** 重复选择器 0（顶层双定义 14 清）· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· tsc **0 错**。
+shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 155** · audit:all **十四线**（semantics/interactivity/vdom/theme/api/bundle/showcase/docs/**health**（C3 三线+C4 二线）/**levels**（依赖+规模+docs+L0 快照）） exit 0——C3 健康基线：a11y 0 违规（豁免登记 8 类——拦截语义/父面键盘/装饰/指针等价）· as any 0（组件面——只降不升）· app.js 511KB（tree-shake 残留 0）· **C4**：i18n 裸 0 违例（机制接线 11 处——ThemeSwitch/Editor/AppShell——数据层定义表豁免登记）· 死类 0（登记表空——17 清）· token 176 · **C5/banner**：文件头 banner 155 全量（registry desc 单源——首行格式哨兵）· svg aria 0（role:img 语义容器补全 4）· **C6**：VNodeChild 接线 100（children 家族 any 注解单源化——数据面任何 19 登记）· **C7**：console log/error 0（warn 17 dev 提示）· **S8** 重复选择器 0（顶层双定义 14 清）· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· tsc **0 错**。
 
 **内核资产**：
 - **分层抽象思维（架构总纲——2027-09 定案）**：三层（vdom/components/layout）各上浮为
@@ -45,10 +45,10 @@ shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 15
   （组件域语义——标尺爆炸——登记制锁新增）· 派生面豁免（calc/env——L13 同款）
 - **vdom**（`src/client/vdom/`）——命令流引擎（13 命令 NDJSON 自足）+ 三实体状态机
   + 双树对账器 + fuzz 生成器 + render-health 四轴仪表
-- **core 三层冻结**（`src/core/{l0,l1,l2}`——W0-W5 定案）：清单 `src/core/levels.json`（L0 **25/2856/215** ·
-  L1 **84/12918/383** · L2 **7/693/22**）· 守卫 `npm run audit:core-levels`（依赖方向/泄漏/三方/闭包 + 规模只降不升
-  + docs 漂移 + **L0 出口快照 230 声明**——L0 立即冻结 · L1 待 1.0 · L2 provisional，细则 [docs/core.md](docs/core.md)）·
-  内核回归 `npm run test:core`（830——无 docker/无浏览器）· 端口注入（`WsHandlePort`）——默认**自研 RFC6455**
+- **core 三层冻结**（`src/core/{l0,l1,l2}`——W0-W5 定案）：清单 `src/levels.json`（L0 **25/2856/215** ·
+  L1 **84/12918/383** · L2 **7/693/22**）· 守卫 `npm run audit:levels`（依赖方向/泄漏/三方/闭包 + 规模只降不升
+  + docs 漂移 + **L0 出口快照 230 声明**——L0 立即冻结 · L1 待 1.0 · L2 provisional，细则 [docs/level.md](docs/level.md)）·
+  内核回归 `npm run test:levels`（830——无 docker/无浏览器）· 端口注入（`WsHandlePort`）——默认**自研 RFC6455**
   `src/server/ws/native/`（Autobahn **301/0 FAILED** · Node 全局 WebSocket（undici）互操作——`ws` 包已清理）·
   旧路径 116 shim（1.0 移除）
 - **外部依赖内存化矩阵**（四类核心依赖——Memory 实现 + Server 协议替身双层——主包全导出）：

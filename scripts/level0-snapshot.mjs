@@ -4,7 +4,7 @@
  *
  * 背景：L0 = 协议层（纯数据/不变量）——承诺"立即冻结"。机制化 =
  * 出口清单 golden：任何 L0 模块的**导出增删/改名/种类变化** → 快照红，
- * 必须显式 `node scripts/core-snapshot.mjs`（写入）+ commit 说明。
+ * 必须显式 `node scripts/level0-snapshot.mjs`（写入）+ commit 说明。
  *
  * 口径：**声明面**（每个 L0 文件的 export 声明——含再导出语句）。
  * 每个 L0 文件都在清单内 → 再导出目标内部的导出变化在其声明文件处可见，
@@ -12,17 +12,17 @@
  * 零依赖（源码解析——剥注释；`export default` 无——实测 0）。
  *
  * 用法：
- *   node scripts/core-snapshot.mjs          # 写入快照（显式变更）
- *   node scripts/core-snapshot.mjs --check  # 校验（CI / audit:core-levels）
+ *   node scripts/level0-snapshot.mjs          # 写入快照（显式变更）
+ *   node scripts/level0-snapshot.mjs --check  # 校验（CI / audit:levels）
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const SNAPSHOT = join(ROOT, 'scripts/core-l0-snapshot.json')
+const SNAPSHOT = join(ROOT, 'scripts/level0-snapshot.json')
 
-const levels = JSON.parse(readFileSync(join(ROOT, 'src/core/levels.json'), 'utf8'))
+const levels = JSON.parse(readFileSync(join(ROOT, 'src/levels.json'), 'utf8'))
 const l0Files = Object.entries(levels.files)
   .filter(([, v]) => v.level === 'l0')
   .map(([f]) => f)
@@ -68,14 +68,14 @@ const totalOf = (s) => Object.values(s.files).reduce((n, a) => n + a.length, 0)
 
 if (!CHECK) {
   writeFileSync(SNAPSHOT, JSON.stringify(snapshot, null, 2) + '\n')
-  console.log(`[core-snapshot] L0 ${l0Files.length} 文件 / ${totalOf(snapshot)} 声明——写入 ${relative(ROOT, SNAPSHOT)}`)
+  console.log(`[level0-snapshot] L0 ${l0Files.length} 文件 / ${totalOf(snapshot)} 声明——写入 ${relative(ROOT, SNAPSHOT)}`)
   process.exit(0)
 }
 
 const prev = existsSync(SNAPSHOT) ? JSON.parse(readFileSync(SNAPSHOT, 'utf8')) : null
 const errs = []
 if (!prev) {
-  errs.push('快照缺失——先跑 node scripts/core-snapshot.mjs')
+  errs.push('快照缺失——先跑 node scripts/level0-snapshot.mjs')
 } else {
   const files = new Set([...Object.keys(prev.files), ...Object.keys(snapshot.files)])
   for (const f of [...files].sort()) {
@@ -88,7 +88,7 @@ if (!prev) {
   }
 }
 if (errs.length) {
-  console.error('✖ L0 出口快照失败（L0 变更属显式事件——确认后 node scripts/core-snapshot.mjs 写入并 commit 说明）：')
+  console.error('✖ L0 出口快照失败（L0 变更属显式事件——确认后 node scripts/level0-snapshot.mjs 写入并 commit 说明）：')
   for (const e of errs.slice(0, 20)) console.error('  ' + e)
   process.exit(1)
 }

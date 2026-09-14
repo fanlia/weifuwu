@@ -9,8 +9,8 @@
  *   C2  core `as any` 登记制——已知豁免模式（debug 门/动态属性——TS 面
  *      不足）白名单外出现 = 报错（新增必须登记理由）
  *
- * 用法：node scripts/core-audit.mjs          # 摘要（违规 → 退出码 1）
- *       node scripts/core-audit.mjs --json
+ * 用法：node scripts/level-audit.mjs          # 摘要（违规 → 退出码 1）
+ *       node scripts/level-audit.mjs --json
  */
 
 import { readFileSync, readdirSync } from 'node:fs'
@@ -66,7 +66,7 @@ function procFunctionBodies(src, lines) {
   return out
 }
 
-export function coreAudit() {
+export function levelAudit() {
   const errors = []
   const warnings = []
 
@@ -116,7 +116,7 @@ export function coreAudit() {
 
 // ── CLI ──
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const res = coreAudit()
+  const res = levelAudit()
   if (process.argv.includes('--json')) console.log(JSON.stringify(res, null, 2))
   else {
     console.log(`C1/C2 违规: ${res.errors.length}${res.errors.length ? '\n' + res.errors.map((e) => '  ✗ ' + e).join('\n') : ''}`)

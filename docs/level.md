@@ -1,7 +1,7 @@
 # weifuwu/core —— 内核分层（L0/L1/L2）
 
 > **状态：W0 草稿（2026-09）**——判据与规则为规范面；分层清单由
-> `node scripts/core-levels.mjs` 生成（`src/core/levels.json`），文档在 W4 由清单生成。
+> `node scripts/level-map.mjs` 生成（`src/levels.json`），文档在 W4 由清单生成。
 > 实施过程见 `plan/core-分层与冻结.md`。
 
 weifuwu 的内核不是目录，而是**一组"去掉就不再是 weifuwu"的机制**：双端共享路由、
@@ -46,7 +46,7 @@ src/core/
 └── l2/{server,client}/ # 生成器（声明 → 行为）
 ```
 
-**目录即层级**：审计（`scripts/core-levels.mjs`）以 `src/core` 为唯一 scope，
+**目录即层级**：审计（`scripts/level-map.mjs`）以 `src/core` 为唯一 scope，
 按目录前缀定级——新增能力先答三问，再入对应目录。
 
 **兼容 shim**：旧路径（`src/shared/router/**`、`src/server/db/{shape,errors,…}.ts`、
@@ -57,19 +57,19 @@ core 自身**不得**经 shim 导入（审计对 core→非 core 导入 = 泄漏
 ## 工具
 
 ```bash
-npm run core:levels          # 生成：清单与基线（src/core/levels.json + baseline + docs 清单块）
-npm run audit:core-levels    # 校验：依赖/规模/docs 漂移/闭包 —— 任一红 = exit 1
-npm run core:snapshot        # 写入 L0 出口快照（显式变更——需 commit 说明）
-npm run test:core            # 内核回归（无 docker/无浏览器：契约 + shared + core + 内核域）
+npm run level:map          # 生成：清单与基线（src/levels.json + baseline + docs 清单块）
+npm run audit:levels    # 校验：依赖/规模/docs 漂移/闭包 —— 任一红 = exit 1
+npm run level0:snapshot        # 写入 L0 出口快照（显式变更——需 commit 说明）
+npm run test:levels            # 内核回归（无 docker/无浏览器：契约 + shared + core + 内核域）
 ```
 
 ## 冻结与快照
 
 | 机制 | 红线 | 变更路径 |
 | --- | --- | --- |
-| L0 出口快照（`scripts/core-l0-snapshot.json`） | 导出增删/改名/种类变化 = 红 | `npm run core:snapshot` + commit 说明 |
-| 三层规模基线（`scripts/core-levels-baseline.json`） | 文件/行数/导出数**只降不升** | `npm run core:levels` 显式更新（diff 可见） |
-| docs 清单块漂移 | `docs/core.md` 生成块 ≠ 生成器 = 红 | `npm run core:levels` 重生成 |
+| L0 出口快照（`scripts/level0-snapshot.json`） | 导出增删/改名/种类变化 = 红 | `npm run level0:snapshot` + commit 说明 |
+| 三层规模基线（`scripts/level-map-baseline.json`） | 文件/行数/导出数**只降不升** | `npm run level:map` 显式更新（diff 可见） |
+| docs 清单块漂移 | `docs/level.md` 生成块 ≠ 生成器 = 红 | `npm run level:map` 重生成 |
 | 依赖方向/泄漏/三方 | 新增即红（存量基线登记） | 修代码，不可调白名单 |
 
 **层级承诺（W6 定案——冻结时刻表）**：
@@ -77,7 +77,7 @@ npm run test:core            # 内核回归（无 docker/无浏览器：契约 +
 | 层 | 承诺 | 冻结时刻 | 含义 |
 | --- | --- | --- | --- |
 | **L0** | 协议/不变量 | **现在**（0.x 内即冻结） | 快照红线全时生效；变更须显式写快照 + commit 说明迁移路径 |
-| **L1** | 引擎（vdom/router/serve/db 契约/生成器胶水） | **1.0** | 1.0 前可演进（每变过 `test:core` + 契约/fuzz）；1.0 后同 L0 机制 |
+| **L1** | 引擎（vdom/router/serve/db 契约/生成器胶水） | **1.0** | 1.0 前可演进（每变过 `test:levels` + 契约/fuzz）；1.0 后同 L0 机制 |
 | **L2** | 生成器（纯函数） | **provisional**（可重写） | 跨版本不承诺兼容；是实验面而非稳定面 |
 
 **验收实验（W6 实证——"再生成=零 core 改动"）**：
@@ -93,7 +93,7 @@ npm run test:core            # 内核回归（无 docker/无浏览器：契约 +
 
 ## 清单（生成面）
 
-<!-- core-inventory:start（由 npm run core:levels 生成——勿手改） -->
+<!-- level-inventory:start（由 npm run level:map 生成——勿手改） -->
 | 层 | 文件 | 行数 | 导出 |
 | --- | --- | --- | --- |
 | L0 | 25 | 2856 | 215 |
@@ -224,7 +224,7 @@ npm run test:core            # 内核回归（无 docker/无浏览器：契约 +
 - `src/core/l2/client/vdom/semantic.ts`（client · 114 行）
 - `src/core/l2/server/db/body.ts`（server · 75 行）
 - `src/core/l2/server/db/http.ts`（server · 86 行）
-<!-- core-inventory:end -->
+<!-- level-inventory:end -->
 
 （装备面不在 scope——组件/中间件/线协议/工具范围外，自由演进。）
 
@@ -234,7 +234,7 @@ npm run test:core            # 内核回归（无 docker/无浏览器：契约 +
 
 | 变更面 | 最小门 |
 | --- | --- |
-| `src/core/l0/**` / `scripts/core-*` | `npm run audit:core-levels && npm run test:core`（L0 快照红 = 显式事件） |
-| `src/core/{l1,l2}/**` | `npm run test:core && npm run test:server` |
+| `src/core/l0/**` / `scripts/core-*` | `npm run audit:levels && npm run test:levels`（L0 快照红 = 显式事件） |
+| `src/core/{l1,l2}/**` | `npm run test:levels && npm run test:server` |
 | 装备面（组件/中间件/平台） | 对应域测试 + `npm run audit:all` |
 | 全量（批次末） | `npm run test:client && test:scenario && test:server` + `npm run audit:all`（含本线） |
