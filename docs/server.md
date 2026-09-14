@@ -404,7 +404,14 @@ export type Agent = RowOf<(typeof SHAPES)['agents']> & {
 - **ui**：`ctx.ui.html/js/css/ssr`——TSX 动态编译（esbuild 同步）+ 组件 SSR
   （`src/ssr.ts`——SSR ≡ SPA 首帧纪律）
 - **graphql**：`src/server/middleware/graphql.ts`——Schema-first
-- **WebSocket**：`src/server/core/ws-hub.ts`——连接/房间/广播 + 心跳
+- **WebSocket**：`src/server/ws/`——**自研 RFC6455 适配器为默认**（W5）：
+  - 端口（core）：`WsHandlePort`——`handleUpgrade + shutdown`；core 零协议依赖
+  - 默认实现：`src/server/ws/native/`（握手/帧编解码/分片/控制帧/UTF-8 fail-fast/关闭码/限额）
+  - 差分参考：`src/server/ws/adapter.ts`（`ws` 包——已降 devDependency，仅供测试对账）
+  - 验收：Autobahn **301 用例 0 FAILED**（290 OK + 8 NON-STRICT + 3 INFORMATIONAL——压缩类 12/13 诚实裁剪）
+    · native vs `ws` 差分 fuzz **200 用例 0 不等价** · 消息类型归一（text→string / binary→Buffer）
+  - 诚实裁剪：无扩展/无压缩/无子协议协商；`maxPayload` 默认 100 MiB（可配）
+  - 自定义协议：`serve(router, { wsAdapter })` 覆盖；未注册 WS 路由时零开销
 
 ---
 

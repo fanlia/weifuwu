@@ -5,7 +5,7 @@
  * Used internally by Router — not exported to end users.
  *
  * W2 端口化：core 不依赖 `ws`——协议侧由 `WsHandlePort` 注入
- * （装备实现 src/server/ws/adapter.ts；自研 RFC6455 为 W5 条件波次）。
+ * （默认实现 src/server/ws/native/——W5 自研 RFC6455；`ws` 仅差分参考）。
  */
 
 import type { Duplex } from 'node:stream'
@@ -25,8 +25,8 @@ export type WebSocketHandler = {
 
 /**
  * WS 升级端口（core 契约）——协议侧实现属装备：
- * - `ws` 实现：src/server/ws/adapter.ts（默认——`weifuwu` 入口 serve() 自动注入）
- * - 自研 RFC6455 / 测试替身：同一结构即可替换
+ * - 默认：自研 RFC6455（src/server/ws/native/——`weifuwu` 入口 serve() 自动注入）
+ * - `ws` 包实现 / 测试替身：同一结构即可替换（差分对账参考）
  *
  * 缺适配器且注册了 WS 路由 → serve() 显式报错（不静默 404）。
  */
@@ -130,7 +130,13 @@ export function createWsUpgradeHandler(
       const closeHook = safeHook('close', h.close, errorHook)
 
       openHook(ws, ctx)
-      ws.on('message', (data) => messageHook(ws, ctx, data as string | Buffer))
+      // 适配器归一（W5）：text → string（native 已归一；ws 库 text 也发 Buffer——isBinary=false）；
+      // 无 isBinary 的替身实现保持原 payload（向后兼容）。
+      ws.on('message', (data, isBinary) => {
+        const payload =
+          isBinary === false && typeof data !== 'string' ? String(data) : (data as string | Buffer)
+        messageHook(ws, ctx, payload)
+      })
       ws.on('close', () => closeHook(ws, ctx))
       ws.on('error', (error) => {
         const e = error as Error

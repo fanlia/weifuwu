@@ -1,9 +1,10 @@
 /**
- * ws 线协议适配器（W2——core 端口 `WsHandlePort` 的 `ws` 实现）
+ * ws 线协议适配器（W2——`WsHandlePort` 的 `ws` 包实现）
  *
- * 分层：core 只定义端口（`src/server/core/ws.ts`）——协议实现属装备面。
- * - 默认：`weifuwu` 入口的 serve() 自动注入（createWsAdapter）
- * - 自研 RFC6455（W5 条件波次）：新适配器同结构替换即可，core 零改动
+ * 状态：**非默认**（W5 起默认 = 自研 RFC6455 `src/server/ws/native/`）。
+ * `ws` 降 devDependency——本文件仅作差分对账参考与回退选项（测试直接导入）。
+ *
+ * 分层：core 只定义端口（`src/core/l1/server/ws.ts`）——协议实现属装备面。
  *
  * 停机语义（S2 实证）：`server.closeAllConnections()` 对已升级的 WS 连接无效——
  * 必须经 `wss.clients` 逐一 1001 握手（客户端 close 事件才会触发）。

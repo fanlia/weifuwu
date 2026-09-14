@@ -11,7 +11,7 @@
     },
     "l1": {
       "files": 84,
-      "loc": 12912,
+      "loc": 12918,
       "exports": 383
     },
     "l2": {
@@ -564,7 +564,7 @@
     "src/core/l1/server/ws.ts": {
       "level": "l1",
       "env": "server",
-      "loc": 143
+      "loc": 149
     },
     "src/core/l2/client/layout/decl.ts": {
       "level": "l2",

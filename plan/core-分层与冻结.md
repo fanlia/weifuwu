@@ -142,6 +142,13 @@ src/core/
   - **docs 清单块生成 + 漂移哨兵**（生成块 ≠ 生成器 = 红——探针实证）；docs/core.md 新增「冻结与快照」「清单（生成面）」「CI 命令（路径感知）」三节。
   - **接入**：`audit:core-levels` = levels + graph + snapshot 三连；`audit:all` 十三线 → **十四线**（append core 线）。
   - 回归：`audit:core-levels` 全绿 · `test:core` 830 · `tsc` 0 · `audit:all` exit 0。
+- **W5（2026-09-14）自研 RFC6455 成为默认**（条件波次——门槛全过，**不触发**判负回退）：
+  - 实现：`src/server/ws/native/` 三件——`frame.ts`（编解码 + 解析层校验：RSV/opcode/掩码/控制帧/最小编码/高位/限额）· `connection.ts`（分片序列/UTF-8 增量 fail-fast/关闭码/关闭握手/消息总限）· `server.ts`（握手 Accept/版本 426/Key 校验 + 1001 停机）；**`WsHandlePort` 端口与 core 零改动**（W2 设计兑现）。
+  - **Autobahn 301 用例 0 FAILED**（290 OK + 8 NON-STRICT + 3 INFORMATIONAL；12/13 压缩类诚实裁剪）——首次跑抓真 bug：首片 flush 误判未完成多字节序列（6.2.4 `κόσμε` 逐字节分片）→ 修（首片 stream:true）→ 复跑全绿。
+  - **差分 fuzz 200 用例 0 不等价**（4 种子×50：长度档/分片+ping 插入/任意 TCP 分片/关闭码）——过程中抓适配器**语义真实差异**：ws 库 text 消息也发 Buffer（isBinary 第二参）→ core 归一（text→string / binary→Buffer——单源）。
+  - 测试：frame 5 + server 12（含 6.2.4/6.4.2 形态回归）+ 差分 1；`test:server` **883**（882+1 skip）。
+  - `ws` 降 devDependency（差分参考/回退选项；dist 零 ws 引用）；默认切换仅 `src/server/index.ts` serve 包装改动；Autobahn 夹具 `scripts/ws-autobahn-server.mjs`（dev-only）。
+  - 回归：`test:core` 830 · `test:server` 883 · 场景 129/129 · 平台 507（492+15） · `tsc` 0 · 构建 0 · `audit:all`（core 线首跑拦下 +6 行 core 变更→显式更新基线→绿——机制实证）。
 
 ## 验收标准
 
@@ -150,7 +157,7 @@ src/core/
 - [x] W2：泄漏边 = 0；core 三方 import = 0；graphql 中间件化消费点全迁移
 - [x] W3：目录迁移完成；收编类型/运行时到位；旧路径 shim 生效；全量回归绿
 - [x] W4：L0 快照 + 规模基线 + `docs/core.md` + `audit:all` 接入
-- [ ] W5（条件）：Autobahn + 差分门槛达标，或按判负回退 ws 适配器
+- [x] W5：Autobahn 301/0 FAILED + 差分 200/0 不等价 → native 默认（未触发回退）
 - [ ] W6：平台升级零 core 改动；再生成实验通过
 - [ ] 全量回归门：契约 + 场景 + showcase + server + shared + audit 全线绿
 - [ ] 收尾：规则并入 `docs/core.md`/`docs/server.md`/`AGENTS.md`；计划文件归档 git 历史

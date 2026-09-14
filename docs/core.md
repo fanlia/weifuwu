@@ -78,7 +78,7 @@ npm run test:core            # 内核回归（无 docker/无浏览器：契约 +
 | 层 | 文件 | 行数 | 导出 |
 | --- | --- | --- | --- |
 | L0 | 25 | 2856 | 215 |
-| L1 | 84 | 12912 | 383 |
+| L1 | 84 | 12918 | 383 |
 | L2 | 7 | 693 | 22 |
 
 **L0（25）**
@@ -194,7 +194,7 @@ npm run test:core            # 内核回归（无 docker/无浏览器：契约 +
 - `src/core/l1/server/response.ts`（server · 118 行）
 - `src/core/l1/server/router.ts`（server · 366 行）
 - `src/core/l1/server/serve.ts`（server · 350 行）
-- `src/core/l1/server/ws.ts`（server · 143 行）
+- `src/core/l1/server/ws.ts`（server · 149 行）
 
 **L2（7）**
 

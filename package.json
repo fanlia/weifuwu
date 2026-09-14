@@ -125,8 +125,7 @@
   },
   "dependencies": {
     "esbuild": "^0.28.1",
-    "graphql": "^16",
-    "ws": "^8"
+    "graphql": "^16"
   },
   "peerDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
@@ -154,7 +153,8 @@
     "postcss": "^8.5.19",
     "postgres": "^3.4.9",
     "puppeteer-core": "^25.9.0",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "ws": "^8"
   },
   "keywords": [
     "ai",

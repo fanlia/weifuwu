@@ -1,5 +1,5 @@
 import { serve as serveCore } from './core/serve.ts'
-import { createWsAdapter } from './ws/adapter.ts'
+import { createNativeWsAdapter } from './ws/native/index.ts'
 
 export type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
 export { HttpError, createMiddleware } from './types.ts'
@@ -10,8 +10,8 @@ export { Router } from './core/router.ts'
 export type { WebSocketHandler, WsHandlePort } from './core/ws.ts'
 
 /**
- * serve——默认注入 ws 适配器（装备面实现）。
- * 自定义协议（自研 RFC6455/测试替身）时传 `options.wsAdapter` 覆盖；
+ * serve——默认注入自研 RFC6455 适配器（W5；`ws` 仅作差分对账参考，不再随包发布依赖）。
+ * 自定义协议（测试替身/特殊限额）时传 `options.wsAdapter` 覆盖；
  * 未注册 WS 路由时工厂不会被调用（零开销）。
  *
  * 直接使用 `weifuwu/core` 的 serve() 时需自行提供 wsAdapter（core 无 ws 实现）。
@@ -21,7 +21,7 @@ export function serve<T extends object>(
   options?: import('./core/serve.ts').ServeOptions,
 ): import('./core/serve.ts').Server {
   const withAdapter =
-    options?.wsAdapter !== undefined ? options : { ...options, wsAdapter: createWsAdapter }
+    options?.wsAdapter !== undefined ? options : { ...options, wsAdapter: createNativeWsAdapter }
   return serveCore(router, withAdapter)
 }
 export type { WebSocket } from './types.ts'
