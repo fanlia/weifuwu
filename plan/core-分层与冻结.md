@@ -136,6 +136,12 @@ src/core/
   - **v1 残留登记**：引擎文件已无残留；公共入口 v2 兼容别名（`renderToStream`/`diffStream` 等）有在库消费者（契约测试/工具面）——保留登记（推翻条件：1.0 破坏窗口 + 消费点迁移）。
   - 顺手：health 两条既有 i18n 裸文案（FileUpload/ToolCallCard progress label）接 `ctx.i18n.components` 机制（`??` fallback）——**audit:all 十三线全绿**。
   - 回归：`test:core` **830** · `test:server` **865** · 场景 **129/129** · 平台 **507（492+15）** · `audit:all` exit 0 · `tsc` 0。
+- **W4（2026-09-14）加锁**：
+  - **L0 出口快照**（`scripts/core-l0-snapshot.json`——声明面 25 文件/230 声明，零依赖源码解析含再导出）+ `core-snapshot.mjs --check`（增/删/改名/种类变化 = 红——**注入探针实证**：新增导出 exit 1，还原绿）。
+  - **三层规模基线（只降不升）**：`core-levels.mjs --check` 对 files/loc/exports 增长即红（探针实证 `l0.loc 2856→2858` 红）；扩面须显式 `npm run core:levels`（diff 可见）。
+  - **docs 清单块生成 + 漂移哨兵**（生成块 ≠ 生成器 = 红——探针实证）；docs/core.md 新增「冻结与快照」「清单（生成面）」「CI 命令（路径感知）」三节。
+  - **接入**：`audit:core-levels` = levels + graph + snapshot 三连；`audit:all` 十三线 → **十四线**（append core 线）。
+  - 回归：`audit:core-levels` 全绿 · `test:core` 830 · `tsc` 0 · `audit:all` exit 0。
 
 ## 验收标准
 
@@ -143,7 +149,7 @@ src/core/
 - [x] W1：`audit:core-levels` + `test:core` + import-graph 断言上线（黄→红机制验证）
 - [x] W2：泄漏边 = 0；core 三方 import = 0；graphql 中间件化消费点全迁移
 - [x] W3：目录迁移完成；收编类型/运行时到位；旧路径 shim 生效；全量回归绿
-- [ ] W4：L0 快照 + 规模基线 + `docs/core.md` + `audit:all` 接入
+- [x] W4：L0 快照 + 规模基线 + `docs/core.md` + `audit:all` 接入
 - [ ] W5（条件）：Autobahn + 差分门槛达标，或按判负回退 ws 适配器
 - [ ] W6：平台升级零 core 改动；再生成实验通过
 - [ ] 全量回归门：契约 + 场景 + showcase + server + shared + audit 全线绿

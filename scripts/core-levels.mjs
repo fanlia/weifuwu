@@ -157,10 +157,40 @@ const baseline = {
 const CHECK = process.argv.includes('--check')
 const ARTIFACT = join(ROOT, 'src/core/levels.json')
 const BASELINE = join(ROOT, 'scripts/core-levels-baseline.json')
+const DOCS = join(ROOT, 'docs/core.md')
+const DOC_START = '<!-- core-inventory:start（由 npm run core:levels 生成——勿手改） -->'
+const DOC_END = '<!-- core-inventory:end -->'
 
 function fmt(s) {
   const one = (x, n) => `${n} ${x.files} 文件/${x.loc} 行/${x.exports} 导出`
   return `${one(s.l0, 'L0')} · ${one(s.l1, 'L1')} · ${one(s.l2, 'L2')}`
+}
+
+/** docs/core.md 清单块（W4——生成面：levels.json 的文档投影） */
+function renderInventory() {
+  const lines = ['| 层 | 文件 | 行数 | 导出 |', '| --- | --- | --- | --- |']
+  for (const [lv, name] of [['l0', 'L0'], ['l1', 'L1'], ['l2', 'L2']]) {
+    const s = summary[lv]
+    lines.push(`| ${name} | ${s.files} | ${s.loc} | ${s.exports} |`)
+  }
+  for (const [lv, name] of [['l0', 'L0'], ['l1', 'L1'], ['l2', 'L2']]) {
+    const fs = Object.keys(manifest).filter((f) => manifest[f].level === lv).sort()
+    lines.push('', `**${name}（${fs.length}）**`, '')
+    for (const f of fs) lines.push(`- \`${f}\`（${manifest[f].env} · ${manifest[f].loc} 行）`)
+  }
+  return lines.join('\n')
+}
+function docsBlock() {
+  return `${DOC_START}\n${renderInventory()}\n${DOC_END}`
+}
+/** 提取 docs 中已生成块（未见标记 → null） */
+function currentDocsBlock() {
+  if (!existsSync(DOCS)) return null
+  const s = readFileSync(DOCS, 'utf8')
+  const a = s.indexOf(DOC_START)
+  const b = s.indexOf(DOC_END)
+  if (a < 0 || b < 0) return null
+  return s.slice(a, b + DOC_END.length)
 }
 
 if (CHECK) {
@@ -173,6 +203,18 @@ if (CHECK) {
     const added = now.filter((x) => !old.has(x))
     if (added.length) errs.push(`新增 ${key} ${added.length}:\n    ${added.slice(0, 10).join('\n    ')}`)
   }
+  // 规模基线（W4——只降不升；扩面须显式 npm run core:levels 更新基线，diff 可见）
+  for (const lv of ['l0', 'l1', 'l2']) {
+    for (const k of ['files', 'loc', 'exports']) {
+      const nowV = summary[lv][k]
+      const oldV = prev?.summary?.[lv]?.[k] ?? 0
+      if (nowV > oldV) errs.push(`规模超基线 ${lv}.${k}: ${oldV} → ${nowV}（只降不升——显式更新基线）`)
+    }
+  }
+  // docs 漂移哨兵（W4——生成块 == 文件内容）
+  const cur = currentDocsBlock()
+  if (cur === null) errs.push('docs/core.md 缺少 core-inventory 生成块标记（见脚本 DOC_START/DOC_END）')
+  else if (cur !== docsBlock()) errs.push('docs/core.md 清单块漂移（跑 npm run core:levels 重生成）')
   console.log(`[core-levels] ${fmt(summary)}`)
   for (const k of ['thirdParty', 'leaks', 'upward', 'nodeInUniversal']) {
     if (baseline[k].length) console.log(`  存量 ${k}: ${baseline[k].length}（基线登记）`)
@@ -181,16 +223,27 @@ if (CHECK) {
     console.error(`✖ core-levels 校验失败：\n  ${errs.join('\n  ')}`)
     process.exit(1)
   }
-  console.log('✔ core-levels 校验通过（无新增未知/三方/泄漏/上行）')
+  console.log('✔ core-levels 校验通过（无新增未知/三方/泄漏/上行 · 规模不升 · docs 无漂移）')
   process.exit(0)
 }
 
 mkdirSync(join(ROOT, 'src/core'), { recursive: true })
 writeFileSync(ARTIFACT, JSON.stringify(artifact, null, 2) + '\n')
 writeFileSync(BASELINE, JSON.stringify(baseline, null, 2) + '\n')
+if (existsSync(DOCS)) {
+  const s = readFileSync(DOCS, 'utf8')
+  const a = s.indexOf(DOC_START)
+  const b = s.indexOf(DOC_END)
+  if (a < 0 || b < 0) {
+    console.error('✖ docs/core.md 缺少 core-inventory 标记——先补标记再生成')
+    process.exit(1)
+  }
+  writeFileSync(DOCS, s.slice(0, a) + docsBlock() + s.slice(b + DOC_END.length))
+}
 console.log(`[core-levels] ${fmt(summary)}`)
 console.log(`写入 ${K(relative(ROOT, ARTIFACT))}（${files.length} 文件）`)
 console.log(`写入 ${K(relative(ROOT, BASELINE))}`)
+if (existsSync(DOCS)) console.log(`写入 ${K(relative(ROOT, DOCS))}（清单块）`)
 console.log(`  未分类 ${unknown.length} · core 三方 ${thirdParty.length} · 泄漏 ${baseline.leaks.length} · 上行 ${baseline.upward.length} · universal 内 node: ${baseline.nodeInUniversal.length}`)
 if (unknown.length) {
   console.error(`✖ 未分类文件（规则缺口——必须 0）：\n  ${unknown.join('\n  ')}`)
