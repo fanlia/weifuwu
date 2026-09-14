@@ -19,13 +19,13 @@
   "summary": {
     "l0": {
       "files": 23,
-      "loc": 2598,
-      "exports": 188
+      "loc": 2607,
+      "exports": 189
     },
     "l1": {
       "files": 83,
-      "loc": 12783,
-      "exports": 374
+      "loc": 12799,
+      "exports": 375
     },
     "l2": {
       "files": 7,
@@ -467,22 +467,22 @@
     "src/server/core/hub.ts": {
       "level": "l1",
       "env": "server",
-      "loc": 46
+      "loc": 45
     },
     "src/server/core/router.ts": {
       "level": "l1",
       "env": "server",
-      "loc": 380
+      "loc": 366
     },
     "src/server/core/serve.ts": {
       "level": "l1",
       "env": "server",
-      "loc": 328
+      "loc": 350
     },
     "src/server/core/ws.ts": {
       "level": "l1",
       "env": "server",
-      "loc": 134
+      "loc": 143
     },
     "src/server/db/body.ts": {
       "level": "l2",
@@ -647,7 +647,7 @@
     "src/server/types.ts": {
       "level": "l0",
       "env": "universal",
-      "loc": 146
+      "loc": 155
     },
     "src/shared/router/chain.ts": {
       "level": "l0",

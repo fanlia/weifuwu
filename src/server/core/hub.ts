@@ -5,8 +5,7 @@
  * 每个房间是一个字符串 key，WebSocket 通过 join/leave 管理订阅。
  * 多实例部署传自定义 Hub（Redis 后端）——wsHub() 注入。
  */
-import type { WebSocket } from 'ws'
-import type { Hub } from './ws.ts'
+import type { Hub, WebSocket } from '../types.ts'
 
 export function createInMemoryHub(): Hub {
   const rooms = new Map<string, Set<WebSocket>>()

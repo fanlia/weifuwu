@@ -3,35 +3,43 @@
  *
  * Handles the HTTP-to-WS upgrade and per-connection state.
  * Used internally by Router — not exported to end users.
+ *
+ * W2 端口化：core 不依赖 `ws`——协议侧由 `WsHandlePort` 注入
+ * （装备实现 src/server/ws/adapter.ts；自研 RFC6455 为 W5 条件波次）。
  */
 
-import { WebSocketServer } from 'ws'
-import { Duplex } from 'node:stream'
+import type { Duplex } from 'node:stream'
 import type { IncomingMessage } from 'node:http'
-import type { Context } from '../types.ts'
+import type { Context, Hub, WebSocket } from '../types.ts'
 
-/**
- * WebSocket room hub — manages pub/sub groups for real-time messaging.
- *
- * Rooms are identified by string keys. Multiple WebSocket connections
- * can join/leave rooms, and messages are broadcast to all members.
- *
- * The default implementation is in-memory (single process).
- * Pass a custom Hub with Redis backend for multi-instance deployments.
- */
-export interface Hub {
-  join(key: string, ws: import('ws').WebSocket): void
-  leave(ws: import('ws').WebSocket): void
-  send(key: string, message: string): void
-  close(): Promise<void>
-}
+/** Hub 类型自 L0 types.ts 重出（历史导入路径兼容）。 */
+export type { Hub } from '../types.ts'
 
 /** WebSocket lifecycle handler. */
 export type WebSocketHandler = {
-  open?: (ws: import('ws').WebSocket, ctx: Context) => void | Promise<void>
-  message?: (ws: import('ws').WebSocket, ctx: Context, data: string | Buffer) => void | Promise<void>
-  close?: (ws: import('ws').WebSocket, ctx: Context) => void | Promise<void>
-  error?: (ws: import('ws').WebSocket, ctx: Context, error: Error) => void | Promise<void>
+  open?: (ws: WebSocket, ctx: Context) => void | Promise<void>
+  message?: (ws: WebSocket, ctx: Context, data: string | Buffer) => void | Promise<void>
+  close?: (ws: WebSocket, ctx: Context) => void | Promise<void>
+  error?: (ws: WebSocket, ctx: Context, error: Error) => void | Promise<void>
+}
+
+/**
+ * WS 升级端口（core 契约）——协议侧实现属装备：
+ * - `ws` 实现：src/server/ws/adapter.ts（默认——`weifuwu` 入口 serve() 自动注入）
+ * - 自研 RFC6455 / 测试替身：同一结构即可替换
+ *
+ * 缺适配器且注册了 WS 路由 → serve() 显式报错（不静默 404）。
+ */
+export interface WsHandlePort {
+  /** HTTP upgrade → 协议握手；完成时回调连接（结构兼容 ws 的 handleUpgrade） */
+  handleUpgrade(
+    req: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+    callback: (ws: WebSocket) => void,
+  ): void
+  /** 优雅停机：通知活跃连接关闭（1001）并等待握手（可选——无连接管理时省略） */
+  shutdown?(): void | Promise<void>
 }
 
 type WsMatch = { handler: WebSocketHandler; params: Record<string, string> }
@@ -83,7 +91,7 @@ function safeHook<A extends unknown[]>(
  * ctx.hub = 路由级 Hub（默认内存，可用 app.wsHub() 替换为 Redis 后端）。
  */
 export function createWsUpgradeHandler(
-  wss: WebSocketServer,
+  port: WsHandlePort,
   matchWs: (segments: string[]) => WsMatch | null,
   hub: Hub,
 ): WsUpgradeHandler {
@@ -96,7 +104,7 @@ export function createWsUpgradeHandler(
       return
     }
 
-    wss.handleUpgrade(req, socket, head, (ws) => {
+    port.handleUpgrade(req, socket, head, (ws: WebSocket) => {
       const url = new URL(req.url ?? '/', 'http://localhost')
       const ctx = { params: match.params, query: Object.fromEntries(url.searchParams), hub } as Context
       const h = match.handler
@@ -122,11 +130,12 @@ export function createWsUpgradeHandler(
       const closeHook = safeHook('close', h.close, errorHook)
 
       openHook(ws, ctx)
-      ws.on('message', (data: string | Buffer) => messageHook(ws, ctx, data))
+      ws.on('message', (data) => messageHook(ws, ctx, data as string | Buffer))
       ws.on('close', () => closeHook(ws, ctx))
-      ws.on('error', (error: Error) => {
-        if (errorHook) errorHook(error)
-        else console.error('[ws] connection error:', error.message)
+      ws.on('error', (error) => {
+        const e = error as Error
+        if (errorHook) errorHook(e)
+        else console.error('[ws] connection error:', e.message)
       })
     })
   }

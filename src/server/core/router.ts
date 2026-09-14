@@ -1,11 +1,10 @@
-import { WebSocketServer } from 'ws'
-import { HttpError, type Context, type Handler, type Middleware, type MiddlewareMeta, type ErrorHandler, type WebSocket, type Closeable } from '../types.ts'
+import { HttpError, type Context, type Handler, type Middleware, type MiddlewareMeta, type ErrorHandler, type WebSocket, type Closeable, type Hub } from '../types.ts'
 import { errorResponse } from '../response.ts'
 import { DbError, ValidationError } from '../db/errors.ts'
 import {
   type WebSocketHandler,
   type WsUpgradeHandler,
-  type Hub,
+  type WsHandlePort,
   createWsUpgradeHandler,
 } from './ws.ts'
 import { createTrie, trieRegister, trieMatch, trieFind, splitPath, type TrieNode } from '../../shared/router/trie.ts'
@@ -45,7 +44,7 @@ export class Router<T extends object = Context> {
   private errorHandler?: ErrorHandler<T>
   private _hasWildcard = false
   private _hub?: Hub
-  private _wss?: WebSocketServer
+  private _wsCount = 0
   private _ctxRegistry = createCtxFieldRegistry()
   private _closeables: Closeable[] = []
   private _pipeline?: RouterPipeline<RouteValue, T>
@@ -109,11 +108,6 @@ export class Router<T extends object = Context> {
   private runWithChain(routeMws: Middleware[], handler: Handler, req: Request, ctx: T): Promise<Response> {
     const mws = routeMws.length === 0 ? this.globalMws : [...this.globalMws, ...routeMws]
     return runChain(mws as any, handler as any, req, ctx)
-  }
-
-  private get wss(): WebSocketServer {
-    if (!this._wss) this._wss = new WebSocketServer({ noServer: true })
-    return this._wss
   }
 
   private get hub(): Hub {
@@ -190,7 +184,13 @@ export class Router<T extends object = Context> {
     const handler = args.pop()! as WebSocketHandler
     const mws = args as Middleware[]
     trieRegister(this.wsRoot, path, { handler, middlewares: mws })
+    this._wsCount++
     return this
+  }
+
+  /** 是否注册过 WS 路由（serve 据此决定是否挂 upgrade + 是否需要适配器） */
+  hasWsRoutes(): boolean {
+    return this._wsCount > 0
   }
 
   // graphql 端点：用中间件 `app.use(graphql('/path', handler))`（W2 出核——Router.graphql 已删）
@@ -201,9 +201,9 @@ export class Router<T extends object = Context> {
     return (req, ctx) => dispatchRouter(this.root, this.pipeline, req, ctx)
   }
 
-  websocketHandler(): WsUpgradeHandler {
+  websocketHandler(port: WsHandlePort): WsUpgradeHandler {
     return createWsUpgradeHandler(
-      this.wss,
+      port,
       (segments) => this.matchWsTrie(this.wsRoot, segments),
       this.hub,
     )
@@ -335,9 +335,8 @@ export class Router<T extends object = Context> {
    * Gracefully shut down all registered Closeable resources.
    * Called by serve() during shutdown.
    *
-   * S2（SERVER-PERF-PLAN）：WS 客户端 1001 握手先行——
-   * `server.closeAllConnections()` 对已升级的 WS 连接无效（实证：socket 残留、
-   * 客户端 close 事件永不触发）——必须经 `wss.clients` 优雅关闭。
+   * S2（SERVER-PERF-PLAN）：WS 客户端 1001 握手已移装备适配器
+   * （`WsHandlePort.shutdown`——serve stop 时先行调用）；此处只处置 closeables。
    */
   private _closed = false
 
@@ -347,19 +346,6 @@ export class Router<T extends object = Context> {
     // 同语义——双调用无副作用）
     if (this._closed) return
     this._closed = true
-    if (this._wss && this._wss.clients.size > 0) {
-      const clients = [...this._wss.clients]
-      for (const client of clients) {
-        try { client.close(1001, 'server shutting down') } catch { /* already closed */ }
-      }
-      // 等待握手完成（上限 500ms——强杀由 stop() 的 closeAllConnections 兑底）
-      await new Promise<void>((resolve) => {
-        let remaining = clients.length
-        const done = () => { if (--remaining === 0) { clearTimeout(timer); resolve() } }
-        const timer = setTimeout(resolve, 500)
-        for (const c of clients) c.once('close', done)
-      })
-    }
     for (const c of this._closeables) {
       try { await c.close() } catch { /* ignore close errors */ }
     }

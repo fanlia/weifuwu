@@ -1,11 +1,29 @@
+import { serve as serveCore } from './core/serve.ts'
+import { createWsAdapter } from './ws/adapter.ts'
+
 export type { Context, Handler, Middleware, ErrorHandler } from './types.ts'
 export { HttpError, createMiddleware } from './types.ts'
-export type { User } from './types.ts'
-export { serve, DEFAULT_MAX_BODY } from './core/serve.ts'
+export type { User, Hub } from './types.ts'
+export { DEFAULT_MAX_BODY } from './core/serve.ts'
 export type { ServeOptions, Server } from './core/serve.ts'
 export { Router } from './core/router.ts'
-export type { Hub } from './core/ws.ts'
-export type { WebSocketHandler } from './core/ws.ts'
+export type { WebSocketHandler, WsHandlePort } from './core/ws.ts'
+
+/**
+ * serve——默认注入 ws 适配器（装备面实现）。
+ * 自定义协议（自研 RFC6455/测试替身）时传 `options.wsAdapter` 覆盖；
+ * 未注册 WS 路由时工厂不会被调用（零开销）。
+ *
+ * 直接使用 `weifuwu/core` 的 serve() 时需自行提供 wsAdapter（core 无 ws 实现）。
+ */
+export function serve<T extends object>(
+  router: import('./core/router.ts').Router<T>,
+  options?: import('./core/serve.ts').ServeOptions,
+): import('./core/serve.ts').Server {
+  const withAdapter =
+    options?.wsAdapter !== undefined ? options : { ...options, wsAdapter: createWsAdapter }
+  return serveCore(router, withAdapter)
+}
 export type { WebSocket } from './types.ts'
 export { cors } from './middleware/cors.ts'
 export type { CORSOptions } from './middleware/cors.ts'

@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import { parseQuery } from '../../shared/router/context.ts'
 import { HttpError, type Context } from '../types.ts'
 import { Router } from './router.ts'
+import type { WsHandlePort } from './ws.ts'
 
 export interface ServeOptions {
   port?: number
@@ -17,6 +18,12 @@ export interface ServeOptions {
   /** Headers timeout in ms (must be > keepAliveTimeout). Default: 6_000. */
   headersTimeout?: number
   shutdown?: boolean
+  /**
+   * WS 适配器工厂（惰性——仅当路由注册了 WS 端点时调用）。
+   * core 不含协议实现：`weifuwu` 入口的 serve() 自动注入 ws 实现；
+   * 直接使用 core serve() 且有 WS 路由时必须显式提供（否则报错）。
+   */
+  wsAdapter?: () => WsHandlePort
 }
 
 export interface Server {
@@ -153,7 +160,6 @@ export async function sendResponse(
   res.end()
 }
 export function serve<T extends object>(router: Router<T>, options?: ServeOptions): Server {
-  const ws = router.websocketHandler()
   const handler = router.handler()
   const port = options?.port ?? 0
   const hostname = options?.hostname ?? '0.0.0.0'
@@ -211,7 +217,18 @@ export function serve<T extends object>(router: Router<T>, options?: ServeOption
   server.keepAliveTimeout = options?.keepAliveTimeout ?? 5_000
   server.headersTimeout = options?.headersTimeout ?? 6_000
 
-  server.on('upgrade', ws)
+  // WS 升级：仅注册了 WS 路由才挂（无 WS 应用零开销）；协议适配器由装备面注入
+  let wsPort: WsHandlePort | null = null
+  if (router.hasWsRoutes()) {
+    if (!options?.wsAdapter) {
+      throw new Error(
+        'serve(): 路由注册了 WS 端点但未提供 wsAdapter——core 不含 ws 实现；'
+          + '从 weifuwu 导入 serve（自动注入），或传 options.wsAdapter',
+      )
+    }
+    wsPort = options.wsAdapter()
+    server.on('upgrade', router.websocketHandler(wsPort))
+  }
 
   let resolveReady!: () => void
   const ready = new Promise<void>((r) => {
@@ -304,8 +321,13 @@ export function serve<T extends object>(router: Router<T>, options?: ServeOption
         new Promise<void>((r) => setTimeout(r, timeoutMs)),
       ])
     }
-    // 3. 优雅关闭：WS 客户端 1001 握手 + 有状态模块（postgres/redis 池等）
-    //    （必须在 closeAllConnections 之前——先给握手时间，再强杀）
+    // 3. 优雅关闭：WS 1001 握手（适配器，优先——必在 closeAllConnections 前）
+    //    + 有状态模块（postgres/redis 池等）
+    if (wsPort?.shutdown) {
+      try {
+        await wsPort.shutdown()
+      } catch { /* ignore shutdown errors */ }
+    }
     await router.close().catch(() => {})
     // 4. 强杀残余（未完成握手/卡死的流——最终兑底）
     server.closeAllConnections()

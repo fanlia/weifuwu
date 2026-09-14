@@ -334,9 +334,10 @@ describe('serve graceful shutdown (S2)', () => {
 
   it('stop() closes WebSocket connections with 1001', async () => {
     const { WebSocket } = await import('ws')
+    const { createWsAdapter } = await import('../ws/adapter.ts')
     const app = new Router()
     app.ws('/ws', { open: (ws) => { ws.send('hi') } })
-    const s = serve(app, { port: 0, shutdown: false })
+    const s = serve(app, { port: 0, shutdown: false, wsAdapter: createWsAdapter })
     await s.ready
 
     const closed = new Promise<number>((resolve) => {

@@ -20,6 +20,7 @@ import { f } from '../db/shape.ts'
 import type { Redis } from '../db/contracts.ts'
 import type { Row } from '../db/postgres/connection.ts'
 import type { WebSocketHandler } from '../core/ws.ts'
+import type { WebSocket } from '../types.ts'
 import { ok, created, badRequest, noContent } from '../response.ts'
 
 // ── 类型 ────────────────────────────────────────────────
@@ -83,8 +84,8 @@ export interface MessagerClient {
   broadcast: (room: string, event: MsgEvent) => void
   /** 用户维度点对点（内部 room `user:{id}`） */
   sendTo: (userId: string, event: MsgEvent) => void
-  join: (room: string, ws: import('ws').WebSocket) => void
-  leave: (room: string, ws: import('ws').WebSocket) => void
+  join: (room: string, ws: WebSocket) => void
+  leave: (room: string, ws: WebSocket) => void
   /** 关闭 Redis 订阅连接 */
   close: () => Promise<void>
   // ── 会话 ──
@@ -372,8 +373,8 @@ export function messager(options: MessagerOptions): MessagerSystem {
   // ── 中间件（P1：仅注入；P2 挂 handler，P3 挂路由） ──
   // ── 实时：房间 + Redis 跨进程广播 ──
   const REDIS_PREFIX = 'wf:msg:'
-  const rooms = new Map<string, Set<import('ws').WebSocket>>()
-  const wsRooms = new Map<import('ws').WebSocket, Set<string>>()
+  const rooms = new Map<string, Set<WebSocket>>()
+  const wsRooms = new Map<WebSocket, Set<string>>()
   let redisSub: any = null
 
   function initRedis(): void {
@@ -431,7 +432,7 @@ export function messager(options: MessagerOptions): MessagerSystem {
     broadcast(`user:${userId}`, event)
   }
 
-  function join(room: string, ws: import('ws').WebSocket): void {
+  function join(room: string, ws: WebSocket): void {
     let members = rooms.get(room)
     if (!members) { members = new Set(); rooms.set(room, members) }
     members.add(ws)
@@ -440,13 +441,13 @@ export function messager(options: MessagerOptions): MessagerSystem {
     joined.add(room)
   }
 
-  function leave(room: string, ws: import('ws').WebSocket): void {
+  function leave(room: string, ws: WebSocket): void {
     rooms.get(room)?.delete(ws)
     if (rooms.get(room)?.size === 0) rooms.delete(room)
     wsRooms.get(ws)?.delete(room)
   }
 
-  function leaveAll(ws: import('ws').WebSocket): void {
+  function leaveAll(ws: WebSocket): void {
     const joined = wsRooms.get(ws)
     if (joined) for (const room of [...joined]) leave(room, ws)
     wsRooms.delete(ws)
@@ -457,7 +458,7 @@ export function messager(options: MessagerOptions): MessagerSystem {
    *  （原实现升级不跑中间件 ctx.user 不可用——任意客户端可订阅任意 room 窃听——设计缺口） */
   function handler(opts?: MessagerHandlerOptions): WebSocketHandler {
     // 连接 → userId 绑定（close/error 清理）
-    const wsUsers = new Map<import('ws').WebSocket, string>()
+    const wsUsers = new Map<WebSocket, string>()
     return {
       async open(ws, ctx) {
         if (opts?.verifyToken) {

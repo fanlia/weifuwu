@@ -3,13 +3,13 @@
   "summary": {
     "l0": {
       "files": 23,
-      "loc": 2598,
-      "exports": 188
+      "loc": 2607,
+      "exports": 189
     },
     "l1": {
       "files": 83,
-      "loc": 12783,
-      "exports": 374
+      "loc": 12799,
+      "exports": 375
     },
     "l2": {
       "files": 7,
@@ -22,11 +22,7 @@
       "exports": 72
     }
   },
-  "thirdParty": [
-    "src/server/core/hub.ts → ws (type)",
-    "src/server/core/router.ts → ws",
-    "src/server/core/ws.ts → ws"
-  ],
+  "thirdParty": [],
   "leaks": [
     "src/client/vdom/context/UIContext.ts → src/client/vdom/middlewares/auth-i18n.ts",
     "src/client/vdom/core/protocol.ts → src/client/vdom/middlewares/api.ts (type)",
@@ -42,8 +38,7 @@
     "src/server/types.ts → src/server/redis/types.ts (type)"
   ],
   "upward": [
-    "src/client/vdom/core/vnode.ts(l0) → src/client/vdom/context/UIContext.ts(l1) (type)",
-    "src/server/types.ts(l0) → src/server/core/ws.ts(l1) (type)"
+    "src/client/vdom/core/vnode.ts(l0) → src/client/vdom/context/UIContext.ts(l1) (type)"
   ],
   "nodeInUniversal": [],
   "unknown": []

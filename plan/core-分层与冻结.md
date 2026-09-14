@@ -121,6 +121,9 @@ src/core/
 - **W2①（2026-09-14）graphql 出核**：`Router.graphql` 删除；`src/server/graphql.ts` → `src/server/middleware/graphql.ts`（git rename）+ 新 `graphql(path, handler)` 中间件（父 Router mount 机制——前缀剥离；未命中 `next` 不吞路；缺 handler 显式抛；路径相似不误吞）；消费点全迁移（showcase demo-backend · 平台 `routes-protected.ts` · 平台测试）+ `src/server/index.ts` 导出 + `docs/server.md` 示例同步。
   - 回归：graphql 契约 **20/20**（含中间件新增 4）· `test:server` **865（864 pass + 1 skip）** · `test:core` **830（829 + 1）** · 平台 gql **4/4**（先 `npm run build` 刷新 dist——平台经 exports 解析 dist）· `tsc` 0 · showcase 冒烟 3/3。
   - 泄漏基线 **14 → 12**（`router→graphql` 双向消除）；三方仍 3（`ws`——W2②）。
+- **W2②（2026-09-14）ws 出核（端口化）**：core 定义 `WsHandlePort`（`handleUpgrade` + 可选 `shutdown`）；`ws` 实现移装备 `src/server/ws/adapter.ts`（1001 握手逻辑随迁）；`Router` 去 `WebSocketServer`/`_wss`（新增 `hasWsRoutes()` 计数 + `websocketHandler(port)`）；`serve()` 仅当有 WS 路由才挂 upgrade，缺适配器显式报错；入口 `serve` 包装默认注入适配器（自研 RFC6455 可换）；`hub.ts`/`messager` 改用 L0 `WebSocket`/`Hub` 结构类型（零 ws 类型依赖）。
+  - 回归：ws+serve 契约 **24/24** · `test:server` **865（864 + 1）** · 场景 e2e-10 6/6 · showcase 冒烟 3/3 · `tsc` 0。
+  - **core 三方 import = 0**（基线 `thirdParty: []`）；上行 **2 → 1**（剩 `vnode(L0)→UIContext(L1)` type——W2④/W3）；泄漏仍 12（vdom 端口/orm/redis 类型——W2③④）。
 
 ## 验收标准
 

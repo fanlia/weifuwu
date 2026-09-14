@@ -11,6 +11,7 @@ import { describe, it, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import WebSocket from 'ws'
 import { serve } from './serve.ts'
+import { createWsAdapter } from '../ws/adapter.ts'
 import { Router } from './router.ts'
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -45,7 +46,7 @@ describe('ws handler error containment (S3)', () => {
   })
 
   function start(app: Router) {
-    const s = serve(app, { port: 0, shutdown: false })
+    const s = serve(app, { port: 0, shutdown: false, wsAdapter: createWsAdapter })
     servers.push(s)
     return s
   }

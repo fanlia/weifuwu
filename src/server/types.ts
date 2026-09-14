@@ -15,6 +15,17 @@ export interface WebSocket {
   addEventListener(event: string, handler: (...args: unknown[]) => void): void
   removeEventListener(event: string, handler: (...args: unknown[]) => void): void
 }
+
+/**
+ * WebSocket 房间 Hub——发布/订阅组（默认内存实现 core/hub.ts；
+ * 多实例部署可注入自定义实现——`app.wsHub(hub)`）。L0 协议面：不依赖任何实现。
+ */
+export interface Hub {
+  join(key: string, ws: WebSocket): void
+  leave(ws: WebSocket): void
+  send(key: string, message: string): void
+  close(): Promise<void>
+}
 export type { Redis, RedisOptions } from './redis/types.ts'
 
 /** User injected by user() or custom auth middleware. */
@@ -26,8 +37,6 @@ export interface User {
 }
 
 // Context — extensible via module augmentation.
-
-import type { Hub } from './core/ws.ts'
 
 export interface Context {
   params: Record<string, string>
