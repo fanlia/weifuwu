@@ -29,7 +29,7 @@
 import { build } from 'esbuild'
 import { readFile, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
-import { resolve, dirname, basename, join } from 'node:path'
+import { resolve, dirname, basename, join, sep } from 'node:path'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { bundleLayout, isLayoutSourceDir } from '../../../level5/client/layout/bundle.ts' // CSS 装配单源（LAYOUT-PLAN W1）
@@ -171,18 +171,48 @@ function packageRoot(): string {
 }
 
 /**
- * weifuwu/* 裸识别 → dist 目录约定（exports 已删——dist 树即导出面）：
- *   weifuwu            → dist/server/index.js
- *   weifuwu/client/vdom → dist/client/vdom/index.js
- *   weifuwu/client/components/style.css → dist/client/components/style.css
+ * weifuwu/* 裸识别 → dist levelN 约定（exports 已删——dist 树即导出面）：
+ *   weifuwu               → dist/level6/index.js
+ *   weifuwu/client/vdom   → dist/level6/client/vdom/index.js
+ *   weifuwu/server/ai     → dist/level6/server/ai/index.js
+ *   weifuwu/shared/router → dist/level0/router/index.js
  */
+const BARE_LEVEL: Record<string, string> = {
+  'weifuwu': 'level6/index.js',
+  'weifuwu/client/vdom': 'level6/client/vdom/index.js',
+  'weifuwu/client/vdom/jsx-runtime': 'level6/client/vdom/jsx-runtime.js',
+  'weifuwu/client/vdom/testing': 'level6/client/vdom/testing.js',
+  'weifuwu/client/components': 'level6/client/components/index.js',
+  'weifuwu/client/layout': 'level6/client/layout/index.js',
+  'weifuwu/dev': 'level6/dev/index.js',
+  'weifuwu/shared/router': 'level0/router/index.js',
+}
+
 function resolveBare(spec: string): string {
-  const sub = spec === 'weifuwu' ? 'server' : spec.slice('weifuwu/'.length)
-  const base = join(packageRoot(), 'dist', sub)
-  for (const cand of [base, `${base}.js`, `${base}.css`, join(base, 'index.js'), join(base, 'index.css')]) {
-    if (existsSync(cand)) return cand
+  const dist = join(packageRoot(), 'dist')
+  const mapped = BARE_LEVEL[spec]
+  if (mapped) return join(dist, mapped)
+  if (spec.startsWith('weifuwu/server/')) {
+    return join(dist, 'level6', 'server', spec.slice('weifuwu/server/'.length), 'index.js')
   }
-  return `${base}.js` // 不存在：返回约定路径（下游报清晰 ENOENT）
+  if (spec.startsWith('weifuwu/')) {
+    const sub = spec.slice('weifuwu/'.length)
+    for (const cand of [
+      join(dist, sub), `${join(dist, sub)}.js`, `${join(dist, sub)}.css`,
+      join(dist, sub, 'index.js'), join(dist, 'level6', sub, 'index.js'), join(dist, 'level5', sub, 'index.js'),
+    ]) {
+      if (existsSync(cand)) return cand
+    }
+    return join(dist, sub, 'index.js') // 不存在：返回约定路径（下游报清晰 ENOENT）
+  }
+  return spec
+}
+
+/** JSX runtime 基路径（单实例）：dev（entry 在包 src 内）= src 框架原版；dist/外部 = dist 树同源 */
+function jsxBaseFor(entryAbs: string): string {
+  const pkg = packageRoot()
+  const inSrc = entryAbs.startsWith(join(pkg, 'src') + sep)
+  return inSrc ? join(pkg, 'src', 'level6', 'client', 'vdom') : join(pkg, 'dist', 'level6', 'client', 'vdom')
 }
 
 /** 解析入口路径：包名（weifuwu/client/layout）→ dist 约定，相对/绝对路径 → path.resolve */
@@ -317,7 +347,7 @@ export function ui(options: UiOptions = {}): Middleware {
             format: 'esm',
             platform: 'browser',
             jsx: 'automatic',
-            jsxImportSource: 'weifuwu/client/vdom',
+            jsxImportSource: jsxBaseFor(absPath),
             write: false,
             metafile: true, // 依赖闭包快照（新鲜度校验——依赖变更也重建）
             logLevel: 'silent',

@@ -52,7 +52,7 @@
     },
     "6": {
       "files": 172,
-      "loc": 35583,
+      "loc": 35614,
       "exports": 998,
       "assets": 17,
       "tests": 0
@@ -6142,7 +6142,7 @@
       "level": 6,
       "env": "mixed",
       "target": "src/level6/apps/showcase/server.ts",
-      "loc": 267
+      "loc": 268
     },
     "src/level6/apps/showcase/src/app-router.ts": {
       "kind": "level",
@@ -7416,7 +7416,7 @@
       "level": 6,
       "env": "mixed",
       "target": "src/level6/server/ui/index.ts",
-      "loc": 388,
+      "loc": 418,
       "effectiveLevel": 5
     },
     "src/level6/server/user/index.ts": {

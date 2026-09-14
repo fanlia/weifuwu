@@ -210,6 +210,23 @@ src/
   `audit:all` **十四线 exit 0** · test:levels/test:client 复跑绿
 - 意外：platform:test 首跑 1 红（compose 契约——repo-root 上溯不够）——修 4 级后全绿
 
+**W3（完成）**：
+
+- **bin 面**：`weifuwu-showcase` / `weifuwu-platform` → `dist/level6/apps/*/cli.js`——应用服务端 esbuild bundle
+  （`server.js`——Node 直跑 JS）+ 启动器单行 import
+- **dist 构建策略**（`build.mjs`）：① levelN 路径入口副本 19（`dist/level6/index.js` · `dist/level6/server/ai/index.js` ·
+  `dist/level0/router/index.js` 等——旧 bundle 路径保留一版）；② `dist/levelN/**` 源码树复制（TS/TSX——ctx.ui 浏览器
+  编译输入端；排除测试/运行时数据/探针）；③ 应用资产随树（public/skills/schema.sql/capabilities.json/tsconfig）
+- **ctx.ui 适配**：jsxImportSource 改**绝对基路径**（entry 在包 src 内 → src 框架；dist/外部 → dist 树——单实例）；
+  resolveBare → levelN 约定
+- **关键实证（决策依据）**：**node_modules 下 Node 拒绝 TS 类型剥离**——`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`
+  （dist 直接导入 `.ts` 失败）——dist 面必须是 JS：入口 bundle 副本 + app server bundle；TS 树保留为
+  esbuild 浏览器编译输入（esbuild 无此限制）
+- 安装冒烟（`npm pack` → /tmp 安装）：`weifuwu/dist/level6/client/vdom/index.js` 导入 ✓ ·
+  `npx weifuwu-showcase` / 200 + components.css 200 + app.js 200 ✓ · `npx weifuwu-platform` /healthz 200
+  （DATABASE_URL + JWT_SECRET 必需——env 契约）；包 1192 文件
+- 回归：test:client/levels/server/scenario/showcase 全绿 · `audit:all` 十四线 exit 0（level-map 重生成后）
+
 （W1 起逐波记录：迁移文件数/回归数字/意外）
 
 ## 验收标准
@@ -217,5 +234,5 @@ src/
 - [ ] W0：全库清单 100% 分类（含 apps/Go/资产）；重写器 + 脚本命令更名完成
 - [x] W1：框架面迁移完成；全库 import 重写；无 shim；五域回归 + `tsc` 0（+ `exports` 字段删除、dist 约定解析——W3 仅剩两 bin/`files`/npm pack 安装冒烟）
 - [x] W2：apps 内化（包解散）；平台 507 + showcase 336 + `audit:all` 绿
-- [ ] W3：两 bin；`npm pack` 安装冒烟（dist 路径导入 + 两应用可启动）· `exports` 字段已删（W1 已删）
+- [x] W3：两 bin；`npm pack` 安装冒烟（dist 路径导入 + 两应用可启动）· `exports` 字段已删（W1 已删）
 - [ ] W4：`audit:levels` 加锁（快照/规模/漂移/方向）；`docs/level.md`；计划归档

@@ -34,7 +34,8 @@ process.on('uncaughtException', (err) => {
 import { build as esbuild } from 'esbuild'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const root = resolve(__dirname, '..', '..', '..', '..') // 仓库根（= 发布根）
+// 框架源码根：src 布局 = <repo>/src；dist 布局 = <pkg>/dist（应用上溯 3 级——bundle 装配面）
+const fwRoot = resolve(__dirname, '..', '..', '..')
 
 const app = new Router()
 app.use(ui())
@@ -131,8 +132,8 @@ app.get('/app.js', (req, ctx) => ctx.ui.js(resolve(__dirname, 'src', 'main.tsx')
 // 现调 bundle.ts（与 build.mjs 同一函数）+ ETag/304（旧：零缓存头——每次全量重传）。
 app.get('/components.css', async (req) => {
   const { css } = await bundleComponents(
-    resolve(root, 'src', 'level5', 'client', 'layout'),
-    resolve(root, 'src', 'level5', 'client', 'components'),
+    resolve(fwRoot, 'level5', 'client', 'layout'),
+    resolve(fwRoot, 'level5', 'client', 'components'),
   )
   const etag = `"${createHash('sha1').update(css).digest('hex').slice(0, 20)}"`
   const headers = { 'content-type': 'text/css; charset=utf-8', etag, 'cache-control': 'no-cache' }

@@ -84,5 +84,9 @@
     "type": "git",
     "url": "https://github.com/weifuwu/weifuwu.git"
   },
-  "homepage": "https://weifuwu.dev"
+  "homepage": "https://weifuwu.dev",
+  "bin": {
+    "weifuwu-showcase": "dist/level6/apps/showcase/cli.js",
+    "weifuwu-platform": "dist/level6/apps/agent-platform/cli.js"
+  }
 }

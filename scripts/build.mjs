@@ -2,7 +2,7 @@
 import esbuild from 'esbuild'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkdir, writeFile } from 'node:fs/promises' // readFile/readdir/cp 随装配单源化退场（bundle.ts 内部读文件）
+import { mkdir, writeFile, cp, chmod } from 'node:fs/promises' // readFile/readdir/cp 随装配单源化退场（bundle.ts 内部读文件）
 import { rm } from 'node:fs/promises'
 import { execSync } from 'node:child_process'
 import { bundleLayout, bundleComponents } from '../src/level5/client/layout/bundle.ts'
@@ -186,6 +186,81 @@ const { css: componentCssRaw } = await bundleComponents(layoutSrc, join(srcDir, 
 const { code: componentCss } = await esbuild.transform(componentCssRaw, { loader: 'css', minify: true })
 await writeFile(join(distDir, 'client', 'components', 'style.css'), componentCss)
 
+// ── levelN 路径入口副本（dist 树 = 导出面：weifuwu/dist/level6/index.js 等）──
+// 旧 bundle 路径（dist/server 等）保留一版兼容；dist/levelN 为新架构正典地址
+const ENTRY_COPIES = [
+  ['server/index.js', 'level6/index.js'],
+  ['server/ai/index.js', 'level6/server/ai/index.js'],
+  ['server/email/index.js', 'level6/server/email/index.js'],
+  ['server/messager/index.js', 'level6/server/messager/index.js'],
+  ['server/postgres/index.js', 'level6/server/postgres/index.js'],
+  ['server/queue/index.js', 'level6/server/queue/index.js'],
+  ['server/redis/index.js', 'level6/server/redis/index.js'],
+  ['server/scheduler/index.js', 'level6/server/scheduler/index.js'],
+  ['server/ui/index.js', 'level6/server/ui/index.js'],
+  ['server/user/index.js', 'level6/server/user/index.js'],
+  ['server/workflow/index.js', 'level6/server/workflow/index.js'],
+  ['server/workflows/index.js', 'level6/server/workflows/index.js'],
+  ['client/vdom/index.js', 'level6/client/vdom/index.js'],
+  ['client/vdom/jsx-runtime.js', 'level6/client/vdom/jsx-runtime.js'],
+  ['client/vdom/testing.js', 'level6/client/vdom/testing.js'],
+  ['client/components/index.js', 'level6/client/components/index.js'],
+  ['client/layout/index.js', 'level6/client/layout/index.js'],
+  ['dev/index.js', 'level6/dev/index.js'],
+  ['shared/router/index.js', 'level0/router/index.js'],
+]
+for (const [from, to] of ENTRY_COPIES) {
+  const dst = join(distDir, to)
+  await mkdir(dirname(dst), { recursive: true })
+  await cp(join(distDir, from), dst)
+}
+console.log(`  levelN 入口副本：${ENTRY_COPIES.length}（dist/level6 · dist/level0）`)
+
+// ── 应用服务端 bundle（bin 面：Node 直跑 JS——node_modules 下不支持 TS 类型剥离）──
+for (const app of ['showcase', 'agent-platform']) {
+  await esbuild.build({
+    entryPoints: [join(srcDir, 'level6', 'apps', app, 'server.ts')],
+    outfile: join(distDir, 'level6', 'apps', app, 'server.js'),
+    format: 'esm',
+    platform: 'node',
+    target: 'node22',
+    bundle: true,
+    minify: true,
+    external,
+    jsx: 'automatic',
+    jsxImportSource: join(srcDir, 'level6', 'client', 'vdom'),
+    logLevel: 'silent',
+  })
+  console.log(`  dist/level6/apps/${app}/server.js（应用服务端 bundle）`)
+}
+
+// ── dist 源码树（运行时面 + `weifuwu/dist/levelN/**` 导入面）──
+// dist 树 = 导出面（exports 已删）：src/level*/** 逐文件复制（保 TS/TSX——
+// ctx.ui 浏览器编译输入端 + Node 原生类型剥离运行端）；排除测试/运行时数据/探针
+const SKIP_SEG = new Set(['node_modules', 'data', 'backups', 'test-results', 'dist', 'test', '.git'])
+const SKIP_FILE = /\.test\.tsx?$|^\.env$|^\.env\.local$|^probe-/
+for (const lv of ['level0', 'level1', 'level2', 'level3', 'level4', 'level5', 'level6']) {
+  await cp(join(srcDir, lv), join(distDir, lv), {
+    recursive: true,
+    filter: (srcPath) => {
+      const parts = srcPath.slice(srcDir.length + 1).split('/')
+      if (parts.some((p) => SKIP_SEG.has(p))) return false
+      const base = parts[parts.length - 1]
+      if (SKIP_FILE.test(base)) return false
+      return true
+    },
+  })
+  console.log(`  dist/${lv}/: 源码树就位`)
+}
+
+// ── 应用启动器（bin 面：dist/level6/apps/*/cli.js——server.ts 自启动）──
+for (const [bin, appDir] of [['weifuwu-showcase', 'showcase'], ['weifuwu-platform', 'agent-platform']]) {
+  const cliPath = join(distDir, 'level6', 'apps', appDir, 'cli.js')
+  await writeFile(cliPath, `#!/usr/bin/env node\n// ${bin} —— 应用启动器（dist 面：服务端 bundle 自启动，PORT 由 env 控制）\nimport './server.js'\n`)
+  await chmod(cliPath, 0o755)
+  console.log(`  dist/level6/apps/${appDir}/cli.js ← ${bin}`)
+}
+
 // 生成类型声明
 console.log('\nGenerating declarations...')
 try {
@@ -199,7 +274,7 @@ console.log('\nBuild complete.')
 
 // ── 产物体积记录（P4 验收用） ──
 import { statSync , existsSync } from 'node:fs'
-for (const f of ['server/index.js', 'client/vdom/index.js', 'client/vdom/jsx-runtime.js', 'client/components/index.js', 'client/components/style.css', 'client/layout/weifuwu-layout.css']) {
+for (const f of ['server/index.js', 'client/vdom/index.js', 'client/vdom/jsx-runtime.js', 'client/components/index.js', 'client/components/style.css', 'client/layout/weifuwu-layout.css', 'level6/apps/showcase/cli.js', 'level6/apps/agent-platform/cli.js']) {
   const p = join(distDir, f)
   try {
     console.log(`  dist/${f}: ${(statSync(p).size / 1024).toFixed(1)} KB`)
