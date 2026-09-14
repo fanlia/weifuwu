@@ -79,7 +79,7 @@ function inspect(name: string, format: string): string {
   }
 }
 
-let sql: any
+let pg: any
 let wsDir: string
 
 // 测试用短超时配置（独立实例）
@@ -99,7 +99,7 @@ function makeManager(exe: DockerSandbox, overrides: Partial<{ idleTimeoutMs: num
     reconcileIntervalMs: overrides.reconcileIntervalMs ?? 300,
     poolBudgetMb: overrides.poolBudgetMb ?? 0, // 默认禁用预算（测试显式开启）
   })
-  m.init(sql)
+  m.init(pg.orm)
   return m
 }
 
@@ -114,8 +114,7 @@ async function cleanTestData(): Promise<void> {
 
 before(async () => {
   if (!HAS_DOCKER) return
-  const pg = postgres({ memory: true })
-  sql = (pg as any).sql // 兼容别名（orm.query 优先）
+  pg = postgres({ memory: true })
   // 协议层 = AST：声明式建库（migrateModule——零 SQL 文本）
   await pg.migrateModule('test-full', AGENT_PLATFORM_SCHEMA as never)
   await pg.migrateModule('test-users', WEIFUWU_USER_SCHEMA)
@@ -147,7 +146,7 @@ after(async () => {
   if (!HAS_DOCKER) return
   await cleanTestData()
   await rm(wsDir, { recursive: true, force: true })
-  await sql?.close?.()
+  await pg?.close?.()
 })
 
 test('T-M1a: 并发 ensure 去重——10 并发同部门 → 1 容器全成功（P0-2）', { skip: !HAS_DOCKER, timeout: 20_000 }, async () => {
@@ -389,7 +388,7 @@ test('T-M6-3: ephemeral——每次调用一次性容器（调用即焚 + 卷持
   const out = execFileSync('docker', ['ps', '-a', '--filter', 'name=ap-sandbox-e-', '--format', '{{.Names}}'], { timeout: 5000 }).toString()
   assert.equal(out.trim(), '', `ephemeral 容器应调用即焚，残留: ${out.trim()}`)
   // 记录状态：ephemeral 每次调用即焚——runTool 成功标记 running（最近执行过）
-  const [row2] = await sql.orm.query.from('sandboxes').select('*').where({ id: { eq: row.id } }).run()
+  const [row2] = await pg.orm.query.from('sandboxes').select('*').where({ id: { eq: row.id } }).run()
   assert.equal(String(row2.status), 'running', 'ephemeral 调用成功后标记运行')
   await m.terminate(row.id, TEST_APP)
 })
