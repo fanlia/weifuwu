@@ -148,10 +148,8 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^25",
     "@types/ws": "^8",
-    "ioredis": "^5.11.1",
     "playwright": "^1.62.1",
     "postcss": "^8.5.19",
-    "postgres": "^3.4.9",
     "puppeteer-core": "^25.9.0",
     "tailwindcss": "^4.3.3",
     "ws": "^8"

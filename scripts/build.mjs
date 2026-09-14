@@ -25,8 +25,6 @@ await mkdir(join(distDir, 'client', 'layout'), { recursive: true })
 const external = [
   '@graphql-tools/schema',
   'graphql',
-  'ioredis',
-  'postgres',
   'ws',
   'esbuild',
   'postcss',
