@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * weifuwu/layout 清单脚本（ L0）——布局层单一事实源。
+ * 布局层清单脚本（ L0）——布局层单一事实源。
  *
  * 解析 src/level5/client/layout/*.css → 输出：
  *   ① 类清单（断点变体 @sm/@md/@lg 归并到基类；--modifier 状态变体单列）
@@ -37,7 +37,7 @@ const INTERNAL_FILES = new Set(['_popup.css'])
 /** 消费证据豁免登记（L2/L3 与 docs/layout.md §6 共用——单源）
  *  - QUARTET_KEEP：self-* 对齐四态语义完备（四态 3/4 消费——整体保留）
  *  - LIB_SURFACE_KEEP：库公共面（showcase components-only 裁剪后消费证据消失——类属
- *    weifuwu/layout npm 公共清单，退出消费或库侧裁剪时才从本集合移除）
+ *    布局层公共面清单，退出消费或库侧裁剪时才从本集合移除）
  *  - SHOWCASE_PRIVATE：showcase 演示页私有样式类（定义在页面上下文——非库面）
  */
 export const QUARTET_KEEP = ['wf-self-stretch', 'wf-self-start']

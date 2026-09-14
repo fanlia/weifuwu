@@ -1,95 +1,95 @@
-# weifuwu/core —— 内核分层（L0/L1/L2）
+# weifuwu 分层（level0–level6）
 
-> **状态：W0 草稿（2026-09）**——判据与规则为规范面；分层清单由
-> `node scripts/level-map.mjs` 生成（`src/levels.json`），文档在 W4 由清单生成。
-> 实施过程见 `plan/core-分层与冻结.md`。
+> **状态：W4 定稿（2027-xx）**——分层清单由 `node scripts/level-map.mjs` 生成
+> （`src/levels.json`）；本文生成块勿手改。迁移过程由 git log 承接
+> （原计划 `plan/level-分层重构.md` 已归档）。
+> 外部消费者破坏性变更见 [docs/migration.md](migration.md)。
 
-weifuwu 的内核不是目录，而是**一组"去掉就不再是 weifuwu"的机制**：双端共享路由、
-命令流渲染、声明式数据面、组合/生成协议。为了保证它可冻结，内核按**依赖深度**分三层——
-**Level = 依赖方向 = 环境约束 = 冻结节奏**（一条主轴，三个含义）。
+weifuwu 的分层不是目录美学，而是**依赖方向 = 环境约束 = 冻结节奏**（一条主轴，三个含义）。
 
-## 分层判据（分类三问）
+## 判据（分类三问）
 
-新能力归属只答这三问：
+| 问题 | 归属 |
+| --- | --- |
+| 没有运行时也存在？（协议 / 纯数据 / 不变量） | **level0** 协议 |
+| 通用运行时？（无 DOM、无 node I/O——双环境可用） | **level1** 通用运行时 |
+| 服务端运行时？（`node:*` I/O） | **level2** 服务端运行时 |
+| 客户端运行时？（DOM） | **level3** 客户端运行时 |
+| 纯生成器？（声明 → 机械产物——纯函数） | **level4** 生成器 |
+| 装备？（组件 / 中间件 / 线协议 / 工具——可弃） | **level5** 装备 |
+| 装配与应用？（入口聚合 + 两个可启动应用） | **level6** 装配+应用 |
 
-| 问题 | 是 | 归属 |
-| --- | --- | --- |
-| 没有运行时也存在？（纯数据/协议/不变量） | ✅ | **L0 协议**——立即冻结 |
-| 它"执行"某件事？（I/O / DOM / node） | ✅ | **L1 运行时**——随 1.0 冻结 |
-| 它在"生成"什么？（声明 → 行为/机械部分） | ✅ | **L2 生成**——迁移后入承诺（provisional） |
-| 以上都不满足 | — | **装备**（组件/中间件/线协议/工具） |
+**目录即层级**：`src/levelN/**` 是唯一 scope；新增能力先答三问，再入对应目录。
+`src/levels.json` 是分类清单（`{ kind, level, env, target, loc }`），
+`audit:levels` 以它 + 解析出的依赖图做方向/环境/三方/规模/docs 五面校验。
 
-## 规则矩阵
-
-| 规则 | L0 | L1/universal | L1/server | L1/client | L2 |
-| --- | --- | --- | --- | --- | --- |
-| 允许 import | L0 only | L0 | L0+L1 | L0+L1 | L0/L1（禁反向） |
-| 环境 | universal | universal | `node:*` | DOM | 视子目录 |
-| 三方依赖 | 0 | 0 | 0 | 0 | 0 |
-| 测试 | 纯函数零 mock | node 直跑 | node 直跑、无 docker | 契约 harness | 契约 harness |
-| 变更 | 快照 + 弃用周期 | 随 1.0 | 随 1.0 | 随 1.0 | 迁移期可动 |
-
-## 承诺边界
-
-- **L0**：冻结面——出口快照 golden，变更属显式事件。
-- **L1**：随 1.0 冻结；0.x 内变更需弃用记录 + 快照 diff。
-- **L2**：provisional——三面论 / 原语全面化收口前不承诺，之后按 L1 冻结。
-- **装备**：自由演进/可弃；core 不得依赖装备。
-
-## 目录形态（W3 已落地）
+## 目录形态（W1 落地）
 
 ```
-src/core/
-├── levels.json        # 生成物：模块 → {level, env, loc}
-├── l0/                # universal（协议/纯数据）
-├── l1/{server,client}/ # 运行时（IO/DOM/node）
-└── l2/{server,client}/ # 生成器（声明 → 行为）
+src/level0/   协议（vdom vnode/command · router 五层 · types · 错误契约）
+src/level1/   通用运行时（observable · node/fragment/keyed/portal · 通用 hooks · patch 状态机 · store · ports）
+src/level2/   服务端运行时（router 实现 · serve · ws/hub · response · db 协议引擎 · error-counter）
+src/level3/   客户端运行时（vdom v2 引擎全量：render/diff/context/hooks/browser/field/ssr/patch）
+src/level4/   生成器（create-item · create-component · semantic · vdom 纯生成器）
+src/level5/   装备（client components/layout/office · server ai/db/queue/scheduler/messager/user/... · cli · sandbox Go）
+src/level6/   装配 + 应用（index.ts 主入口 · server/* 子入口 · client/* 入口 · dev · apps/{showcase,agent-platform}）
 ```
 
-**目录即层级**：审计（`scripts/level-map.mjs`）以 `src/core` 为唯一 scope，
-按目录前缀定级——新增能力先答三问，再入对应目录。
+## 依赖方向（审计红线的来源）
 
-**兼容 shim**：旧路径（`src/shared/router/**`、`src/server/db/{shape,errors,…}.ts`、
-`src/client/vdom/{core,hooks,context,…}/**` 等 116 个）保留 `export *` 重出——
-装备面/测试/dist 入口零改动；移除条件：1.0 或消费点全迁移。
-core 自身**不得**经 shim 导入（审计对 core→非 core 导入 = 泄漏即红）。
+| 层 | 允许 import（同级或更低） | 环境 | 三方依赖 |
+| --- | --- | --- | --- |
+| level0 | 0 | universal | 0 |
+| level1 | 0,1 | universal（无 DOM、无 `node:*`） | 0 |
+| level2 | 0,1,2 | node | 0 |
+| level3 | 0,1,3 | DOM | 0 |
+| level4 | 0..4 | 视目标 | 0 |
+| level5 | 0..5 | 视文件 | 允许（装备面） |
+| level6 | 0..6 | 装配 | 允许 |
 
-## 工具
+> **上行 = 红**（低层 import 高层）· **经 shim = 红** · **未分类 = 红** · **闭包三方 = 红**。
+> 存量违规逐条登记（只能缩小）——见 `scripts/level-map-baseline.json`。
 
-```bash
-npm run level:map          # 生成：清单与基线（src/levels.json + baseline + docs 清单块）
-npm run audit:levels    # 校验：依赖/规模/docs 漂移/闭包 —— 任一红 = exit 1
-npm run level0:snapshot        # 写入 L0 出口快照（显式变更——需 commit 说明）
-npm run test:levels            # 内核回归（无 docker/无浏览器：契约 + shared + core + 内核域）
-```
+**闭包口径**：DOM 代码面种子（11 词）→ 传递闭包 → 通用 19 / 客户端 52（剥注释口径——
+注释提及不算；`audit:levels` 复算一致性）。
 
 ## 冻结与快照
 
 | 机制 | 红线 | 变更路径 |
 | --- | --- | --- |
-| L0 出口快照（`scripts/level0-snapshot.json`） | 导出增删/改名/种类变化 = 红 | `npm run level0:snapshot` + commit 说明 |
-| 三层规模基线（`scripts/level-map-baseline.json`） | 文件/行数/导出数**只降不升** | `npm run level:map` 显式更新（diff 可见） |
+| level0 出口快照（`scripts/level0-snapshot.json`） | 导出增删/改名/种类变化 = 红 | `npm run level0:snapshot` + commit 说明 |
+| 七级规模基线（`scripts/level-map-baseline.json`） | 文件/行数/导出数**只降不升** | `npm run level:map` 显式更新（diff 可见） |
 | docs 清单块漂移 | `docs/level.md` 生成块 ≠ 生成器 = 红 | `npm run level:map` 重生成 |
-| 依赖方向/泄漏/三方 | 新增即红（存量基线登记） | 修代码，不可调白名单 |
+| 依赖方向/环境/三方 | 新增即红（存量基线登记） | 修代码，不可调白名单 |
 
-**层级承诺（W6 定案——冻结时刻表）**：
-
-| 层 | 承诺 | 冻结时刻 | 含义 |
-| --- | --- | --- | --- |
-| **L0** | 协议/不变量 | **现在**（0.x 内即冻结） | 快照红线全时生效；变更须显式写快照 + commit 说明迁移路径 |
-| **L1** | 引擎（vdom/router/serve/db 契约/生成器胶水） | **1.0** | 1.0 前可演进（每变过 `test:levels` + 契约/fuzz）；1.0 后同 L0 机制 |
-| **L2** | 生成器（纯函数） | **provisional**（可重写） | 跨版本不承诺兼容；是实验面而非稳定面 |
-
-**验收实验（W6 实证——"再生成=零 core 改动"）**：
-
-| 实验 | 产物（装备面） | 结果 |
+| 层 | 承诺 | 冻结时刻 |
 | --- | --- | --- |
-| 新组件 | `createComponent` 声明（状态类/aria 机械生成） | 契约 **2/2** 绿；core 零改动（levels/snapshot 无漂移） |
-| 新接口 | 全新 shape + DDL 声明 + `orm.rest` 生成器（CRUD + 租户 scope） | **4/4** 绿；core 零改动 |
-| 平台升级 | W2②→W5 core **117 文件 / +16665 −402** | platform `src/` **零改动**；平台 tsc **0** · 507 绿 |
+| level0 | 协议/不变量 | **现在**（0.x 内即冻结——快照红线全时生效） |
+| level1–3 | 运行时（引擎/router/serve/db 契约） | **1.0**（1.0 前可演进；每变过契约/fuzz） |
+| level4 | 生成器（纯函数） | **provisional**（跨版本不承诺兼容） |
+| level5 | 装备 | 自由演进/可弃（level0-4 不得依赖 level5） |
+| level6 | 装配 + 应用 | 随框架版本与示例节奏 |
 
-> 平台 tsc 0 的前提修复：`apps/agent-platform/tsconfig.json` 显式 `"types": ["node"]`
-> （此前 393 条缺失 node 类型误报——配置面缺口，非代码缺陷；已加 `npm run typecheck`）。
+## 工具
+
+```bash
+npm run level:map        # 生成：清单/基线/docs 块（src/levels.json + baseline + docs/level.md）
+npm run audit:levels     # 校验：依赖方向/环境/三方/规模/docs 漂移/L0 快照 —— 任一红 = exit 1
+npm run level0:snapshot  # 写入 L0 出口快照（显式变更——需 commit 说明）
+npm run test:levels      # 内核回归（level0–4——无 docker/无浏览器：契约 + 内核域）
+```
+
+## 包面（W3）
+
+`exports` 字段已删除——**dist 树即导出面**：
+
+- 入口 JS（bundle）：`weifuwu/dist/level6/index.js` · `weifuwu/dist/level6/client/vdom/index.js` ·
+  `weifuwu/dist/level6/client/components/index.js` · `weifuwu/dist/level0/router/index.js` 等；
+- `dist/levelN/**` 同时随包源码树（TS/TSX——`ctx.ui` 浏览器编译输入端；**Node 在
+  `node_modules` 下拒绝 TS 类型剥离**，Node 导入请用入口 `.js`）；
+- 两个应用 bin：`weifuwu-showcase` / `weifuwu-platform`（→ `dist/level6/apps/*/cli.js`）。
+
+外部消费者的路径映射与破坏性变更见 [docs/migration.md](migration.md)。
 
 ## 清单（生成面）
 
@@ -104,20 +104,22 @@ npm run test:levels            # 内核回归（无 docker/无浏览器：契约
 | L5 装备 | 235 | 35992 | 895 | 167 | 347 |
 | L6 装配+应用 | 172 | 35614 | 998 | 17 | 0 |
 
-闭包读数：种子 - · 客户端 - · 通用 -（规则入库——剥注释口径）
+闭包读数：（迁移后）由目录定级——level1 通用 19 · level3 客户端 51（剥注释口径——分类规则见 git log）
 
 shim 位点 0（迁移时删除——不再生成）· 清单全量见 `src/levels.json`
 <!-- level-inventory:end -->
 
-（装备面不在 scope——组件/中间件/线协议/工具范围外，自由演进。）
-
-违规基线（W4 收口）：**core→装备泄漏 0 · 三方依赖 0 · 未知 0 · 闭包三方 0**；层内上行 1（`vnode(L0)→UIContext(L1)` type——待收编/登记）。
+违规基线（W4 收口）：**三方 0 · 未知 0 · shim 0（旧 116 位点迁移时删除——不再生成）·
+未解析 0 · 闭包三方 0**；层内上行 1（`level0/vdom/vnode.ts` → `level3/vdom/context/UIContext.ts`
+的 type 导入——登记待收编）。
 
 ## CI 命令（路径感知）
 
 | 变更面 | 最小门 |
 | --- | --- |
-| `src/core/l0/**` / `scripts/core-*` | `npm run audit:levels && npm run test:levels`（L0 快照红 = 显式事件） |
-| `src/core/{l1,l2}/**` | `npm run test:levels && npm run test:server` |
-| 装备面（组件/中间件/平台） | 对应域测试 + `npm run audit:all` |
-| 全量（批次末） | `npm run test:client && test:scenario && test:server` + `npm run audit:all`（含本线） |
+| `src/level0/**` | `npm run audit:levels && npm run test:levels`（L0 快照红 = 显式事件） |
+| `src/level{1,2,3,4}/**` | `npm run test:levels && npm run test:client` |
+| `src/level5/**`（装备） | 对应域测试 + `npm run audit:all` |
+| `src/level6/apps/agent-platform/**` | `npm run platform:test`（507——协议 + UI） |
+| `src/level6/apps/showcase/**` | `npm run test:showcase`（336） |
+| 全量（批次末） | 五域 + `platform:test` + `npm run audit:all`（含本线） |

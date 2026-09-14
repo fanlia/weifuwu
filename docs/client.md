@@ -19,36 +19,37 @@
 ## 1. 快速上手
 
 ```tsx
-// 服务端（默认主入口 = src/server/index.ts）
-import { serve, Router, z } from 'weifuwu'
-// 前端内核（src/client/vdom——h/jsx/uiServe/UIRouter/renderToStream）
-import { uiServe, UIRouter, h } from 'weifuwu/client/vdom'
-// 组件库（src/client/components——139 组件 + style.css 全量样式）
-import { Button, Modal } from 'weifuwu/client/components'
-import 'weifuwu/client/components/style.css'
+// 服务端（主入口 = src/level6/index.ts——发布面 weifuwu/dist/level6/index.js）
+import { serve, Router, z } from 'weifuwu/dist/level6/index.js'
+// 前端内核（src/level3/vdom 引擎 · src/level6/client/vdom 公共面）
+import { uiServe, UIRouter, h } from 'weifuwu/dist/level6/client/vdom/index.js'
+// 组件库（src/level5/client/components——139 组件 + style.css 全量样式）
+import { Button, Modal } from 'weifuwu/dist/level6/client/components/index.js'
+import 'weifuwu/dist/level6/client/components/style.css'
 ```
 
-**导出 = src/ 目录结构直映**（无别名）：
+**`exports` 字段已删除——dist 树即导出面**（旧 `weifuwu/<子路径>` 导入的完整映射表见
+[docs/migration.md](migration.md) §1；Node 导入用入口 `.js`——`dist/levelN/**` 同时随包
+TS/TSX 源码树，仅供 `ctx.ui` 浏览器编译，Node 在 `node_modules` 下拒绝 TS 类型剥离）：
 
-| import | 源码（第一/二级目录直映——有 index.ts 才导出） |
+| import（入口 JS） | 源码（第一/二级目录直映——有 index.ts 才组装入口） |
 | --- | --- |
-| `weifuwu` / `weifuwu/server` | `src/server/index.ts`（serve/Router/z/workflow 聚合） |
-| `weifuwu/server/workflow` | `src/server/workflow/index.ts`（声明式执行引擎） |
-| `weifuwu/server/{ai,email,messager,postgres,queue,redis,scheduler,ui,user,workflows}` | `src/server/<子>/index.ts`——二级直映（独立 bundle） |
-| `weifuwu/client/vdom` | `src/client/vdom/index.ts`（h/jsx/uiServe/jsx-runtime） |
-| `weifuwu/client/components` | `src/client/components/index.ts`（139 组件） |
-| `weifuwu/client/components/style.css` | dist 聚合样式（layout + 组件全量） |
-| `weifuwu/client/layout` | `src/client/layout/index.ts`（模块 ——defineLayout + 装配） |
-| `weifuwu/client/layout/weifuwu-layout.css` | 布局原语 CSS（独立面） |
-| `weifuwu/shared/router` | `src/shared/router/index.ts`（trie/pipeline/context/chain 五件） |
-| `weifuwu/dev` | `src/dev/index.ts`（`node --import weifuwu/dev server.ts`） |
+| `weifuwu/dist/level6/index.js` | `src/level6/index.ts`（serve/Router/z/workflow 聚合） |
+| `weifuwu/dist/level6/server/workflow/index.js` | `src/level6/server/workflow/index.ts`（声明式执行引擎） |
+| `weifuwu/dist/level6/server/{ai,email,messager,postgres,queue,redis,scheduler,ui,user,workflows}/index.js` | `src/level6/server/<子>/index.ts`（独立 bundle） |
+| `weifuwu/dist/level6/client/vdom/index.js` | `src/level6/client/vdom/index.ts`（h/jsx/uiServe/jsx-runtime） |
+| `weifuwu/dist/level6/client/components/index.js` | `src/level5/client/components/index.ts`（139 组件） |
+| `weifuwu/dist/level6/client/components/style.css` | dist 聚合样式（layout + 组件全量） |
+| `weifuwu/dist/level6/client/layout/index.js` | `src/level5/client/layout/index.ts`（defineLayout + 装配） |
+| `weifuwu/dist/level5/client/layout/weifuwu-layout.css` | 布局原语 CSS（独立面） |
+| `weifuwu/dist/level0/router/index.js` | `src/level0/router/index.ts`（trie/pipeline/context/chain 五件） |
+| `weifuwu/dist/level6/dev/index.js` | `src/level6/dev/index.ts`（`node --import weifuwu/dist/level6/dev/index.js server.ts`） |
 
-> 颗粒度原则：**一级目录只在有天然 `index.ts` 时导出**（server/dev——src 无顶层
-> index 人造聚合）；**二级目录有 `index.ts` 即导出**（client/vdom · client/components ·
-> server/ai · shared/router……）；**更深（三级：vdom/core/field 等）不导出**（内部）。
+> 颗粒度原则：**入口聚合在 level6**（有天然 `index.ts` 的公共面）；实现按依赖深度下放
+> level0–level5（目录即层级——[docs/level.md](level.md)）；更深路径（引擎内部）不可导入。
 
-**JSX 配置**：`tsconfig` 的 `jsxImportSource: "weifuwu/client/vdom"`（jsx-runtime
-子路径自动解析——见仓库 tsconfig 先例）。组件 = 工厂同步 + 渲染纯同步——见 §5.1。
+**JSX 配置**：`tsconfig` 的 `jsxImportSource: "weifuwu/dist/level6/client/vdom"`（jsx-runtime
+子路径自动解析）——自建别名时指向该 JSX runtime 目录即可。组件 = 工厂同步 + 渲染纯同步——见 §5.1。
 
 ## 1.1 组件的本质——四要素模型（三面论·2027-09 概念化）
 
@@ -80,11 +81,11 @@ import 'weifuwu/client/components/style.css'
 
 ## 2. 组件清单
 
-**139 个组件**——源码目录即清单：`src/client/components/<Comp>/<Comp>.ts`（每个含
-`<Comp>.css` + 契约测试）。展示与使用示例：`apps/showcase/`（localhost:3200——
+**139 个组件**——源码目录即清单：`src/level5/client/components/<Comp>/<Comp>.ts`（每个含
+`<Comp>.css` + 契约测试）。展示与使用示例：`src/level6/apps/showcase/`（localhost:3200——
 `/components/<id>` 每组件一页 + demo 源码即用法）。
 
-组件分类速查（详见 `apps/showcase/src/demos/` 与 registry）：
+组件分类速查（详见 `src/level6/apps/showcase/src/demos/` 与 registry）：
 
 | 类 | 代表组件 |
 | --- | --- |
@@ -101,13 +102,13 @@ import 'weifuwu/client/components/style.css'
 移动端适配：断点 768px · 44px 命中区 · safe-area 常量——组件与布局内建。
 
 **三库对照**（antd / Element Plus / shadcn-ui 映射）——表格历史长度大，按需查：
-源码键 `apps/showcase/src/registry/components.ts`（每组件 `meta: { antd, ep, shadcn }`
+源码键 `src/level6/apps/showcase/src/registry/components.ts`（每组件 `meta: { antd, ep, shadcn }`
 字段）是**机制化事实源**——查询即 grep，不再维护纸质映射表。
 
 ## 3. 设计语言
 
 微流明（Whisper Luminance）：中性色主导、品牌色点睛、动效短促有目的（120–300ms）、
-1px 边界即结构。**Token 即规范**——`src/client/layout/_tokens.css`（176 token：
+1px 边界即结构。**Token 即规范**——`src/level5/client/layout/_tokens.css`（176 token：
 色阶/排版/动效/圆角/阴影/z-index；`_dark.css` 暗色覆写 · `_presets.css` 紧凑预设覆写）
 ——组件只引用 token、零硬编码（audit 强制）。
 
@@ -136,7 +137,7 @@ import 'weifuwu/client/components/style.css'
 
 ## 4. 布局系统
 
-`src/client/layout/`——50 原语（`_*.css`）+ 98 工具 + 2 内部，全部 `wf-` 前缀；
+`src/level5/client/layout/`——50 原语（`_*.css`）+ 98 工具 + 2 内部，全部 `wf-` 前缀；
 **装配单源**：四处管线（build 产物 / showcase dev / 场景 dev / `ctx.ui.css`）共用
 `bundle.ts`——层序单源（D4 审计比对）；**发布产物 minify**（esbuild——见文末载荷面）：
 
@@ -153,9 +154,9 @@ import 'weifuwu/client/components/style.css'
 层叠语义的浏览器计算值读数见场景层 `e2e-layout-semantics.test.ts`。
 
 **载荷面（W6 minify）**：dist 发布产物 `weifuwu-layout.css` **28.1K**（gzip 5.7K · brotli 5.1K）·
-`weifuwu/client/components/style.css` **220.9K**（gzip 29.4K · brotli 24.3K）——esbuild minify（
+`weifuwu/dist/level6/client/components/style.css` **220.9K**（gzip 29.4K · brotli 24.3K）——esbuild minify（
 `build.mjs` 实装：`@layer`/`@property`/`@supports`/转义类名全保留，注释全剥离）；
-**无组件应用只引 `weifuwu/client/layout/weifuwu-layout.css`**（28.1K / br 5.1K——独立面，零组件 CSS 成本）。
+**无组件应用只引 `weifuwu/dist/level5/client/layout/weifuwu-layout.css`**（28.1K / br 5.1K——独立面，零组件 CSS 成本）。
 按需子集（per-component 子路径 / purge）**判负**：动态类名漏删风险 + 构建期改造成本
 + br 后 24.3K 非瓶颈——推翻条件：真实应用首屏 CSS 成为 LCP 阻塞的实测数据。
 
@@ -185,11 +186,11 @@ import 'weifuwu/client/components/style.css'
 
 组件文件 = `<Comp>.ts` + `<Comp>.css` + `<Comp>.test.ts`。**文件头 banner 单源**：
 首行 `/** <Name>：<desc>（showcase /components/<id>） */`——**desc/id 派生自
-showcase registry**（`apps/showcase/src/registry/components.ts`）——新组件注册
+showcase registry**（`src/level6/apps/showcase/src/registry/components.ts`）——新组件注册
 登记即 banner 就位（C5-① 哨兵校验首行格式——desc 改注册后必须同步 banner）。
 
 ```
-src/client/components/<Comp>/
+src/level5/client/components/<Comp>/
   <Comp>.ts    # 组件
   <Comp>.css   # 样式（必有——style-audit 文件数基线 +1）
   <Comp>.test.ts  # 契约 harness（命令流断言——零浏览器）
@@ -243,7 +244,7 @@ props camelCase · **`className=`（组件 props）`class=`（DOM 元素）** ·
 ### 5.5 测试二层（覆盖哨兵 ≥2 层）
 
 1. **契约 harness**（`<Comp>.test.ts`——mount/render/createTable 命令流断言）
-2. **showcase comp**（`apps/showcase/test/comp-<id>.test.ts`——真实 DOM：
+2. **showcase comp**（`src/level6/apps/showcase/test/comp-<id>.test.ts`——真实 DOM：
    浮层断言「在哪」（assertPopupGeometry）· 表单断言值回流 · 交互断言操作→状态）
 
 ### 5.6 红线（机制化——写错即响）
@@ -269,7 +270,7 @@ props camelCase · **`className=`（组件 props）`class=`（DOM 元素）** ·
 
 ### 5.7 注册与文档
 
-`src/client/components/index.ts` 导出 · `apps/showcase/src/registry/components.ts`
+`src/level6/client/components/index.ts` 导出 · `src/level6/apps/showcase/src/registry/components.ts`
 **追加不替换**（四字段 + gotchas）· demos 注册（组件名=demo 键）·
 style-audit 文件数基线 +1 · 覆盖哨兵跑绿（`scripts/audit-component-coverage.mjs`）
 
@@ -348,26 +349,26 @@ auth: auth({ storage, onAuth: (c) => {...}, onRefresh: async () => {
 ## 6. 前端架构导论
 
 ```
-浏览器导航/URL ──► UIRouter（共享 trie 内核 src/shared/router/）
+浏览器导航/URL ──► UIRouter（共享 trie 内核 src/level0/router/）
                       │
-                    uiServe ──► 渲染周期（src/client/vdom/core/v2/cycle.ts）
+                    uiServe ──► 渲染周期（src/level3/vdom/v2/cycle.ts）
                       │            build/diff → 命令流（13 种 NDJSON）
                       │            → apply（DOM）→ cleanup（卸载）
                       └──► ctx 中间件（router/api/auth/ws/i18n/confirm/toast）
 ```
 
 - **命令流即文档**：13 种命令（create/insert/remove/setProp/…）序列化可回放——
-  `src/client/vdom/core/patch/types.ts` 类型定义就是协议
-- **状态机**：NodeState/CompState/IntervalState——`patch/state-machine.ts` 单一实现源
+  `src/level0/vdom/command/index.ts` 类型定义就是协议
+- **状态机**：NodeState/CompState/IntervalState——`src/level1/vdom/patch/state-machine.ts` 单一实现源
 - **SSR ≡ SPA 首帧**：uiSsr 同路由器同 bundle——吸收零差异
-- hooks 面：`src/client/vdom/hooks/`（useAsyncData/useObservable/signal——getter 纪律）
-- 全链路 Observable（cycle/observable.ts）——组合/取消/回放四优势
+- hooks 面：`src/level3/vdom/hooks/`（useAsyncData/useObservable/signal——getter 纪律）
+- 全链路 Observable（src/level1/vdom/observable/observable.ts）——组合/取消/回放四优势
 
 ## 7. 关键范式
 
-- **命令式弹窗唯一形态**：`ctx.ui.openPopup(opts)` → PopupHandle——`src/client/vdom/hooks/popup-manager.ts`
+- **命令式弹窗唯一形态**：`ctx.ui.openPopup(opts)` → PopupHandle——`src/level3/vdom/hooks/popup-manager.ts`
   ——**anchor 必传**（无 anchor 触发按钮被当外部点击 + toggle 死循环）
-- **焦点管理三范式**：`src/client/components/` 内实现 + `src/test/scenario/e2e-focus*.test.ts`
+- **焦点管理三范式**：`src/level5/client/components/` 内实现 + `src/test/scenario/e2e-{2,4,14}.test.ts（焦点场景）`
   场景断言（Trap 浮层 / 可交互 div 键盘可达 / 列表 roving focus）
 - **受控输入纪律**：onInput 逐键 + onChange 失焦——ChatInput 实现即示例
 - **getter 纪律**：一切会变化的值 = `() => T`——任意位置调用取最新
@@ -404,7 +405,7 @@ export const Agents: Component = (_p, ctx) => {
 瞬时）④ reload 显式刷新（删除/变更后服务器权威）。搜索面：q 闭包 +
 debounce(reload)——触发读最新 q。
 
-**哨兵**：`apps/agent-platform/scripts/audit-page-generations.mjs`（async 工厂
+**哨兵**：`src/level6/apps/agent-platform/scripts/audit-page-generations.mjs`（async 工厂
 = 红 exit 1——工厂同步契约；老世代标记 = 黄报——迁移进度可见）。
 
 ---

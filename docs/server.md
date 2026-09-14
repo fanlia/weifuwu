@@ -19,7 +19,7 @@
 ## 0. API 速查
 
 > 服务端主导出（`import { ... } from 'weifuwu'`）——按域速查。签名是
-> 类型话的速记——以源码类型定义为准（`src/server/index.ts`）。
+> 类型话的速记——以源码类型定义为准（`src/level6/index.ts`）。
 
 ### 0.1 HTTP 层
 
@@ -123,8 +123,8 @@ WEIFUWU_USER_SCHEMA · WEIFUWU_MESSAGER_SCHEMA · WEIFUWU_WORKFLOW_SCHEMA · MIG
 > 命名纪律：**入口是 `serve(app, opts)`**——`createServer`/`ctx.json` 是已消亡
 > 的旧 API 残留（2026 初 Router 直调时代）；handler 一律返回 Web 标准
 > `Response`（`Response.json(...)`）——零自定义响应面。
-> 入口：`src/server/index.ts` · 路由内核：`src/server/core/`（与前端 UIRouter
-> 共享 `src/shared/router/` trie/pipeline 五层单源）。
+> 入口：`src/level6/index.ts` · 路由内核：`src/level2/`（与前端 UIRouter
+> 共享 `src/level0/router/` trie/pipeline 五层单源）。
 
 ### 1.1 段①：serve + Router（3 行——服务器跑起来）
 
@@ -160,7 +160,7 @@ app.post('/api/notes', async (req, ctx) => {
 ### 1.3 段③：前端页面组件（useAsyncData 8 行——页面跑起来）
 
 ```tsx
-import { h } from 'weifuwu/client/vdom'
+import { h } from 'weifuwu/dist/level6/client/vdom/index.js'
 const NotesPage: Component = (_p, ctx) => {
   const [get] = ctx.ui.useAsyncData(fetchNotes, 'notes-page')   // 唯一异步边界
   return () => h('ul', {}, (get() ?? []).map((n) => h('li', {}, n.title)))
@@ -185,7 +185,7 @@ assert.equal(res.status, 201)          // memory orm + handler 直调——零�
 
 ## 2. 中间件清单
 
-`src/server/middleware/`——按 `ctx` 注入能力，Handler 从 ctx 读取：
+`src/level5/server/middleware/`——按 `ctx` 注入能力，Handler 从 ctx 读取：
 
 | 中间件 | ctx 面 | 说明 |
 | --- | --- | --- |
@@ -202,13 +202,13 @@ assert.equal(res.status, 201)          // memory orm + handler 直调——零�
 | `graphql()` | `ctx.gql` | GraphQL 层（Schema/Resolver） |
 | `ws()` | `ctx.ws` | WebSocket hub（订阅/广播） |
 
-依赖注入声明：`injects/depends`——`src/shared/router/ctx-fields.ts`（未注册依赖
+依赖注入声明：`injects/depends`——`src/level0/router/ctx-fields.ts`（未注册依赖
 抛错——类型/运行时双层）。
 
 ## 3. 环境变量
 
 > 均可经中间件 options 显式传入（env 为默认来源）。默认值与代码对齐
-> （`src/server/middleware/*.ts` 构造处）。
+> （`src/level5/server/middleware/*.ts` 构造处）。
 
 | 变量 | 用途 | 模块 | 默认 |
 | --- | --- | --- | --- |
@@ -223,7 +223,7 @@ assert.equal(res.status, 201)          // memory orm + handler 直调——零�
 
 ## 3.5 AI 接口（AIInterface——provider 可插拔）
 
-参考 PostgresInterface 分层（契约/工厂/引擎分离——`src/server/ai/`）：
+参考 PostgresInterface 分层（契约/工厂/引擎分离——`src/level5/server/ai/`）：
 
 ```
 contracts.ts   AIInterface（契约——Ai 兼容别名）+ 多模态请求/响应类型 + Context.ai 声明单源
@@ -254,17 +254,17 @@ index.ts       模块 re-export（OpenAi/MemoryAi/AiClientModule——选择器�
 
 ## 4. AI Stream Protocol
 
-**协议即类型**（单源）：`src/server/ai/types.ts`——修改协议先改此处，两侧实现对齐。
+**协议即类型**（单源）：`src/level5/server/ai/types.ts`——修改协议先改此处，两侧实现对齐。
 
 ```
-后端 → 前端（SSE 下行，wf: 事件——见 src/server/ai/sse.ts）
+后端 → 前端（SSE 下行，wf: 事件——见 src/level5/server/ai/sse.ts）
    wf:message_start / wf:token / wf:tool_call / wf:tool_progress
    wf:step / wf:approval_request / wf:usage / wf:done / wf:error
-前端 → 后端（POST 上行——src/client/vdom/hooks/chat.ts 编码同构）
+前端 → 后端（POST 上行——src/level3/vdom/hooks/chat.ts 编码同构）
    provider 请求体 + 会话/工具调用回执
 ```
 
-语义要点（实现于 `src/server/ai/*.ts` 与客户端解析器——**代码即规范**）：
+语义要点（实现于 `src/level5/server/ai/*.ts` 与客户端解析器——**代码即规范**）：
 
 - 错误即值（`wf:error` 事件——非 HTTP 异常通道）
 - 未知事件透传（`x:*` 自定义扩展）
@@ -297,22 +297,22 @@ index.ts       模块 re-export（OpenAi/MemoryAi/AiClientModule——选择器�
 > `migrateModule(name, SchemaModule)`（声明式——零 SQL 字符串）；迁移面
 > `runMigration(name, sql)` 是 DDL 唯一合法文本面（业务查询禁）。
 
-- **postgres**：`src/server/postgres/client.ts`——自研 PG v3 wire protocol
+- **postgres**：`src/level5/server/postgres/client.ts`——自研 PG v3 wire protocol
   （无第三方客户端依赖）——`postgres()` 返回 PostgresClient：`ctx.orm` 注入
   （ORM 唯一数据入口）+ migrate/migrateModule/runMigration/transaction
-- **redis**：`src/server/db/memory-redis.ts` + `src/server/db/redis-server.ts`——
+- **redis**：`src/level5/server/db/memory-redis.ts` + `src/level5/server/db/redis-server.ts`——
   自研 RESP2——`ctx.redis.get/set/pub`（命令面本身封闭——无 parser——保留）
-- **Query Language（协议层 = AST）**：`src/server/db/`——`query.ts`（Query 类型 + compileQuery
-  单向 SQL 编译——封闭输出）/ `query-builder.ts`（buildQuery——构建无执行面）/
+- **Query Language（协议层 = AST）**：`src/level2/db/`——`query-builder.ts`（Query 类型 +
+  compileQuery 单向 SQL 编译——封闭输出 · buildQuery——构建无执行面）/
   `orm.ts`（shape+operator+adapter 组合体——table/gql/rest/tables() 注册表枚举）/
   `memory-sql.ts`（MemorySql——AST 直执行 双后端同构）——`createMemoryOrm()` 零数据库跑测试
-- **shape + 协议面（W0-W4 体验提升）**：`shape.ts`（shape 实体——变体
+- **shape + 协议面（W0-W4 体验提升）**：`src/level0/db/shape.ts`（shape 实体——变体
   insertSchema/updateSchema（auto 列省略 · omit 系统列）· `BodyOf`/`PatchOf`
-  类型面 · `f` 元数据快捷（meta 类型保留））/ `body.ts`（`bodyOf`——shape →
-  body 校验）/ `http.ts`（`listQuery` + `errorResponse`——URL 参数与 catch 样板
-  收口）/ `consistency.ts`（`checkConsistency` 诊断 diff——真库/内存共用）/
-  `gql-from-shape.ts` + `rest-from-shape.ts`（协议生成面——§5.4）
-- schema 迁移：`src/server/db/schema.ts`（SchemaModule → compileSchemaDdl 声明式 DDL）
+  类型面 · `f` 元数据快捷（meta 类型保留））/ `src/level4/server/db/body.ts`（`bodyOf`——shape →
+  body 校验）/ `src/level4/server/db/http.ts`（`listQuery` + `errorResponse`——URL 参数与 catch 样板
+  收口）/ `src/level2/db/consistency.ts`（`checkConsistency` 诊断 diff——真库/内存共用）/
+  `src/level5/server/db/gql-from-shape.ts` + `src/level5/server/db/rest-from-shape.ts`（协议生成面——§5.4）
+- schema 迁移：`src/level2/db/schema.ts`（SchemaModule → compileSchemaDdl 声明式 DDL）
   + `migrateModule` 执行记录（幂等——已迁移名跳过）
 
 ### 5.1 typedQuery——跨表查询类型化（2027-11 W3）
@@ -341,7 +341,7 @@ const rows = await Q.from('kb_chunks kc')                      // from spec: 表
 - 行类型规则：select 列键 = 去 alias 前缀（`kc.id` → `id`）；aggregate/vectorScore
   的 AS 键并入（number）；同名列后覆盖（判负面：需要别名键时用单表查询/聚合 as）
 - 编译期红线：未知列 · 未知 alias · where 非法列 —— tsd 测试见
-  `src/server/db/typed-query.test.ts`（typecheck:tests 守卫面）
+  `src/level5/server/db/typed-query.test.ts`（typecheck:tests 守卫面）
 - 判负（诚实裁剪）：`col AS alias` 键别名不做（聚合 as 参数已覆盖）；where 值
   ×列类型绑定不做（z.enum 字面量坍缩——见 §5.2）
 
@@ -399,17 +399,17 @@ export type Agent = RowOf<(typeof SHAPES)['agents']> & {
 
 ## 6. 实时与渲染
 
-- **scheduler**：`src/server/middleware/scheduler.ts`——`ctx.schedule.cron/once` +
+- **scheduler**：`src/level5/server/middleware/scheduler.ts`——`ctx.schedule.cron/once` +
   持久化恢复（重启续跑）
 - **ui**：`ctx.ui.html/js/css/ssr`——TSX 动态编译（esbuild 同步）+ 组件 SSR
-  （`src/ssr.ts`——SSR ≡ SPA 首帧纪律）
-- **graphql**：`src/server/middleware/graphql.ts`——Schema-first
-- **WebSocket**：`src/server/ws/`——**自研 RFC6455 适配器为默认**（W5）：
+  （`src/level3/vdom/ssr/`（SSR 引擎：html/absorb）——SSR ≡ SPA 首帧纪律）
+- **graphql**：`src/level5/server/middleware/graphql.ts`——Schema-first
+- **WebSocket**：`src/level5/server/ws/`——**自研 RFC6455 适配器为默认**（W5）：
   - 端口（core）：`WsHandlePort`——`handleUpgrade + shutdown`；core 零协议依赖
-  - 默认实现：`src/server/ws/native/`（握手/帧编解码/分片/控制帧/UTF-8 fail-fast/关闭码/限额）
+  - 默认实现：`src/level5/server/ws/native/`（握手/帧编解码/分片/控制帧/UTF-8 fail-fast/关闭码/限额）
   - 验收：Autobahn **301 用例 0 FAILED**（290 OK + 8 NON-STRICT + 3 INFORMATIONAL——压缩类 12/13 诚实裁剪）
     · **Node 全局 WebSocket（undici）互操作**（serve/ws handler 契约——独立实现客户端）· 消息类型归一（text→string / binary→Buffer）
-  - 判负登记（2026-09 依赖清理）：`ws` 包与 `src/server/ws/adapter.ts`（差分参考实现，含 200 用例 fuzz）删除——
+  - 判负登记（2026-09 依赖清理）：`ws` 包与 `src/level5/server/ws/adapter.ts`（差分参考实现，含 200 用例 fuzz）删除——
     替代防线 = Autobahn + native 向量测试 + undici 客户端互操作；推翻条件：需要字节级双实现对账时（可临时装回 `ws` 复跑）
   - 诚实裁剪：无扩展/无压缩/无子协议协商；`maxPayload` 默认 100 MiB（可配）
   - 自定义协议：`serve(router, { wsAdapter })` 覆盖；未注册 WS 路由时零开销
@@ -418,7 +418,7 @@ export type Agent = RowOf<(typeof SHAPES)['agents']> & {
 
 ## 7. workflow 执行引擎（含框架系统 workflowSystem）
 
-> **框架系统**（对齐 messager/user 模式）：`workflowSystem({ sql, redis })`——存储/编排层（`src/server/workflows/`）：
+> **框架系统**（对齐 messager/user 模式）：`workflowSystem({ sql, redis })`——存储/编排层（`src/level5/server/workflows/`）：
 >
 > ```ts
 > const wfs = workflowSystem({ orm: pg.orm, redis: redisClient?.redis })
@@ -435,7 +435,7 @@ export type Agent = RowOf<(typeof SHAPES)['agents']> & {
 
 引擎入口
 
-`src/server/workflow/`——声明式执行引擎（WorkflowDef 线性步骤链 → ctx 数据流 → RunResult）。
+`src/level5/server/workflow/`——声明式执行引擎（WorkflowDef 线性步骤链 → ctx 数据流 → RunResult）。
 入口：`workflow({ ai?, email?, redis?, fetch?, log? })`（模块即客户端，worker 直接调用）——
 不做调度装配（cron/队列由消费方组合 scheduler/queue 实现）。
 
@@ -455,7 +455,7 @@ wf.validate(def)                   // → { ok, errors[] }（LLM 生成 / 配置
 const r = await wf.execute(def)    // → RunResult；execute(def, { mode: 'dry' }) 副作用打桩
 ```
 
-**语义红线**（`src/server/workflow/*.test.ts` 契约锁定——118 契约）：
+**语义红线**（`src/level5/server/workflow/*.test.ts` 契约锁定——118 契约）：
 
 | 语义 | 定版 |
 | --- | --- |
@@ -487,8 +487,8 @@ const r = await wf.execute(def)    // → RunResult；execute(def, { mode: 'dry'
 ---
 
 > **运行**：`npm run test:server`（163 契约）· 直跑
-> `node --env-file=.env --test src/server/core/*.test.ts src/shared/router/*.test.ts`
-> —— db 真库依赖 docker（无 docker 跑 `src/server/core/*.test.ts` 子集）。
+> `node --env-file=.env --test src/level5/server/core/*.test.ts src/level0/router/*.test.ts`
+> —— db 真库依赖 docker（无 docker 跑 `src/level5/server/core/*.test.ts` 子集）。
 
 ### 5.3 确定性契约（ORM 三组件——状态机管理原则）
 

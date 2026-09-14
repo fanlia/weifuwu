@@ -4,11 +4,11 @@
 > 文档即代码：计划写作规范见 [plan/plan.md](plan/plan.md)（计划完成后
 > 规则并入本文档——历史过程由 git log 承接）；组件编写规范见
 > [docs/client.md §5](docs/client.md#5-组件编写规范唯一入口)；用户文档见
-> [docs/client.md](docs/client.md) / [docs/server.md](docs/server.md) / [docs/level.md](docs/level.md)（内核分层与冻结）。
+> [docs/client.md](docs/client.md) / [docs/server.md](docs/server.md) / [docs/level.md](docs/level.md)（分层与冻结）/ [docs/migration.md](docs/migration.md)（迁移指南）。
 
 **防线快照（2027-xx）**：
-契约 **515** · 场景 **129** · showcase **336**（134 组件全覆盖）· server **883**（882 pass + 1 docker-gated skip）·
-shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 155** · audit:all **十四线**（semantics/interactivity/vdom/theme/api/bundle/showcase/docs/**health**（C3 三线+C4 二线）/**levels**（依赖+规模+docs+L0 快照）） exit 0——C3 健康基线：a11y 0 违规（豁免登记 8 类——拦截语义/父面键盘/装饰/指针等价）· as any 0（组件面——只降不升）· app.js 511KB（tree-shake 残留 0）· **C4**：i18n 裸 0 违例（机制接线 11 处——ThemeSwitch/Editor/AppShell——数据层定义表豁免登记）· 死类 0（登记表空——17 清）· token 176 · **C5/banner**：文件头 banner 155 全量（registry desc 单源——首行格式哨兵）· svg aria 0（role:img 语义容器补全 4）· **C6**：VNodeChild 接线 100（children 家族 any 注解单源化——数据面任何 19 登记）· **C7**：console log/error 0（warn 17 dev 提示）· **S8** 重复选择器 0（顶层双定义 14 清）· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· tsc **0 错**。
+契约 **515** · 场景 **129** · showcase **336**（134 组件全覆盖）· server **882**（881 pass + 1 docker-gated skip）·
+shared **37** · 平台 **507**（492 pass + 15 docker-gated skip——协议 + UI 同源；`platform:test:ui` 子集 155）· audit:all **十四线**（semantics/interactivity/vdom/theme/api/bundle/showcase/docs/**health**（C3 三线+C4 二线）/**levels**（依赖+规模+docs+L0 快照）） exit 0——C3 健康基线：a11y 0 违规（豁免登记 8 类——拦截语义/父面键盘/装饰/指针等价）· as any 0（组件面——只降不升）· app.js 517KB（tree-shake 残留 0）· **C4**：i18n 裸 0 违例（机制接线 11 处——ThemeSwitch/Editor/AppShell——数据层定义表豁免登记）· 死类 0（登记表空——17 清）· token 176 · **C5/banner**：文件头 banner 155 全量（registry desc 单源——首行格式哨兵）· svg aria 0（role:img 语义容器补全 4）· **C6**：VNodeChild 接线 100（children 家族 any 注解单源化——数据面任何 19 登记）· **C7**：console log/error 0（warn 17 dev 提示）· **S8** 重复选择器 0（顶层双定义 14 清）· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· tsc **0 错**。
 
 **内核资产**：
 - **分层抽象思维（架构总纲——2027-09 定案）**：三层（vdom/components/layout）各上浮为
@@ -23,7 +23,7 @@ shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 15
   **开发者的三种用法**（每一层同构）：用现成（默认皮/类）· 换皮（契约+自己的皮——行为继承）·
   拓场景（组合契约/声明原语——**成为共同作者**）。
   **机械生成判据**（防过度抽象护栏）：声明比实现短且机械部分全消失——否则抽象失败。
-- **layout**（`src/client/layout/`——CSS 布局系统）：装配单源 `bundle.ts`（build/showcase/scenario/`ctx.ui.css`
+- **layout**（`src/level5/client/layout/`——CSS 布局系统）：装配单源 `bundle.ts`（build/showcase/scenario/`ctx.ui.css`
   四管线共用 + D4 审计）· 层序 `@layer tokens, base, layout, components, utilities`（**工具类恒胜组件**——
   消费侧显式覆盖意图）+ display 族基类 `:where()` 零优先级（变体恒胜基类，零 `!important`——仅
   reduced-motion 白名单 4 处）· `@property { inherits: false }` 钩子污染隔离（9 条——外层内联赋值
@@ -43,14 +43,15 @@ shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 15
   标尺档全 var()（padding/margin/gap ∈ 4/8/12/16/24/32 → `--wf-space-*`/`--wf-gap-*`——
   **compact 预设缩放生效**——手写 = 静止 = 活体缺口）· 结构尺寸族判负 token 化
   （组件域语义——标尺爆炸——登记制锁新增）· 派生面豁免（calc/env——L13 同款）
-- **vdom**（`src/client/vdom/`）——命令流引擎（13 命令 NDJSON 自足）+ 三实体状态机
+- **vdom**（`src/level0/vdom` 协议 · `src/level1/vdom` 通用 · `src/level3/vdom` 客户端引擎 · `src/level4/client/vdom` 生成器 · `src/level6/client/vdom` 公共面）——命令流引擎（13 命令 NDJSON 自足）+ 三实体状态机
   + 双树对账器 + fuzz 生成器 + render-health 四轴仪表
-- **core 三层冻结**（`src/core/{l0,l1,l2}`——W0-W5 定案）：清单 `src/levels.json`（L0 **25/2856/215** ·
-  L1 **84/12918/383** · L2 **7/693/22**）· 守卫 `npm run audit:levels`（依赖方向/泄漏/三方/闭包 + 规模只降不升
-  + docs 漂移 + **L0 出口快照 230 声明**——L0 立即冻结 · L1 待 1.0 · L2 provisional，细则 [docs/level.md](docs/level.md)）·
-  内核回归 `npm run test:levels`（830——无 docker/无浏览器）· 端口注入（`WsHandlePort`）——默认**自研 RFC6455**
-  `src/server/ws/native/`（Autobahn **301/0 FAILED** · Node 全局 WebSocket（undici）互操作——`ws` 包已清理）·
-  旧路径 116 shim（1.0 移除）
+- **七级分层与冻结**（`src/level0`–`src/level6`——W1-W4 定案）：目录即层级（依赖方向 = 环境约束 =
+  冻结节奏）；清单 `src/levels.json` · 守卫 `npm run audit:levels`（方向/泄漏/三方/闭包 + 规模只降不升
+  + docs 漂移 + **level0 出口快照 230 声明**——level0 立即冻结 · level1-3 待 1.0 · level4 provisional）·
+  内核回归 `npm run test:levels`（829+1 skip——无 docker/无浏览器）· 细则 [docs/level.md](docs/level.md)；
+  包面 `weifuwu/dist/levelN/**`（入口 JS bundle + 源码树——`exports` 已删）· 迁移 [docs/migration.md](docs/migration.md) ·
+  端口注入（`WsHandlePort`）——默认**自研 RFC6455** `src/level5/server/ws/native/`（Autobahn **301/0 FAILED** ·
+  Node 全局 WebSocket（undici）互操作——`ws` 包已清理）
 - **外部依赖内存化矩阵**（四类核心依赖——Memory 实现 + Server 协议替身双层——主包全导出）：
 
   | 依赖 | 真实实现 | Memory 实现（契约直实现） | Server 协议替身 |
@@ -64,19 +65,19 @@ shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 15
   （决策注入 onXxx + respond 故障注入 + requests 断言）；Server 正名构造
   （`new MemoryAiServer()`/函数调用/`createXxx` 别名三入口等价）；db 系 Server 是
   线协议替身（无 HTTP 面——客户端连 TCP 真协议）
-- **createItem**（`src/client/vdom/core/create-item.ts`）——交互元素状态捆绑
+- **createItem**（`src/level4/client/vdom/create-item.ts`）——交互元素状态捆绑
   原语（类后缀 + aria 布尔捆绑声明——子项/单元素组件；aria 布尔直传内核归一
   ——禁手写三元；ariaText 文本值；roving tabindex；extra.class 追加；多状态槽
   states——槽名默认后缀/布尔 aria/文本 ariaText/roving——槽值布尔——多值枚举
   契约外）——抽象单位 = 元素（组件 = 容器 + 可交互子项——createComponent
   适用面窄登记）
-- **ai**（`src/server/ai/`）——AIInterface 契约 + provider 正门构造（new OpenAi/new
+- **ai**（`src/level5/server/ai/`）——AIInterface 契约 + provider 正门构造（new OpenAi/new
   MemoryAi——返回模块：中间件 + 全能力直接调用）+ 多模态（image/video 独立
   配置——同 embedding 平级——多 url 多 key）+ MemoryAiServer 协议替身
-- **shared/router**（`src/shared/router/`）——**前后端唯一共享模块五层单源**
+- **shared/router**（`src/level0/router/`）——**前后端唯一共享模块五层单源**
   （trie/pipeline/context/chain/ctx-fields）
-- **workflow**（`src/server/workflow/`）——声明式执行引擎（表达式求值器/edge 去重状态机/步骤注册表/执行器——零运行时外部依赖）
-- **server/core**（`src/server/core/`）——Router（自研 Trie）/serve/WS hub + 错误去重计数
+- **workflow**（`src/level5/server/workflow/` 实现 + `src/level6/server/workflow/` 入口）——声明式执行引擎（表达式求值器/edge 去重状态机/步骤注册表/执行器——零运行时外部依赖）
+- **server 运行时**（`src/level2/`——Router（自研 Trie）/serve/WS hub/response/error-counter + db 协议引擎；中间件 `src/level5/server/middleware/`）
 - 计划规范：`plan/plan.md`——如何写计划（模板/纪律/收尾）——进行中计划
   在 `plan/` 根；完成计划不物理保留（git log 承接）
 
@@ -88,7 +89,7 @@ shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 15
 | --- | --- |
 | R-01 | **测试命令 timeout ≤ 10s**——卡住用更短 timeout 复跑缩小范围（超时即信号，不无限等待） |
 | R-05 | **平台 orm 回流防线**——`node scripts/audit-orm-migration.mjs`（baseline 0——新增 `sql\` 模板即红；判负面白名单 `// orm-pg-*`/`// orm-upsert-expr`——审计可见不静默） |
-| R-06 | **shape 防漂移守卫**——`npm run check:shapes`（apps/agent-platform——DDL 列集 vs SHAPES 逐表 diff——新增列必须补 shape——缺列报错+模板；CI 可挂） |
+| R-06 | **shape 防漂移守卫**——`npm run platform:check:shapes`（src/level6/apps/agent-platform——DDL 列集 vs SHAPES 逐表 diff——新增列必须补 shape——缺列报错+模板；CI 可挂） |
 | R-04 | **小步快跑·单变量探针**——探针最小化（一个假设一个输出）· 单变量×干净环境（端口级杀共享 server `lsof -i:<port> -t \| xargs kill -9`——ps grep 匹配不全）· 探针 API 逐字复刻被测代码（`locator('button', {hasText})` vs `page.click(sel, {hasText})`——后者运行时忽略——API 不一致=复现无效）· catch 吞错必须打印（`catch(e => console.log('[x]', e))`）· CSS `:has-text` 是 includes 语义（用精确正则 `^\s*批准\s*$`） |
 | R-03 | **批量重命名/迁移**——词边界替换负向断言 `(?![a-z0-9-])`（前缀误伤防护）· 类名变更反查测试 `[class*="子串"]` 选择器（R-03 反查纪律见 docs/client.md §5.8） |
 | R-07 | **测试日志落盘**——任何测试命令用 `./scripts/test-log.sh <cmd>` 跑（tee 落盘 `/tmp/wf-test-<域>.log`）——**失败只 grep 日志定位，不重跑**（重跑 = 丢失失败现场 + 高耗时）。定位：`grep -E '✖|AssertionError|Error' /tmp/wf-test-<域>.log`（失败行上下文 -B2 -A10）；重跑仅当日志无法定位根因（环境类）。已有日志优先于重跑（showcase 5 分钟级）。 |
@@ -99,6 +100,7 @@ shared **37** · 平台 **协议 352（337 pass + 15 docker-gated skip）+ UI 15
 npm run test:client    → 契约层（515——node 直跑命令流——零浏览器——~5s）
 npm run test:scenario  → 场景层（129——SSR 服务化 + playwright——真实浏览器）
 npm run test:showcase  → showcase 组件测试（336——134 组件——每组件一文件）
+npm run platform:test  → 平台（507——协议 + UI 同源；含 15 docker-gated skip）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 ```
 
@@ -127,7 +129,7 @@ toast-fire/confirm-command · use-controlled/breakpoint/tween/drag ·
 **layout-semantics**（层叠语义现状基线——getComputedStyle 读数：gap 继承污染/
 utilities 被 components 层压制/零值档位缺口/断点变体/冲突对——LAYOUT-PLAN W0）。
 
-### showcase 组件层（apps/showcase/test/comp-<id>.test.ts）
+### showcase 组件层（src/level6/apps/showcase/test/comp-<id>.test.ts）
 
 每组件一文件（134 文件）——`showcase-shared.ts` 提供 startShowcaseServer（随机端口）
 /openShowcase（错误收集）——断言纪律：弹窗类断言"在哪"（坐标关系——assertPopupGeometry
@@ -135,19 +137,19 @@ utilities 被 components 层压制/零值档位缺口/断点变体/冲突对—�
 覆盖哨兵：`scripts/audit-component-coverage.mjs`（组件×三层矩阵——零覆盖=缺口
 exit 1——CI 可挂）。
 
-### 平台 e2e 层（apps/agent-platform/test/——route 契约纪律）
+### 平台 e2e 层（src/level6/apps/agent-platform/test/——route 契约纪律）
 
 协议层测试（memory orm + handler 直调零浏览器）→ UI 层（playwright 真 server
 `POSTGRES_MEMORY=1`）。**新 route 必带契约测试**——模板复制即用：
-`apps/agent-platform/test/_template.contract.ts`（5 行核心：memory orm →
-handler 直调 → 状态码断言）· route 覆盖哨兵：`npm run audit:routes`
+`src/level6/apps/agent-platform/test/_template.contract.ts`（5 行核心：memory orm →
+handler 直调 → 状态码断言）· route 覆盖哨兵：`npm run platform:audit:routes`
 （黄报未引用清单——新 route 无测试 = 可见——W3 补面 46.2%→76.9%）。
 
 **平台哨兵组（platform 质量优化——mechanism 化）**：
-`npm run audit:routes`（route 覆盖 <40% 红）· `npm run audit:pages`
-（页面世代/工厂契约——老世代 0）· `npm run audit:any`（as any 黄报
+`npm run platform:audit:routes`（route 覆盖 <40% 红）· `npm run platform:audit:pages`
+（页面世代/工厂契约——老世代 0）· `npm run platform:audit:any`（as any 黄报
 线——基线 350 只降不升——超基线 10%+ warn）。**装配域**：server.ts →
-`src/bootstrap/`（env/deps/routes-public/routes-protected——server.ts
+`src/level6/apps/agent-platform/src/bootstrap/`（env/deps/routes-public/routes-protected——server.ts
 只留组装清单——新装配进 bootstrap 对应域文件）。**memory 测试 schema
 三模块**：agent-platform + agent-platform-ext（_weifuwu_apps 平台扩展列
 ——stats/report 面）+ users——缺一即 42P01/未知列。
@@ -201,8 +203,8 @@ type RenderFn<P> = (props: P) => VNode | null | (VNode | null)[]
 
 > **开发任何新功能前，先查库再写**（前端 30 秒 / 后端 30 秒——成本远低于重复发明与后续对齐）：
 >
-> **前端**：`ls src/client/components/` + [docs/client.md §2 组件清单](docs/client.md#2-组件清单)。
-> **后端**：`ls src/server/` + [docs/server.md](docs/server.md) 服务端地图（工作流引擎/steps 注册表/scheduler/messager/email/queue/ai）——
+> **前端**：`ls src/level5/client/components/` + [docs/client.md §2 组件清单](docs/client.md#2-组件清单)。
+> **后端**：`ls src/level5/server/` + [docs/server.md](docs/server.md) 服务端地图（工作流引擎/steps 注册表/scheduler/messager/email/queue/ai）——
 > 已有能力即复用：cron 触发复用 scheduler、步骤编辑复用 `views.ts` 纯函数（patch/insert/remove——UI 零逻辑）、
 > 版本快照复用既有 VERSIONS 表 + crud、引擎新增步骤类型前先看 steps.ts 既有（http/template/log/if/ai/email）。
 > 后端行为规范读单测即得（默认参数/边界/异常签名——如 **HttpError(message, status)** 顺序反直觉、select rest 参数展开）。
@@ -225,9 +227,9 @@ type RenderFn<P> = (props: P) => VNode | null | (VNode | null)[]
 ### 4.2 修复归类纪律（排查先归类——根因优先核心层）
 
 ```
-问题 → 归类：应用层（demo/示例错）？组件层（组件实现）？核心层（引擎）？
-  → 组件层异常先查是否核心层根因（引擎 bug 透过组件暴露）——是 → 修核心
-  → 核心层修复 → 必写契约测试（命令流断言）→ 全库回归
+问题 → 归类：应用层（demo/示例错）？组件层（组件实现）？引擎层（level0–4 核心）？
+  → 组件层异常先查是否引擎层根因（引擎 bug 透过组件暴露）——是 → 修引擎
+  → 引擎层修复 → 必写契约测试（命令流断言）→ 全库回归
 ```
 
 **机制化优先**：能进审计/契约的纪律不靠记忆——红线表见 docs/client.md §5.6
@@ -254,7 +256,7 @@ aria 布尔归一 · 受控回流门控 · 状态变体类必须定义 · 零全
 4. **判负文化** — 启发式误报>30% 判负；重构收益不明判负；判负必须登记
    （为什么/替代方案/推翻条件——docs/client.md#能力裁剪登记）。
 5. **全量回归门（批次末）** — 契约+场景+showcase+server+shared 五域全绿 +
-   audit:all 十一线——**任何红 = 不 commit**。
+   `platform:test` + `audit:all` 十四线——**任何红 = 不 commit**。
 
 ## 6. 已知边界（诚实裁剪）
 
@@ -270,7 +272,7 @@ aria 布尔归一 · 受控回流门控 · 状态变体类必须定义 · 零全
 
 ## 7. agent-platform 依赖服务（仓库根 docker-compose.yml——唯一 compose）
 
-> agent-platform **无独立 compose**（原 apps/agent-platform/docker-compose.yml 已删——
+> agent-platform **无独立 compose**（原独立 compose 已删——
 > 2026-09 收敛）。依赖栈 = 仓库根 [docker-compose.yml](../docker-compose.yml)：
 >
 > | 服务 | 镜像 | 宿主端口 | 默认连接（对齐 .env.example） |
@@ -280,8 +282,8 @@ aria 布尔归一 · 受控回流门控 · 状态变体类必须定义 · 零全
 > | smtp | greenmail（测试邮箱） | 3025 | 本地收发件 |
 
 **开发/测试惯例**：仓库根 `docker compose up -d postgres redis`（不 build app——
-应用本体宿主 `node --env-file=.env server.ts` 跑）；备份/恢复直连宿主端口
-（`-h localhost -p 5432 -U root demo`——不再 `compose exec`）。
+应用本体宿主 `npm run platform:start`（= `cd src/level6/apps/agent-platform && node --env-file=.env server.ts`）跑）；
+备份/恢复直连宿主端口（`-h localhost -p 5432 -U root demo`——不再 `compose exec`）。
 
 **测试注记（探针实证 2026-09）**：契约测试默认
 `TEST_DATABASE_URL ?? postgres://root:123456@localhost:5432/demo_{域}_test`（视频域：`demo_video_test`）——

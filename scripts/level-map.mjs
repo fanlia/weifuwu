@@ -371,7 +371,10 @@ function renderInventory() {
     const s = summary[l]
     lines.push(`| ${NAMES[l]} | ${s.files} | ${s.loc} | ${s.exports} | ${s.assets} | ${s.tests} |`)
   }
-  lines.push('', `闭包读数：种子 ${closure?.seedCount ?? '-'} · 客户端 ${closure?.clientCount ?? '-'} · 通用 ${closure?.universalCount ?? '-'}（规则入库——剥注释口径）`)
+  const closureLine = closure
+    ? `闭包读数：种子 ${closure.seedCount} · 客户端 ${closure.clientCount} · 通用 ${closure.universalCount}（规则入库——剥注释口径）`
+    : `闭包读数：（迁移后）由目录定级——level1 通用 ${summary[1].files} · level3 客户端 ${summary[3].files}（剥注释口径——分类规则见 git log）`
+  lines.push('', closureLine)
   lines.push('', `shim 位点 ${Object.keys(shims).length}（迁移时删除——不再生成）· 清单全量见 \`src/levels.json\``)
   return lines.join('\n')
 }

@@ -9,7 +9,7 @@
 ## 为什么（五条哲学）
 
 1. **一个包，全栈一体** — 后端、前端、组件、样式装在一个包：服务端
-   `--import weifuwu/dev` 直接跑 `.tsx`；浏览器 CDN import map；CSS 一条 link。
+   `--import weifuwu/dist/level6/dev/index.js` 直接跑 `.tsx`；浏览器 CDN import map；CSS 一条 link。
 2. **全自研，诚实裁剪** — VDOM、PG v3 / RESP2 协议、GraphQL schema、SSE 协议全部
    自研（确定性：行为可预测、错误模型统一）。不支持的能力明确抛
    `ProtocolError('unsupported')`——绝不静默降级。
@@ -32,7 +32,7 @@
 
 ```tsx
 // routes.tsx —— 路由树（UIRouter——前后端同一棵树——单一实现源）
-import { UIRouter, h } from 'weifuwu/client/vdom'
+import { UIRouter, h } from 'weifuwu/dist/level6/client/vdom/index.js'
 
 export function buildRouter() {
   const router = new UIRouter()
@@ -45,7 +45,7 @@ export function buildRouter() {
 
 ```ts
 // server.ts —— SPA
-import { serve, Router, ui } from 'weifuwu'
+import { serve, Router, ui } from 'weifuwu/dist/level6/index.js'
 const router = new Router()
 router.use(ui())
 router.get('/', (req, ctx) => ctx.ui.html`<!doctype html><html><body>
@@ -57,7 +57,7 @@ serve(router, { port: 3000 })
 
 ```ts
 // src/client.ts —— 浏览器 boot
-import { uiServe } from 'weifuwu/client/vdom'
+import { uiServe } from 'weifuwu/dist/level6/client/vdom/index.js'
 import { buildRouter } from './routes.tsx'
 uiServe(buildRouter(), { root: '#root' })
 ```
@@ -72,9 +72,9 @@ router.get('*', async (req, ctx) => {
 
 ## 技术原则（速览）
 
-- **零运行时依赖** — 前端无 npm 运行时依赖；后端仅 esbuild/graphql/ws。
+- **零运行时依赖** — 前端无 npm 运行时依赖；后端仅 esbuild/graphql（自研 PG v3/RESP2/RFC6455/GraphQL schema）。
 - **前后端同构** — handler 签名 `(req, ctx) => Response` 双端字面同构；路由内核
-  五层单源 `src/shared/router/`（trie/pipeline/context/chain/ctx-fields）双端同一
+  五层单源 `src/level0/router/`（trie/pipeline/context/chain/ctx-fields）双端同一
   `dispatchRouter`，差异点钩子化。
 - **工厂同步，异步边界全在 hooks，渲染纯同步** — 组件 =
   `(initProps, ctx) => (props) => VNode`（async 即编译错）；数据加载 hooks 内部流
@@ -91,16 +91,20 @@ router.get('*', async (req, ctx) => {
 
 | 导入路径 | 模块 | 用途 |
 | --- | --- | --- |
-| `weifuwu` | Router / serve / cors / serveStatic | Trie 路由 + 中间件链 + HTTP 服务器 + 静态服务 |
-| `weifuwu` | postgres / redis / Memory | 自研 PG v3 + RESP2 协议（`ctx.orm` / `ctx.redis`——数据面 = 声明式 ORM AST，业务零 SQL 文本）；Memory 零数据库测试 |
-| `weifuwu` | shape / bodyOf / listQuery / errorResponse | 数据样板收口：shape 声明 → `bodyOf`（body 校验·类型精确）/ `listQuery`（URL 参数）/ `errorResponse`（catch 映射）——手写 route 三件套（docs/server.md §5.3/§5.4.1） |
-| `weifuwu` | ui | SSR 渲染 + esbuild JS/CSS 动态编译（`ctx.ui`） |
-| `weifuwu/client/vdom` | UIRouter / uiServe / uiSsr | 前端路由唯一入口 + 浏览器 boot + SSR（结构吸收） |
-| `weifuwu/client/vdom` | 命令流引擎 + hooks 全家 | 渲染周期/事件代理/三状态机 + useAsyncData/usePopup/useControlled/… |
-| `weifuwu/client/components` | **134 个组件** | Button/Table/Modal/AiChat/… + `toast()`/`confirm()` 命令式中间件 |
-| `weifuwu/layout` | CSS 布局 | 50 个布局原语 + 98 个工具类 + 176 个主题 Token |
-| `weifuwu` | rateLimit / email / userSystem / messager / queue / scheduler / ai / graphql | SaaS 地基中间件（ctx 注入） |
-| `weifuwu/dev` | dev loader | `--import weifuwu/dev` 直接跑 `.ts/.tsx` |
+| `weifuwu/dist/level6/index.js` | Router / serve / cors / serveStatic | Trie 路由 + 中间件链 + HTTP 服务器 + 静态服务 |
+| `weifuwu/dist/level6/index.js` | postgres / redis / Memory | 自研 PG v3 + RESP2 协议（`ctx.orm` / `ctx.redis`——数据面 = 声明式 ORM AST，业务零 SQL 文本）；Memory 零数据库测试 |
+| `weifuwu/dist/level6/index.js` | shape / bodyOf / listQuery / errorResponse | 数据样板收口：shape 声明 → `bodyOf`（body 校验·类型精确）/ `listQuery`（URL 参数）/ `errorResponse`（catch 映射）——手写 route 三件套（docs/server.md §5.3/§5.4.1） |
+| `weifuwu/dist/level6/index.js` | ui | SSR 渲染 + esbuild JS/CSS 动态编译（`ctx.ui`） |
+| `weifuwu/dist/level6/client/vdom/index.js` | UIRouter / uiServe / uiSsr | 前端路由唯一入口 + 浏览器 boot + SSR（结构吸收） |
+| `weifuwu/dist/level6/client/vdom/index.js` | 命令流引擎 + hooks 全家 | 渲染周期/事件代理/三状态机 + useAsyncData/usePopup/useControlled/… |
+| `weifuwu/dist/level6/client/components/index.js` | **134 个组件** | Button/Table/Modal/AiChat/… + `toast()`/`confirm()` 命令式中间件 |
+| `weifuwu/dist/level6/client/layout/index.js` | CSS 布局 | 50 个布局原语 + 98 个工具类 + 176 个主题 Token |
+| `weifuwu/dist/level6/server/<name>/index.js` | rateLimit / email / userSystem / messager / queue / scheduler / ai / graphql | SaaS 地基中间件（ctx 注入） |
+| `weifuwu/dist/level6/dev/index.js` | dev loader | `--import weifuwu/dist/level6/dev/index.js` 直接跑 `.ts/.tsx` |
+
+> `exports` 字段已删除（dist 树即导出面）——完整路径映射表见
+> [docs/migration.md](docs/migration.md) §1；两个应用直接 `npx weifuwu-showcase` /
+> `npx weifuwu-platform` 启动。
 
 ## 能力速查（任务 → API）
 
@@ -118,11 +122,12 @@ router.get('*', async (req, ctx) => {
 ## 测试命令
 
 ```
-npm run test:client    → 契约层（428 命令流断言——零浏览器——~5s）
-npm run test:scenario  → 场景层（123 场景——SSR 服务化 + playwright 真实浏览器）
-npm run test:showcase  → showcase 组件测试（324——134 组件全覆盖——每组件一文件）
+npm run test:client    → 契约层（515——node 直跑命令流——零浏览器——~5s）
+npm run test:scenario  → 场景层（129——SSR 服务化 + playwright 真实浏览器）
+npm run test:showcase  → showcase 组件测试（336——134 组件全覆盖——每组件一文件）
+npm run platform:test  → 平台（507——协议 + UI；含 15 docker-gated skip）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
-npm run audit:all      → 七线审计（semantics/interactivity/vdom/theme/api/bundle/showcase）
+npm run audit:all      → 十四线审计（semantics/interactivity/vdom/theme/api/bundle/showcase/docs/health/levels）
 ```
 
 > 防线细节见 [AGENTS.md](AGENTS.md) §1（测试纪律 R-01/R-04 等）。
@@ -130,13 +135,16 @@ npm run audit:all      → 七线审计（semantics/interactivity/vdom/theme/api
 ## 工程布局
 
 ```
-src/client/       前端（components/ 组件库 · layout/ 布局系统 · vdom/ 渲染引擎）
-src/server/       后端（core/ 路由内核 · middleware/ 中间件 …）
-src/shared/       双端共享（router/ 五层单源）
-src/test/         契约层 + 场景层测试
-apps/showcase/    weifuwu 展示场：每组件一页 + demo 源码即用法（:3200）
-apps/agent-platform/  全栈 SaaS 示例：多租户 AI 平台（auth/AI 对话/HITL 审批）（:3000）
-plan/     进行中计划 + 计划写作规范（plan/plan.md——完成计划 git log 承接）
+src/level0/   协议（vdom vnode/command · router 五层 · types）
+src/level1/   通用运行时（observable · node · 通用 hooks · patch 状态机）
+src/level2/   服务端运行时（router/serve/ws · db 协议引擎）
+src/level3/   客户端运行时（vdom v2 引擎全量）
+src/level4/   生成器（create-item/create-component/semantic）
+src/level5/   装备（components/ · layout/ · office/ · server ai/db/queue/... · sandbox Go）
+src/level6/   装配 + 应用（index.ts 主入口 · server/client 入口 · dev · apps/{showcase,agent-platform}）
+src/test/     契约层 + 场景层测试
+dist/         导出面（dist/levelN/**——入口 JS bundle + 源码树 + 应用资产）
+plan/         进行中计划 + 计划写作规范（plan/plan.md——完成计划 git log 承接）
 ```
 
 ## 文档地图
@@ -145,10 +153,12 @@ plan/     进行中计划 + 计划写作规范（plan/plan.md——完成计划 
 | --- | --- |
 | [docs/client.md](docs/client.md) | 前端：组件清单/设计语言/布局系统/**组件编写规范（唯一入口）**/架构 |
 | [docs/server.md](docs/server.md) | 后端：中间件/环境变量/AI 协议（wf:）/数据层/实时层 |
+| [docs/level.md](docs/level.md) | 分层（level0–6）：判据/依赖方向/冻结节奏/清单生成/CI 路径门 |
+| [docs/migration.md](docs/migration.md) | 迁移指南（0.94 → 0.95+）：dist 路径映射/应用 bin/依赖面变化 |
 | [AGENTS.md](AGENTS.md) | 内核纪律：测试架构/组件契约/修复归类/质量方法论/防线快照 |
 | [plan/plan.md](plan/plan.md) | 计划写作规范：模板/纪律/验收/收尾（进行中计划在 plan/） |
 
 ---
 
-*showcase `http://localhost:3200`（LLM: `curl /llms.txt`）· agent-platform
-`http://localhost:3000`（admin@demo.com / admin123）*
+*showcase `npx weifuwu-showcase`（`http://localhost:3200`，LLM: `curl /llms.txt`）·
+agent-platform `npx weifuwu-platform`（`http://localhost:3000`，admin@demo.com / admin123）*

@@ -23,7 +23,7 @@ const OUT = join(root, 'docs/layout.md')
 async function buildReference() {
   const inv = await inventory()
   const L = []
-  L.push('# weifuwu/layout 参考')
+  L.push('# 布局层（weifuwu layout）参考')
   L.push('')
   L.push('> **机器生成**（`scripts/layout-reference.mjs`）——勿手改：改布局源码后跑 `node scripts/layout-reference.mjs`。')
   L.push('> 单源校对：类清单 = `layout-inventory.mjs inventory()` · 层序 = `bundle.ts LAYER_ORDER` ·')
@@ -106,7 +106,7 @@ async function buildReference() {
   L.push('')
   L.push('## 6. 零消费公共面（文档化定案——「示例 = 可发现」，不做裁剪）')
   L.push('')
-  L.push('以下类在代码语料（apps + src/level5/client/components）零引用——属 weifuwu/layout npm 公共清单，')
+  L.push('以下类在代码语料（src/level6/apps + src/level5/client/components）零引用——属布局层公共面清单，')
   L.push('退出消费或库侧裁剪时才移除（登记单源：`layout-inventory.mjs` QUARTET_KEEP / LIB_SURFACE_KEEP）；')
   L.push('现文档化（示例 = 可发现）：')
   L.push('')
