@@ -1,6 +1,6 @@
 # weifuwu
 
-**自托管全栈框架** — 一个 npm 包 = 后端 HTTP + 前端 VDOM + 134 组件 + CSS 设计系统 + SaaS 地基（认证 / 消息 / 队列 / AI）。全自研、零构建、消灭样板。
+**自托管全栈框架** — 一个 npm 包 = 后端 HTTP + 前端 VDOM + 138 组件 + CSS 设计系统 + SaaS 地基（认证 / 消息 / 队列 / AI）。全自研、零构建、消灭样板。
 
 > 文档即代码：本文只写入门——细节地图见 [docs/client.md](docs/client.md)（前端）/
 > [docs/server.md](docs/server.md)（后端）/ [AGENTS.md](AGENTS.md)（内核纪律）。
@@ -124,7 +124,7 @@ router.get('*', async (req, ctx) => {
 ```
 npm run test:client    → 契约层（515——node 直跑命令流——零浏览器——~5s）
 npm run test:scenario  → 场景层（129——SSR 服务化 + playwright 真实浏览器）
-npm run test:showcase  → showcase 组件测试（336——134 组件全覆盖——每组件一文件）
+npm run test:showcase  → showcase 组件测试（336——138 组件全覆盖——每组件一文件）
 npm run platform:test  → 平台（507——协议 + UI；含 15 docker-gated skip）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 npm run audit:all      → 十四线审计（semantics/interactivity/vdom/theme/api/bundle/showcase/docs/health/levels）

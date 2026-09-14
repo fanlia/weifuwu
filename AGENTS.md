@@ -7,7 +7,7 @@
 > [docs/client.md](docs/client.md) / [docs/server.md](docs/server.md) / [docs/level.md](docs/level.md)（分层与冻结）/ [docs/migration.md](docs/migration.md)（迁移指南）。
 
 **防线快照（2027-xx）**：
-契约 **515** · 场景 **129** · showcase **336**（134 组件全覆盖）· server **882**（881 pass + 1 docker-gated skip）·
+契约 **515** · 场景 **129** · showcase **336**（138 组件全覆盖）· server **882**（881 pass + 1 docker-gated skip）·
 shared **37** · 平台 **507**（492 pass + 15 docker-gated skip——协议 + UI 同源；`platform:test:ui` 子集 155）· audit:all **十四线**（semantics/interactivity/vdom/theme/api/bundle/showcase/docs/**health**（C3 三线+C4 二线）/**levels**（依赖+规模+docs+L0 快照）） exit 0——C3 健康基线：a11y 0 违规（豁免登记 8 类——拦截语义/父面键盘/装饰/指针等价）· as any 0（组件面——只降不升）· app.js 517KB（tree-shake 残留 0）· **C4**：i18n 裸 0 违例（机制接线 11 处——ThemeSwitch/Editor/AppShell——数据层定义表豁免登记）· 死类 0（登记表空——17 清）· token 176 · **C5/banner**：文件头 banner 155 全量（registry desc 单源——首行格式哨兵）· svg aria 0（role:img 语义容器补全 4）· **C6**：VNodeChild 接线 100（children 家族 any 注解单源化——数据面任何 19 登记）· **C7**：console log/error 0（warn 17 dev 提示）· **S8** 重复选择器 0（顶层双定义 14 清）· fuzz 对账 **1310 对**（静态+组件——终态等价 0 不等价）· 契约组件 **124/124**（aria 布尔 create 面内核归一——四红清零）· tsc **0 错**。
 
 **内核资产**：
@@ -30,7 +30,7 @@ shared **37** · 平台 **507**（492 pass + 15 docker-gated skip——协议 + 
   不污染子孙原语）· 断点白名单单源（`--wf-bp-*` → 媒体查询字面量 V / V-0.02 两形态）· 间距双标尺
   **派生**（gap = space 紧一档——关系入代码，预设只覆写 space）· token 死面/双名/px 字面量三登记制 ·
   **L1-L16 契约 20 断言** · `docs/layout.md` 机器生成参考（inventory 全量——L15 校验漂移）·
-  dist minify（esbuild——layout 28.1K/gzip 5.7K/br 5.1K · style 223.3K/gzip 29.3K/br 24.3K）
+  dist minify（esbuild——layout 29.4K/gzip 5.7K/br 5.0K · style 221.4K/gzip 29.1K/br 23.4K）
 - **components 样式标准化 §2（2027-xx 完成）**：token 消费三桶 **C2**（components-token.test.ts——
   line-height 近值/弹层面板宽/零消费——+ components-token-whitelist.json）· line-height 恒等接线
   （1.5/1.25 → --wf-line-height-*——预设零覆写全主题恒等）· 弹层钩子修复（Popover/Tooltip
@@ -99,7 +99,7 @@ shared **37** · 平台 **507**（492 pass + 15 docker-gated skip——协议 + 
 ```
 npm run test:client    → 契约层（515——node 直跑命令流——零浏览器——~5s）
 npm run test:scenario  → 场景层（129——SSR 服务化 + playwright——真实浏览器）
-npm run test:showcase  → showcase 组件测试（336——134 组件——每组件一文件）
+npm run test:showcase  → showcase 组件测试（336——138 组件——每组件一文件）
 npm run platform:test  → 平台（507——协议 + UI 同源；含 15 docker-gated skip）
 npm run test           → 契约 + 场景 + server（db 真库依赖 docker）
 ```

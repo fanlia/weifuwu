@@ -253,6 +253,21 @@ for (const lv of ['level0', 'level1', 'level2', 'level3', 'level4', 'level5', 'l
   console.log(`  dist/${lv}/: 源码树就位`)
 }
 
+// ── CSS 聚合产物正典路径（dist/levelN 导出面——2027-xx 补）──
+// level6/client/components/style.css（组件全量）· level5/client/layout/weifuwu-layout.css（布局独立面）：
+// 旧路径 dist/client/** 保留一版兼容（同 ENTRY_COPIES 策略）；必须在源码树复制**之后**——
+// 否则 level5 路径被源 @import 入口（weifuwu-layout.css —— 非聚合产物）覆盖
+const CSS_CANON = [
+  ['client/components/style.css', 'level6/client/components/style.css'],
+  ['client/layout/weifuwu-layout.css', 'level5/client/layout/weifuwu-layout.css'],
+]
+for (const [from, to] of CSS_CANON) {
+  const dst = join(distDir, to)
+  await mkdir(dirname(dst), { recursive: true })
+  await cp(join(distDir, from), dst)
+}
+console.log(`  CSS 正典路径：${CSS_CANON.length}（dist/level6 · dist/level5）`)
+
 // ── 应用启动器（bin 面：dist/level6/apps/*/cli.js——server.ts 自启动）──
 for (const [bin, appDir] of [['weifuwu-showcase', 'showcase'], ['weifuwu-platform', 'agent-platform']]) {
   const cliPath = join(distDir, 'level6', 'apps', appDir, 'cli.js')

@@ -23,7 +23,7 @@
 import { serve, Router, z } from 'weifuwu/dist/level6/index.js'
 // 前端内核（src/level3/vdom 引擎 · src/level6/client/vdom 公共面）
 import { uiServe, UIRouter, h } from 'weifuwu/dist/level6/client/vdom/index.js'
-// 组件库（src/level5/client/components——139 组件 + style.css 全量样式）
+// 组件库（src/level5/client/components——138 组件 + style.css 全量样式）
 import { Button, Modal } from 'weifuwu/dist/level6/client/components/index.js'
 import 'weifuwu/dist/level6/client/components/style.css'
 ```
@@ -38,9 +38,9 @@ TS/TSX 源码树，仅供 `ctx.ui` 浏览器编译，Node 在 `node_modules` 下
 | `weifuwu/dist/level6/server/workflow/index.js` | `src/level6/server/workflow/index.ts`（声明式执行引擎） |
 | `weifuwu/dist/level6/server/{ai,email,messager,postgres,queue,redis,scheduler,ui,user,workflows}/index.js` | `src/level6/server/<子>/index.ts`（独立 bundle） |
 | `weifuwu/dist/level6/client/vdom/index.js` | `src/level6/client/vdom/index.ts`（h/jsx/uiServe/jsx-runtime） |
-| `weifuwu/dist/level6/client/components/index.js` | `src/level5/client/components/index.ts`（139 组件） |
+| `weifuwu/dist/level6/client/components/index.js` | `src/level6/client/components/index.ts`（138 组件） |
 | `weifuwu/dist/level6/client/components/style.css` | dist 聚合样式（layout + 组件全量） |
-| `weifuwu/dist/level6/client/layout/index.js` | `src/level5/client/layout/index.ts`（defineLayout + 装配） |
+| `weifuwu/dist/level6/client/layout/index.js` | `src/level6/client/layout/index.ts`（defineLayout + 装配） |
 | `weifuwu/dist/level5/client/layout/weifuwu-layout.css` | 布局原语 CSS（独立面） |
 | `weifuwu/dist/level0/router/index.js` | `src/level0/router/index.ts`（trie/pipeline/context/chain 五件） |
 | `weifuwu/dist/level6/dev/index.js` | `src/level6/dev/index.ts`（`node --import weifuwu/dist/level6/dev/index.js server.ts`） |
@@ -81,7 +81,7 @@ TS/TSX 源码树，仅供 `ctx.ui` 浏览器编译，Node 在 `node_modules` 下
 
 ## 2. 组件清单
 
-**139 个组件**——源码目录即清单：`src/level5/client/components/<Comp>/<Comp>.ts`（每个含
+**138 个组件**——源码目录即清单：`src/level5/client/components/<Comp>/<Comp>.ts`（每个含
 `<Comp>.css` + 契约测试）。展示与使用示例：`src/level6/apps/showcase/`（localhost:3200——
 `/components/<id>` 每组件一页 + demo 源码即用法）。
 
@@ -153,10 +153,10 @@ TS/TSX 源码树，仅供 `ctx.ui` 浏览器编译，Node 在 `node_modules` 下
 间距标尺派生登记 · px 字面量白名单——layout-inventory **20 断言**锁定；
 层叠语义的浏览器计算值读数见场景层 `e2e-layout-semantics.test.ts`。
 
-**载荷面（W6 minify）**：dist 发布产物 `weifuwu-layout.css` **28.1K**（gzip 5.7K · brotli 5.1K）·
-`weifuwu/dist/level6/client/components/style.css` **220.9K**（gzip 29.4K · brotli 24.3K）——esbuild minify（
+**载荷面（W6 minify）**：dist 发布产物 `weifuwu-layout.css` **29.4K**（gzip 5.7K · brotli 5.0K）·
+`weifuwu/dist/level6/client/components/style.css` **221.4K**（gzip 29.1K · brotli 23.4K）——esbuild minify（
 `build.mjs` 实装：`@layer`/`@property`/`@supports`/转义类名全保留，注释全剥离）；
-**无组件应用只引 `weifuwu/dist/level5/client/layout/weifuwu-layout.css`**（28.1K / br 5.1K——独立面，零组件 CSS 成本）。
+**无组件应用只引 `weifuwu/dist/level5/client/layout/weifuwu-layout.css`**（29.4K / br 5.0K——独立面，零组件 CSS 成本）。
 按需子集（per-component 子路径 / purge）**判负**：动态类名漏删风险 + 构建期改造成本
 + br 后 24.3K 非瓶颈——推翻条件：真实应用首屏 CSS 成为 LCP 阻塞的实测数据。
 

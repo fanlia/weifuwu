@@ -399,7 +399,7 @@ export type Agent = RowOf<(typeof SHAPES)['agents']> & {
 
 ## 6. 实时与渲染
 
-- **scheduler**：`src/level5/server/middleware/scheduler.ts`——`ctx.schedule.cron/once` +
+- **scheduler**：`src/level6/server/scheduler/index.ts`（中间件入口）+ `src/level5/server/scheduler/`（cron/持久化）——`ctx.schedule.cron/once` +
   持久化恢复（重启续跑）
 - **ui**：`ctx.ui.html/js/css/ssr`——TSX 动态编译（esbuild 同步）+ 组件 SSR
   （`src/level3/vdom/ssr/`（SSR 引擎：html/absorb）——SSR ≡ SPA 首帧纪律）
@@ -409,7 +409,7 @@ export type Agent = RowOf<(typeof SHAPES)['agents']> & {
   - 默认实现：`src/level5/server/ws/native/`（握手/帧编解码/分片/控制帧/UTF-8 fail-fast/关闭码/限额）
   - 验收：Autobahn **301 用例 0 FAILED**（290 OK + 8 NON-STRICT + 3 INFORMATIONAL——压缩类 12/13 诚实裁剪）
     · **Node 全局 WebSocket（undici）互操作**（serve/ws handler 契约——独立实现客户端）· 消息类型归一（text→string / binary→Buffer）
-  - 判负登记（2026-09 依赖清理）：`ws` 包与 `src/level5/server/ws/adapter.ts`（差分参考实现，含 200 用例 fuzz）删除——
+  - 判负登记（2026-09 依赖清理）：`ws` 包与差分参考适配器（原 `src/server/ws/adapter.ts`——历史路径；含 200 用例 fuzz）删除——
     替代防线 = Autobahn + native 向量测试 + undici 客户端互操作；推翻条件：需要字节级双实现对账时（可临时装回 `ws` 复跑）
   - 诚实裁剪：无扩展/无压缩/无子协议协商；`maxPayload` 默认 100 MiB（可配）
   - 自定义协议：`serve(router, { wsAdapter })` 覆盖；未注册 WS 路由时零开销
