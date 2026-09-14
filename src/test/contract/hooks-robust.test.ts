@@ -15,10 +15,10 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type Server } from 'node:http'
-import type { HookEnv } from '../../client/vdom/hooks/env.ts'
-import { createUi } from '../../client/vdom/hooks/env.ts'
-import { useTween, useDrag, useVisualViewport, useReducedMotion } from '../../client/vdom/hooks/stable.ts'
-import { aiStream } from '../../client/vdom/hooks/ai-stream.ts'
+import type { HookEnv } from '../../level3/vdom/hooks/env.ts'
+import { createUi } from '../../level3/vdom/hooks/env.ts'
+import { useTween, useDrag, useVisualViewport, useReducedMotion } from '../../level3/vdom/hooks/stable.ts'
+import { aiStream } from '../../level1/vdom/hooks/ai-stream.ts'
 
 // ── fake 浏览器环境（零浏览器——行为断言） ──────────────────────────
 
@@ -144,8 +144,8 @@ test('useTween：reduced-motion 直落终值（跳过补间）', () => {
 // **登记幂等**：按业务 key（query/store 引用）——任意位置任意次数调用
 // 不重复订阅/监听（旧快照返回 + idx 顺序注册：mount 闭包失效 + 重复
 // 调用重复订阅双缺陷）
-import { useMedia, useBreakpoint } from '../../client/vdom/hooks/drag-media.ts'
-import { createStore, createSignal } from '../../client/vdom/store.ts'
+import { useMedia, useBreakpoint } from '../../level3/vdom/hooks/drag-media.ts'
+import { createStore, createSignal } from '../../level1/vdom/store.ts'
 
 test('useMedia：getter 形态——mount 闭包持有永远最新 + 登记幂等（按 query）', () => {
   const win = new FakeWindow()

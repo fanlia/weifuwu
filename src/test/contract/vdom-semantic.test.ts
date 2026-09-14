@@ -6,7 +6,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { semantic, ROLE_SEMANTICS } from '../../client/vdom/core/semantic.ts'
+import { semantic, ROLE_SEMANTICS } from '../../level4/client/vdom/semantic.ts'
 
 test('dialog：固定键 aria-modal + labelable', () => {
   assert.deepEqual(semantic('dialog'), { role: 'dialog', 'aria-modal': true })
@@ -59,7 +59,7 @@ test('审计：全库 role → 模板键面齐全（FileUpload/ToolCallCard 缺�
   const { readdirSync, readFileSync } = await import('node:fs')
   const { join } = await import('node:path')
   const root = join(import.meta.dirname, '..', '..', '..')
-  const base = join(root, 'src/client/components')
+  const base = join(root, 'src/level5/client/components')
   const dirs = readdirSync(base, { withFileTypes: true })
     .filter((e) => e.isDirectory() && readdirSync(join(base, e.name)).some((f) => f.endsWith('.ts') && !f.includes('.test')))
     .map((e) => e.name)

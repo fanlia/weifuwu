@@ -20,13 +20,13 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, type VNode, type VNodeChild } from '../../client/vdom/core/vnode.ts'
-import { Fragment } from '../../client/vdom/core/node/fragment.ts'
-import { diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
-import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
-import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import type { Segment } from '../../client/vdom/core/v2/diff.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
+import { h, type VNode, type VNodeChild } from '../../level0/vdom/vnode.ts'
+import { Fragment } from '../../level1/vdom/node/fragment.ts'
+import { diffToStreamV2 } from '../../level3/vdom/v2/integrate.ts' // v1 退役——v2 桥
+import { renderToStreamV2 } from '../../level3/vdom/v2/integrate.ts' // v1 退役——v2 桥
+import { createComponentRegistry, type ComponentRegistry } from '../../level3/vdom/node/component.ts'
+import type { Segment } from '../../level3/vdom/v2/diff.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
 import { mulberry32 } from './reconcile.test.ts'
 import { verifyEquivalence } from './helpers/verify.ts'
 import { drainStream } from './sim.ts'

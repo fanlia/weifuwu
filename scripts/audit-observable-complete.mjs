@@ -21,9 +21,10 @@ const root = process.cwd()
 
 /** 域限定（W3 迁移后：旧 core/ + hooks/ = l1/l0/l2 vdom——排除旧 DOMAINS 未覆盖的兄弟目录） */
 const DOMAINS = [
-  'src/core/l0/vdom',
-  'src/core/l1/client/vdom',
-  'src/core/l2/client/vdom',
+  'src/level0/vdom',
+  'src/level1/vdom',
+  'src/level3/vdom',
+  'src/level4/client/vdom',
 ]
 /** 旧 DOMAINS（core+hooks）未覆盖的兄弟目录——保持历史扫描域 */
 const SKIP = /[/\\](context|browser|dev|observable)[/\\]|[/\\]store\.ts$/
@@ -31,15 +32,15 @@ const SKIP = /[/\\](context|browser|dev|observable)[/\\]|[/\\]store\.ts$/
 /** 豁免清单（登记制——每项带理由——新增需审计确认） */
 const EXEMPT = [
   // 调度器拍（batching 时机——非隐式时序）
-  [/\bsetTimeout\(/, 'src/core/l1/client/vdom/v2/schedule.ts'],
+  [/\bsetTimeout\(/, 'src/level1/vdom/v2/schedule.ts'],
   // 心跳/重连指数退避（中间件可靠性——显式可取消（clearTimeout））
-  [/\bsetTimeout\(/, 'src/client/vdom/middlewares/ws.ts'],
+  [/\bsetTimeout\(/, 'src/level5/client/vdom/middlewares/ws.ts'],
   // 异步超时守卫（async-guard——Promise side race——显式 clearTimeout）
-  [/\bsetTimeout\(/, 'src/core/l1/client/vdom/async-guard.ts'],
+  [/\bsetTimeout\(/, 'src/level1/vdom/async-guard.ts'],
   // useTween 卡滞兑底（rAF 受可见性门控不走——超时强制落终值 + clearTimeout 显式取消）
-  [/\bsetTimeout\(/, 'src/core/l1/client/vdom/hooks/stable.ts'],
+  [/\bsetTimeout\(/, 'src/level3/vdom/hooks/stable.ts'],
   // afterRender 兜底调度（serve 未设 afterRender 时宏任务兜底——注释含断链实证）
-  [/\bsetTimeout\(fn, 0\)/, 'src/core/l1/client/vdom/v2/diff.ts'],
+  [/\bsetTimeout\(fn, 0\)/, 'src/level3/vdom/v2/diff.ts'],
 ]
 
 /** 剥离注释后的有效代码（// 行注释——避免注释文本误报） */

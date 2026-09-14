@@ -12,7 +12,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, jsx, normalizeClass } from '../../client/vdom/index.ts'
+import { h, jsx, normalizeClass } from '../../level6/client/vdom/index.ts'
 
 test('normalizeClass：字符串直通（现状零成本）', () => {
   assert.equal(normalizeClass('wf-btn wf-btn--sm'), 'wf-btn wf-btn--sm')
@@ -37,7 +37,7 @@ test('normalizeClass：对象条件真值（{ class: flag }）', () => {
 })
 
 test('h() 自动归一：对象 class → 命令流 attrs 字符串', async () => {
-  const { mount, createTable } = await import('../../test/contract/component-harness.ts')
+  const { mount, createTable } = await import('./component-harness.ts')
   const t = { mount, createTable } as any
   const Comp: any = () => () => h('div', { class: { 'wf-active': true, 'wf-off': false } })
   const hh = await t.mount(Comp, {})
@@ -47,7 +47,7 @@ test('h() 自动归一：对象 class → 命令流 attrs 字符串', async () =
 })
 
 test('h() 数组 class → attrs 字符串（条件组合）', async () => {
-  const { mount, createTable } = await import('../../test/contract/component-harness.ts')
+  const { mount, createTable } = await import('./component-harness.ts')
   const t = { mount, createTable } as any
   const active = true
   const Comp: any = () => () => h('span', { class: ['wf-item', active && 'wf-item--active'] })

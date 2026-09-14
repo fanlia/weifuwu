@@ -13,10 +13,10 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, Fragment } from '../../client/vdom/index.ts'
-import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import { renderToStreamV2, diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts'
-import type { Segment, SegmentMap } from '../../client/vdom/core/v2/diff.ts'
+import { h, Fragment } from '../../level6/client/vdom/index.ts'
+import { createComponentRegistry } from '../../level3/vdom/node/component.ts'
+import { renderToStreamV2, diffToStreamV2 } from '../../level3/vdom/v2/integrate.ts'
+import type { Segment, SegmentMap } from '../../level3/vdom/v2/diff.ts'
 import { Sim, drainStream } from './sim.ts'
 
 /** 双阶段消费（单世界——build old → diff new——工厂计数准确） */

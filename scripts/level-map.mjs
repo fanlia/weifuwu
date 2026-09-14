@@ -54,6 +54,8 @@ const ENTRIES = new Map([
   ['src/dev/index.ts', 'src/level6/dev/index.ts'],
   ['src/shared/router/index.ts', 'src/level6/shared/router/index.ts'],
 ])
+/** 公开 API 根（post-move 路径）——entry 语义 = 公开面（不因含实现而普通化） */
+const ENTRY_TARGETS = new Set(ENTRIES.values())
 
 // ── 闭包规则（DOM 种子 + 传递闭包——非清单硬编码）────────────────────
 const DOM_RE = /\b(document|window|navigator|localStorage|sessionStorage|matchMedia|HTMLElement|MutationObserver|ResizeObserver|IntersectionObserver|requestAnimationFrame|getComputedStyle)\b/
@@ -195,6 +197,7 @@ function levelOfPath(rel) {
 
 // ── 迁移目标（pre-move 规则投影——含测试文件；post-move 恒等）──────────
 function targetOf(rel) {
+  if (rel.startsWith('src/test/')) return null
   const testM = rel.match(/^(.*)\.test\.(tsx?)$/)
   if (testM) {
     const t = targetOf(`${testM[1]}.${testM[2]}`)
@@ -204,7 +207,9 @@ function targetOf(rel) {
   if (ENTRIES.has(rel)) return ENTRIES.get(rel)
   if (rel.startsWith('src/core/l0/')) return 'src/level0/' + rel.slice('src/core/l0/'.length)
   if (rel.startsWith('src/core/l1/client/')) {
-    const inClient = CLIENT_SET.has(rel) || [...CLIENT_SET].some((c) => c.startsWith(dirname(rel) + '/'))
+    // 闭包成员判定：真实文件看 CLIENT_SET；不存在的（测试基名）才用目录启发
+    const exists = existsSync(join(ROOT, rel))
+    const inClient = CLIENT_SET.has(rel) || (!exists && [...CLIENT_SET].some((c) => c.startsWith(dirname(rel) + '/')))
     return (inClient ? 'src/level3/' : 'src/level1/') + rel.slice(L1_CLIENT.length)
   }
   if (rel.startsWith('src/core/l1/server/')) return 'src/level2/' + rel.slice('src/core/l1/server/'.length)
@@ -221,13 +226,14 @@ function classify(rel) {
     if (!owner) return NULL
     return { ...owner, kind: 'test', target: owner.kind === 'test-support' ? null : targetOf(rel) }
   }
+  if (rel.startsWith('src/test/')) return { kind: 'test-support', level: null, env: null, target: null }
   if (MODE === 'post') {
     const m = rel.match(/^src\/level([0-6])\//)
     if (m) {
       const level = Number(m[1])
       const env = level <= 1 || level === 4 ? 'universal' : level === 2 ? 'server' : level === 3 ? 'client' : 'mixed'
       const re = pureReexports(rel)
-      const kind = isAsset(rel) ? 'asset' : re ? 'entry' : 'level'
+      const kind = isAsset(rel) ? 'asset' : re || ENTRY_TARGETS.has(rel) ? 'entry' : 'level'
       return { kind, level, env, target: rel }
     }
     return NULL
@@ -276,17 +282,29 @@ for (const rel of files) {
   summary[cls.level].exports += (src.match(/^\s*export\b/gm) ?? []).length
 }
 
-// entry 有效层级（barrel 方向检查用其再导出目标的最大层级——再导出面不引入实现层）
-for (const [rel, info] of Object.entries(manifest)) {
-  if (info.kind !== 'entry') continue
+// entry 有效层级（barrel 方向检查——递归穿透 barrel 链，叶子为 level 文件）
+const effectiveMemo = new Map()
+function effectiveOf(rel, seen = new Set()) {
+  const info = manifest[rel]
+  if (!info) return null
+  if (info.kind === 'level' && typeof info.level === 'number') return info.level
+  if (info.kind !== 'entry') return null
+  if (effectiveMemo.has(rel)) return effectiveMemo.get(rel)
+  if (seen.has(rel)) return null
+  seen.add(rel)
   const lvls = []
   for (const { spec } of extractImports(readFileSync(join(ROOT, rel), 'utf8'))) {
     if (!spec.startsWith('.')) continue
     const t = resolveRelative(rel, spec)
-    const m = t ? manifest[t] : null
-    if (m && m.kind === 'level' && typeof m.level === 'number') lvls.push(m.level)
+    const l = t ? effectiveOf(t, new Set(seen)) : null
+    if (typeof l === 'number') lvls.push(l)
   }
-  info.effectiveLevel = lvls.length ? Math.max(...lvls) : info.level
+  const out = lvls.length ? Math.max(...lvls) : 6
+  effectiveMemo.set(rel, out)
+  return out
+}
+for (const [rel, info] of Object.entries(manifest)) {
+  if (info.kind === 'entry') info.effectiveLevel = effectiveOf(rel)
 }
 
 // 第二遍：依赖检查（kind 'level' 源文件）

@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { popupPhaseReducer, type PopupEvent, type PopupPhase } from '../../client/vdom/hooks/popup-manager.ts'
+import { popupPhaseReducer, type PopupEvent, type PopupPhase } from '../../level3/vdom/hooks/popup-manager.ts'
 
 function replay(events: PopupEvent[]): PopupPhase {
   let s: PopupPhase = 'closed'

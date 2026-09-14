@@ -3,10 +3,10 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { createSegment, disposeSegment, type SegmentMap } from '../../client/vdom/core/v2/diff.ts'
-import { BehaviorSubject } from '../../client/vdom/observable/index.ts'
-import { createStore } from '../../client/vdom/store.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { createSegment, disposeSegment, type SegmentMap } from '../../level3/vdom/v2/diff.ts'
+import { BehaviorSubject } from '../../level1/vdom/observable/index.ts'
+import { createStore } from '../../level1/vdom/store.ts'
 
 const emptyCtx = { render: async () => {}, browser: null } as never
 

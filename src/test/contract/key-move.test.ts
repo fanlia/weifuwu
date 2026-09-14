@@ -10,9 +10,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { renderToStreamV2, diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts'
-import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { renderToStreamV2, diffToStreamV2 } from '../../level3/vdom/v2/integrate.ts'
+import { createComponentRegistry } from '../../level3/vdom/node/component.ts'
 import { drainStream } from './sim.ts'
 import { verifyEquivalence } from './helpers/verify.ts'
 

@@ -8,19 +8,19 @@
  * 每个场景 = 一个 vnode 工厂（客户端执行——组件状态真实流转）+ e2e 断言。
  * 场景是引擎真实 bug 的回归样本（§6.3 占位事故 / 组件复用 / keyed 身份 / portal）。
  */
-import { h, type Component, type VNode, createStore } from '../../client/vdom/index.ts'
+import { h, type Component, type VNode, createStore } from '../../level6/client/vdom/index.ts'
 import { SmokeScene } from './components/smoke-registry.ts'
-import { Input as CInput, InputNumber as CInputNumber, Textarea as CTextarea, SearchInput as CSearchInput, PasswordInput as CPasswordInput, PinInput as CPinInput, Switch as CSwitch, Checkbox as CCheckbox, RadioGroup as CRadioGroup, Slider as CSlider, Rate as CRate, TagsInput as CTagsInput, SegmentedControl as CSegmentedControl, ToggleGroup as CToggleGroup } from '../../client/components/index.ts'
-import { Select as CSelect, AutoComplete as CAutoComplete, Cascader as CCascader, TreeSelect as CTreeSelect, Transfer as CTransfer, ColorPicker as CColorPicker, DatePicker as CDatePicker, Calendar as CCalendar } from '../../client/components/index.ts'
-import { Tabs as CTabs, Menu as CMenu, Pagination as CPagination, Table as CTable, Collapse as CCollapse, Accordion as CAccordion, Carousel as CCarousel, Steps as CSteps, List as CList } from '../../client/components/index.ts'
-import { Modal as CModal, Drawer as CDrawer, Popover as CPopover, Tooltip as CTooltip, Dropdown as CDropdown, Popconfirm as CPopconfirm, HoverCard as CHoverCard, ActionSheet as CActionSheet, Command as CCommand, Menubar as CMenubar } from '../../client/components/index.ts'
-import { Form as CForm, Field as CField, JsonSchemaForm as CJsonSchemaForm, SortableList as CSortableList, Resizable as CResizable } from '../../client/components/index.ts'
-import { Kanban as CKanban, InfiniteScroll as CInfiniteScroll, CodeEditor as CCodeEditor, MarkdownEditor as CMarkdownEditor, Editor as CEditor, Table as CTable2 } from '../../client/components/index.ts'
-import { AiChat as CAiChat, FileUpload as CFileUpload } from '../../client/components/index.ts'
-import { SheetGrid as CSheetGrid, SlideCanvas as CSlideCanvas } from '../../client/components/index.ts'
-import { ImageCropper as CImageCropper, VideoPlayer as CVideoPlayer, AuthPage as CAuthPage } from '../../client/components/index.ts'
-import { Tour as CTour } from '../../client/components/index.ts'
-import { Math as CFormula, Wave as CWave, Title as CTitle, Text as CText, Paragraph as CParagraph } from '../../client/components/index.ts'
+import { Input as CInput, InputNumber as CInputNumber, Textarea as CTextarea, SearchInput as CSearchInput, PasswordInput as CPasswordInput, PinInput as CPinInput, Switch as CSwitch, Checkbox as CCheckbox, RadioGroup as CRadioGroup, Slider as CSlider, Rate as CRate, TagsInput as CTagsInput, SegmentedControl as CSegmentedControl, ToggleGroup as CToggleGroup } from '../../level6/client/components/index.ts'
+import { Select as CSelect, AutoComplete as CAutoComplete, Cascader as CCascader, TreeSelect as CTreeSelect, Transfer as CTransfer, ColorPicker as CColorPicker, DatePicker as CDatePicker, Calendar as CCalendar } from '../../level6/client/components/index.ts'
+import { Tabs as CTabs, Menu as CMenu, Pagination as CPagination, Table as CTable, Collapse as CCollapse, Accordion as CAccordion, Carousel as CCarousel, Steps as CSteps, List as CList } from '../../level6/client/components/index.ts'
+import { Modal as CModal, Drawer as CDrawer, Popover as CPopover, Tooltip as CTooltip, Dropdown as CDropdown, Popconfirm as CPopconfirm, HoverCard as CHoverCard, ActionSheet as CActionSheet, Command as CCommand, Menubar as CMenubar } from '../../level6/client/components/index.ts'
+import { Form as CForm, Field as CField, JsonSchemaForm as CJsonSchemaForm, SortableList as CSortableList, Resizable as CResizable } from '../../level6/client/components/index.ts'
+import { Kanban as CKanban, InfiniteScroll as CInfiniteScroll, CodeEditor as CCodeEditor, MarkdownEditor as CMarkdownEditor, Editor as CEditor, Table as CTable2 } from '../../level6/client/components/index.ts'
+import { AiChat as CAiChat, FileUpload as CFileUpload } from '../../level6/client/components/index.ts'
+import { SheetGrid as CSheetGrid, SlideCanvas as CSlideCanvas } from '../../level6/client/components/index.ts'
+import { ImageCropper as CImageCropper, VideoPlayer as CVideoPlayer, AuthPage as CAuthPage } from '../../level6/client/components/index.ts'
+import { Tour as CTour } from '../../level6/client/components/index.ts'
+import { Math as CFormula, Wave as CWave, Title as CTitle, Text as CText, Paragraph as CParagraph } from '../../level6/client/components/index.ts'
 
 export interface Scenario {
   id: string
@@ -182,7 +182,7 @@ const KeyedReorder = (_init: Record<string, never>, ctx: any) => {
 const PortalToggle = (_init: Record<string, never>, ctx: any) => {
   let open = false
   let triggerEl: HTMLElement | null = null
-  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const sync = () => {
     if (open && !handle)
       handle = ctx.ui.openPopup({
@@ -267,7 +267,7 @@ const NavigateScene = (_init: Record<string, never>, ctx: any) =>
 // ── 场景 10：unmount/dispose（handle.unmount——DOM/弹层完整清理） ─────
 const UnmountScene = (_init: Record<string, never>, ctx: any) => {
   let open = false
-  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const sync = () => {
     if (open && !handle)
       handle = ctx.ui.openPopup({
@@ -319,7 +319,7 @@ const PopupScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
   const triggerRef = (el: unknown) => { if (el) triggerEl = el as HTMLElement }
   let open = false
-  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const sync = () => {
     if (open && !handle)
       handle = ctx.ui.openPopup({
@@ -505,7 +505,7 @@ const mkPlace = (name: string, placement: string, center?: boolean): Component =
   const P = (_init: Record<string, never>, ctx: any) => {
     let triggerEl: HTMLElement | null = null
     let open = false
-    let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+    let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
     const sync = () => {
       if (open && !handle)
         handle = ctx.ui.openPopup({
@@ -551,7 +551,7 @@ const PlacementScene = (_init: Record<string, never>, ctx: any) =>
 const CloseSwitchScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
   let open = false
-  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const sync = () => {
     if (open && !handle)
       handle = ctx.ui.openPopup({
@@ -611,7 +611,7 @@ const HoverTriggerScene = (_init: Record<string, never>, ctx: any) => {
 const ControlledNoneScene = (_init: Record<string, never>, ctx: any) => {
   let open2 = false
   let triggerEl: HTMLElement | null = null
-  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const sync = () => {
     if (open2 && !handle)
       handle = ctx.ui.openPopup({
@@ -638,7 +638,7 @@ const ControlledNoneScene = (_init: Record<string, never>, ctx: any) => {
 const PresenceScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
   let open = false
-  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const sync = () => {
     if (open && !handle)
       handle = ctx.ui.openPopup({
@@ -666,7 +666,7 @@ const PresenceScene = (_init: Record<string, never>, ctx: any) => {
 const MaskScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
   let open = false
-  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const sync = () => {
     if (open && !handle)
       handle = ctx.ui.openPopup({
@@ -694,7 +694,7 @@ const MaskScene = (_init: Record<string, never>, ctx: any) => {
 const PopupPositionScene = (_init: Record<string, never>, ctx: any) => {
   let open = false
   let pos = { x: 0, y: 0 }
-  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const sync = () => {
     if (open && !handle)
       handle = ctx.ui.openPopup({
@@ -720,7 +720,7 @@ const PopupPositionScene = (_init: Record<string, never>, ctx: any) => {
 const PopupMaskPosScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
   let open = false
-  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const sync = () => {
     if (open && !handle)
       handle = ctx.ui.openPopup({
@@ -751,7 +751,7 @@ const PopupMaskPosScene = (_init: Record<string, never>, ctx: any) => {
 const TrapScene = (_init: Record<string, never>, ctx: any) => {
   let triggerEl: HTMLElement | null = null
   let open = false
-  let handle: import('../../client/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+  let handle: import('../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
   const sync = () => {
     if (open && !handle)
       handle = ctx.ui.openPopup({

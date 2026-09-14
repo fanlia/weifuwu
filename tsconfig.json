@@ -17,26 +17,27 @@
     "rootDir": "src",
     "outDir": "dist",
     "paths": {
-      "weifuwu/client/vdom": ["./src/client/vdom/index.ts"],
-      "weifuwu/client/vdom/jsx-runtime": ["./src/client/vdom/jsx-runtime.ts"],
-      "weifuwu/client/vdom/testing": ["./src/client/vdom/testing.ts"],
-
+      "weifuwu/client/vdom": ["./src/level6/client/vdom/index.ts"],
+      "weifuwu/client/vdom/jsx-runtime": ["./src/level6/client/vdom/jsx-runtime.ts"],
+      "weifuwu/client/vdom/testing": ["./src/level6/client/vdom/testing.ts"],
     }
   },
   "include": [
-    "src/server/*.ts",
-    "src/server/**/*.ts",
-    "src/client/*.ts",
-    "src/client/**/*.ts",
-    "src/client/**/*.tsx",
-    "src/cli/*.ts",
-    "src/dev/*.ts"
+    "src/level0/**/*.ts",
+    "src/level1/**/*.ts",
+    "src/level2/**/*.ts",
+    "src/level3/**/*.ts",
+    "src/level3/**/*.tsx",
+    "src/level4/**/*.ts",
+    "src/level5/**/*.ts",
+    "src/level5/**/*.tsx",
+    "src/level6/**/*.ts",
+    "src/level6/**/*.tsx"
   ],
   "exclude": [
-    "src/client/components/**/*.test.ts",
-    "src/server/**/*.test.ts",
-    "src/client/**/*.test.ts",
-    "src/server/db/postgres-server.ts",
-    "src/server/db/redis/ast.ts"
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "src/level5/server/db/redis/ast.ts",
+    "src/level6/apps/**"
   ]
 }

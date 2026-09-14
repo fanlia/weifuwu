@@ -20,7 +20,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = join(import.meta.dirname, '..')
-const COMPONENTS = join(root, 'src/client/components')
+const COMPONENTS = join(root, 'src/level5/client/components')
 
 const walk = (p, ext, out = []) => {
   for (const e of readdirSync(p, { withFileTypes: true })) {
@@ -147,7 +147,7 @@ if (anyCount > ANY_BASE) fail(`as any ${anyCount} > 基线 ${ANY_BASE}（只降�
 console.log(`C3-② as any：${anyCount}（基线 ${ANY_BASE}——只降不升）`)
 
 // ── ③ JS 体积 + tree-shake ───────────────────────────────
-const appJs = join(root, 'apps/agent-platform/dist/app.js')
+const appJs = join(root, 'src/level6/apps/agent-platform/dist/app.js')
 if (existsSync(appJs)) {
   const size = statSync(appJs).size
   const JS_BASE = 511 * 1024
@@ -223,7 +223,7 @@ const bannerWhitelist = JSON.parse(readFileSync(join(root, 'scripts/components-b
 // registry desc 单源（id/name/desc 三列——跨行提取）
 const descOf = new Map()
 {
-  const txt = readFileSync(join(root, 'apps/showcase/src/registry/components.ts'), 'utf8')
+  const txt = readFileSync(join(root, 'src/level6/apps/showcase/src/registry/components.ts'), 'utf8')
   for (const m of txt.matchAll(/"id": "([\w-]+)",[\s\S]{0,260}?"name": "([A-Za-z0-9]+)",[\s\S]{0,260}?"desc": "([^"]+)"/g)) {
     descOf.set(m[2], { desc: m[3], id: m[1] })
   }

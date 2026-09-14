@@ -10,13 +10,13 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createDataPipe } from '../../client/vdom/context/data.ts'
-import { withTimeout, DEFAULT_ASYNC_TIMEOUT_MS } from '../../client/vdom/core/async-guard.ts'
-import { createComponentRegistry, renderComponent } from '../../client/vdom/core/node/component.ts'
-import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
-import { h } from '../../client/vdom/core/vnode.ts'
-import type { UIContext } from '../../client/vdom/context/UIContext.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
+import { createDataPipe } from '../../level3/vdom/context/data.ts'
+import { withTimeout, DEFAULT_ASYNC_TIMEOUT_MS } from '../../level1/vdom/async-guard.ts'
+import { createComponentRegistry, renderComponent } from '../../level3/vdom/node/component.ts'
+import { renderToStreamV2 } from '../../level3/vdom/v2/integrate.ts' // v1 退役——v2 桥
+import { h } from '../../level0/vdom/vnode.ts'
+import type { UIContext } from '../../level3/vdom/context/UIContext.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
 
 const emptyCtx = { render: async () => {}, data: undefined } as unknown as UIContext
 

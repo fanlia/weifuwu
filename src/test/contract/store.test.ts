@@ -7,7 +7,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createStore, createSignal } from '../../client/vdom/store.ts'
+import { createStore, createSignal } from '../../level1/vdom/store.ts'
 
 test('state：getter 读最新（set 替换后引用更新）', () => {
   const store = createStore({ count: 0 })

@@ -17,17 +17,17 @@
  *   h.mounts()                  // 组件工厂执行次数（复用 = 不重跑）
  *   assertCmds/assertOp 断言 helper
  */
-import { h } from '../../client/vdom/core/vnode.ts'
-import type { VNode } from '../../client/vdom/core/vnode.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import type { VNode } from '../../level0/vdom/vnode.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
 // **v1 退役（2027-08）**：harness 迁移 v2 引擎（renderV2/diffV2 + 段表——
 // 命令流同构（v2 等价已验证）——断言面零改动）
-import { renderV2 } from '../../client/vdom/core/v2/render.ts'
-import { diffV2, disposeSegment } from '../../client/vdom/core/v2/diff.ts'
-import { collectCommands } from '../../client/vdom/core/v2/integrate.ts'
-import { createComponentRegistry, disposeComponent, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import type { Component, RenderFn } from '../../client/vdom/core/vnode.ts'
-import type { UIContext } from '../../client/vdom/context/UIContext.ts'
+import { renderV2 } from '../../level3/vdom/v2/render.ts'
+import { diffV2, disposeSegment } from '../../level3/vdom/v2/diff.ts'
+import { collectCommands } from '../../level3/vdom/v2/integrate.ts'
+import { createComponentRegistry, disposeComponent, type ComponentRegistry } from '../../level3/vdom/node/component.ts'
+import type { Component, RenderFn } from '../../level0/vdom/vnode.ts'
+import type { UIContext } from '../../level3/vdom/context/UIContext.ts'
 import assert from 'node:assert/strict'
 
 /** mock 组件 ctx（浏览器惰性——node 零全局——afterRender 收集） */
@@ -82,7 +82,7 @@ export interface ComponentHarness {
 export async function mount(Comp: Component, props: Record<string, unknown> = {}): Promise<ComponentHarness> {
   const registry = createComponentRegistry()
   const mock = createMockCtx(registry)
-  const segments = new Map<string, import('../../client/vdom/core/v2/diff.ts').Segment>()
+  const segments = new Map<string, import('../../level3/vdom/v2/diff.ts').Segment>()
   let vnode = h(Comp as never, props as never)
   const cmds = await collectCommands(renderV2(vnode, mock.ctx, registry, segments, () => {}))
   return {

@@ -32,12 +32,13 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const ROOT = 'src/client/vdom'
-/** W3 迁移：vdom core 分居 l0/l1/l2——扫描多根；合成前缀保持豁免表相对路径语义 */
+const ROOTS = ['src/level6/client/vdom', 'src/level5/client/vdom']
+/** 迁移后：vdom core 分居 level0/1/3/4——扫描多根；合成前缀保持豁免表相对路径语义 */
 const CORE_ROOTS = [
-  ['src/core/l0/vdom', 'core/'],
-  ['src/core/l1/client/vdom', 'core/'],
-  ['src/core/l2/client/vdom', 'core/'],
+  ['src/level0/vdom', 'core/'],
+  ['src/level1/vdom', 'core/'],
+  ['src/level3/vdom', 'core/'],
+  ['src/level4/client/vdom', 'core/'],
 ]
 
 /** 豁免登记（file → 行必须匹配的模式 + why——只能缩小不可扩大） */
@@ -153,7 +154,7 @@ function walk(dir, prefix = '', rootDir = dir) {
     scan(prefix + abs.slice(rootDir.length + 1), readFileSync(abs, 'utf8'))
   }
 }
-walk(ROOT)
+for (const r of ROOTS) walk(r)
 for (const [root, prefix] of CORE_ROOTS) walk(root, prefix, root)
 
 console.log(`vdom 缺陷模式哨兵：合法登记 ${allowed.length} 行 / 违例 ${violations.length} 行`)

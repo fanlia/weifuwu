@@ -11,12 +11,12 @@
  */
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { UIRouter, frontRequest } from '../../client/vdom/core/router.ts'
-import { uiSsrV2 } from '../../client/vdom/core/v2/ssr.ts' // v1 退役——v2
-import { h } from '../../client/vdom/core/vnode.ts'
-import type { Component } from '../../client/vdom/core/vnode.ts'
-import { asyncDataPreload, asyncDataSeed, createUi } from '../../client/vdom/hooks/env.ts'
-import { Subject } from '../../client/vdom/observable/index.ts'
+import { UIRouter, frontRequest } from '../../level3/vdom/router.ts'
+import { uiSsrV2 } from '../../level3/vdom/v2/ssr.ts' // v1 退役——v2
+import { h } from '../../level0/vdom/vnode.ts'
+import type { Component } from '../../level0/vdom/vnode.ts'
+import { asyncDataPreload, asyncDataSeed, createUi } from '../../level3/vdom/hooks/env.ts'
+import { Subject } from '../../level1/vdom/observable/index.ts'
 
 /** 重置 asyncRegistry 的测试隔离（模块级共享——键名唯一化 + after 清理） */
 const testKeys: string[] = []

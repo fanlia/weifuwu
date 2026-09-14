@@ -18,7 +18,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const ROOT = 'src/client/components'
+const ROOT = 'src/level5/client/components'
 const findings = []
 let total = 0
 
@@ -94,7 +94,7 @@ for (const dir of readdirSync(ROOT)) {
   const files = readdirSync(join(ROOT, dir)).filter((f) => f.endsWith('.ts') && !f.includes('.test.'))
   const src = files.map((f) => readFileSync(join(ROOT, dir, f), 'utf8')).join('\n')
   const slug = dir.toLowerCase()
-  const compTestPath = _resolve(_root, `apps/showcase/test/comp-${slug}.test.ts`)
+  const compTestPath = _resolve(_root, `src/level6/apps/showcase/test/comp-${slug}.test.ts`)
   const testSrc = _ex(compTestPath) ? readFileSync(compTestPath, 'utf8') : ''
   const layerTests = testSrc + '\n' + scenarioFiles
   // 场景层以 deep-<slug>/cap-<slug> 前缀归属组件

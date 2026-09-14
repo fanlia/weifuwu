@@ -3,7 +3,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { auth, i18n } from '../../client/vdom/middlewares/auth-i18n.ts'
+import { auth, i18n } from '../../level5/client/vdom/middlewares/auth-i18n.ts'
 
 test('refresh：未配置 onRefresh → false + dev warn（机制化——静默失效消除）', () => {
   const warns: string[] = []

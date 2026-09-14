@@ -19,13 +19,13 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { Fragment } from '../../client/vdom/core/node/fragment.ts'
-import { diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
-import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
-import { keyedId } from '../../client/vdom/core/node/keyed.ts'
-import type { Segment } from '../../client/vdom/core/v2/diff.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { Fragment } from '../../level1/vdom/node/fragment.ts'
+import { diffToStreamV2 } from '../../level3/vdom/v2/integrate.ts' // v1 退役——v2 桥
+import { renderToStreamV2 } from '../../level3/vdom/v2/integrate.ts' // v1 退役——v2 桥
+import { keyedId } from '../../level1/vdom/node/keyed.ts'
+import type { Segment } from '../../level3/vdom/v2/diff.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
 
 async function drain(s: ReadableStream<Command>): Promise<Command[]> {
   const out: Command[] = []

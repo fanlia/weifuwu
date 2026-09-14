@@ -10,11 +10,11 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, jsx, type VNode, type Component } from '../../client/vdom/core/vnode.ts'
-import { Fragment } from '../../client/vdom/core/node/fragment.ts'
-import { childrenOf } from '../../client/vdom/core/node/children.ts'
-import { kindOf, isHoleKind, isTextKind } from '../../client/vdom/core/node/index.ts'
-import { normalizeOutput } from '../../client/vdom/core/node/component.ts'
+import { h, jsx, type VNode, type Component } from '../../level0/vdom/vnode.ts'
+import { Fragment } from '../../level1/vdom/node/fragment.ts'
+import { childrenOf } from '../../level1/vdom/node/children.ts'
+import { kindOf, isHoleKind, isTextKind } from '../../level1/vdom/node/index.ts'
+import { normalizeOutput } from '../../level3/vdom/node/component.ts'
 
 test('h：纯数据 vnode——type/props/key/children 形状', () => {
   const v = h('div', { id: 'x', key: 'k1' }, 'text')

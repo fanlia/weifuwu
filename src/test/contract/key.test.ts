@@ -7,8 +7,8 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { extractKey, stripKey, KEY } from '../../client/vdom/core/field/key.ts'
-import { h, jsx } from '../../client/vdom/core/vnode.ts'
+import { extractKey, stripKey, KEY } from '../../level0/vdom/field/key.ts'
+import { h, jsx } from '../../level0/vdom/vnode.ts'
 
 test('extractKey：string/number 有效——number 字符串化', () => {
   assert.equal(extractKey({ key: 'a' }), 'a')

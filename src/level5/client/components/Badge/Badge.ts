@@ -1,0 +1,41 @@
+/** Badge：状态标签 + 圆点，6 种 variant（showcase /components/badge） */
+import type {Component, VNodeChild} from '../../../../level6/client/vdom/index.ts'
+import type { UIContext } from '../../../../level6/client/vdom/index.ts'
+import { h } from '../../../../level6/client/vdom/index.ts'
+
+export type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'error'
+
+export interface BadgeProps {
+  variant?: BadgeVariant
+  dot?: boolean
+  children?: VNodeChild
+  /** 数值角标（与 children 互斥；超出 overflowCount 显示 N+） */
+  count?: number
+  /** 数值溢出阈值，默认 99（count > 阈值 → 阈值+） */
+  overflowCount?: number
+  /** count=0 时是否显示（默认 false 隐藏，antd showZero=false 语义） */
+  showZero?: boolean
+}
+
+export const Badge: Component<BadgeProps> = (_init, _ctx)=>
+  (props)=> {
+  const { variant = 'default', dot, children, count, overflowCount = 99, showZero = false, ...rest } = props
+
+  // rest 透传（data-*/aria 自定义属性——测试定位/埋点基线，2027-XX 补齐）
+  if (dot) {
+    return h('span', { class: `wf-badge-dot wf-badge-dot--${variant}`, ...rest })
+  }
+
+  // 数值角标（count 模式）
+  if (count != null) {
+    if (count === 0 && !showZero) return null
+    const display = count > overflowCount ? `${overflowCount}+` : String(count)
+    return h('span', {
+      class: `wf-badge wf-badge--count wf-badge--${variant}`,
+      'aria-label': `${count > overflowCount ? `超过 ${overflowCount}` : count} 条`,
+      ...rest,
+    }, display)
+  }
+
+  return h('span', { class: `wf-badge wf-badge--${variant}`, ...rest }, children ?? '')
+}

@@ -11,8 +11,8 @@
  */
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { installEffectGuard, beginRender, endRender } from '../../client/vdom/dev/effect-guard.ts'
-import { withTimeout } from '../../client/vdom/core/async-guard.ts'
+import { installEffectGuard, beginRender, endRender } from '../../level1/vdom/dev/effect-guard.ts'
+import { withTimeout } from '../../level1/vdom/async-guard.ts'
 
 const warns: string[] = []
 const origWarn = console.warn

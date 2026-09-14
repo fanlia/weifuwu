@@ -16,12 +16,12 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { createSegment, type SegmentMap } from '../../client/vdom/core/v2/diff.ts'
-import { createStore, createSignal, derived } from '../../client/vdom/store.ts'
-import { asyncErrors$ } from '../../client/vdom/hooks/env.ts'
-import { BehaviorSubject } from '../../client/vdom/observable/index.ts'
-import { useObservable as useObservableImpl } from '../../client/vdom/hooks/use-observable.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { createSegment, type SegmentMap } from '../../level3/vdom/v2/diff.ts'
+import { createStore, createSignal, derived } from '../../level1/vdom/store.ts'
+import { asyncErrors$ } from '../../level3/vdom/hooks/env.ts'
+import { BehaviorSubject } from '../../level1/vdom/observable/index.ts'
+import { useObservable as useObservableImpl } from '../../level3/vdom/hooks/use-observable.ts'
 
 const emptyCtx = { render: async () => {}, browser: null } as never
 

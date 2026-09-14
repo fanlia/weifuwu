@@ -10,8 +10,8 @@ import assert from 'node:assert/strict'
 import {
   keyOf, isKeyed, listKind, positionKey, isPositionKey,
   identityKey, keyIndex, planKeyedDiff, detectMissingKey,
-} from '../../client/vdom/core/node/keyed.ts'
-import { h } from '../../client/vdom/core/vnode.ts'
+} from '../../level1/vdom/node/keyed.ts'
+import { h } from '../../level0/vdom/vnode.ts'
 
 test('keyOf/isKeyed：vnode.key 业务声明——非 vnode 项 = null', () => {
   assert.equal(keyOf(h('div', { key: 'a' })), 'a')

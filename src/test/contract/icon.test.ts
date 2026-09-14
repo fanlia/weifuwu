@@ -12,7 +12,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mount } from './component-harness.ts'
-import { Icon } from '../../client/components/Icon/Icon.ts'
+import { Icon } from '../../level5/client/components/Icon/Icon.ts'
 
 /** console.warn 拦截（返回收集数组 + restore——测试完必须恢复） */
 let warnBox: string[] = []

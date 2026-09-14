@@ -1,0 +1,232 @@
+/** Tour：新手引导：步骤气泡 + 目标高亮 + 遮罩 + 键盘 Escape（showcase /components/tour） */
+import type { Component } from '../../../../level6/client/vdom/index.ts'
+import type { UIContext } from '../../../../level6/client/vdom/index.ts'
+import { h } from '../../../../level6/client/vdom/index.ts'
+
+export type TourPlacement = 'top' | 'bottom' | 'left' | 'right'
+
+export interface TourStep {
+  /** 目标元素选择器（ctx.browser.query） */
+  target: string
+  title: string
+  content: string
+  /** 气泡相对目标的位置（默认 bottom） */
+  placement?: TourPlacement
+}
+
+export interface TourProps {
+  steps: TourStep[]
+  /** 受控：是否打开 */
+  open?: boolean
+  /** 受控回调（关闭时 onChange(false)） */
+  onChange?: (open: boolean)=> void
+  /** 受控：当前步骤索引 */
+  current?: number
+  /** 步骤变化回调 */
+  onStepChange?: (step: number)=> void
+  /** 完成/跳过回调 */
+  onFinish?: ()=> void
+  /** 遮罩（默认 true） */
+  mask?: boolean
+}
+
+interface Rect {
+  top: number
+  left: number
+  width: number
+  height: number
+}
+
+/**
+ * Tour — 新手引导（步骤式）。
+ * 统一 openPopup 内核：mask 遮罩 + portal 出口；position 回调更新目标 rect（scroll 跟随）。
+ *
+ * 状态纪律：
+ * - 步骤索引闭包 let + render()（手动模式——避免 $ 内置类型问题）
+ * - open 受控（props.open + onChange）
+ */
+export const Tour: Component<TourProps> = (_init, ctx)=> {
+  let step = 0 // 非受控内部步骤（受控 current 时忽略）
+  let targetEl: HTMLElement | null = null
+  let rect: Rect = { top: 0, left: 0, width: 0, height: 0 }
+
+  // 命令式弹窗（唯一形态 openPopup）：mask 遮罩 + position 回调更新目标 rect
+  // （scroll 跟随经 refresh——position → rect 更新 → 重算坐标）
+  // **声明顺序（真实 bug）**：latestOpen/latestPlacement 必须在使用前声明
+  let latestPlacement: TourPlacement = 'bottom'
+  let latestOpen = false
+  let latestProps: TourProps = { steps: [] }
+  /** 命令式句柄（唯一形态——openPopup——组件内部同步样板） */
+  let handle: import('../../../../level3/vdom/hooks/popup-manager.ts').PopupHandle | null = null
+
+  const open = ()=> latestOpen
+
+  // 全局 Escape（不依赖焦点在 overlay 内——真实用户可能焦点在其他处）
+  ctx.ui.useGlobalKey?.((e: KeyboardEvent)=> {
+    if (e.key === 'Escape' && open()) close()
+  })
+
+  const goTo = (s: number)=> {
+    latestProps.onStepChange?.(s)
+    // 非受控 current 时内部推进
+    if (latestProps.current === undefined) {
+      step = s
+      refresh()
+    }
+  }
+
+  const close = ()=> {
+    latestProps.onChange?.(false)
+    if (latestProps.open === undefined) {
+      latestOpen = false
+      ctx.render()
+    }
+  }
+
+  /** 完成/跳过：onFinish 回调 + 自行关闭兜底（真实 bug：受控模式缺 onFinish
+   *  回调 → 点完成 no-op → 弹窗永不消失） */
+  const finish = ()=> {
+    const controlled = latestProps.open !== undefined
+    latestProps.onFinish?.()
+    if (!controlled || !latestProps.onFinish) {
+      // 非受控 / 受控缺 onFinish：onChange 通知 + 自行关闭（否则弹窗永不消失）
+      latestProps.onChange?.(false)
+      latestOpen = false
+      ctx.render()
+    }
+  }
+
+  const refresh = ()=> {
+    targetEl = latestProps.steps[step]?.target
+      ? (ctx.browser?.query(latestProps.steps[step].target) as HTMLElement | null)
+      : null
+    handle?.refresh()
+    ctx.render()
+  }
+
+  return (props)=> {
+    latestProps = props
+    latestOpen = !!props.open
+    const isControlledOpen = props.open !== undefined
+    const current = props.current ?? step
+    latestPlacement = props.steps[current]?.placement ?? 'bottom'
+
+    // 目标变化（打开/步骤切换）→ 重新查询元素 + 重算坐标（仅 refresh，不触发渲染）
+    if (latestOpen && props.steps[current]) {
+      const t = ctx.browser?.query(props.steps[current].target) as HTMLElement | null
+      if (t !== targetEl) {
+        targetEl = t
+        if (t) {
+          // 打开/步骤切换：目标带进视口（引导标准行为——highlight/bubble 可见；
+          // 仅目标变化时滚动——滚动跟随的 renderFn 重跑（t 不变）不触发——防死循环）
+          // 组件副作用事件：滚动到目标（effect:scroll——可观测）
+          try { t.scrollIntoView({ block: 'center' }) } catch { /* 无 scrollIntoView 环境（SSR） */ }
+        }
+        handle?.refresh()
+      }
+    }
+
+    if (!latestOpen && !isControlledOpen) {
+      // 非受控打开需要外部调？——非受控不提供 open 入口（本组件 open 受控为主）
+      // 但为了简单：非受控 + 未打开 = null（打开由受控 open 或 onMount 决定）
+      return null
+    }
+    if (!latestOpen) return null
+
+    const st = props.steps[current]
+    if (!st) return null
+
+    // rect 渲染期计算（highlight/bubble 依赖最新目标位置——不依赖 position
+    // getter 副作用——打开/步骤切换后组件渲染即得正确坐标）
+    if (targetEl) {
+      const r = targetEl.getBoundingClientRect()
+      if (r.width || r.height) rect = { top: r.top, left: r.left, width: r.width, height: r.height }
+    }
+
+    const isLast = current >= props.steps.length - 1
+    // **视口翻转（真实 bug——agent-browser 抓出）**：placement 'top' 且目标
+    // 在视口顶部（页面不可滚动/目标贴顶）→ 气泡向上展开越界（top < 0——
+    // 完全不可见不可点）——翻转 bottom（目标下方展开——视口内）——
+    // 引导气泡必须可见（核心可用性）
+    const win = ctx.browser?.window
+    const flipTop = latestPlacement === 'top' && !!win && rect.top < 120 // 120 ≈ 气泡高 + gap
+    const effectivePlacement: TourPlacement = flipTop ? 'bottom' : latestPlacement
+    const bp = bubblePos(rect, effectivePlacement)
+    const bubbleX = bp.left
+    const bubbleY = bp.top
+
+    const bubble = h('div', {
+      class: `wf-tour-bubble wf-tour-bubble--${effectivePlacement}`,
+      style: { left: `${bubbleX}px`, top: `${bubbleY}px` },
+    }, [
+      h('div', { class: 'wf-tour-bubble-header' }, [
+        h('span', { class: 'wf-tour-title' }, st.title),
+        h('span', { class: 'wf-tour-step' }, `${current + 1} / ${props.steps.length}`),
+      ]),
+      h('div', { class: 'wf-tour-content' }, st.content),
+      h('div', { class: 'wf-tour-actions' }, [
+        h('button', {
+          class: 'wf-tour-btn wf-tour-btn--ghost',
+          onClick: ()=> finish(),
+        }, '跳过'),
+        current > 0 && h('button', {
+          class: 'wf-tour-btn wf-tour-btn--ghost',
+          onClick: ()=> goTo(current - 1),
+        }, '上一步'),
+        h('button', {
+          class: 'wf-tour-btn wf-tour-btn--primary',
+          onClick: ()=> isLast ? finish() : goTo(current + 1),
+        }, isLast ? '完成' : '下一步'),
+      ].filter(Boolean)),
+    ])
+
+    const highlight = h('div', {
+      class: 'wf-tour-highlight',
+      style: {
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+      },
+    })
+
+    const layer = h('div', { class: 'wf-tour-layer' }, [highlight, bubble])
+
+    // 命令式同步（受控 + 内容更新——每次渲染恒调用）
+    if (latestOpen && !handle)
+      handle = ctx.ui.openPopup({
+        key: 'tour',
+        mask: true,
+        maskClosable: false,       // 遮罩点击不关（步骤由按钮控制）
+        positioning: 'none',       // panel（highlight+bubble）自定位（fixed 视口坐标）
+        closeOnOutside: false, closeOnEscape: false,
+        content: ()=> layer,
+        position: ()=> {
+          const r = targetEl?.getBoundingClientRect()
+          if (r) rect = { top: r.top, left: r.left, width: r.width, height: r.height }
+          const p = bubblePos(rect, latestPlacement)
+          return { x: p.left, y: p.top, width: p.width }
+        },
+        onClose: ()=> { handle = null; if (latestOpen) close() },
+      })
+    else if (!latestOpen && handle) { handle.close(); handle = null }
+    else if (handle) handle.update(layer)
+
+    return null
+  }
+}
+
+function bubblePos(rect: Rect, placement: TourPlacement): { top: number; left: number; width: number } {
+  const GAP = 10
+  switch (placement) {
+    case 'top':
+      return { top: rect.top - GAP, left: rect.left, width: rect.width }
+    case 'left':
+      return { top: rect.top, left: rect.left - GAP, width: rect.width }
+    case 'right':
+      return { top: rect.top, left: rect.left + rect.width + GAP, width: rect.width }
+    case 'bottom':
+    default:
+      return { top: rect.top + rect.height + GAP, left: rect.left, width: rect.width }
+  }
+}

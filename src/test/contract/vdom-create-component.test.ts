@@ -13,8 +13,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createComponent } from '../../client/vdom/index.ts'
-import { mount, createTable } from '../../test/contract/component-harness.ts'
+import { createComponent } from '../../level6/client/vdom/index.ts'
+import { mount, createTable } from './component-harness.ts'
 
 test('enumStates：直拼 `wf-x--<v>`（variant/size 先例）', async () => {
   const C = createComponent<{ variant?: string }>({

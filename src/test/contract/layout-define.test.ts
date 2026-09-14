@@ -9,8 +9,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { generateLayoutCss, isEquivalent, parseProps } from '../../client/layout/define.ts'
-import { structures } from '../../client/layout/decl.ts'
+import { generateLayoutCss, isEquivalent, parseProps } from '../../level4/client/layout/define.ts'
+import { structures } from '../../level4/client/layout/decl.ts'
 
 // **旧手写冻结快照（_row.css/_stack.css——W4 迁移前内容——等价基线）**：
 // 生成器输出与快照逐属性等价（锁不漂移——手写已删由声明生成）

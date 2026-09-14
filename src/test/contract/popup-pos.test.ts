@@ -17,7 +17,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computePos } from '../../client/vdom/hooks/popup.ts'
+import { computePos } from '../../level3/vdom/hooks/popup.ts'
 
 /** fake 锚元素（getBoundingClientRect 固定值） */
 function fakeAnchor(rect: { left: number; top: number; width: number; height: number }): HTMLElement {

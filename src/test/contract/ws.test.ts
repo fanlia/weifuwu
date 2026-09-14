@@ -6,7 +6,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { ws, type WsLike } from '../../client/vdom/middlewares/ws.ts'
+import { ws, type WsLike } from '../../level5/client/vdom/middlewares/ws.ts'
 
 class MockWs implements WsLike {
   static instances: MockWs[] = []

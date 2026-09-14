@@ -11,11 +11,11 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts'
-import { outputRootIds } from '../../client/vdom/core/v2/diff.ts'
-import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import { keyedId } from '../../client/vdom/core/node/keyed.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { renderToStreamV2 } from '../../level3/vdom/v2/integrate.ts'
+import { outputRootIds } from '../../level3/vdom/v2/diff.ts'
+import { createComponentRegistry } from '../../level3/vdom/node/component.ts'
+import { keyedId } from '../../level1/vdom/node/keyed.ts'
 import { drainStream } from './sim.ts'
 
 /** 渲染 keyed 组件并返回（段表, kid）——四形态驱动 */

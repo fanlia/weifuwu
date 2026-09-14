@@ -7,7 +7,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type Server } from 'node:http'
-import { api, ApiError } from '../../client/vdom/middlewares/api.ts'
+import { api, ApiError } from '../../level5/client/vdom/middlewares/api.ts'
 
 let server: Server
 let base = ''

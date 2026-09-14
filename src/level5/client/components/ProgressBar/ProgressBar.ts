@@ -1,0 +1,49 @@
+/** ProgressBar：进度条，支持 label/showValue（showcase /components/progressbar） */
+import type { Component } from '../../../../level6/client/vdom/index.ts'
+import type { UIContext } from '../../../../level6/client/vdom/index.ts'
+import { h, semantic } from '../../../../level6/client/vdom/index.ts'
+
+export interface ProgressBarProps {
+  /** 进度值；undefined = indeterminate（不确定态，动画扫动） */
+  value?: number
+  max?: number
+  label?: string
+  showValue?: boolean
+  /** 状态色（default/success/error/warning） */
+  status?: 'default' | 'success' | 'error' | 'warning'
+  /** 尺寸 */
+  size?: 'sm' | 'md' | 'lg'
+}
+
+export const ProgressBar: Component<ProgressBarProps> = (_init, ctx)=>
+  (props)=> {
+  const { value, max = 100, label, showValue, status = 'default', size = 'md' } = props
+
+  const indeterminate = value == null
+  const pct = indeterminate ? 0 : Math.min(100, Math.max(0, (value / max) * 100))
+
+  const PBL = ctx?.i18n?.components?.ProgressBar ?? {}
+  const bar = h('div', {
+    class: `wf-progress wf-progress--${size}${indeterminate ? ' wf-progress--indeterminate' : ''}${status !== 'default' ? ` wf-progress--${status}` : ''}`,
+    ...semantic('progressbar', {
+      label: label ?? (PBL.ariaLabel ?? '进度'),
+      values: { 'aria-valuenow': indeterminate ? undefined : Math.round(value), 'aria-valuemin': 0, 'aria-valuemax': Math.round(max) },
+    }),
+  }, [
+    h('div', {
+      class: `wf-progress-fill${status !== 'default' ? ` wf-progress-fill--${status}` : ''}`,
+      style: indeterminate ? undefined : { width: `${pct}%` },
+    }),
+  ])
+
+  if (!label && !showValue) return bar
+
+  const parts: any[] = []
+
+  if (label) parts.push(h('span', { class: 'wf-progress-label' }, label))
+  parts.push(bar)
+  if (showValue && !indeterminate) parts.push(h('span', { class: 'wf-progress-value' }, `${Math.round(pct)}%`))
+
+  return h('div', { class: 'wf-progress-wrap' }, parts)
+
+  }

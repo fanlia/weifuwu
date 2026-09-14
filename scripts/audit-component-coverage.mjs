@@ -3,12 +3,12 @@
  * audit-component-coverage.mjs — 组件覆盖哨兵（COMPONENT-ROBUSTNESS 波次 1）
  *
  * 三层映射（组件目录 × 契约 harness / showcase comp / 场景 deep+cap）：
- * - 组件清单：src/client/components/ 目录（PascalCase → kebab-case）
- * - 契约层：src/client/components/*.test.ts（组件目录内契约测试）
- * - showcase 层：apps/showcase/test/comp-<id>.test.ts
+ * - 组件清单：src/level5/client/components/ 目录（PascalCase → kebab-case）
+ * - 契约层：src/level5/client/components/*.test.ts（组件目录内契约测试）
+ * - showcase 层：src/level6/apps/showcase/test/comp-<id>.test.ts
  * - 场景层：src/test/scenario/registry.ts（deep-X / cap-X 前缀剥离——
  *   用「星号后缀」字面写法避免注释歧义：deep-X/cap-X）
- * - registry id：apps/showcase/src/registry/components.ts（v2 别名归并——
+ * - registry id：src/level6/apps/showcase/src/registry/components.ts（v2 别名归并——
  *   tree-v2/tree 同源——主页面覆盖即可——既有纪律）
  *
  * 判定：组件 × 三层覆盖矩阵——0 覆盖 = 缺口（exit 1——CI 可挂）——
@@ -26,8 +26,8 @@ const c = (p) => resolve(root, p)
 // **registry id 命名 = slug（无连字符小写——ContextMenu → contextmenu）**
 // 非 kebab——组件目录 PascalCase 直接 toLowerCase 对齐
 const slug = (s) => s.toLowerCase()
-const compDir = readdirSync(c('src/client/components')).filter((d) =>
-  existsSync(c(`src/client/components/${d}`)) && existsSync(c(`src/client/components/${d}/${d}.ts`)),
+const compDir = readdirSync(c('src/level5/client/components')).filter((d) =>
+  existsSync(c(`src/level5/client/components/${d}`)) && existsSync(c(`src/level5/client/components/${d}/${d}.ts`)),
 )
 const components = new Map() // kebab → Pascal
 for (const d of compDir) {
@@ -36,7 +36,7 @@ for (const d of compDir) {
 }
 
 // ── 2. registry id（v2 别名归并） ──────────────────────────────────────
-const registrySrc = readFileSync(c('apps/showcase/src/registry/components.ts'), 'utf8')
+const registrySrc = readFileSync(c('src/level6/apps/showcase/src/registry/components.ts'), 'utf8')
 const registryIds = new Set()
 /** **id = slug 规范（无连字符小写——ContextMenu → contextmenu）**：
  *  连字符形态即红（2027-09 W1 引入 list-scaffold/status-dot 违规实证——
@@ -55,12 +55,12 @@ if (slugBad.length) {
 // ── 3. 契约层（组件目录内 *.test.ts） ──────────────────────────────────
 const contractCovered = new Set()
 for (const d of compDir) {
-  const dir = c(`src/client/components/${d}`)
+  const dir = c(`src/level5/client/components/${d}`)
   if (readdirSync(dir).some((f) => f.endsWith('.test.ts'))) contractCovered.add(slug(d))
 }
 
 // ── 4. showcase comp 层 ────────────────────────────────────────────────
-const compTests = readdirSync(c('apps/showcase/test')).filter((f) => f.startsWith('comp-') && f.endsWith('.test.ts'))
+const compTests = readdirSync(c('src/level6/apps/showcase/test')).filter((f) => f.startsWith('comp-') && f.endsWith('.test.ts'))
 const showcaseCovered = new Set(
   compTests.map((f) => f.replace(/^comp-/, '').replace(/\.test\.ts$/, ''))
     .map((id) => id.replace(/-v2$/, '')),

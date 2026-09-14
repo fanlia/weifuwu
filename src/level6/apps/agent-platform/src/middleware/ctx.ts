@@ -1,0 +1,39 @@
+/**
+ * agent-platform 聚合上下文 — 自研中间件注入的显式类型。
+ *
+ * 不用 declare module 覆盖框架 Context（同名 auth?/ai? 与框架类型冲突），
+ * 也不用 Omit（Context 带 index signature，Omit 会污染字段为 unknown）。
+ * 而是自包含接口：显式列出 handler 实际可用的字段（含框架 postgres 注入的 sql），
+ * 配合框架 Router<T extends object>（放开约束后自定义上下文成为一等公民）。
+ */
+import type { User, AuthApi, Orm, CtxOrm } from '../../../../index.ts'
+import type { AiClientModule, MessagerClient, RateLimitInjected } from '../../../../index.ts'
+import type { AuthPayload } from './auth-payload.ts'
+import type { WorkspaceInfo } from './workspace.ts'
+
+export interface AppCtx {
+  // ── 框架核心字段 ──
+  params: Record<string, string>
+  query: Record<string, string>
+  mountPath?: string
+  user?: User | null
+  loaderData?: Record<string, unknown>
+  env?: Record<string, string>
+  /** postgres() 中间件注入：声明式 ORM（表绑定/校验/类型——业务唯一数据入口）
+   *  W1：tenant 接线后 = CtxOrm（ctxTable 自动 scope——app_id 预置收口） */
+  orm: CtxOrm
+  // ── 自研中间件注入 ──
+  /** 框架 user() 注入：AuthApi 方法面 + 会话 payload 字段（userId/appId/email/name/role） */
+  auth: AuthApi & AuthPayload
+  /** 框架 ai() 注入：AiClientModule（chat/stream/sse/agent/embed/approve） */
+  ai: AiClientModule
+  /** 框架 messager() 注入：消息系统（会话/消息/实时广播/WS 协议） */
+  msg: MessagerClient
+  /** 框架 rateLimit() 注入：ctx.limit 手动限流（显式声明，避免落入索引签名 unknown） */
+  limit?: RateLimitInjected['limit']
+  /** 应用隔离（auth.appId 从 token payload 注入——框架 userSystem） */
+  appId: string
+  workspace?: WorkspaceInfo
+  // ── 其他中间件注入（宽松） ──
+  [key: string]: unknown
+}

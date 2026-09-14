@@ -3,13 +3,13 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import type { VNode } from '../../client/vdom/core/vnode.ts'
-import { diffV2, createSegment, disposeSegment, type SegmentMap } from '../../client/vdom/core/v2/diff.ts'
-import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
-import { Observable } from '../../client/vdom/observable/index.ts'
-import { createStore } from '../../client/vdom/store.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import type { VNode } from '../../level0/vdom/vnode.ts'
+import { diffV2, createSegment, disposeSegment, type SegmentMap } from '../../level3/vdom/v2/diff.ts'
+import { createComponentRegistry } from '../../level3/vdom/node/component.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
+import { Observable } from '../../level1/vdom/observable/index.ts'
+import { createStore } from '../../level1/vdom/store.ts'
 
 const emptyCtx = { render: async () => {}, browser: null } as never
 

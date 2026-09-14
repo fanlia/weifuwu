@@ -28,13 +28,13 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { join } from 'node:path'
 import { inventory, conflictMatrix, QUARTET_KEEP, LIB_SURFACE_KEEP, SHOWCASE_PRIVATE } from '../../../scripts/layout-inventory.mjs'
-import { LAYER_ORDER, bundleLayout } from '../../client/layout/bundle.ts'
-import { generateLayoutCss } from '../../client/layout/define.ts'
-import { structures } from '../../client/layout/decl.ts'
+import { LAYER_ORDER, bundleLayout } from '../../level5/client/layout/bundle.ts'
+import { generateLayoutCss } from '../../level4/client/layout/define.ts'
+import { structures } from '../../level4/client/layout/decl.ts'
 import { parseCss } from '../helpers/css-parse.ts'
 
 const root = join(import.meta.dirname, '..', '..', '..')
-const LAYOUT = join(root, 'src/client/layout')
+const LAYOUT = join(root, 'src/level5/client/layout')
 
 const inv = await inventory()
 const bases = inv.classes.filter((c) => !c.modifierOf)
@@ -81,7 +81,7 @@ function componentDefined() {
       }
     }
   }
-  walk(join(root, 'src/client/components'))
+  walk(join(root, 'src/level5/client/components'))
   return set
 }
 
@@ -110,7 +110,7 @@ test('L2 死类 = 0(消费证据制——四件套豁免登记)', () => {
   // 公共清单(50 原语 + 90 工具基线)——库类面治理归 layout 包,不随 showcase
   // 消费面裁剪删除。恢复消费或库侧裁剪时从本集合移除。
   const libSurface = new Set(LIB_SURFACE_KEEP)
-  const corpus = collectCode(['apps', 'src/client/components'])
+  const corpus = collectCode(['src/level6/apps', 'src/level5/client/components'])
   const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
   const dead = bases.filter(
     (c) => c.category !== 'internal' && !quartz.has(c.name) && !libSurface.has(c.name) && ![...used].some((u) => u.replace(/\\?@[a-z]{2}$/, '') === c.name || u === c.name),
@@ -121,7 +121,7 @@ test('L2 死类 = 0(消费证据制——四件套豁免登记)', () => {
 test('L3 缺口 = 0(使用未定义类归零)', () => {
   // layoutDefined 含生成段（decl 声明——inv 的类清单已并入——单源）
   const defined = new Set([...inv.classes.map((c) => c.name), ...layoutDefined(), ...componentDefined()])
-  const corpus = collectCode(['apps', 'src/client/components'])
+  const corpus = collectCode(['src/level6/apps', 'src/level5/client/components'])
   const used = new Set(corpus.match(/(?<=["'`\s{])wf-[a-z0-9]+(?:-[a-z0-9]+)*(?:\\?@[a-z]{2})?(?=["'`\s}])/g) ?? [])
   // showcase 页面试样式私有类（270f1542 手写折叠——类属 showcase 演示页——L3 defined 集
   // 只含框架 layout/组件 css——页面级私有类登记豁免（定义在其页面上下文——非库面）
@@ -259,7 +259,7 @@ test('L8 冲突矩阵（登记制——同属性不同值 = 源顺序定胜负�
   // 未登记的共用对 = 静默顺序敏感（改 @import 顺序无声翻转页面）——即红。
   const REGISTERED: Record<string, string> = {
     // 实证：wrap=nowrap——同 specificity（0,1,0）下 _nowrap 后于 _row → 显式禁换行意图胜
-    // （消费侧：apps/showcase/src/shell.tsx 平台域导航——横向滚动导航条，意图正确）
+    // （消费侧：src/level6/apps/showcase/src/shell.tsx 平台域导航——横向滚动导航条，意图正确）
     'wf-nowrap×wf-row': 'flex-wrap → nowrap（_nowrap 后于 _row——显式禁换行意图胜）',
     // LAYOUT-PLAN W2 已清理的冗余共用（登记随之退场——stale 断言会红）：
     //   wf-center×wf-stack（not-found.tsx——center 已含 column flex，stack 冗余）
@@ -267,7 +267,7 @@ test('L8 冲突矩阵（登记制——同属性不同值 = 源顺序定胜负�
     // 两组合的引擎行为仍由场景契约 ⑤ 记录（wf-row wf-stack → column）——框架面不隐藏
   }
   const key = (p: { a: string; b: string }): string => [p.a, p.b].sort().join('×')
-  const lits = (collectCode(['apps', 'src/client/components']).match(/['"`]([^'"`\n]*)['"`]/g) ?? [])
+  const lits = (collectCode(['src/level6/apps', 'src/level5/client/components']).match(/['"`]([^'"`\n]*)['"`]/g) ?? [])
     .map((s) => s.slice(1, -1))
     .filter((s) => s.includes('wf-'))
   const coUsed = new Map<string, number>()
@@ -409,8 +409,8 @@ test('L10 断点单源（媒体查询字面量 ⊆ --wf-bp-* 派生白名单）'
       }
     }
   }
-  scan(join(root, 'src/client/layout'))
-  scan(join(root, 'src/client/components'))
+  scan(join(root, 'src/level5/client/layout'))
+  scan(join(root, 'src/level5/client/components'))
   assert.equal(
     offenders.length, 0,
     `媒体查询宽度字面量必须来自 --wf-bp-*（每档 V / V-0.02 两形态）:\n  ${offenders.join('\n  ')}\n  合法集: ${[...allowed].join(' / ')}`,
@@ -446,9 +446,7 @@ test('L11 token 死面 = 0（登记制——消费证据跨 src+apps）', () => 
       }
     }
   }
-  scan(join(root, 'src/core'))
-  scan(join(root, 'src/client'))
-  scan(join(root, 'apps'))
+  scan(join(root, 'src'))
 
   // 零消费但保留的 token 必须逐条写明理由（否则 = 死面 → 删除）
   const BP_WHY = '机制单源（L10 断点白名单派生源）——CSS 媒体查询语法不能 var()，结构性不可被样式直接消费'
@@ -623,10 +621,10 @@ test('L16 悬空 design/ 引用 = 0（docs 单源——机器生成参考替代�
       return
     }
     for (const e of entries) {
-      if (e.name === 'node_modules' || e.name.startsWith('.') || e.name === 'dist') continue
+      if (e.name === 'node_modules' || e.name.startsWith('.') || e.name === 'dist' || e.name.endsWith('.test.ts')) continue
       scan(join(p, e.name))
     }
   }
-  for (const d of ['src/client', 'scripts', 'docs', 'CONTRIBUTING.md']) scan(join(root, d))
+  for (const d of ['src', 'scripts', 'docs', 'CONTRIBUTING.md']) scan(join(root, d))
   assert.equal(hits.length, 0, `design/ 悬空引用（设计文档单源已收拢）:\n  ${hits.join('\n  ')}`)
 })

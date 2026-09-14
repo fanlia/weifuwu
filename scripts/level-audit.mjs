@@ -20,11 +20,12 @@ import { fileURLToPath } from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** W3 目录迁移：vdom core 现分居 l0/l1/l2——审计面 = 三根合并 */
 const CORE_DIRS = [
-  join(root, 'src/core/l0/vdom'),
-  join(root, 'src/core/l1/client/vdom'),
-  join(root, 'src/core/l2/client/vdom'),
+  join(root, 'src/level0/vdom'),
+  join(root, 'src/level1/vdom'),
+  join(root, 'src/level3/vdom'),
+  join(root, 'src/level4/client/vdom'),
 ]
-const PROCESSORS = join(root, 'src/core/l1/client/vdom/patch/processors.ts')
+const PROCESSORS = join(root, 'src/level3/vdom/patch/processors.ts')
 /** C2 历史扫描域 = 旧 core/**（不含 hooks/context/browser/dev/store/observable 兄弟目录） */
 const C2_SKIP = /[/\\](hooks|context|browser|dev|observable)[/\\]|[/\\]store\.ts$/
 

@@ -13,11 +13,11 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import type { VNode } from '../../client/vdom/core/vnode.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
-import { fromArray } from '../../client/vdom/core/v2/render.ts'
-import { createRenderCycle, type RenderCycle } from '../../client/vdom/core/v2/cycle.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import type { VNode } from '../../level0/vdom/vnode.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
+import { fromArray } from '../../level3/vdom/v2/render.ts'
+import { createRenderCycle, type RenderCycle } from '../../level3/vdom/v2/cycle.ts'
 
 function mkCycle(changes?: {
   boot?: () => void

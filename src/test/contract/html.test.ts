@@ -7,9 +7,9 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
-import { commandToHtml, escapeHtml, htmlDocument } from '../../client/vdom/core/ssr/html.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { renderToStreamV2 } from '../../level3/vdom/v2/integrate.ts' // v1 退役——v2 桥
+import { commandToHtml, escapeHtml, htmlDocument } from '../../level3/vdom/ssr/html.ts'
 
 async function toHtml(tree: ReturnType<typeof h>): Promise<string> {
   const stream = renderToStreamV2(tree)

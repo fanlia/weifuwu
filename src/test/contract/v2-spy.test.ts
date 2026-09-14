@@ -8,18 +8,18 @@
  */
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { renderV2 } from '../../client/vdom/core/v2/render.ts'
-import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import type { SpyEvent } from '../../client/vdom/core/v2/spy.ts'
-import { createStore } from '../../client/vdom/store.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { renderV2 } from '../../level3/vdom/v2/render.ts'
+import { createComponentRegistry } from '../../level3/vdom/node/component.ts'
+import type { SpyEvent } from '../../level1/vdom/v2/spy.ts'
+import { createStore } from '../../level1/vdom/store.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
 
 const spy: SpyEvent[] = []
 before(() => { (globalThis as { __wfSpy?: SpyEvent[] }).__wfSpy = spy })
 after(() => { delete (globalThis as { __wfSpy?: SpyEvent[] }).__wfSpy })
 
-function collect(o: import('../../client/vdom/observable/index.ts').Observable<Command>): Promise<Command[]> {
+function collect(o: import('../../level1/vdom/observable/index.ts').Observable<Command>): Promise<Command[]> {
   return new Promise((resolve, reject) => {
     const out: Command[] = []
     o.subscribe({ next: (c) => out.push(c), error: reject, complete: () => resolve(out) })
@@ -45,7 +45,7 @@ test('观测链：store 变化 → obs:next → req:render（每环可见）', a
 
 test('观测链：useObservable（非同步首个值）必须触发 req:render', async () => {
   spy.length = 0
-  const { Subject } = await import('../../client/vdom/observable/index.ts')
+  const { Subject } = await import('../../level1/vdom/observable/index.ts')
   const src = new Subject<number>()
   const Comp: any = (_p: any, ctx: any) => {
     const v = ctx.ui.useObservable(src.asObservable(), 0)

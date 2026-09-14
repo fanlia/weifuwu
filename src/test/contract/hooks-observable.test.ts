@@ -10,10 +10,10 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import type { Component } from '../../client/vdom/core/vnode.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import type { Component } from '../../level0/vdom/vnode.ts'
 import { mount } from './component-harness.ts'
-import { BehaviorSubject } from '../../client/vdom/observable/index.ts'
+import { BehaviorSubject } from '../../level1/vdom/observable/index.ts'
 
 /** 延迟可控 promise */
 function deferred<T>() {

@@ -11,8 +11,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { encodeCommands, reviveFn, commandReader } from '../../client/vdom/core/protocol.ts' // v1 退役——协议层独立
-import type { Command } from '../../client/vdom/core/command/index.ts'
+import { encodeCommands, reviveFn, commandReader } from '../../level3/vdom/protocol.ts' // v1 退役——协议层独立
+import type { Command } from '../../level0/vdom/command/index.ts'
 
 const enc = new TextEncoder()
 const dec = new TextDecoder()

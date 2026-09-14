@@ -14,14 +14,14 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, type VNode } from '../../client/vdom/core/vnode.ts'
-import { renderToStreamV2, diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts'
-import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import type { Segment } from '../../client/vdom/core/v2/diff.ts'
+import { h, type VNode } from '../../level0/vdom/vnode.ts'
+import { renderToStreamV2, diffToStreamV2 } from '../../level3/vdom/v2/integrate.ts'
+import { createComponentRegistry, type ComponentRegistry } from '../../level3/vdom/node/component.ts'
+import type { Segment } from '../../level3/vdom/v2/diff.ts'
 import { drainStream } from './sim.ts'
 import {
   noteRenderError, clearRenderError, errorSnapshot, resetErrorCounter,
-} from '../../client/vdom/dev/error-counter.ts'
+} from '../../level1/vdom/dev/error-counter.ts'
 
 /** console.error 拦截（计数——不输出） */
 function captureError(): { count(): number; restore(): void } {

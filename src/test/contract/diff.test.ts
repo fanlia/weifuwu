@@ -9,20 +9,20 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, type VNode } from '../../client/vdom/core/vnode.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
-import { diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
-import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
-import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
-import type { UIContext } from '../../client/vdom/context/UIContext.ts'
+import { h, type VNode } from '../../level0/vdom/vnode.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
+import { diffToStreamV2 } from '../../level3/vdom/v2/integrate.ts' // v1 退役——v2 桥
+import { renderToStreamV2 } from '../../level3/vdom/v2/integrate.ts' // v1 退役——v2 桥
+import { createComponentRegistry, type ComponentRegistry } from '../../level3/vdom/node/component.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
+import type { UIContext } from '../../level3/vdom/context/UIContext.ts'
 
 /** 收集 diff 命令流（纯数据——零 DOM） */
 async function diff(
   oldTree: VNode,
   newTree: VNode,
   registry: ComponentRegistry = createComponentRegistry(),
-  segments: Map<string, import('../../client/vdom/core/v2/diff.ts').Segment> = new Map(),
+  segments: Map<string, import('../../level3/vdom/v2/diff.ts').Segment> = new Map(),
 ): Promise<Command[]> {
   const cmds: Command[] = []
   const reader = diffToStreamV2(oldTree, newTree, {} as UIContext, registry, segments).getReader()
@@ -81,7 +81,7 @@ test('组件同类型复用：工厂不重跑（renderFn 重新调用——命�
   let mounts = 0
   const Counter = (_i: Record<string, never>) => { mounts++; return () => h('span', { class: 'c' }, 'x') }
   const reg = createComponentRegistry()
-  const segs: Map<string, import('../../client/vdom/core/v2/diff.ts').Segment> = new Map()
+  const segs: Map<string, import('../../level3/vdom/v2/diff.ts').Segment> = new Map()
   // 先渲染旧树（工厂执行）→ diff 新树（段复用——工厂不重跑）
   const drain = async (s: ReadableStream) => { const r = s.getReader(); while (true) { const { done } = await r.read(); if (done) break } }
   await drain(renderToStreamV2(h(Counter, { value: 1 }), {} as UIContext, reg, segs))
@@ -148,7 +148,7 @@ test('keyed 循环移位：冲突重建（DOM 重建）但组件实例复用（�
   const Item = (_i: Record<string, never>, props: { name: string }) => { mounts++; return () => h('span', { class: 'item' }, props.name) }
   const mkC = (keys: string[]) => h('div', {}, keys.map((k) => h(Item, { key: k, name: k })))
   const reg = createComponentRegistry()
-  const segs: Map<string, import('../../client/vdom/core/v2/diff.ts').Segment> = new Map()
+  const segs: Map<string, import('../../level3/vdom/v2/diff.ts').Segment> = new Map()
   const drain = async (s: ReadableStream) => { const r = s.getReader(); while (true) { const { done } = await r.read(); if (done) break } }
   await drain(renderToStreamV2(mkC(['a', 'b', 'c']), {} as UIContext, reg, segs))
   assert.equal(mounts, 3, '首帧 3 个组件实例')

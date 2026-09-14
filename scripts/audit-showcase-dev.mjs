@@ -27,10 +27,10 @@ import { fileURLToPath } from 'node:url'
 // 但仍属数据缺陷——静默不合法）
 {
   const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
-  const iconSrc = readFileSync(join(repoRoot, 'src/client/components/Icon/Icon.ts'), 'utf8')
+  const iconSrc = readFileSync(join(repoRoot, 'src/level5/client/components/Icon/Icon.ts'), 'utf8')
   const names = new Set([...iconSrc.match(/export type IconName =([\s\S]*?)\n\n/)[1].matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]))
   const bad = []
-  const scanDirs = ['apps/showcase/src/demos', 'apps/showcase/src', 'src/client/components']
+  const scanDirs = ['src/level6/apps/showcase/src/demos', 'src/level6/apps/showcase/src', 'src/level5/client/components']
   for (const d of scanDirs) {
     const abs = join(repoRoot, d)
     if (!statSync(abs).isDirectory()) continue
@@ -81,14 +81,14 @@ const total = comps.length
 // ═══ D4 CSS 装配单源（LAYOUT-PLAN W1）：服务面 == bundle.ts 输出 ═══
 // 旧状：showcase server 内联聚合把全部 layout 文件塞 `@layer layout`（utilities
 // 掉层）——showcase 328 测试验证的层序 ≠ 发布产物。现四处装配点共用
-// src/client/layout/bundle.ts——本哨兵防内联装配回潮（字节全等）。
+// src/level5/client/layout/bundle.ts——本哨兵防内联装配回潮（字节全等）。
 {
   const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
-  const { bundleComponents } = await import('../src/client/layout/bundle.ts')
+  const { bundleComponents } = await import('../src/level5/client/layout/bundle.ts')
   const served = await fetch(`${BASE}/components.css`).then((r) => r.text()).catch(() => '')
   const { css } = await bundleComponents(
-    join(repoRoot, 'src/client/layout'),
-    join(repoRoot, 'src/client/components'),
+    join(repoRoot, 'src/level5/client/layout'),
+    join(repoRoot, 'src/level5/client/components'),
   )
   if (served !== css) {
     console.error(`✖ D4 CSS 装配单源：showcase /components.css ≠ bundle.ts 输出（served ${(served.length / 1024).toFixed(1)}K vs 单源 ${(css.length / 1024).toFixed(1)}K）——内联装配回潮？`)

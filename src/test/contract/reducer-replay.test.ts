@@ -10,8 +10,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { absorbReducer, type AbsorbEvent, type AbsorbPhase } from '../../client/vdom/core/ssr/absorb.ts'
-import { popupPhaseReducer, type PopupEvent, type PopupPhase } from '../../client/vdom/hooks/popup-manager.ts'
+import { absorbReducer, type AbsorbEvent, type AbsorbPhase } from '../../level3/vdom/ssr/absorb.ts'
+import { popupPhaseReducer, type PopupEvent, type PopupPhase } from '../../level3/vdom/hooks/popup-manager.ts'
 
 /** mulberry32 固定种子随机（对齐 reconcile 生成器——可复现） */
 function mulberry32(seed: number): () => number {

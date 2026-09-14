@@ -1,0 +1,52 @@
+/**
+ * AI 事件流路由——/api/ai/events（三端打通：vdom + ai + sandbox——
+ * AI 调用事件可查——按 agentId/action/messageId 过滤——与沙盒事件流同风格）
+ */
+import type { Router } from '../../../../index.ts'
+import type { AppCtx } from '../middleware/ctx.ts'
+
+export function registerAiEventRoutes(app: Router<AppCtx>): void {
+  // ── 三端统一事件查询（阶段 4）：聚合 ai + sandbox——按 requestId 一条链 ──
+  app.get('/api/events', async (req: Request, _ctx: AppCtx): Promise<Response> => {
+    try {
+      const { aiEvents } = await import('../services/ai-events.ts')
+      const { sandboxEvents, clusterEvents } = await import('../sandbox/events.ts')
+      const url = new URL(req.url)
+      const n = Number(url.searchParams.get('n') ?? 200)
+      const requestId = url.searchParams.get('requestId') ?? undefined
+      const entity = url.searchParams.get('entity') ?? undefined
+      const action = url.searchParams.get('action') ?? undefined
+      // 按 requestId 过滤（精确因果——一次用户操作的三端事件链）
+      const aiEvs = entity === 'sandbox' ? [] : aiEvents(n, { action })
+      // 集群化（阶段 2）：跨宿主统一查询（本地 + 远程宿主事件——hostId 过滤）
+      const hostId = url.searchParams.get('hostId') ?? undefined
+      const sbEvs = entity === 'ai' ? [] : hostId ? clusterEvents(n, { hostId, action }) : sandboxEvents(n, { action })
+      let events = [
+        ...aiEvs.map((e) => ({ ...e, _tier: 'ai' })),
+        ...sbEvs.map((e) => ({ ...e, _tier: 'sandbox' })),
+      ]
+      if (requestId) {
+        events = events.filter((e) => (e.payload as any)?.requestId === requestId)
+      }
+      // 时间序（三端统一 timeline）
+      events.sort((a, b) => a.ts - b.ts)
+      return Response.json({ events: events.slice(-Math.min(n, 500)), requestId: requestId ?? null })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? '统一事件查询失败' }, { status: 500 })
+    }
+  })
+
+  app.get('/api/ai/events', async (req: Request, _ctx: AppCtx): Promise<Response> => {
+    try {
+      const { aiEvents } = await import('../services/ai-events.ts')
+      const url = new URL(req.url)
+      const n = Number(url.searchParams.get('n') ?? 100)
+      const agentId = url.searchParams.get('agentId') ?? undefined
+      const action = url.searchParams.get('action') ?? undefined
+      const messageId = url.searchParams.get('messageId') ?? undefined
+      return Response.json({ events: aiEvents(Math.min(n, 500), { agentId, action, messageId }) })
+    } catch (e) {
+      return Response.json({ error: (e as Error)?.message ?? 'AI 事件流查询失败' }, { status: 500 })
+    }
+  })
+}

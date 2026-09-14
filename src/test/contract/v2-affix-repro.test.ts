@@ -7,10 +7,10 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { renderV2 } from '../../client/vdom/core/v2/render.ts'
-import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { renderV2 } from '../../level3/vdom/v2/render.ts'
+import { createComponentRegistry } from '../../level3/vdom/node/component.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
 
 /** FakeWindow（scroll 事件通道——Affix 场景最小） */
 class FakeWindow {
@@ -41,7 +41,7 @@ class FakeWindow {
   }
 }
 
-function collect(o: import('../../client/vdom/observable/index.ts').Observable<Command>): Promise<Command[]> {
+function collect(o: import('../../level1/vdom/observable/index.ts').Observable<Command>): Promise<Command[]> {
   return new Promise((resolve, reject) => {
     const out: Command[] = []
     o.subscribe({ next: (c) => out.push(c), error: reject, complete: () => resolve(out) })

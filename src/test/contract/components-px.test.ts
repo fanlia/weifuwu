@@ -20,7 +20,7 @@ import { join } from 'node:path'
 import { parseCss } from '../helpers/css-parse.ts'
 
 const root = join(import.meta.dirname, '..', '..', '..')
-const COMPONENTS = join(root, 'src/client/components')
+const COMPONENTS = join(root, 'src/level5/client/components')
 const WL = JSON.parse(readFileSync(join(root, 'scripts/components-px-whitelist.json'), 'utf-8'))
 
 /** 标尺档位（base 值——与 _tokens.css space/gap 标尺全等；4=space-xs · 8=space-sm ·

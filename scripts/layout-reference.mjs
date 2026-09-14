@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { inventory, LIB_SURFACE_KEEP } from './layout-inventory.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const LAYOUT = join(root, 'src/client/layout')
+const LAYOUT = join(root, 'src/level5/client/layout')
 const OUT = join(root, 'docs/layout.md')
 
 /** 从 CSS 提取声明摘要（props + 冲突值 + 断点/修饰）——解析逻辑与 inventory 同构 */
@@ -106,7 +106,7 @@ async function buildReference() {
   L.push('')
   L.push('## 6. 零消费公共面（文档化定案——「示例 = 可发现」，不做裁剪）')
   L.push('')
-  L.push('以下类在代码语料（apps + src/client/components）零引用——属 weifuwu/layout npm 公共清单，')
+  L.push('以下类在代码语料（apps + src/level5/client/components）零引用——属 weifuwu/layout npm 公共清单，')
   L.push('退出消费或库侧裁剪时才移除（登记单源：`layout-inventory.mjs` QUARTET_KEEP / LIB_SURFACE_KEEP）；')
   L.push('现文档化（示例 = 可发现）：')
   L.push('')
@@ -140,7 +140,7 @@ async function buildReference() {
   return L.join('\n')
 }
 
-import { LAYER_ORDER } from '../src/client/layout/bundle.ts'
+import { LAYER_ORDER } from '../src/level5/client/layout/bundle.ts'
 
 const target = process.argv[2] === '--check'
 if (target) {

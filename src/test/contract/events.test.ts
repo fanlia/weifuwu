@@ -7,8 +7,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { EVENT_RE, eventName } from '../../client/vdom/core/field/events.ts'
-import { applySetProp } from '../../client/vdom/core/patch/fields.ts'
+import { EVENT_RE, eventName } from '../../level3/vdom/field/events.ts'
+import { applySetProp } from '../../level3/vdom/patch/fields.ts'
 
 test('EVENT_RE：on + 大写判定——普通属性/on 开头小写不误判', () => {
   assert.equal(EVENT_RE.test('onClick'), true, 'onClick 是事件')

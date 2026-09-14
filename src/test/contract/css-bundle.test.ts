@@ -3,10 +3,10 @@
  *
  * 背景（探针实证）：同一样式源曾有**四条装配管线、三种层序语义**——
  *   ① `scripts/build.mjs`（LAYER_OF 五层）      → dist 发布产物
- *   ② `apps/showcase/server.ts`（全塞 `@layer layout`）→ showcase 328 测试环境
+ *   ② `src/level6/apps/showcase/server.ts`（全塞 `@layer layout`）→ showcase 328 测试环境
  *   ③ `src/test/scenario/server.ts`（同 ②）    → 场景层 128 测试环境
  *   ④ `ctx.ui.css(src 入口)`（零 @layer + Lightning 改写）→ dev 应用面
- * 即「测试环境验证的层序 ≠ 发布产物层序」。现四处共用 `src/client/layout/bundle.ts`。
+ * 即「测试环境验证的层序 ≠ 发布产物层序」。现四处共用 `src/level5/client/layout/bundle.ts`。
  *
  * 本契约锁定（防回潮）：
  *   B1 层归属自证：bundle 输出的 (类 → 层) == LAYER_OF 登记（逐类）
@@ -26,12 +26,12 @@ import assert from 'node:assert/strict'
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseCss } from '../helpers/css-parse.ts'
-import { bundleLayout, bundleComponents, layerMapOf, LAYER_OF, LAYER_ORDER } from '../../../src/client/layout/bundle.ts'
+import { bundleLayout, bundleComponents, layerMapOf, LAYER_OF, LAYER_ORDER } from '../../level5/client/layout/bundle.ts'
 import { inventory } from '../../../scripts/layout-inventory.mjs'
 
 const root = join(import.meta.dirname, '..', '..', '..')
-const LAYOUT_DIR = join(root, 'src', 'client', 'layout')
-const COMPONENTS_DIR = join(root, 'src', 'client', 'components')
+const LAYOUT_DIR = join(root, 'src', 'level5', 'client', 'layout')
+const COMPONENTS_DIR = join(root, 'src', 'level5', 'client', 'components')
 const DIST_LAYOUT = join(root, 'dist', 'client', 'layout', 'weifuwu-layout.css')
 const DIST_STYLE = join(root, 'dist', 'client', 'components', 'style.css')
 
@@ -140,9 +140,9 @@ test('B3 层序声明是活 atrule（未闭合注释吞声明 = 层级序失效�
 test('B4 装配单源（四处装配点 import bundle.ts 且零内联 @layer 拼接）', () => {
   const points = [
     { file: 'scripts/build.mjs', why: 'dist 产物装配' },
-    { file: 'apps/showcase/server.ts', why: 'showcase dev CSS 路由' },
+    { file: 'src/level6/apps/showcase/server.ts', why: 'showcase dev CSS 路由' },
     { file: 'src/test/scenario/server.ts', why: '场景层 dev CSS 路由' },
-    { file: 'src/server/ui/index.ts', why: 'ctx.ui.css（layout 源面）' },
+    { file: 'src/level6/server/ui/index.ts', why: 'ctx.ui.css（layout 源面）' },
   ]
   for (const p of points) {
     const src = readFileSync(join(root, p.file), 'utf-8')

@@ -23,9 +23,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { UIRouter } from '../../client/vdom/core/router.ts'
-import { uiServeV2 } from '../../client/vdom/core/v2/serve.ts'
-import { h } from '../../client/vdom/core/vnode.ts'
+import { UIRouter } from '../../level3/vdom/router.ts'
+import { uiServeV2 } from '../../level3/vdom/v2/serve.ts'
+import { h } from '../../level0/vdom/vnode.ts'
 import { FakeDocument, FakeElement, FakeWindow } from './helpers/fake-dom.ts'
 
 // ── 全局 DOM 桩（uiServeV2 直接读 document/window 全局） ──

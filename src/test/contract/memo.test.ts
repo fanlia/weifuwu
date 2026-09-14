@@ -10,11 +10,11 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, type VNode } from '../../client/vdom/core/vnode.ts'
-import { renderToStreamV2, diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts'
-import type { Component, RenderFn } from '../../client/vdom/core/node/component.ts'
+import { h, type VNode } from '../../level0/vdom/vnode.ts'
+import { renderToStreamV2, diffToStreamV2 } from '../../level3/vdom/v2/integrate.ts'
+import type { Component, RenderFn } from '../../level3/vdom/node/component.ts'
 import type { Command } from '../../client/vdom/core/command/types.ts'
-import type { Segment } from '../../client/vdom/core/v2/diff.ts'
+import type { Segment } from '../../level3/vdom/v2/diff.ts'
 
 /** 收集命令流（返回 commands——断言零命令） */
 async function drainStream(stream: ReadableStream<Command>): Promise<Command[]> {

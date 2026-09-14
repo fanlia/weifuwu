@@ -7,7 +7,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createDataPipe } from '../../client/vdom/context/data.ts'
+import { createDataPipe } from '../../level3/vdom/context/data.ts'
 
 test('get：缓存命中直接返回（fetcher 不重复调用）', async () => {
   const pipe = createDataPipe()

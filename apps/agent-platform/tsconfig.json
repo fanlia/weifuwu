@@ -12,16 +12,16 @@
     "noEmit": true,
     "paths": {
       "weifuwu": [
-        "../../src/server/index.ts"
+        "../../src/level6/index.ts"
       ],
       "weifuwu/client/vdom/jsx-runtime": [
-        "../../src/client/vdom/jsx-runtime.ts"
+        "../../src/level6/client/vdom/jsx-runtime.ts"
       ],
       "weifuwu/client/vdom": [
-        "../../src/client/vdom/index.ts"
+        "../../src/level6/client/vdom/index.ts"
       ],
       "weifuwu/client/components": [
-        "../../src/client/components/index.ts"
+        "../../src/level6/client/components/index.ts"
       ]
     }
   },

@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { renderV2 } from '../../client/vdom/core/v2/render.ts'
-import { diffV2 } from '../../client/vdom/core/v2/diff.ts'
-import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import { FileTree } from '../../client/components/FileTree/FileTree.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { renderV2 } from '../../level3/vdom/v2/render.ts'
+import { diffV2 } from '../../level3/vdom/v2/diff.ts'
+import { createComponentRegistry } from '../../level3/vdom/node/component.ts'
+import { FileTree } from '../../level5/client/components/FileTree/FileTree.ts'
 
 const entries = [
   { name: 'README.md', type: 'file' as const, size: 4096 },

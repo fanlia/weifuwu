@@ -7,11 +7,11 @@
  *
  * 参考世界隔离（C1 测试纪律）+ 双树对账（维度 7）语义不变——单一实现源。
  */
-import type { VNode } from '../../../client/vdom/core/vnode.ts'
-import { renderToStreamV2, diffToStreamV2 } from '../../../client/vdom/core/v2/integrate.ts'
-import { createComponentRegistry, type ComponentRegistry } from '../../../client/vdom/core/node/component.ts'
-import { childrenOf, slotCount } from '../../../client/vdom/core/node/children.ts'
-import { pathId } from '../../../client/vdom/core/node/native.ts'
+import type { VNode } from '../../../level0/vdom/vnode.ts'
+import { renderToStreamV2, diffToStreamV2 } from '../../../level3/vdom/v2/integrate.ts'
+import { createComponentRegistry, type ComponentRegistry } from '../../../level3/vdom/node/component.ts'
+import { childrenOf, slotCount } from '../../../level1/vdom/node/children.ts'
+import { pathId } from '../../../level3/vdom/node/native.ts'
 import { Sim, drainStream } from '../sim.ts'
 
 /** id 归属验证（双树对账）：静态槽位 OR 组件子空间前缀 */
@@ -33,11 +33,11 @@ export async function verifyEquivalence(
   oldTree: VNode, newTree: VNode, registry: ComponentRegistry,
 ): Promise<string | null> {
   const ref = new Sim()
-  const refSegs = new Map<string, import('../../../client/vdom/core/v2/diff.ts').Segment>()
+  const refSegs = new Map<string, import('../../../level3/vdom/v2/diff.ts').Segment>()
   for (const c of await drainStream(renderToStreamV2(newTree, {}, createComponentRegistry(), refSegs))) ref.apply(c)
   // **段表共享（2027-08——v2 桥迁移关键）**：build/diff 同一段表——组件
   // 段跨渲染复用（工厂不重跑）——各建新表 = 段断裂 = 全量重挂载 = 不等价
-  const segs: Map<string, import('../../../client/vdom/core/v2/diff.ts').Segment> = new Map()
+  const segs: Map<string, import('../../../level3/vdom/v2/diff.ts').Segment> = new Map()
   const sim = new Sim()
   for (const c of await drainStream(renderToStreamV2(oldTree, {}, registry, segs))) sim.apply(c)
   for (const c of await drainStream(diffToStreamV2(oldTree, newTree, {}, registry, segs))) sim.apply(c)

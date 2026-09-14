@@ -5,8 +5,8 @@
  * 每个组件带 data-smoke 标记（e2e 断言渲染 + 点击定位）。
  * 深度行为断言在各自场景（后续分批）。
  */
-import { h, type VNode } from '../../../client/vdom/index.ts'
-import type { Component } from '../../../client/vdom/index.ts'
+import { h, type VNode } from '../../../level6/client/vdom/index.ts'
+import type { Component } from '../../../level6/client/vdom/index.ts'
 import {
   Button, Input, Textarea, SearchInput, PasswordInput, InputNumber, Select, Switch,
   Checkbox, CheckboxGroup, RadioGroup, Slider, Rate, PinInput, TagsInput, Tabs,
@@ -26,7 +26,7 @@ import {
   Watermark, Wave, ActionSheet, AuthPage, ChatInput, CitationCard, CodeEditor,
   Editor, MarkdownEditor, AiChat, ImageCropper, VideoPlayer,
   Math as CFormula, Chart, Confirm, Toast,
-} from '../../../client/components/index.ts'
+} from '../../../level6/client/components/index.ts'
 
 /** 陈列项（组件名 → 简单实例化——渲染不崩为基线） */
 export interface SmokeItem {

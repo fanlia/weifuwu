@@ -12,7 +12,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { applyProperty } from '../../client/vdom/core/field/props.ts'
+import { applyProperty } from '../../level3/vdom/field/props.ts'
 
 /** mock 元素（ownerDocument mock——ensureInit 挂监听 no-op——无真实 DOM） */
 function mockInput(value: string): any {

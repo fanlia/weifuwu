@@ -7,7 +7,7 @@
  */
 import { connect, type Socket } from 'node:net'
 import { randomBytes } from 'node:crypto'
-import { decodeFrames, encodeFrame, OP, type Frame } from '../../server/ws/native/frame.ts'
+import { decodeFrames, encodeFrame, OP, type Frame } from '../../level5/server/ws/native/frame.ts'
 
 export interface RawWs {
   socket: Socket

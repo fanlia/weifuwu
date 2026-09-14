@@ -21,9 +21,10 @@ import { readdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const CORES = [
-  resolve(process.cwd(), 'src/core/l0/vdom'),
-  resolve(process.cwd(), 'src/core/l1/client/vdom'),
-  resolve(process.cwd(), 'src/core/l2/client/vdom'),
+  resolve(process.cwd(), 'src/level0/vdom'),
+  resolve(process.cwd(), 'src/level1/vdom'),
+  resolve(process.cwd(), 'src/level3/vdom'),
+  resolve(process.cwd(), 'src/level4/client/vdom'),
 ]
 /** 历史扫描域 = 旧 core/**（不含 hooks/context/browser/dev/store/observable 兄弟目录） */
 const SKIP = [/[/\\](hooks|context|browser|dev|observable)[/\\]/, /[/\\]store\.ts$/]

@@ -8,15 +8,15 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { renderV2 } from '../../client/vdom/core/v2/render.ts'
-import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import { createStore } from '../../client/vdom/store.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { renderV2 } from '../../level3/vdom/v2/render.ts'
+import { createComponentRegistry } from '../../level3/vdom/node/component.ts'
+import { createStore } from '../../level1/vdom/store.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
 
 const emptyCtx = { render: async () => {}, browser: null } as never
 
-function collect(o: import('../../client/vdom/observable/index.ts').Observable<Command>): Promise<Command[]> {
+function collect(o: import('../../level1/vdom/observable/index.ts').Observable<Command>): Promise<Command[]> {
   return new Promise((resolve, reject) => {
     const out: Command[] = []
     o.subscribe({ next: (c) => out.push(c), error: reject, complete: () => resolve(out) })
@@ -39,7 +39,7 @@ test('最小复现：段化渲染 → hooks 订阅（useExternal）→ store 变
 })
 
 test('最小复现：段化渲染 → useObservable 订阅 → 值变化 → 回调（scroll 类）', async () => {
-  const { Subject } = await import('../../client/vdom/observable/index.ts')
+  const { Subject } = await import('../../level1/vdom/observable/index.ts')
   const src = new Subject<number>()
   let cb = 0
   let last: number | null = null
@@ -55,7 +55,7 @@ test('最小复现：段化渲染 → useObservable 订阅 → 值变化 → 回
 })
 
 test('回归：嵌套组件（元素/碎片/数组内）——hooks 变化必须触发回调（requestRender 透传——2027-08 实证修复）', async () => {
-  const { Subject } = await import('../../client/vdom/observable/index.ts')
+  const { Subject } = await import('../../level1/vdom/observable/index.ts')
   const src = new Subject<number>()
   let cb = 0
   const Comp: any = (_p: any, ctx: any) => {

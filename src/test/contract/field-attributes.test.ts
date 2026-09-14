@@ -13,7 +13,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { applyAttribute, ariaBoolValue } from '../../client/vdom/core/field/attributes.ts'
+import { applyAttribute, ariaBoolValue } from '../../level3/vdom/field/attributes.ts'
 
 /** 鸭舌 fake element（记录 setAttribute/removeAttribute 调用——property 直赋直读） */
 function fakeEl() {

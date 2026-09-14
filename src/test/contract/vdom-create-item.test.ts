@@ -6,7 +6,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createItem } from '../../client/vdom/core/create-item.ts'
+import { createItem } from '../../level4/client/vdom/create-item.ts'
 
 test('非 active：类无后缀 · aria 布尔 false 保留（≠移除）', () => {
   const item = createItem({ cls: 'wf-tab', role: 'tab', aria: 'aria-selected' })

@@ -13,7 +13,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const ROOT = 'src/client/components'
+const ROOT = 'src/level5/client/components'
 
 /** 事件命名豁免形态（非事件回调的函数字段——getter/同步变换器） */
 // 两段式豁免：整词（target/filter/keyBy/approveSchema 类——后面无字符）+ 前缀（renderXxx/getXxx 类）

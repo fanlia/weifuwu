@@ -7,8 +7,8 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { diffAttrs } from '../../client/vdom/core/diff/attrs.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { diffAttrs } from '../../level3/vdom/diff/attrs.ts'
 
 function run(oldProps: Record<string, unknown>, newProps: Record<string, unknown>) {
   const cmds: unknown[] = []

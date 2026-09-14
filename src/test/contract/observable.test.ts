@@ -11,8 +11,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { Observable, create, Subject, BehaviorSubject, fromPromise, fromEventPattern } from '../../client/vdom/observable/index.ts'
-import { map, filter, tap, toArray, delay, scan, switchMap, mergeMap, exhaustMap, takeUntil, shareReplay } from '../../client/vdom/observable/index.ts'
+import { Observable, create, Subject, BehaviorSubject, fromPromise, fromEventPattern } from '../../level1/vdom/observable/index.ts'
+import { map, filter, tap, toArray, delay, scan, switchMap, mergeMap, exhaustMap, takeUntil, shareReplay } from '../../level1/vdom/observable/index.ts'
 
 // ── 基础语义 ──────────────────────────────────────────────
 
@@ -359,7 +359,7 @@ test('shareReplay：源 complete 后新订阅——收缓存值 + complete', () 
 })
 
 // ── VDOM-OBSERVABLE-OPTIMIZE 波次 1：组合算子面 ───────────────────────
-import { startWith, take, finalize, distinctUntilChanged, debounceTime, throttleTime, combineLatest, merge } from '../../client/vdom/observable/index.ts'
+import { startWith, take, finalize, distinctUntilChanged, debounceTime, throttleTime, combineLatest, merge } from '../../level1/vdom/observable/index.ts'
 
 function collect<T>(src: Observable<T>) {
   const vals: T[] = []

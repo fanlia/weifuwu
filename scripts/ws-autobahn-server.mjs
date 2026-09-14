@@ -5,9 +5,9 @@
  * 语义：echo（text→text / binary→binary——经 core W5 归一）；
  *       分片、ping/pong、关闭码由适配器处理。
  */
-import { Router } from '../src/core/l1/server/router.ts'
-import { serve } from '../src/core/l1/server/serve.ts'
-import { createNativeWsAdapter } from '../src/server/ws/native/index.ts'
+import { Router } from '../src/level2/router.ts'
+import { serve } from '../src/level2/serve.ts'
+import { createNativeWsAdapter } from '../src/level5/server/ws/native/index.ts'
 
 const app = new Router()
 app.ws('/ws', {

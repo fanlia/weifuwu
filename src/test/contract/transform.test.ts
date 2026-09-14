@@ -11,11 +11,11 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { transitionOf, runTransition, TRANSITIONS } from '../../client/vdom/core/transform/table.ts'
-import { stateOf } from '../../client/vdom/core/transform/states.ts'
-import { h } from '../../client/vdom/core/vnode.ts'
-import { Fragment } from '../../client/vdom/core/node/fragment.ts'
-import type { TransformContext } from '../../client/vdom/core/transform/index.ts'
+import { transitionOf, runTransition, TRANSITIONS } from '../../level3/vdom/transform/table.ts'
+import { stateOf } from '../../level3/vdom/transform/states.ts'
+import { h } from '../../level0/vdom/vnode.ts'
+import { Fragment } from '../../level1/vdom/node/fragment.ts'
+import type { TransformContext } from '../../level3/vdom/transform/index.ts'
 
 function mkCtx(cmds: unknown[], emitted: unknown[] = [], oldCompId?: string): TransformContext {
   return {
@@ -247,11 +247,11 @@ test('全分支补全：fragment → array（Fragment 符号 → 数组——同
 
 // ── transformV2 流形态（波次 3——顺序纪律——C1 fuzz seed=11 回归锁定） ──
 
-import { transformV2, type SegmentMap, createSegment } from '../../client/vdom/core/v2/diff.ts'
-import { keyedId } from '../../client/vdom/core/node/keyed.ts'
-import { createComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import { collectCommands } from '../../client/vdom/core/v2/integrate.ts'
-import type { Segment } from '../../client/vdom/core/v2/diff.ts'
+import { transformV2, type SegmentMap, createSegment } from '../../level3/vdom/v2/diff.ts'
+import { keyedId } from '../../level1/vdom/node/keyed.ts'
+import { createComponentRegistry } from '../../level3/vdom/node/component.ts'
+import { collectCommands } from '../../level3/vdom/v2/integrate.ts'
+import type { Segment } from '../../level3/vdom/v2/diff.ts'
 
 test('transformV2：三段顺序——旧段 dispose 先于新侧段创建（C1 结构保证）', async () => {
   // **C1 场景（seed=11 i=3——转换新侧与旧组件同 compId）**：

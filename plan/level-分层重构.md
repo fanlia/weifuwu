@@ -175,12 +175,32 @@ src/
   搬迁 **1064** · shim 删 **116** · 重写 **2209** specifier（裸 `weifuwu*` 307）· **未解析 0** · 良性登记 6
   （字符串内路径/运行时临时文件/既有 type-only 陈留——运行时不解析）；分类器补测试文件 target（347）
 
+**W1（完成）**：
+
+- 应用：`node scripts/level-migrate.mjs --apply`——**搬迁 1053**（git 重命名）+ **shim 删 116** + 重写 2209
+  （apply 前修正分类器三 bug：universal 混居目录目录启发式误判（→level3）· `src/test/**` test-support 误设 target ·
+  entry effectiveLevel 未递归 barrel 链）——旧目录 `src/core|client|server|shared|cli|dev|sandbox` 全清 · 无 shim
+- 清障：build.mjs 入口/vdom 家族外部化插件（level0/1/3/4/6 相对路径匹配）· 四个 core 审计脚本多根（level0/1/3/4）·
+  package.json 测试 glob（level5/level6 面 + `src/level6/server/**` 补调度器 10 测试：881 恢复）·
+  `src/test/**` 被字符串扫掠误映射的 7 处引用回正 · 3 处 `apps` 双前缀（`level6/src/level6`）回正 ·
+  9 处 `declare module '../types.ts'`（shim 已删，实现归 `src/level0/types.ts`）重定向 ·
+  showcase/scenario/测试的 `src/client|layout|components` 段式路径与 `__dirname` 深度（仓库根）修正 ·
+  apps `.mjs` 4 处裸 `weifuwu` specifier 改相对（W2 scripts 归一后路径再调）
+- **`exports` 字段删除**（dist 树即导出面）：`ctx.ui` 编译器改「最近 package.json = 包根 + dist 约定」解析；
+  esbuild 侧 dist 回退插件**让位 tsconfig paths**（有 tsconfig → 默认解析 = dev 单实例；无 → dist）——
+  src/dist 双 vdom 实例混用（absorb 状态机违例）实证后修复
+- dist 重建（esbuild 全产物）：server 678.0K · vdom 92.0K · components 315.2K · style.css 221.4K · layout 29.4K
+- 回归：`tsc` 0 · `test:levels` **829+1 skip** · `test:client` **515** · `test:server` **881+1 skip** ·
+  `test:scenario` **129** · `test:showcase` **336** · `audit:levels` 绿 · `audit:all` **十四线 exit 0**
+- 既有红（非迁移引入，worktree `00fc04a0` 同源复现）：`test:contract-components` 120/124——4 红（aria 布尔归一
+  在命令流面缺失：CitationCard/SegmentedControl/Switch/Tabs）——登记待独立波次（迁移不动组件行为）
+
 （W1 起逐波记录：迁移文件数/回归数字/意外）
 
 ## 验收标准
 
 - [ ] W0：全库清单 100% 分类（含 apps/Go/资产）；重写器 + 脚本命令更名完成
-- [ ] W1：框架面迁移完成；全库 import 重写；无 shim；五域回归 + `tsc` 0
+- [x] W1：框架面迁移完成；全库 import 重写；无 shim；五域回归 + `tsc` 0（+ `exports` 字段删除、dist 约定解析——W3 仅剩两 bin/`files`/npm pack 安装冒烟）
 - [ ] W2：apps 内化（包解散）；平台 507 + showcase 336 + `audit:all` 绿
-- [ ] W3：两 bin；`npm pack` 安装冒烟（dist 路径导入 + 两应用可启动）· `exports` 字段已删
+- [ ] W3：两 bin；`npm pack` 安装冒烟（dist 路径导入 + 两应用可启动）· `exports` 字段已删（W1 已删）
 - [ ] W4：`audit:levels` 加锁（快照/规模/漂移/方向）；`docs/level.md`；计划归档

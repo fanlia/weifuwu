@@ -12,7 +12,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { AbsorbState, absorbReducer, type AbsorbEvent } from '../../client/vdom/core/ssr/absorb.ts'
+import { AbsorbState, absorbReducer, type AbsorbEvent } from '../../level3/vdom/ssr/absorb.ts'
 
 async function collect<T>(obs: { subscribe(o: { next(v: T): void }): void }): Promise<T[]> {
   const out: T[] = []

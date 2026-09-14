@@ -7,8 +7,8 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { UIRouter, frontRequest } from '../../client/vdom/core/router.ts'
-import type { UIContext } from '../../client/vdom/context/UIContext.ts'
+import { UIRouter, frontRequest } from '../../level3/vdom/router.ts'
+import type { UIContext } from '../../level3/vdom/context/UIContext.ts'
 
 function ctx(): UIContext {
   return { params: {} } as UIContext

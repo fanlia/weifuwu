@@ -3,90 +3,6 @@
   "type": "module",
   "version": "0.94.1",
   "description": "AI SaaS full-stack framework — backend HTTP + frontend VDOM + 129 components + CSS design system + SaaS foundation (auth/queue/AI). Zero-build, zero-dependency.",
-  "exports": {
-    ".": {
-      "types": "./dist/server/index.d.ts",
-      "default": "./dist/server/index.js"
-    },
-    "./server": {
-      "types": "./dist/server/index.d.ts",
-      "default": "./dist/server/index.js"
-    },
-    "./server/ai": {
-      "types": "./dist/server/ai/index.d.ts",
-      "default": "./dist/server/ai/index.js"
-    },
-    "./server/email": {
-      "types": "./dist/server/email/index.d.ts",
-      "default": "./dist/server/email/index.js"
-    },
-    "./server/messager": {
-      "types": "./dist/server/messager/index.d.ts",
-      "default": "./dist/server/messager/index.js"
-    },
-    "./server/postgres": {
-      "types": "./dist/server/postgres/index.d.ts",
-      "default": "./dist/server/postgres/index.js"
-    },
-    "./server/queue": {
-      "types": "./dist/server/queue/index.d.ts",
-      "default": "./dist/server/queue/index.js"
-    },
-    "./server/redis": {
-      "types": "./dist/server/redis/index.d.ts",
-      "default": "./dist/server/redis/index.js"
-    },
-    "./server/scheduler": {
-      "types": "./dist/server/scheduler/index.d.ts",
-      "default": "./dist/server/scheduler/index.js"
-    },
-    "./server/ui": {
-      "types": "./dist/server/ui/index.d.ts",
-      "default": "./dist/server/ui/index.js"
-    },
-    "./server/user": {
-      "types": "./dist/server/user/index.d.ts",
-      "default": "./dist/server/user/index.js"
-    },
-    "./server/workflows": {
-      "types": "./dist/server/workflows/index.d.ts",
-      "default": "./dist/server/workflows/index.js"
-    },
-    "./server/workflow": {
-      "types": "./dist/server/workflow/index.d.ts",
-      "default": "./dist/server/workflow/index.js"
-    },
-    "./client/vdom": {
-      "types": "./dist/client/vdom/index.d.ts",
-      "default": "./dist/client/vdom/index.js"
-    },
-    "./client/vdom/jsx-runtime": {
-      "types": "./dist/client/vdom/index.d.ts",
-      "default": "./dist/client/vdom/jsx-runtime.js"
-    },
-    "./client/vdom/testing": {
-      "types": "./dist/client/vdom/testing.d.ts",
-      "default": "./dist/client/vdom/testing.js"
-    },
-    "./client/components": {
-      "types": "./dist/client/components/index.d.ts",
-      "default": "./dist/client/components/index.js"
-    },
-    "./client/components/style.css": "./dist/client/components/style.css",
-    "./client/layout": {
-      "types": "./dist/client/layout/index.d.ts",
-      "default": "./dist/client/layout/index.js"
-    },
-    "./client/layout/weifuwu-layout.css": "./dist/client/layout/weifuwu-layout.css",
-    "./dev": {
-      "types": "./dist/dev/index.d.ts",
-      "default": "./dist/dev/index.js"
-    },
-    "./shared/router": {
-      "types": "./dist/shared/router/index.d.ts",
-      "default": "./dist/shared/router/index.js"
-    }
-  },
   "files": [
     "dist/",
     "README.md",
@@ -100,15 +16,15 @@
     "release": "node scripts/release.mjs",
     "release:dry": "node scripts/release.mjs --dry-run",
     "test:client": "node --env-file=.env --test --test-concurrency=4 'src/test/contract/**/*.test.ts'",
-    "test:levels": "node --env-file=.env --test --test-concurrency=4 'src/test/contract/**/*.test.ts' 'src/shared/**/*.test.ts' 'src/core/**/*.test.ts' 'src/server/core/**/*.test.ts' 'src/server/db/*.test.ts'",
-    "test:server": "node --env-file=.env --test --experimental-test-module-mocks --test-concurrency=8 'src/server/**/*.test.ts'",
-    "test:showcase": "node --env-file=.env --test --test-concurrency=6 --test-timeout=8000 apps/showcase/test/comp-*.test.ts",
+    "test:levels": "node --env-file=.env --test --test-concurrency=4 'src/test/contract/**/*.test.ts' 'src/level5/shared/**/*.test.ts' 'src/level5/server/core/**/*.test.ts' 'src/level5/server/db/*.test.ts'",
+    "test:server": "node --env-file=.env --test --experimental-test-module-mocks --test-concurrency=8 'src/level5/server/**/*.test.ts' 'src/level6/server/**/*.test.ts'",
+    "test:showcase": "node --env-file=.env --test --test-concurrency=6 --test-timeout=8000 src/level6/apps/showcase/test/comp-*.test.ts",
     "test:scenario": "node --env-file=.env --test --test-timeout=8000 --test-concurrency=14 'src/test/scenario/e2e*.test.ts'",
     "test:components": "node --env-file=.env --test --test-timeout=8000 --test-concurrency=2 src/test/scenario/e2e-6.test.ts",
     "audit:semantics": "node scripts/audit-level-semantics.mjs",
     "audit:showcase": "node scripts/audit-showcase-dev.mjs",
     "audit:all": "npm run audit:semantics && npm run audit:interactivity && npm run audit:vdom && npm run audit:theme && npm run audit:api && npm run audit:bundle && npm run audit:showcase && npm run audit:docs && npm run audit:health && npm run audit:levels",
-    "test:contract-components": "node --env-file=.env --test 'src/client/components/**/*.test.ts'",
+    "test:contract-components": "node --env-file=.env --test 'src/level5/client/components/**/*.test.ts'",
     "audit:interactivity": "node scripts/audit-interactivity.mjs",
     "audit:theme": "node scripts/audit-theme.mjs",
     "audit:api": "node scripts/audit-api.mjs",
@@ -120,7 +36,7 @@
     "level0:snapshot": "node scripts/level0-snapshot.mjs",
     "audit:levels": "node scripts/level-map.mjs --check && node scripts/level-graph.mjs --check && node scripts/level0-snapshot.mjs --check",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
-    "test:perf": "PERF_BASELINE=1 node --env-file=.env --test src/server/core/router-contract.test.ts",
+    "test:perf": "PERF_BASELINE=1 node --env-file=.env --test src/level5/server/core/router-contract.test.ts",
     "test:format": "node --test scripts/changelog-format.test.mjs"
   },
   "dependencies": {

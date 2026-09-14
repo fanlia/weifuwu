@@ -23,7 +23,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Browser, type Page } from 'playwright'
 import { resolve } from 'node:path'
 import { startScenarioServer, openScenario, type ScenarioServer } from './e2e-shared.ts'
-import { bundleComponents } from '../../client/layout/bundle.ts'
+import { bundleComponents } from '../../level5/client/layout/bundle.ts'
 
 let server: ScenarioServer
 let BASE = ''
@@ -116,8 +116,8 @@ test('⑥ 服务面 == 装配单源（/components.css 字节全等 bundleCompone
   const res = await fetch(`${BASE}/components.css`)
   const served = await res.text()
   const { css } = await bundleComponents(
-    resolve(rootDir, 'src/client/layout'),
-    resolve(rootDir, 'src/client/components'),
+    resolve(rootDir, 'src/level5/client/layout'),
+    resolve(rootDir, 'src/level5/client/components'),
   )
   assert.equal(served, css, 'dev 服务面 CSS 必须 == 装配单源输出（层序语义与 dist 一致）')
   // 缓存面（旧：`new Response(css)` 零缓存头 → 每次全量重传）

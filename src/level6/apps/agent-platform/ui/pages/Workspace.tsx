@@ -1,0 +1,270 @@
+/**
+ * 工作台（P0 重构——三层模型：部门 = 项目空间）
+ *
+ * 用户首屏 = 我的项目空间列表（而非报表）：
+ * - 项目空间卡片：成员头像簇 / 最近活跃 / 环境状态点（用户语言）/ 最近消息摘要
+ * - AI 协作动态：最近 AI 完成事项（跨项目）
+ * - 空状态引导：建项目 → 加 AI → 放文件
+ * 运营报表已拆至 /reports（管理组）
+ */
+import type { UIContext, Component } from '../../../../client/vdom/index.ts'
+import { Button, Card, EmptyState, Icon, Skeleton } from '../../../../client/components/index.ts'
+import { Ava, errMsg } from '../blocks/ux.tsx'
+import { clientRole, isTenantOwner, writeDenyReason } from '../lib/roles.ts'
+import type { AgentListResponse, DepartmentListResponse, PendingApproval } from '../lib/types.ts'
+
+interface ProjectCard {
+  id: string
+  name: string
+  is_dm: boolean
+  member_count: number
+  /** 人类成员数（UX-PLAN-2 波次 2——0 = 单 AI 待命间） */
+  human_count: number
+  last_message: string | null
+  last_message_at: string | null
+  // 环境状态（/api/sandboxes 映射——用户语言）
+  env: { status: string | null; label: string }
+}
+
+interface WorkspaceState {
+  loading: boolean
+  demoCreating: boolean
+  projects: ProjectCard[]
+  pendingCount: number
+  aiCount: number
+  hasAgents: boolean
+  deliverables: Array<{ deptId: string; deptName: string; path: string; name: string; size: number; mtime: string }>
+}
+
+const ENV_LABEL: Record<string, string> = {
+  running: 'AI 随时能干活',
+  stopped: 'AI 休息中，干活时自动唤醒',
+  requested: '环境待启动（首次干活自动创建）',
+  error: '环境异常，请管理员处理',
+  terminated: '',
+}
+
+function greeting(): string {
+  const h = new Date().getHours()
+  if (h < 6) return '夜深了'
+  if (h < 9) return '早上好'
+  if (h < 12) return '上午好'
+  if (h < 14) return '中午好'
+  if (h < 18) return '下午好'
+  return '晚上好'
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return ''
+  const t = new Date(iso).getTime()
+  const diff = Date.now() - t
+  if (diff < 60_000) return '刚刚'
+  if (diff < 3600_000) return `${Math.floor(diff / 60_000)} 分钟前`
+  if (diff < 86400_000) return `${Math.floor(diff / 3600_000)} 小时前`
+  return new Date(iso).toLocaleDateString()
+}
+
+export const Workspace: Component = (_props, ctx) => {
+  const $ = {} as WorkspaceState
+  const rerender = () => ctx.render()
+  $.loading = true; $.projects = []; $.pendingCount = 0; $.aiCount = 0; $.hasAgents = false; $.deliverables = []; $.demoCreating = false
+
+  /** G-A 冷启动：一键演示空间（部门+客服 AI+知识库+经理）——创建后直达聊天 */
+  async function demoSpace(): Promise<void> {
+    $.demoCreating = true; rerender()
+    try {
+      const d = await ctx.api.post<{ department: { id: string } }>('/api/demo/space')
+      ctx.toast('演示空间已创建——试试 @ 客服小知 或 @ 演示项目经理', 'success')
+      ctx.app?.navigate(`/chat/${d.department.id}`)
+    } catch (e) {
+      ctx.toast(errMsg(e, '创建演示空间失败'), 'error')
+      $.demoCreating = false; rerender()
+    }
+  }
+
+  Promise.all([
+    ctx.api.get<DepartmentListResponse>('/api/departments').catch(() => ({ departments: [] })),
+    ctx.api.get<{ sandboxes: Array<{ department_id: string | null; status: string }> }>('/api/sandboxes').catch(() => ({ sandboxes: [] })),
+    ctx.api.get<{ pending: PendingApproval[] }>('/api/messages/pending-approvals').catch(() => ({ pending: [] })),
+    ctx.api.get<AgentListResponse>('/api/agents').catch(() => ({ agents: [] })),
+    ctx.api.get<{ files: Array<{ deptId: string; deptName: string; path: string; name: string; size: number; mtime: string }> }>('/api/deliverables?limit=3').catch(() => ({ files: [] })),
+  ]).then(([depts, sb, pend, agents, dels]) => {
+    const sbMap = new Map<string, string>()
+    for (const s of sb.sandboxes ?? []) {
+      if (s.department_id) sbMap.set(s.department_id, s.status)
+    }
+    $.projects = (depts.departments ?? []).map((d) => ({
+      id: d.id,
+      name: d.name,
+      is_dm: !!d.is_dm,
+      member_count: d.member_count ?? 0,
+      human_count: d.human_count ?? 0,
+      last_message: d.last_message ?? null,
+      last_message_at: d.last_message_at ?? null,
+      env: { status: sbMap.get(d.id) ?? null, label: ENV_LABEL[sbMap.get(d.id) ?? ''] ?? '' },
+    }))
+    $.pendingCount = pend.pending?.length ?? 0
+    $.aiCount = (agents.agents ?? []).filter((a) => a.type === 'ai').length
+    $.hasAgents = (agents.agents ?? []).length > 0
+    $.deliverables = dels.files ?? []
+    $.loading = false
+    rerender()
+  })
+
+  return () => {
+    // 角色防线（2026-08——UI-ROLE-TEST view 抓出：viewer 新建按钮未禁用；
+    // ROLES-OPTIMIZATION 波次 1/2/3：建部门 = 仅 owner（裁剪后）——member 同禁；
+    // 感知点收敛 ui/lib/roles.ts；按角色落地引导（走查 P0-1））
+    const role = clientRole()
+    const isViewer = role === 'viewer'
+    const ownerOnly = !isTenantOwner()
+    const denyTitle = isViewer ? writeDenyReason() : '只有租户所有者可以创建项目空间'
+    if ($.loading) {
+      return (
+        <div class="wf-stack wf-gap-lg">
+          <div class="wf-stack wf-gap-xs">
+            <Skeleton variant="text" width="200px" height="28px" />
+            <Skeleton variant="text" width="340px" />
+          </div>
+          <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 300px), 1fr))">
+            {[1, 2, 3].map(i => <Card key={i}><Skeleton variant="text" width="60%" /><Skeleton variant="text" width="90%" className="wf-margin-top-sm" /><Skeleton variant="text" width="45%" className="wf-margin-top-sm" /></Card>)}
+          </div>
+        </div>
+      )
+    }
+
+    return (
+    <div class="wf-stack wf-gap-lg">
+      <div class="wf-row wf-justify-between wf-gap-md wf-items-center">
+        <div key="greet" class="wf-stack wf-gap-xs">
+          <h1 class="wf-font-2xl wf-margin-none">{greeting()}，{((ctx.auth?.user ?? null) as { name?: string } | null)?.name ?? '用户'}</h1>
+          <p class="wf-font-base wf-text-secondary wf-margin-none">一个项目空间 = 一个共享工作目录 + 一个 AI 工作环境——放文件、@AI 干活、拿交付物。</p>
+        </div>
+        <Button key="cta" variant="primary" disabled={ownerOnly} title={ownerOnly ? denyTitle : undefined} onClick={() => ctx.app?.navigate('/departments/new')}><Icon name="plus" size={14} /> 新建项目空间</Button>
+      </div>
+
+      {/* 空状态引导（无项目空间——按角色分支：owner 三步引导；member/viewer 等待加入） */}
+      {$.projects.length === 0 && !isViewer && (
+        <Card key="empty-guide">
+          <EmptyState icon="🚀" text={ownerOnly ? '等待所有者创建项目空间' : '还没有项目空间'
+            } hint={ownerOnly ? '租户所有者创建项目空间后，你将在这里看到部门入口——当前可先浏览 Agent 与交付物'
+              : '三步开始：创建项目空间 → 添加 AI 能力 → 上传资料让 AI 干活'}>
+            {!ownerOnly && (
+              <div class="wf-row wf-gap-sm">
+                <Button variant="primary" onClick={() => ctx.app?.navigate('/departments/new')}>创建项目空间</Button>
+                {/* 注册自动建 user agent——hasAgents 恒 true（实测）——按 AI 计数判定 */}
+                {$.aiCount === 0 && <Button variant="ghost" onClick={() => ctx.app?.navigate('/agents/new')}>先创建 AI Agent</Button>}
+                {$.aiCount === 0 && (
+                  <Button variant="ghost" disabled={$.demoCreating} onClick={() => void demoSpace()}>🚀 一键演示空间</Button>
+                )}
+              </div>
+            )}
+          </EmptyState>
+        </Card>
+      )}
+
+      {/* ROLES-OPTIMIZATION 波次 3：按角色落地引导（走查 P0-1——viewer 零引导落地）*/}
+      {isViewer && (
+        <Card key="viewer-guide">
+          <EmptyState icon="👁" text="你是只读成员"
+            hint="可以查看所有消息与下载交付物；发言、创建与修改需要更高权限——如需写权限请联系租户所有者">
+            <div class="wf-row wf-gap-sm">
+              <Button variant="ghost" onClick={() => ctx.app?.navigate('/deliverables')}>浏览交付物</Button>
+            </div>
+          </EmptyState>
+        </Card>
+      )}
+
+      {/* 审批待办（快捷入口） */}
+      {$.pendingCount > 0 && (
+        <Card key="pending-card" clickable hover onClick={() => ctx.app?.navigate('/approvals')} style={{ borderColor: 'var(--wf-color-warning)' }}>
+          <div class="wf-row wf-gap-sm wf-items-center">
+            <Icon name="check-circle" size={16} className="wf-text-warning" />
+            <span class="wf-font-sm wf-medium">有 {$.pendingCount} 条 AI 草稿待你批准发布</span>
+            <span class="wf-fill" />
+            <Icon name="arrow-right" size={14} className="wf-text-tertiary" />
+          </div>
+        </Card>
+      )}
+
+      {/* 最近交付物（B2——2026-08：老板/员工视角产出即视——点击进中心页） */}
+      {$.deliverables.length > 0 && (
+        <Card key="deliv-card" clickable hover onClick={() => ctx.app?.navigate('/deliverables')}>
+          <div class="wf-row wf-gap-sm wf-items-center">
+            <Icon name="inbox" size={16} />
+            <span class="wf-font-sm wf-medium">最近交付物（{$.deliverables.length}）</span>
+            <span class="wf-fill" />
+            <Icon name="arrow-right" size={14} className="wf-text-tertiary" />
+          </div>
+          <div class="wf-stack wf-gap-xs wf-margin-top-sm">
+            {$.deliverables.map((f) => (
+              <div key={`${f.deptId}:${f.path}`} class="wf-row wf-gap-sm wf-font-sm">
+                <span class="wf-text-primary wf-truncate">{f.path}</span>
+                <span class="wf-text-tertiary wf-font-xs wf-shrink">({f.deptName})</span>
+                <span class="wf-fill" />
+                <span class="wf-text-tertiary wf-font-xs wf-shrink">{timeAgo(f.mtime)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* 项目空间卡片 */}
+      {$.projects.length > 0 && (
+        <>
+          <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">我的项目空间（{$.projects.length}）</div>
+          <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(min(100%, 300px), 1fr))">
+            {$.projects.map((p) => {
+              // UX-PLAN-2 波次 2：单 AI 待命间（0 人类成员）——点击直达成员管理
+              const standby = p.human_count === 0
+              return (
+              <Card key={p.id} clickable hover onClick={() => ctx.app?.navigate(standby ? `/departments/${p.id}` : `/chat/${p.id}`)}>
+                <div class="wf-row wf-gap-sm wf-items-center">
+                  <Ava name={p.is_dm ? '💬' : '👥'} type={p.is_dm ? 'user' : 'knowledge_base'} />
+                  <div class="wf-fill wf-truncate wf-font-base wf-semibold">{p.name}</div>
+                  {p.is_dm && <span class="wf-font-xs wf-text-tertiary">单聊</span>}
+                </div>
+                <div class="wf-font-sm wf-text-secondary wf-truncate wf-margin-top-sm">
+                  {p.last_message || (standby ? 'AI 待命间 · 加入后开聊' : '暂无消息——@AI 成员开始干活')}
+                </div>
+                <div class="wf-row wf-gap-md wf-font-xs wf-text-tertiary wf-margin-top-sm">
+                  <span>{standby ? `${p.member_count} AI` : `${p.member_count} 位成员`}</span>
+                  {p.last_message_at && <span>{timeAgo(p.last_message_at)}活跃</span>}
+                  <span class="wf-fill" />
+                  {p.env.label && (
+                    <span class="wf-row wf-gap-xs wf-items-center">
+                      <span style="display:inline-block;width:8px;height:8px;border-radius:50%" />
+                      {p.env.label}
+                    </span>
+                  )}
+                </div>
+              </Card>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {/* 快捷操作 */}
+      <div class="wf-font-sm wf-semibold wf-uppercase wf-tracking-wide wf-text-secondary">快捷操作</div>
+      <div class="wf-grid" style="--wf-cols: repeat(auto-fill, minmax(220px, 1fr))">
+        <Card clickable hover onClick={() => ctx.app?.navigate('/agents/new')}>
+          <div class="wf-font-2xl wf-margin-bottom-xs"><Icon name="cpu" size={28} /></div>
+          <div class="wf-font-base wf-semibold">添加 AI 能力</div>
+          <div class="wf-font-sm wf-text-secondary">创建 AI 机器人，加入项目空间</div>
+        </Card>
+        <Card clickable hover onClick={() => ctx.app?.navigate('/departments/new')}>
+          <div class="wf-font-2xl wf-margin-bottom-xs"><Icon name="users" size={28} /></div>
+          <div class="wf-font-base wf-semibold">创建项目空间</div>
+          <div class="wf-font-sm wf-text-secondary">共享工作目录 + AI 工作环境</div>
+        </Card>
+        <Card clickable hover onClick={() => ctx.app?.navigate('/reports')}>
+          <div class="wf-font-2xl wf-margin-bottom-xs"><Icon name="bar-chart" size={28} /></div>
+          <div class="wf-font-base wf-semibold">运营报表</div>
+          <div class="wf-font-sm wf-text-secondary">使用量 · 成本 · 活跃度</div>
+        </Card>
+      </div>
+    </div>
+    )
+  }
+}

@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { diffLines, groupDiffLines } from '../../client/components/DiffView/diff-utils.ts'
+import { diffLines, groupDiffLines } from '../../level5/client/components/DiffView/diff-utils.ts'
 
 test('diffLines：LCS 对账——old/new 消费行数精确相等', () => {
   // 纯增

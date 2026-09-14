@@ -11,9 +11,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h } from '../../client/vdom/index.ts'
-import type { Component } from '../../client/vdom/index.ts'
-import { mount, createTable } from '../../test/contract/component-harness.ts'
+import { h } from '../../level6/client/vdom/index.ts'
+import type { Component } from '../../level6/client/vdom/index.ts'
+import { mount, createTable } from './component-harness.ts'
 
 test('useSignal：set 触发重渲染 + get 读最新', async () => {
   let renders = 0

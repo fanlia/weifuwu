@@ -15,15 +15,15 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { h, type VNode, type VNodeChild } from '../../client/vdom/core/vnode.ts'
-import { Fragment } from '../../client/vdom/core/node/fragment.ts'
-import { diffToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
-import { renderToStreamV2 } from '../../client/vdom/core/v2/integrate.ts' // v1 退役——v2 桥
-import { createComponentRegistry, type ComponentRegistry } from '../../client/vdom/core/node/component.ts'
-import { childrenOf, slotCount } from '../../client/vdom/core/node/children.ts'
-import { pathId } from '../../client/vdom/core/node/native.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
-import { createStateTracker, transition, type StateTracker, type NodeState } from '../../client/vdom/core/patch/state-machine.ts'
+import { h, type VNode, type VNodeChild } from '../../level0/vdom/vnode.ts'
+import { Fragment } from '../../level1/vdom/node/fragment.ts'
+import { diffToStreamV2 } from '../../level3/vdom/v2/integrate.ts' // v1 退役——v2 桥
+import { renderToStreamV2 } from '../../level3/vdom/v2/integrate.ts' // v1 退役——v2 桥
+import { createComponentRegistry, type ComponentRegistry } from '../../level3/vdom/node/component.ts'
+import { childrenOf, slotCount } from '../../level1/vdom/node/children.ts'
+import { pathId } from '../../level3/vdom/node/native.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
+import { createStateTracker, transition, type StateTracker, type NodeState } from '../../level1/vdom/patch/state-machine.ts'
 
 // ── Sim——命令流模拟器（proc* 语义的纯数据实现） ──
 // **状态机化（P1/P3c）**：NodeState 迁移 + Post 验证由共享规格
@@ -309,7 +309,7 @@ async function compFuzzRound(seed: number, rounds: number): Promise<number> {
         if (!sample) {
           // 打印 diff 命令流（mount/unmount/remove）
           const reg2 = createComponentRegistry()
-          const segs2: Map<string, import('../../client/vdom/core/v2/diff.ts').Segment> = new Map()
+          const segs2: Map<string, import('../../level3/vdom/v2/diff.ts').Segment> = new Map()
           const bo = await drainStream(renderToStreamV2(oldT, {}, reg2, segs2))
           const d2 = await drainStream(diffToStreamV2(oldT, newT, {}, reg2, segs2))
           const stream2 = `[bo] ${bo.map((c: any) => `${c.op}:${c.id ?? c.compId ?? ''}${c.parent ? '^' + c.parent : ''}${c.tag ? ':' + c.tag : ''}`).join(' ')}\n[d2] ${d2.map((c: any) => `${c.op}:${c.id ?? c.compId ?? ''}${c.parent ? '^' + c.parent : ''}${c.tag ? ':' + c.tag : ''}`).join(' ')}`

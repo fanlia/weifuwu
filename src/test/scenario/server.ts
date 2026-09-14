@@ -8,15 +8,15 @@
  *
  * 启动：node src/test/scenario/server.ts（端口 3299）
  */
-import { Router, serve } from '../../server/index.ts'
+import { Router, serve } from '../../level6/index.ts'
 import { readFile } from 'node:fs/promises' // readdir 随装配单源化退场（bundleComponents 内部扫目录）
 import { resolve } from 'node:path'
-import { ui } from '../../server/ui/index.ts'
-import { UIRouter, h } from '../../client/vdom/index.ts'
-import { uiSsrV2 } from '../../client/vdom/core/v2/ssr.ts' // 场景层 SSR = v2（默认入口已切——显式引 v2 与 uiServe 同源）
+import { ui } from '../../level6/server/ui/index.ts'
+import { UIRouter, h } from '../../level6/client/vdom/index.ts'
+import { uiSsrV2 } from '../../level3/vdom/v2/ssr.ts' // 场景层 SSR = v2（默认入口已切——显式引 v2 与 uiServe 同源）
 import { scenarios, findScenario } from './registry.ts'
 import { createHash } from 'node:crypto'
-import { bundleComponents } from '../../client/layout/bundle.ts'
+import { bundleComponents } from '../../level5/client/layout/bundle.ts'
 
 const PORT = Number(process.env.SCENARIO_PORT ?? 0) // 0 = 随机端口（测试自包含——避免端口残留）
 
@@ -54,8 +54,8 @@ app.get('/scenario/:id', async (req, ctx: any) => {
 app.get('/components.css', async (req) => {
   const root = resolve(process.cwd())
   const { css } = await bundleComponents(
-    resolve(root, 'src', 'client', 'layout'),
-    resolve(root, 'src', 'client', 'components'),
+    resolve(root, 'src', 'level5', 'client', 'layout'),
+    resolve(root, 'src', 'level5', 'client', 'components'),
   )
   const etag = `"${createHash('sha1').update(css).digest('hex').slice(0, 20)}"`
   const headers = { 'content-type': 'text/css; charset=utf-8', etag, 'cache-control': 'no-cache' }
@@ -71,10 +71,10 @@ app.get('/api/async-load', () => new Response(JSON.stringify({ ok: true }), { he
 
 // WebSocket 端点（ws 中间件场景 fixture——欢迎消息 + echo）
 app.ws('/ws', {
-  open: (ws: import('../../server/types.ts').WebSocket) => {
+  open: (ws: import('../../level0/types.ts').WebSocket) => {
     ws.send('欢迎连接')
   },
-  message: (ws: import('../../server/types.ts').WebSocket, _ctx: unknown, data: string | Buffer) => {
+  message: (ws: import('../../level0/types.ts').WebSocket, _ctx: unknown, data: string | Buffer) => {
     ws.send(`echo:${String(data)}`)
   },
 })

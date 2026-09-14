@@ -34,7 +34,7 @@
 
 ### 框架层本波核心修复（G2 过程发现）
 
-**ws 心跳看门狗**（`src/client/vdom/middlewares/ws.ts`——核心修复惠及全库）：
+**ws 心跳看门狗**（`src/level5/client/vdom/middlewares/ws.ts`——核心修复惠及全库）：
 - 网络硬断时浏览器**不触发 close/error**——socket 静默挂起——onclose 永不执行
   → 重连调度永不启动 → 应用层断线感知/补拉永不触发（A2 失效唯一种子）
 - 修复：ping 周期活性检测（任何入站刷新活性——超时强制 close → onclose → 重连链）

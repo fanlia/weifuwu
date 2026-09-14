@@ -4,7 +4,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type Server } from 'node:http'
-import { aiStream } from '../../client/vdom/hooks/ai-stream.ts'
+import { aiStream } from '../../level1/vdom/hooks/ai-stream.ts'
 
 let server: Server
 let base = ''

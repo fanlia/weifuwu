@@ -25,8 +25,8 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const LAYOUT_DIR = join(root, 'src/client/layout')
-const COMP_DIR = join(root, 'src/client/components')
+const LAYOUT_DIR = join(root, 'src/level5/client/layout')
+const COMP_DIR = join(root, 'src/level5/client/components')
 
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '')
 

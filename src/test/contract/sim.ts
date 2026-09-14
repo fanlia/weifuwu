@@ -2,8 +2,8 @@
  * vdom 契约测试共享 — Sim（命令流模拟器——状态机规格跟踪）
  * 双引擎对账（v1/v2 命令流 → Sim 终态等价——切换护栏）
  */
-import type { Command } from '../../client/vdom/core/command/index.ts'
-import { createStateTracker, transition, type StateTracker } from '../../client/vdom/core/patch/state-machine.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
+import { createStateTracker, transition, type StateTracker } from '../../level1/vdom/patch/state-machine.ts'
 
 /** 流 → 命令数组（契约层共享——避免从测试文件 import 引发的连带执行） */
 export async function drainStream(s: ReadableStream<Command>): Promise<Command[]> {

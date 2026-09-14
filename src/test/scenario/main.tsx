@@ -6,12 +6,12 @@
  * 每次交互 ctx.render() → 路由重跑 handler → stream 增量 diff（影子树对照）。
  * （2027-08——场景层切换 v2 引擎——v1 对照在 git 历史）
  */
-import { uiServe, UIRouter, h } from '../../client/vdom/index.ts'
-import { i18n } from '../../client/vdom/middlewares/auth-i18n.ts'
-import { ws } from '../../client/vdom/middlewares/ws.ts'
-import { toast } from '../../client/vdom/commands.ts'
-import { confirm } from '../../client/components/Confirm/Confirm.ts'
-import { notificationMiddleware } from '../../client/components/Notification/Notification.ts'
+import { uiServe, UIRouter, h } from '../../level6/client/vdom/index.ts'
+import { i18n } from '../../level5/client/vdom/middlewares/auth-i18n.ts'
+import { ws } from '../../level5/client/vdom/middlewares/ws.ts'
+import { toast } from '../../level5/client/vdom/commands.ts'
+import { confirm } from '../../level5/client/components/Confirm/Confirm.ts'
+import { notificationMiddleware } from '../../level5/client/components/Notification/Notification.ts'
 import { scenarios } from './registry.ts'
 
 const router = new UIRouter()
@@ -36,7 +36,7 @@ const i18nState = i18n({
 })
 // B-复现（2026-08）：注入 api（真实 ctx.api.get——异步加载场景用——
 // 锁定 Deliverables 空态是否与 api client 路径相关）
-import { api } from '../../client/vdom/index.ts'
+import { api } from '../../level6/client/vdom/index.ts'
 const apiClient = api({ baseUrl: '' })
 const handle = uiServe(router, { root: '#root', i18n: i18nState, ws: ws(), toast, confirm, notification: notificationMiddleware({}).notification, api: apiClient })
 // unmount-dispose 场景：暴露 handle（场景按钮触发卸载）

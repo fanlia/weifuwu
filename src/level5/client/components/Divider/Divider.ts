@@ -1,0 +1,24 @@
+/** Divider：分割线，支持 horizontal/vertical/带文字（showcase /components/divider） */
+import type {Component, VNodeChild} from '../../../../level6/client/vdom/index.ts'
+import type { UIContext } from '../../../../level6/client/vdom/index.ts'
+import { h } from '../../../../level6/client/vdom/index.ts'
+
+export interface DividerProps {
+  vertical?: boolean
+  children?: VNodeChild}
+
+export const Divider: Component<DividerProps> = (_init, _ctx)=>
+  (props)=> {
+  const { vertical, children } = props
+
+  if (vertical) {
+    return h('div', { class: 'wf-divider wf-divider--vertical', role: 'separator' })
+  }
+
+  const cls = children ? 'wf-divider wf-divider--with-text' : 'wf-divider'
+
+  return h('div', { class: cls, role: 'separator' }, children
+    ? h('span', { class: 'wf-divider-text' }, children)
+    : undefined
+  )
+}

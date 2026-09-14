@@ -3,7 +3,7 @@
  * audit-orm-migration.mjs —— 业务 sql 模板计数（orm 迁移进度/防回流）
  *
  * W4：升级为 src+test 双范围（三域扫描——防测试面 SQL 残留回流）：
- *   apps/agent-platform/src · apps/agent-platform/test · 框架 src（server+test 面）
+ *   src/level6/apps/agent-platform/src · src/level6/apps/agent-platform/test · 框架 src（server+test 面）
  * 基线：ORM 协议层 AST 化后全库 0（W3 完成——parser/unsafe/tag 已消亡）——只降不升。
  * 纪律：
  *   - 每波次迁移完成 → 更新 BASELINE（只降不升——新增模板即红=CI 防回流）
@@ -20,8 +20,8 @@ import { fileURLToPath } from 'node:url'
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 /** 三域（W4 双范围升级）——每域独立 baseline 0 */
 const SCOPES = [
-  { name: '平台 src', dir: 'apps/agent-platform/src', baseline: 0 },
-  { name: '平台 test', dir: 'apps/agent-platform/test', baseline: 0 },
+  { name: '平台 src', dir: 'src/level6/apps/agent-platform/src', baseline: 0 },
+  { name: '平台 test', dir: 'src/level6/apps/agent-platform/test', baseline: 0 },
   { name: '框架 src', dir: 'src', baseline: 0, skip: (p) => p.includes('client/') }, // 客户端 vdom 组件不涉 SQL
 ]
 const WHITELIST_RE = /\/\/\s*orm-(pg-[\w-]+|upsert-[\w-]+|upsert|subquery)/

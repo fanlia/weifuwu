@@ -12,8 +12,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { useOverlay } from '../../client/vdom/hooks/overlay.ts'
-import { createMockCtx } from '../../test/contract/component-harness.ts'
+import { useOverlay } from '../../level3/vdom/hooks/overlay.ts'
+import { createMockCtx } from './component-harness.ts'
 
 /** 构造 env（hook 状态序列） */
 function mkEnv() {

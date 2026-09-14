@@ -12,7 +12,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const ROOT = 'src/client/components'
+const ROOT = 'src/level5/client/components'
 
 /** allowlist：文件名 → 行内容必须匹配的模式（数据色板/工具域语义） */
 const ALLOW = [

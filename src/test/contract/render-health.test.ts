@@ -11,9 +11,9 @@
  */
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { Subject } from '../../client/vdom/observable/index.ts'
-import { createRenderHealth } from '../../client/vdom/dev/render-health.ts'
-import type { Command } from '../../client/vdom/core/command/index.ts'
+import { Subject } from '../../level1/vdom/observable/index.ts'
+import { createRenderHealth } from '../../level3/vdom/dev/render-health.ts'
+import type { Command } from '../../level0/vdom/command/index.ts'
 
 const all: ReturnType<typeof createRenderHealth>[] = []
 after(() => { for (const h of all) h.dispose() })

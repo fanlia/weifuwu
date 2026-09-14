@@ -3,7 +3,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createRenderScheduler } from '../../client/vdom/core/v2/schedule.ts'
+import { createRenderScheduler } from '../../level1/vdom/v2/schedule.ts'
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
 
@@ -69,7 +69,7 @@ test('连续请求风暴：每拍合并——总渲染数 << 请求数', async (
 // ── VDOM-OBSERVABLE-OPTIMIZE 波次 3：时序显式化 + 回放 ───────────────
 
 test('request 观测点：sched:request 事件（时间线回放原料）', async () => {
-  const spy: import('../../client/vdom/core/v2/spy.ts').SpyEvent[] = []
+  const spy: import('../../level1/vdom/v2/spy.ts').SpyEvent[] = []
   ;(globalThis as { __wfSpy?: unknown[] }).__wfSpy = spy
   try {
     const s = createRenderScheduler()

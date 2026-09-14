@@ -15,7 +15,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { applyStyle, applyStyleValue } from '../../client/vdom/core/field/style.ts'
+import { applyStyle, applyStyleValue } from '../../level3/vdom/field/style.ts'
 import { FakeStyle } from './helpers/fake-dom.ts'
 
 /** 鸭舌 fake element（style 通道——FakeStyle + setAttribute 转写 cssText） */

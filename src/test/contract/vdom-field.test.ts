@@ -11,7 +11,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { useField } from '../../client/vdom/hooks/field.ts'
+import { useField } from '../../level3/vdom/hooks/field.ts'
 
 function env() { return { nextHookIndex: () => 0, getHookState: () => undefined, setHookState: () => {} } as any }
 
