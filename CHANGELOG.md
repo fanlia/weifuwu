@@ -8,6 +8,20 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.95.2] - 2026-09-14
+
+按域统计：platform 2 · auth 1 · core 1
+
+### Fixed
+
+- platform：seed 数据落 _default 单应用租户——登录后 agents/departments 不再为空
+- auth：_default 存量补挂 + seed 登录成员——浏览器登录 401 根治
+- platform：seed 幂等——_weifuwu_app_members 复合 PK upsert（re-seed 不再撞 pkey）
+
+### Chore
+
+- core：移除误提交的 npm pack 产物 + .gitignore 加 *.tgz（构建物禁入库）
+
 ## [0.95.1] - 2026-09-14
 
 按域统计：pkg 1
