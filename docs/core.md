@@ -72,6 +72,25 @@ npm run test:core            # 内核回归（无 docker/无浏览器：契约 +
 | docs 清单块漂移 | `docs/core.md` 生成块 ≠ 生成器 = 红 | `npm run core:levels` 重生成 |
 | 依赖方向/泄漏/三方 | 新增即红（存量基线登记） | 修代码，不可调白名单 |
 
+**层级承诺（W6 定案——冻结时刻表）**：
+
+| 层 | 承诺 | 冻结时刻 | 含义 |
+| --- | --- | --- | --- |
+| **L0** | 协议/不变量 | **现在**（0.x 内即冻结） | 快照红线全时生效；变更须显式写快照 + commit 说明迁移路径 |
+| **L1** | 引擎（vdom/router/serve/db 契约/生成器胶水） | **1.0** | 1.0 前可演进（每变过 `test:core` + 契约/fuzz）；1.0 后同 L0 机制 |
+| **L2** | 生成器（纯函数） | **provisional**（可重写） | 跨版本不承诺兼容；是实验面而非稳定面 |
+
+**验收实验（W6 实证——"再生成=零 core 改动"）**：
+
+| 实验 | 产物（装备面） | 结果 |
+| --- | --- | --- |
+| 新组件 | `createComponent` 声明（状态类/aria 机械生成） | 契约 **2/2** 绿；core 零改动（levels/snapshot 无漂移） |
+| 新接口 | 全新 shape + DDL 声明 + `orm.rest` 生成器（CRUD + 租户 scope） | **4/4** 绿；core 零改动 |
+| 平台升级 | W2②→W5 core **117 文件 / +16665 −402** | platform `src/` **零改动**；平台 tsc **0** · 507 绿 |
+
+> 平台 tsc 0 的前提修复：`apps/agent-platform/tsconfig.json` 显式 `"types": ["node"]`
+> （此前 393 条缺失 node 类型误报——配置面缺口，非代码缺陷；已加 `npm run typecheck`）。
+
 ## 清单（生成面）
 
 <!-- core-inventory:start（由 npm run core:levels 生成——勿手改） -->

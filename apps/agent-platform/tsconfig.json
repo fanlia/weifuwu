@@ -4,6 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
+    "types": ["node"],
     "jsx": "react-jsx",
     "jsxImportSource": "weifuwu/client/vdom",
     "skipLibCheck": true,

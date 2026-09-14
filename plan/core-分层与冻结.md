@@ -149,6 +149,13 @@ src/core/
   - 测试：frame 5 + server 12（含 6.2.4/6.4.2 形态回归）+ 差分 1；`test:server` **883**（882+1 skip）。
   - `ws` 降 devDependency（差分参考/回退选项；dist 零 ws 引用）；默认切换仅 `src/server/index.ts` serve 包装改动；Autobahn 夹具 `scripts/ws-autobahn-server.mjs`（dev-only）。
   - 回归：`test:core` 830 · `test:server` 883 · 场景 129/129 · 平台 507（492+15） · `tsc` 0 · 构建 0 · `audit:all`（core 线首跑拦下 +6 行 core 变更→显式更新基线→绿——机制实证）。
+- **W6（2026-09-14）验收实验 + 收尾**：
+  - **① 平台升级实验**：W2②→W5 core **117 文件 / +16665 −402** → `apps/agent-platform/src` **零改动**（`git diff` 空）；平台 tsc 393 误报 → **0**（根因：tsconfig 未显式 `"types": ["node"]`——配置缺口非代码缺陷；补 `npm run typecheck`）；平台 **507（492+15）** 绿。
+  - **② 再生成实验**（探针不入库，取证后删）：新组件（`createComponent` 声明——状态类/aria 机械生成）契约 **2/2** 绿；新接口（全新 shape+DDL+`orm.rest` 生成器——CRUD+租户 scope）**4/4** 绿；实验期 `git status` 仅装备面 + `audit:core-levels` 全绿（levels/snapshot/依赖零漂移）+ root tsc 0。
+  - **③ 承诺边界入文档**：docs/core.md 新增「层级承诺（冻结时刻表）」（L0 现在/L1 1.0/L2 provisional）+ 实验证据表；AGENTS 内置 core 三层资产条目 + 防线快照更新（契约 515 · showcase 336 · server 883 · **十四线**）。
+  - 平台 sandbox 测试重构漂移修复单独提交（`pg.orm` 正门——docker-gated）。
+  - 回归：`test:client` 515 · `test:core` 830 · `test:server` 883 · 场景 129 · showcase **336** · 平台 507 · `audit:core-levels` 绿 · `tsc` 0 · `audit:all` exit 0。
+  - 收尾：规则并入 `docs/core.md`/`docs/server.md`/`AGENTS.md`；本计划文件删除（git log 承接）。
 
 ## 验收标准
 
@@ -158,6 +165,6 @@ src/core/
 - [x] W3：目录迁移完成；收编类型/运行时到位；旧路径 shim 生效；全量回归绿
 - [x] W4：L0 快照 + 规模基线 + `docs/core.md` + `audit:all` 接入
 - [x] W5：Autobahn 301/0 FAILED + 差分 200/0 不等价 → native 默认（未触发回退）
-- [ ] W6：平台升级零 core 改动；再生成实验通过
+- [x] W6：平台升级零 core 改动（117 文件 core 演进 / platform src 零 diff）；再生成实验 2/2 + 4/4 绿
 - [ ] 全量回归门：契约 + 场景 + showcase + server + shared + audit 全线绿
-- [ ] 收尾：规则并入 `docs/core.md`/`docs/server.md`/`AGENTS.md`；计划文件归档 git 历史
+- [x] 收尾：规则并入 `docs/core.md`/`docs/server.md`/`AGENTS.md`；计划文件归档 git 历史
