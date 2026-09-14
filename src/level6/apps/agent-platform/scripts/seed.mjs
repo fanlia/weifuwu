@@ -101,9 +101,17 @@ async function main() {
   // 1. 应用 + 用户（框架 userSystem 三层模型）
   // ════════════════════════════════════════════════════
 
-  // 使用固定 UUID 确保 re-seed 后 app ID 永远不变
-  // 应用 token 中的 appId 始终有效，无需重新登录
-  const DEMO_APP_ID = '00000000-0000-0000-0000-000000000001'
+  // 应用 = 单应用模式的 _default 租户（agent-platform 实例化就是它）——业务数据必须落在 UI 登录租户
+  // （0.95.1 实证：数据落新建 demo 租户 → 登录后 agents/departments 全空）
+  // _default 不存在则建（与 users.migrate 同形——seed 可先于 server 首发运行）
+  let [defApp] = await orm.query.from('_weifuwu_apps').select('id').where({ slug: { eq: '_default' } }).run()
+  if (!defApp) {
+    ;[defApp] = await orm.query.insert('_weifuwu_apps')
+      .values({ slug: '_default', name: 'Default', owner_user_id: null, open_registration: true })
+      .returning('id')
+      .run()
+  }
+  const DEMO_APP_ID = String(defApp.id)
   const adminPassword = await hashPassword('admin123')
   const [admin] = await ins('_weifuwu_users', [{ email: 'admin@demo.com', name: '张明', password_hash: adminPassword, role: 'admin' }], { conflict: 'email', update: true, returning: ['id', 'name'] })
   console.log('  ✓ 管理员: admin@demo.com / admin123')
@@ -112,23 +120,15 @@ async function main() {
   const [user] = await ins('_weifuwu_users', [{ email: 'user@demo.com', name: '李华', password_hash: userPassword, role: 'member' }], { conflict: 'email', update: true, returning: ['id', 'name'] })
   console.log('  ✓ 用户: user@demo.com / user123')
 
-  // 应用（= 产品/公司——一个 app 就是一个公司）
-  await ins('_weifuwu_apps', [{ id: DEMO_APP_ID, slug: 'demo', name: '演示科技有限公司', owner_user_id: admin.id, sandbox_quota: 20 }], { conflict: 'id', update: true, merge: { sandbox_quota: 20 } })
+  // 应用元数据（演示名/owner/沙箱配额——不动 open_registration：由 bootstrap 定策）
+  await orm.query.update('_weifuwu_apps').set({ name: '演示科技有限公司', owner_user_id: admin.id, sandbox_quota: 20 }).where({ id: { eq: DEMO_APP_ID } }).run()
   // 成员关系（owner + member）——PK (app_id, user_id) 冲突 upsert（仅 role/invited_by 刷新）
   // 可重复执行：re-seed 不撞 _weifuwu_app_members_pkey（2027-xx 实证）
   await ins('_weifuwu_app_members', [
     { app_id: DEMO_APP_ID, user_id: admin.id, role: 'owner', invited_by: admin.id },
     { app_id: DEMO_APP_ID, user_id: user.id, role: 'member', invited_by: admin.id },
   ], { conflict: ['app_id', 'user_id'], update: true })
-  // UI 单应用模式（agent-platform = _default 应用——登录页 /api/auth/apps/_default/auth/login）
-  // 演示凭据必须能登录：admin/user 幂等挂入 _default（fresh 库首 owner 由 migrate 关联，
-  // 存量库/二次运行由此补足——0.95.1 实证登录 401）
-  const [defApp] = await orm.query.from('_weifuwu_apps').select('id').where({ slug: { eq: '_default' } }).run()
-  if (defApp) await ins('_weifuwu_app_members', [
-    { app_id: defApp.id, user_id: admin.id, role: 'owner', invited_by: admin.id },
-    { app_id: defApp.id, user_id: user.id, role: 'member', invited_by: admin.id },
-  ], { conflict: ['app_id', 'user_id'], update: true })
-  console.log('  ✓ 应用: 演示科技有限公司（demo）+ _default 登录成员（admin/user）')
+  console.log('  ✓ 应用: 演示科技有限公司（_default 单应用租户）+ 登录成员（admin/user）')
 
   // ════════════════════════════════════════════════════
   // 2. Agent — 真实用户映射
