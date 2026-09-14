@@ -6,7 +6,7 @@
  *   usage/done 全事件消费——此前只映射 token——核心层）
  * - approve 消息对象同一性（map 替换 → 流式写闭包旧引用 → 审批后回复丢失——核心层）
  * - wire-fake 语义触发（含「天气」→ agent 流程——body.mode 死分支修复）
- * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-aichat.test.ts
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test src/level6/apps/showcase/test/comp-aichat.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

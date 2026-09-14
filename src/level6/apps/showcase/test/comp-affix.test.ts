@@ -5,7 +5,7 @@
  * - style 对象→undefined 整体移除（applyStyle 静默 no-op → 卡 fixed——核心层）
  * - useScrollPosition refresh = ensure + emit（目标后挂载绑定丢失——核心层）
  * - threshold 容器级坐标系（rect.top+scrollTop 混入容器视口偏移——组件层）
- * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-affix.test.ts
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test src/level6/apps/showcase/test/comp-affix.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

@@ -11,7 +11,7 @@
  * - Settings：四卡（基本资料/外观/审计/系统状态）
  * - AgentDetail：ai 类型分区基线 + 错误态（不存在/无权）
  *
- * 单独运行：node --env-file=.env --test apps/agent-platform/test/ui/pages.test.ts
+ * 单独运行：node --env-file=.env --test src/level6/apps/agent-platform/test/ui/pages.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

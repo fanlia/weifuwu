@@ -1,6 +1,6 @@
 /**
  * showcase 组件测试——Steps（/components/steps）——完整能力
- * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-steps.test.ts
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test src/level6/apps/showcase/test/comp-steps.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

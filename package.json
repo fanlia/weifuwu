@@ -37,7 +37,22 @@
     "audit:levels": "node scripts/level-map.mjs --check && node scripts/level-graph.mjs --check && node scripts/level0-snapshot.mjs --check",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
     "test:perf": "PERF_BASELINE=1 node --env-file=.env --test src/level5/server/core/router-contract.test.ts",
-    "test:format": "node --test scripts/changelog-format.test.mjs"
+    "test:format": "node --test scripts/changelog-format.test.mjs",
+    "platform:dev": "cd src/level6/apps/agent-platform && node --env-file=.env --watch server.ts",
+    "platform:start": "cd src/level6/apps/agent-platform && node --env-file=.env server.ts",
+    "platform:seed": "cd src/level6/apps/agent-platform && node --env-file=.env scripts/seed.mjs",
+    "platform:build": "cd src/level6/apps/agent-platform && esbuild ui/v3-main.tsx --bundle --minify --format=esm --outfile=dist/app.js --jsx=automatic --jsx-import-source=weifuwu/client/vdom",
+    "platform:build:sandbox": "mkdir -p src/level6/apps/agent-platform/dist/sandbox && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -C src/level5/sandbox -o \"$PWD/src/level6/apps/agent-platform/dist/sandbox/sandbox-agent\" .",
+    "platform:pretest": "node -e \"try{const fs=require('fs');const p=fs.readFileSync('/tmp/ap-shared-server.pid','utf8').trim();process.kill(Number(p))}catch{}\"",
+    "platform:posttest": "node -e \"const fs=require('fs');const p=fs.readFileSync('/tmp/ap-shared-server.pid','utf8').trim();try{process.kill(Number(p))}catch{}fs.rmSync('/tmp/ap-shared-server.pid',{force:true})\"",
+    "platform:test": "npm run -s platform:pretest; cd src/level6/apps/agent-platform && node --env-file=.env --test --test-concurrency=1 'test/**/*.test.ts'; s=$?; npm run -s platform:posttest; exit $s",
+    "platform:test:docker": "cd src/level6/apps/agent-platform && RUN_DOCKER_TESTS=1 node --env-file=.env --test --test-concurrency=1 test/sandbox.test.ts",
+    "platform:test:ui": "cd src/level6/apps/agent-platform && node --env-file=.env --test --test-concurrency=1 'test/ui/**/*.test.ts'",
+    "platform:typecheck": "cd src/level6/apps/agent-platform && npx tsc --noEmit",
+    "platform:check:shapes": "cd src/level6/apps/agent-platform && node scripts/shape-check.mjs",
+    "platform:audit:routes": "cd src/level6/apps/agent-platform && node scripts/audit-route-coverage.mjs",
+    "platform:audit:pages": "cd src/level6/apps/agent-platform && node scripts/audit-page-generations.mjs",
+    "platform:audit:any": "cd src/level6/apps/agent-platform && node scripts/audit-any.mjs"
   },
   "dependencies": {
     "esbuild": "^0.28.1",

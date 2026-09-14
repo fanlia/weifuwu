@@ -2,7 +2,7 @@
  * showcase 组件测试——Toast（/components/toast）
  *
  * 每组件一个测试文件（单独运行）：
- *   node --env-file=.env --test apps/showcase/test/comp-toast.test.ts
+ *   node --env-file=.env --test src/level6/apps/showcase/test/comp-toast.test.ts
  *
  * 契约：demo 状态式 Toast 列表——按钮触发 → 3s 自动消失——位置切换。
  */

@@ -1,6 +1,6 @@
 /**
  * showcase 组件测试——ThemeSwitch（/components/themeswitch）——完整功能
- * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-themeswitch.test.ts
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test src/level6/apps/showcase/test/comp-themeswitch.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

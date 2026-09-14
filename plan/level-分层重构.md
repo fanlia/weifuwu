@@ -195,12 +195,27 @@ src/
 - 既有红（非迁移引入，worktree `00fc04a0` 同源复现）：`test:contract-components` 120/124——4 红（aria 布尔归一
   在命令流面缺失：CitationCard/SegmentedControl/Switch/Tabs）——登记待独立波次（迁移不动组件行为）
 
+**W2（完成）**：
+
+- **应用资产全量内化**：agent-platform 75 tracked 资产（public/skills/design/docs/Dockerfile*/.env.example/
+  tsconfig/scripts(\.sh)/schema.sql/capabilities.json/eval-cases.json/ui ctx.d.ts）+ showcase tsconfig → `src/level6/apps/`；
+  运行时 `.env`/`data`/`backups` 随迁；`node_modules` 符号链接/旧 `dist`/`test-results` 删除——**`apps/` 目录消亡**
+- **包解散**：app package.json 删除——15 scripts → 根 `platform:*`（cd 进应用目录保持 cwd 语义：
+  `data/uploads|workspaces`、`--env-file=.env`、脚本相对路径全兼容）；前后置清理显式链（共享 server :39217）
+- **路径基准修正**（应用位置深两级）：双 app tsconfig paths `../../src/level6` → `../../../level6` ·
+  本地 CDN distRoot `../../dist` → `../../../../dist`（旧指向 `src/level6/dist`）· compose 契约测试 repo-root 上溯补足
+  · Dockerfile COPY/CMD 全量新布局 · 注释面 143 文件同步 · .gitignore 归位（app 自持 data/dist/test-results/.env——根清 apps/* 条目）
+- 回归：`platform:test` **507（492 pass + 15 skip）** · `platform:test:ui` **155** · `platform:typecheck` 0 ·
+  `platform:build` ✓（dist/app.js 517.5kb）· `check:shapes` ✓（24 表）· `audit:routes` ✓ · showcase **336** ·
+  `audit:all` **十四线 exit 0** · test:levels/test:client 复跑绿
+- 意外：platform:test 首跑 1 红（compose 契约——repo-root 上溯不够）——修 4 级后全绿
+
 （W1 起逐波记录：迁移文件数/回归数字/意外）
 
 ## 验收标准
 
 - [ ] W0：全库清单 100% 分类（含 apps/Go/资产）；重写器 + 脚本命令更名完成
 - [x] W1：框架面迁移完成；全库 import 重写；无 shim；五域回归 + `tsc` 0（+ `exports` 字段删除、dist 约定解析——W3 仅剩两 bin/`files`/npm pack 安装冒烟）
-- [ ] W2：apps 内化（包解散）；平台 507 + showcase 336 + `audit:all` 绿
+- [x] W2：apps 内化（包解散）；平台 507 + showcase 336 + `audit:all` 绿
 - [ ] W3：两 bin；`npm pack` 安装冒烟（dist 路径导入 + 两应用可启动）· `exports` 字段已删（W1 已删）
 - [ ] W4：`audit:levels` 加锁（快照/规模/漂移/方向）；`docs/level.md`；计划归档

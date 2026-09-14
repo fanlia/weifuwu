@@ -1,7 +1,7 @@
 /**
  * showcase 组件测试——Descriptions（/components/descriptions）——全功能点固化
  * 清单：「Descriptions」组（playwright 实测后固化）
- * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-descriptions.test.ts
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test src/level6/apps/showcase/test/comp-descriptions.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

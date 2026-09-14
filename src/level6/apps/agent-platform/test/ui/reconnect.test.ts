@@ -9,7 +9,7 @@
  *    → 重发订阅 + loadMessages(true) 补拉合并（id 去重——不重复上屏）
  * 5. 断言：断线期间消息出现**恰好一次**（补拉不重复——A2 核心契约）
  *
- * 单独运行：node --env-file=.env --test apps/agent-platform/test/ui/reconnect.test.ts
+ * 单独运行：node --env-file=.env --test src/level6/apps/agent-platform/test/ui/reconnect.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

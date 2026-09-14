@@ -819,7 +819,7 @@ export async function registerProtectedRoutes(app: Router<AppCtx>, deps: Platfor
   // 本地 CDN（问卷页——v2 面——dist/client/vdom/index.js；旧 ui-dom 产物已随
   // v1 退役消失——问卷页 2027-09 迁移 vdom（S7 试点抓到：真实 LLM 打开问卷
   // 页静态资源 500——页面运行面断链——角色浏览器渲染失败卡死））
-  const distRoot = join(__dirname, '..', '..', 'dist')
+  const distRoot = join(__dirname, '..', '..', '..', '..', 'dist')
   app.get('/static/ui-dom/index.js', async (): Promise<Response> => {
     const { readFileSync } = await import('node:fs')
     return new Response(readFileSync(join(distRoot, 'client', 'vdom', 'index.js'), 'utf-8'), { headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' } })

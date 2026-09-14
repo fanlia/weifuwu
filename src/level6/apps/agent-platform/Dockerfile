@@ -7,13 +7,13 @@ COPY package.json package-lock.json ./
 
 # 复制 weifuwu 框架源码（monorepo 内部引用）
 COPY src/ ./src/
-COPY apps/agent-platform/ ./apps/agent-platform/
+COPY src/level6/apps/agent-platform/ ./src/level6/apps/agent-platform/
 
 # 安装依赖
 RUN npm ci
 
 # 构建前端 SPA
-RUN node apps/agent-platform/scripts/build.mjs
+RUN node src/level6/apps/agent-platform/scripts/build.mjs
 
 # ── 运行阶段 ──────────────────────────────────────────────
 FROM node:22-alpine AS runner
@@ -23,15 +23,15 @@ WORKDIR /app
 COPY --from=builder /build/package.json ./
 COPY --from=builder /build/node_modules ./node_modules
 COPY --from=builder /build/src ./src
-COPY --from=builder /build/apps/agent-platform/dist ./apps/agent-platform/dist
-COPY --from=builder /build/apps/agent-platform/server.ts ./apps/agent-platform/
-COPY --from=builder /build/apps/agent-platform/src ./apps/agent-platform/src
-COPY --from=builder /build/apps/agent-platform/public ./apps/agent-platform/public
-COPY --from=builder /build/apps/agent-platform/scripts ./apps/agent-platform/scripts
-COPY --from=builder /build/apps/agent-platform/ui ./apps/agent-platform/ui
-COPY --from=builder /build/apps/agent-platform/tsconfig.json ./apps/agent-platform/
+COPY --from=builder /build/src/level6/apps/agent-platform/dist ./src/level6/apps/agent-platform/dist
+COPY --from=builder /build/src/level6/apps/agent-platform/server.ts ./src/level6/apps/agent-platform/
+COPY --from=builder /build/src/level6/apps/agent-platform/src ./src/level6/apps/agent-platform/src
+COPY --from=builder /build/src/level6/apps/agent-platform/public ./src/level6/apps/agent-platform/public
+COPY --from=builder /build/src/level6/apps/agent-platform/scripts ./src/level6/apps/agent-platform/scripts
+COPY --from=builder /build/src/level6/apps/agent-platform/ui ./src/level6/apps/agent-platform/ui
+COPY --from=builder /build/src/level6/apps/agent-platform/tsconfig.json ./src/level6/apps/agent-platform/
 
 EXPOSE 3000
 # 环境注入经 compose environment 块（2026-08——--env-file=.env 容器内无文件
 # → node 启动即崩（实测 /nonexistent: not found）——容器环境变量优先）
-CMD ["node", "apps/agent-platform/server.ts"]
+CMD ["node", "src/level6/apps/agent-platform/server.ts"]

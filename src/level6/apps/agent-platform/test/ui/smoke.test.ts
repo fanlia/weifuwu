@@ -6,7 +6,7 @@
  * 参数化路由（/chat/:id、/departments/:id）由 pages.test.ts 基线覆盖——
  * 此处只扫静态路由（含 /agents/:id 种子 Agent——详情页代表）。
  *
- * 单独运行：node --env-file=.env --test apps/agent-platform/test/ui/smoke.test.ts
+ * 单独运行：node --env-file=.env --test src/level6/apps/agent-platform/test/ui/smoke.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

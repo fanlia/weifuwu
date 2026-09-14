@@ -1,5 +1,5 @@
 /**
- * apps/showcase — weifuwu 组件演示平台（自举）
+ * src/level6/apps/showcase — weifuwu 组件演示平台（自举）
  *
  * 能力：
  *   /app.js               平台前端（ctx.ui.js 动态编译）

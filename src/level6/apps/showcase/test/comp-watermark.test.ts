@@ -1,6 +1,6 @@
 /**
  * showcase 组件测试——Watermark（/components/watermark）——水印覆盖
- * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-watermark.test.ts
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test src/level6/apps/showcase/test/comp-watermark.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

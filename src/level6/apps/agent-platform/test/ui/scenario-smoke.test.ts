@@ -177,7 +177,7 @@ test('J5: campaign API 旅程——角色池创建 → 创建 → 进度查询�
 // ── J6 私有化/白标交付（配置契约） ─────────────────────────
 test('J6: compose 配置契约——依赖栈三服务 + healthcheck（仓库根唯一 compose——2026-09 收敛）', () => {
   // agent-platform 无独立 compose（AGENTS §7：应用本体宿主 node 跑——不 build app）
-  const yml = readFileSync(join(APP_ROOT, '..', '..', 'docker-compose.yml'), 'utf-8')
+  const yml = readFileSync(join(APP_ROOT, '..', '..', '..', '..', 'docker-compose.yml'), 'utf-8')
   assert.match(yml, /postgres.*:/, 'postgres 服务')
   assert.match(yml, /redis.*:/, 'redis 服务')
   // 2026-10 邮件内存化：smtp/greenmail 已删——compose 仅 postgres/redis 两个依赖

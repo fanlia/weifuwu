@@ -2,7 +2,7 @@
  * showcase 组件测试——Tour（/components/tour）
  *
  * 每组件一个测试文件（一个地址 + 一个组件——单独运行——小步快跑）：
- *   node --env-file=.env --test apps/showcase/test/comp-tour.test.ts
+ *   node --env-file=.env --test src/level6/apps/showcase/test/comp-tour.test.ts
  *
  * 锁定修复（showcase 交互扫描抓出——agent-browser + playwright 回归）：
  * - usePopup positioning 'none' 不刷新 → 气泡定位视口左上角（rect 0）

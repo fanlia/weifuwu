@@ -1,7 +1,7 @@
 /**
  * showcase 组件测试——StatusDot（/components/statusdot）——全功能点固化
  * 清单：on/tone 矩阵 · label 缺省只渲染点 · 文字色随 tone
- * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-status-dot.test.ts
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test src/level6/apps/showcase/test/comp-status-dot.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

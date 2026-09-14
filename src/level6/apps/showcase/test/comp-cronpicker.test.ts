@@ -1,7 +1,7 @@
 /**
  * showcase 组件测试——CronPicker（/components/cronpicker）——全功能点固化
  * 清单：preset 选中 → 当前值变更 · 自由输入直传 · 双通道共存
- * 每组件一个测试文件（单独运行）：node --env-file=.env --test apps/showcase/test/comp-cronpicker.test.ts
+ * 每组件一个测试文件（单独运行）：node --env-file=.env --test src/level6/apps/showcase/test/comp-cronpicker.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

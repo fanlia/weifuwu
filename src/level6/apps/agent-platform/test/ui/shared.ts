@@ -2,7 +2,7 @@
  * agent-platform UI 测试基建（OPTIMIZE-PLAN-3——对齐 weifuwu/client/vdom 测试纪律）
  *
  * 旧基建（jsdom + ui-dom createRouter）已随框架重构（ui-dom 删除）失效——
- * 新形态 = 场景层纪律（src/test/scenario/ 与 apps/showcase/test/ 同构）：
+ * 新形态 = 场景层纪律（src/test/scenario/ 与 src/level6/apps/showcase/test/ 同构）：
  * **playwright + 真实 server（uiServe）**——真实浏览器 + 真实渲染管线 +
  * 真实认证/数据链路——断言 DOM 而非模拟。
  *

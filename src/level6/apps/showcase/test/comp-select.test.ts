@@ -2,7 +2,7 @@
  * showcase 组件测试——Select（/components/select）
  *
  * 每组件一个测试文件（单独运行）：
- *   node --env-file=.env --test apps/showcase/test/comp-select.test.ts
+ *   node --env-file=.env --test src/level6/apps/showcase/test/comp-select.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

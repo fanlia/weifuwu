@@ -9,7 +9,7 @@
  * - 等一个轮询周期 → 消息经 HTTP 补拉出现（id 去重——恰好一次）
  * - 页面上「连接断开」徽章可见（断线感知——E1 兜底的前提）
  *
- * 单独运行：node --env-file=.env --test apps/agent-platform/test/ui/polling.test.ts
+ * 单独运行：node --env-file=.env --test src/level6/apps/agent-platform/test/ui/polling.test.ts
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

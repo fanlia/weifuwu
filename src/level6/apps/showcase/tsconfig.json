@@ -4,7 +4,6 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
-    "types": ["node"],
     "jsx": "react-jsx",
     "jsxImportSource": "weifuwu/client/vdom",
     "skipLibCheck": true,
@@ -12,24 +11,22 @@
     "noEmit": true,
     "paths": {
       "weifuwu": [
-        "../../src/level6/index.ts"
+        "../../../level6/index.ts"
       ],
       "weifuwu/client/vdom/jsx-runtime": [
-        "../../src/level6/client/vdom/jsx-runtime.ts"
+        "../../../level6/client/vdom/jsx-runtime.ts"
       ],
       "weifuwu/client/vdom": [
-        "../../src/level6/client/vdom/index.ts"
+        "../../../level6/client/vdom/index.ts"
       ],
       "weifuwu/client/components": [
-        "../../src/level6/client/components/index.ts"
+        "../../../level6/client/components/index.ts"
       ]
     }
   },
   "include": [
-    "src/**/*.ts",
     "src/**/*.tsx",
-    "server.ts",
-    "ui/**/*.tsx",
-    "ui/**/*.d.ts"
+    "src/**/*.ts",
+    "server.ts"
   ]
 }
