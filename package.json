@@ -1,7 +1,7 @@
 {
   "name": "weifuwu",
   "type": "module",
-  "version": "0.94.1",
+  "version": "0.95.0",
   "description": "AI SaaS full-stack framework — backend HTTP + frontend VDOM + 138 components + CSS design system + SaaS foundation (auth/queue/AI). Zero-build, zero-dependency.",
   "files": [
     "dist/",

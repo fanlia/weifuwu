@@ -8,6 +8,61 @@
 
 （release.mjs 发布时自动生成——不要手写）
 
+## [0.95.0] - 2026-09-14
+
+按域统计：pkg 1 · ws 1 · core 25 · vdom 3 · platform-test 1 · plan 4 · level 1
+
+### Added
+
+- pkg：W3 包面开放——双 bin + dist levelN 构建策略 + 安装冒烟
+- ws：W5 自研 RFC6455 成为默认适配器——Autobahn 301/0 FAILED + 差分 200/0 不等价（core-分层与冻结）
+- core：W4 加锁——L0 出口快照 + 规模基线 + docs 生成漂移哨兵 + audit:all 十四线（core-分层与冻结）
+- core：W1 防线三件套——test:core 6.3s + core-graph 闭包断言 + 注入探针实证（core-分层与冻结）
+- core：W0 分层清单与基线——levels.json + core:levels/audit:core-levels（core-分层与冻结）
+- vdom：W1 语义面原语 semantic()——role 模板表 + 语义审计防线（三面论）
+- vdom：回馈#5 值域槽——enum 单键互斥多值（三态 checkbox 原型落地）
+
+### Fixed
+
+- vdom：create 命令面 aria 布尔内核归一——契约组件 124/124（四红清零）
+- platform-test：sandbox 套件对齐 orm 正门（pg.orm——重构漂移；docker-gated）
+
+### Docs
+
+- plan：归档全部历史计划（21 份——git log 承接，plan/ 只留 plan.md）
+- level：W4 审计七级化加锁与文档收尾——docs/level.md 重写 + 迁移指南 + AGENTS/README 全量七级化（计划归档）
+- core：W6 验收实验记录——平台升级零 core 改动 + 再生成双实验 + 承诺边界/AGENTS 快照校准（core-分层与冻结）
+- plan：三面论 W0-W5 执行实录——W5 验收全绿（release v0.95.0 待确认）
+- plan：W0 三面论核心概念文档化——组件四要素模型（概念先行·波次判据基座）
+- core：回馈#5 文档同步——createItem 值域槽（enum 单键互斥·三态 checkbox 原型）
+
+### Chore
+
+- core：删除 peerDependencies 三件（tailwindcss/postcss/@tailwindcss/postcss 可选 peer）
+- core：@types/node ^25 → ^26（与运行时 Node v26.7.0 对齐）
+- core：清理 puppeteer-core/@graphql-tools/schema/ws——零外部 WS/浏览器实现
+- core：清理 tailwindcss/postcss 依赖——CSS 全链自研（layout 装配 + 内部解析器）
+- core：删除死依赖 postgres/ioredis——自研 PG v3/RESP2 引擎已在位
+- plan：core-分层与冻结 计划归档——W0-W6 全完成，过程由 git log 承接
+
+### Other（未分类——人工补域）
+
+- core：docs+build(release): 发布前文档同步（138 组件/入口路径/CSS 正典产物）
+- core：refactor(level): W2 应用内化（包解散）——apps 资产归 level6/apps + platform:* 根脚本
+- core：refactor(level): W1 框架面原子迁移——level0–6 七级落位 + 全库 import 重写 + exports 删除
+- core：refactor(level): W0-3 迁移执行器（dry-run 实证）——W0 收口
+- core：refactor(level): W0-2 全库分类器 v2——七级清单/target 映射/shim 登记/闭包固化
+- core：refactor(level): W0-1 去 core 更名（脚本/命令/数据/文档/契约测试）
+- core：plan: level 分层重构 v3——依赖面收敛 + 探针刷新 + 迁移重写器设计
+- core：plan: level 分层重构 v2——单包化 · 无 shim · apps 内化导出
+- core：refactor(core): W3 目录迁移——src/core/{l0,l1,l2} + 116 旧路径 shim（core-分层与冻结）
+- core：refactor(vdom): W2④ 端口类型下沉 + AI 类型归 shared——泄漏 14→0（core-分层与冻结）
+- core：refactor(db): W2③ 数据面割外——RESP/生成器契约下沉 L0 + orm 生成器插件化（core-分层与冻结）
+- core：refactor(server): W2② ws 出核——WsHandlePort 端口 + 装备适配器（core 三方 0）（core-分层与冻结）
+- core：refactor(server): W2① graphql 出核——Router.graphql → graphql() 中间件（core-分层与冻结）
+- core：refactor(components): W3 状态机面铺开——useSignal 收敛 5 组件（三面论）
+- core：refactor(components): W2 投影面铺开——探针重定位（跨元素双面判据确立）
+
 ## [0.94.1] - 2026-09-06
 
 按域统计：vdom 1 · core 1
