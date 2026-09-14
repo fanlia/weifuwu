@@ -15,9 +15,7 @@ import { createComponentRegistry } from './node/component.ts'
 import type { UIContext } from '../context/UIContext.ts'
 import type { Command } from './command/index.ts'
 import type { Browser } from '../browser/Browser.ts'
-import type { ApiClient } from '../middlewares/api.ts'
-import type { AuthClient } from '../middlewares/auth-i18n.ts'
-import type { WsClient } from '../middlewares/ws.ts'
+import type { ApiClient, AuthClient, I18nState, WsClient } from './ports.ts'
 import { createDevVerifier } from './patch/verify.ts'
 import { installEffectGuard } from '../dev/effect-guard.ts'
 
@@ -119,7 +117,7 @@ export interface UiServeOptions {
   /** WebSocket 客户端 */
   ws?: WsClient
   /** 国际化 */
-  i18n?: import('../middlewares/auth-i18n.ts').I18nState
+  i18n?: I18nState
   /** 命令式轻提示（形状与 ToastInjected 对齐——签名内联避免 core→components 依赖） */
   toast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning', duration?: number, action?: { label: string; onClick: () => void }) => void
   /** 命令式确认 */

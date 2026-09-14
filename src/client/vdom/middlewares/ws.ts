@@ -1,4 +1,8 @@
 import { Subject, BehaviorSubject, type Observable } from '../observable/index.ts'
+import type { WsClient, WsLike } from '../core/ports.ts'
+
+/** 端口类型单源在 core/ports.ts（W2——core 零中间件依赖）——此处重出兼容旧路径 */
+export type { WsClient, WsLike } from '../core/ports.ts'
 
 /**
  * vdom middlewares — ws（WebSocket 客户端——ctx.ws 注入面）
@@ -48,35 +52,7 @@ export interface WsOptions {
 }
 
 /** 最小 WS 形状（兼容浏览器 WebSocket 与测试 mock） */
-export interface WsLike {
-  send(data: string): void
-  close(): void
-  /** 连接状态（浏览器 WebSocket 标准——CONNECTING=0 OPEN=1——Mock 需实现） */
-  readyState: number
-  onmessage: ((e: { data: unknown }) => void) | null
-  onopen: (() => void) | null
-  onclose: (() => void) | null
-  onerror: ((e: unknown) => void) | null
-}
-
-export interface WsClient {
-  /** 连接（切换 URL——旧连接关闭——未传用 opts.url） */
-  connect(url?: string): void
-  /** 连接状态（onopen 置 true——onclose 置 false） */
-  isConnected: boolean
-  /** 发送（JSON 序列化） */
-  send(data: unknown): void
-  /** 消息订阅（返回退订） */
-  onMessage(cb: (data: unknown) => void): () => void
-  /** 状态翻转订阅（订阅时回放当前态——onopen/onclose 触发——返回退订） */
-  onStatusChange(cb: (connected: boolean) => void): () => void
-  /** **消息流视图（波次 7——onMessage 同源——可 pipe/takeUntil）** */
-  messages$: Observable<unknown>
-  /** **状态流视图（波次 7——BehaviorSubject 语义——订阅即回放当前态）** */
-  status$: Observable<boolean>
-  /** 关闭（主动——不触发自动重连） */
-  close(): void
-}
+/** WsLike/WsClient 接口定义：core/ports.ts（W2 下沉） */
 
 /** 创建 ws 客户端（每 serve 实例独立） */
 export function ws(opts: WsOptions = {}): WsClient {

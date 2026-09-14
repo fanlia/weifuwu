@@ -2,14 +2,14 @@
   "version": 1,
   "summary": {
     "l0": {
-      "files": 24,
-      "loc": 2691,
-      "exports": 196
+      "files": 25,
+      "loc": 2856,
+      "exports": 215
     },
     "l1": {
-      "files": 83,
-      "loc": 12812,
-      "exports": 376
+      "files": 84,
+      "loc": 12912,
+      "exports": 383
     },
     "l2": {
       "files": 7,
@@ -23,17 +23,11 @@
     }
   },
   "thirdParty": [],
-  "leaks": [
-    "src/client/vdom/context/UIContext.ts → src/client/vdom/middlewares/auth-i18n.ts",
-    "src/client/vdom/core/protocol.ts → src/client/vdom/middlewares/api.ts (type)",
-    "src/client/vdom/core/protocol.ts → src/client/vdom/middlewares/auth-i18n.ts",
-    "src/client/vdom/core/protocol.ts → src/client/vdom/middlewares/auth-i18n.ts (type)",
-    "src/client/vdom/core/protocol.ts → src/client/vdom/middlewares/ws.ts (type)",
-    "src/client/vdom/hooks/chat.ts → src/server/ai/types.ts"
-  ],
+  "leaks": [],
   "upward": [
     "src/client/vdom/core/vnode.ts(l0) → src/client/vdom/context/UIContext.ts(l1) (type)"
   ],
   "nodeInUniversal": [],
-  "unknown": []
+  "unknown": [],
+  "graphThirdParty": []
 }

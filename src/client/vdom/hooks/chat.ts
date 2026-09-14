@@ -27,7 +27,7 @@ export interface ChatToolCall {
   progress?: unknown
   result?: unknown
   /** HITL 审批请求（ui-dom 兼容——AiChat 读 toolCall 级 approval） */
-  approval?: import('../../../server/ai/types.ts').WfApprovalRequest
+  approval?: import('../../../shared/ai/types.ts').WfApprovalRequest
 }
 
 export interface ChatMessage {
@@ -41,11 +41,11 @@ export interface ChatMessage {
   /** 消息状态（流式中/错误） */
   status?: 'streaming' | 'error'
   /** 用量（ui-dom 兼容） */
-  usage?: import('../../../server/ai/types.ts').WfUsage
+  usage?: import('../../../shared/ai/types.ts').WfUsage
   /** HITL 审批请求（ui-dom 兼容——AiChat 读消息级 approval） */
-  approval?: import('../../../server/ai/types.ts').WfApprovalRequest
+  approval?: import('../../../shared/ai/types.ts').WfApprovalRequest
   /** 错误（ui-dom 兼容） */
-  error?: import('../../../server/ai/types.ts').WfError
+  error?: import('../../../shared/ai/types.ts').WfError
 }
 
 export interface ChatOptions {
@@ -67,17 +67,17 @@ export interface ChatChunk {
   content?: string
   toolCalls?: ChatToolCall[]
   /** wf:step——思考/工具状态指示 */
-  step?: import('../../../server/ai/types.ts').WfStep | null
+  step?: import('../../../shared/ai/types.ts').WfStep | null
   /** wf:usage——token 用量 */
-  usage?: import('../../../server/ai/types.ts').WfUsage
+  usage?: import('../../../shared/ai/types.ts').WfUsage
   /** wf:approval_request——HITL 审批请求（挂当前 assistant 消息） */
-  approval?: import('../../../server/ai/types.ts').WfApprovalRequest
+  approval?: import('../../../shared/ai/types.ts').WfApprovalRequest
   /** wf:tool_progress——工具进度（按 toolCallId 定位更新） */
   toolProgress?: { toolCallId: string } & Record<string, unknown>
   /** wf:tool_result——工具结果（按 id 定位更新） */
   toolResult?: { id: string; ok?: boolean; output?: unknown } & Record<string, unknown>
   /** wf:error——协议错误 */
-  error?: import('../../../server/ai/types.ts').WfError
+  error?: import('../../../shared/ai/types.ts').WfError
   /** wf:done——流结束（content 仅在消息为空时采纳——防 token 累积重复） */
   done?: boolean
   /** 内部标记：content 来自 done 快照（替换语义而非追加） */
@@ -107,11 +107,11 @@ export interface ChatHandle extends ExternalStore<ChatMessage[]> {
   /** 流式中（ui-dom 兼容） */
   streaming: boolean
   /** 最近错误（ui-dom 兼容） */
-  error: import('../../../server/ai/types.ts').WfError | null
+  error: import('../../../shared/ai/types.ts').WfError | null
   /** 用量（ui-dom 兼容——wf:usage） */
-  usage: import('../../../server/ai/types.ts').WfUsage | null
+  usage: import('../../../shared/ai/types.ts').WfUsage | null
   /** 最近 wf:step（思考/工具指示——done/error 清空） */
-  step: import('../../../server/ai/types.ts').WfStep | null
+  step: import('../../../shared/ai/types.ts').WfStep | null
   /** 响应 HITL 审批（协议 §4.5——ui-dom 兼容：
    *  approve(decision, note?, modifiedArgs?)——modified 决策带修改后参数） */
   approve(decision: string, note?: string, modifiedArgs?: Record<string, unknown>): Promise<void>
@@ -125,9 +125,9 @@ interface ChatState {
   controller: AbortController | null
   seq: number
   input: string
-  error: import('../../../server/ai/types.ts').WfError | null
-  usage: import('../../../server/ai/types.ts').WfUsage | null
-  step: import('../../../server/ai/types.ts').WfStep | null
+  error: import('../../../shared/ai/types.ts').WfError | null
+  usage: import('../../../shared/ai/types.ts').WfUsage | null
+  step: import('../../../shared/ai/types.ts').WfStep | null
 }
 
 let _idSeq = 0

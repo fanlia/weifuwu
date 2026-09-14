@@ -4,7 +4,7 @@
  * wf: SSE 协议流式解析（event: <name> / data: <json> 块）——分发到
  * onToken/onToolCall/onApproval 等回调——AbortController 取消——
  * onError 统一（HTTP 状态映射/网络失败/解析失败）——provider 协议
- * 类型来自 server/ai/types（服务端同源契约）。
+ * 类型来自 shared/ai/types（前后端同源契约）。
  *
  * 组件消费（SheetGrid/SlideCanvas/Editor——AI 公式/生成）——
  * 非公共面（内部路径导入——公共面保持 h/jsx/uiServe/UIRouter）。
@@ -13,7 +13,7 @@
 import type {
   WfApprovalRequest, WfDone, WfError, WfErrorCode, WfStreamEvent,
   WfToolCall, WfToolProgress, WfToolResult, WfUsage,
-} from '../../../server/ai/types.ts'
+} from '../../../shared/ai/types.ts'
 
 /** 事件回调面（组件消费） */
 export interface AiStreamCallbacks {

@@ -1,4 +1,8 @@
 import { Subject, BehaviorSubject, type Observable } from '../observable/index.ts'
+import type { AuthClient, I18nState, StorageAdapter } from '../core/ports.ts'
+
+/** 端口类型单源在 core/ports.ts（W2——core 零中间件依赖）——此处重出兼容旧路径 */
+export type { AuthClient, I18nState, StorageAdapter } from '../core/ports.ts'
 /**
  * vdom middlewares — auth/i18n（ctx.auth 令牌管理 + ctx.i18n 国际化）
  *
@@ -7,32 +11,8 @@ import { Subject, BehaviorSubject, type Observable } from '../observable/index.t
  * - i18n：locale/messages——t(key, params) 插值——setLocale 切换
  */
 
-/** 存储适配（auth token 持久化——默认内存——生产可传 localStorage 适配） */
-export interface StorageAdapter {
-  get(key: string): string | null
-  set(key: string, value: string): void
-}
-
-export interface AuthClient {
-  getToken(): string | null
-  setToken(token: string | null): void
-  /** 请求头注入（Authorization: Bearer） */
-  headers(): Record<string, string>
-  logout(): void
-  /** 当前用户（userKey 持久化——login/setUser 写——未登录 null） */
-  user: unknown
-  /** 是否已登录（token 存在） */
-  isLoggedIn: boolean
-  /** **token 值流（波次 7——login/setToken/logout 触发——BehaviorSubject
-   *  语义——订阅即收当前 token——应用层监听登录态变化）** */
-  token$: Observable<string | null>
-  /** 登录（token/user/refreshToken 持久化——onAuth 钩子接线） */
-  login(token: string, user: unknown, refreshToken?: string | null): void
-  /** 更新用户信息（原地写——userKey 持久化） */
-  setUser(user: unknown): void
-  /** 刷新 token（onRefresh 钩子——成功重写 token 返回 true） */
-  refresh(): Promise<boolean>
-}
+/** 存储适配（auth token 持久化——默认内存——生产可传 localStorage 适配）
+ *  接口定义：core/ports.ts（W2 下沉） */
 
 export interface AuthOptions {
   storage?: StorageAdapter
@@ -135,18 +115,7 @@ export interface I18nOptions {
   messages?: Messages
 }
 
-export interface I18nState {
-  locale: string
-  setLocale(locale: string): void
-  /** **locale 值流（波次 7——setLocale 事件源——Subject 语义——无自动
-   *  渲染纪律保持：订阅方自行决定渲染时机）** */
-  locale$: Observable<string>
-  /** 取文本（{name} 插值——缺失 key 返回 key 本身——不静默） */
-  t(key: string, params?: Record<string, unknown>): string
-  /** 组件文案面（ui-dom 兼容——SheetGrid/SlideCanvas 读组件级文案——
-   *  可选——无注入时 undefined） */
-  components?: Record<string, Record<string, string>>
-}
+/** I18nState 接口定义：core/ports.ts（W2 下沉） */
 
 /** 创建 i18n（locale/messages——t 插值） */
 export function i18n(opts: I18nOptions = {}): I18nState {

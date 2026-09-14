@@ -18,14 +18,14 @@
   ],
   "summary": {
     "l0": {
-      "files": 24,
-      "loc": 2691,
-      "exports": 196
+      "files": 25,
+      "loc": 2856,
+      "exports": 215
     },
     "l1": {
-      "files": 83,
-      "loc": 12812,
-      "exports": 376
+      "files": 84,
+      "loc": 12912,
+      "exports": 383
     },
     "l2": {
       "files": 7,
@@ -62,7 +62,7 @@
     "src/client/vdom/context/UIContext.ts": {
       "level": "l1",
       "env": "client",
-      "loc": 69
+      "loc": 70
     },
     "src/client/vdom/context/data.ts": {
       "level": "l1",
@@ -224,10 +224,15 @@
       "env": "client",
       "loc": 48
     },
+    "src/client/vdom/core/ports.ts": {
+      "level": "l1",
+      "env": "client",
+      "loc": 101
+    },
     "src/client/vdom/core/protocol.ts": {
       "level": "l1",
       "env": "client",
-      "loc": 155
+      "loc": 153
     },
     "src/client/vdom/core/router.ts": {
       "level": "l1",
@@ -653,6 +658,11 @@
       "level": "l0",
       "env": "universal",
       "loc": 154
+    },
+    "src/shared/ai/types.ts": {
+      "level": "l0",
+      "env": "universal",
+      "loc": 165
     },
     "src/shared/router/chain.ts": {
       "level": "l0",

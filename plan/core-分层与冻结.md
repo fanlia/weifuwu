@@ -127,12 +127,15 @@ src/core/
 - **W2③（2026-09-14）数据面割外**：RESP 类型下沉 L0（`RespError` → `db/errors.ts` · `RespValue`/`RedisSubscriberFace` → `db/contracts.ts`——装备面重出兼容旧路径）；`types.ts` 去 redis 类型重出（泄漏 −1）；生成器契约单源下沉 `db/generator-contracts.ts`（L0）+ `orm.gql/rest` 插件注册制（`orm.ts` 零生成器 import；gql/rest 模块加载自注册；未注册显式报错）+ 入口导出生成器。
   - 回归：`test:core` **830（829+1）** · `test:server` **865（864+1）** · `tsc` 0。
   - 泄漏 **12 → 6**（仅剩 vdom 端口 5 + `chat→ai/types` 1）；三方 0；上行 1。
+- **W2④（2026-09-14）vdom 端口 + AI 类型下沉（W2 收口）**：客户端中间件端口类型单源 `core/ports.ts`（`AuthClient`/`I18nState`/`StorageAdapter`/`ApiClient`/`ApiRequestOptions`/`WsClient`/`WsLike`——中间件只留实现并重出兼容）；`UIContext`/`protocol` 改引端口（去 4 条内联 import 泄漏）；AI 线协议类型 `server/ai/types.ts` → `shared/ai/types.ts`（L0；server 面 shim 重出——core hooks 直引 shared）。
+  - 回归：`test:core` **830（829+1）** · `test:server` **865（864+1）** · 场景 **129/129** · 平台 **507（492 pass + 15 docker-gated skip）** · `tsc` 0。
+  - **W2 收口：泄漏 14 → 0 · 三方 3 → 0 · 未知 0 · 闭包三方 0**（上行 1——`vnode(L0)→UIContext(L1)` type，W3 收编）。
 
 ## 验收标准
 
 - [x] W0：清单 100% 分类；`levels.json` + 三层基线入库
 - [x] W1：`audit:core-levels` + `test:core` + import-graph 断言上线（黄→红机制验证）
-- [ ] W2：泄漏边 = 0；core 三方 import = 0；graphql 中间件化消费点全迁移
+- [x] W2：泄漏边 = 0；core 三方 import = 0；graphql 中间件化消费点全迁移
 - [ ] W3：目录迁移完成；收编类型/运行时到位；旧路径 shim 生效；全量回归绿
 - [ ] W4：L0 快照 + 规模基线 + `docs/core.md` + `audit:all` 接入
 - [ ] W5（条件）：Autobahn + 差分门槛达标，或按判负回退 ws 适配器

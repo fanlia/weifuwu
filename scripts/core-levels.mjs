@@ -60,6 +60,7 @@ const RULES = [
   // L0 协议（universal——纯数据/协议/不变量）
   { match: 'src/shared/router/', level: 'l0', env: 'universal' },
   { match: 'src/shared/zod.ts', level: 'l0', env: 'universal' },
+  { match: 'src/shared/ai/', level: 'l0', env: 'universal' },
   { match: 'src/server/types.ts', level: 'l0', env: 'universal' },
   { match: 'src/server/db/shape.ts', level: 'l0', env: 'universal' },
   { match: 'src/server/db/ops.ts', level: 'l0', env: 'universal' },

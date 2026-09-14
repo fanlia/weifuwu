@@ -31,6 +31,7 @@ export interface DataPipe {
 
 import type { Browser } from '../browser/Browser.ts'
 import type { Ui } from '../hooks/env.ts'
+import type { I18nState } from '../core/ports.ts'
 export type { Ui }
 
 /** 组件 ctx（类型增强方案——对齐后端 Context：
@@ -62,7 +63,7 @@ export interface UIContext {
   /** 路由上下文（UIRouter resolve 注入——path/params/query 三面——应用消费单点） */
   route?: { path: string; params: Record<string, string>; query: Record<string, string> }
   /** 国际化（middlewares i18n 注入——可选——组件读组件文案面） */
-  i18n?: import('../middlewares/auth-i18n.ts').I18nState
+  i18n?: I18nState
   /** 中间件注入面（api/auth/ws/i18n...——可选链消费） */
   [key: string]: unknown
 }

@@ -16,6 +16,10 @@
 
 import { Subject, fromPromise } from '../observable/index.ts'
 import { exhaustMap, take } from '../observable/index.ts'
+import type { ApiClient, ApiRequestOptions } from '../core/ports.ts'
+
+/** 端口类型单源在 core/ports.ts（W2——core 零中间件依赖）——此处重出兼容旧路径 */
+export type { ApiClient, ApiRequestOptions } from '../core/ports.ts'
 
 export interface ApiOptions {
   /** 基础路径（前缀拼接） */
@@ -41,18 +45,7 @@ export class ApiError extends Error {
   }
 }
 
-export interface ApiRequestOptions {
-  headers?: Record<string, string>
-}
-
-export interface ApiClient {
-  get<T>(url: string, opts?: ApiRequestOptions): Promise<T>
-  post<T>(url: string, body?: unknown, opts?: ApiRequestOptions): Promise<T>
-  put<T>(url: string, body?: unknown, opts?: ApiRequestOptions): Promise<T>
-  delete<T>(url: string, opts?: ApiRequestOptions): Promise<T>
-  patch<T>(url: string, body?: unknown, opts?: ApiRequestOptions): Promise<T>
-  request<T>(method: string, url: string, body?: unknown, opts?: ApiRequestOptions): Promise<T>
-}
+/** ApiRequestOptions/ApiClient 接口定义：core/ports.ts（W2 下沉） */
 
 /** 创建 api 客户端（每 serve 实例独立——测试隔离） */
 export function api(opts: ApiOptions = {}): ApiClient {
