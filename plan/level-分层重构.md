@@ -17,18 +17,18 @@
 
 | 读数 | 值 |
 | --- | --- |
-| `src` 源文件（非测试，含 css） | **658**（core 116 · shim 117–124 · 入口 19 · 装备 ~400） |
+| `src` 源文件（非测试，含 css） | **658**（core 116 · shim 124 · 入口 19 · 装备 395 · 测试辅助 4） |
 | core（5 组） | `l0` 25 · `l1/server` 13 · `l1/client` 71 · `l2/server` 2 · `l2/client` 5 |
 | 客户端/通用边界实测 | `l1/client` 71 = DOM 传递闭包 **55**（客户端运行时）+ **16**（通用运行时） |
-| apps 源文件 | showcase **165** · agent-platform **375**（含 test/ui/scripts；不含 public/skills/data 等资产） |
+| apps 源文件 | showcase **27 非测试 + 138 测试** · agent-platform **128 非测试 + 99 测试**（另含 public/skills/design/docs 等资产目录） |
 | apps 引用框架 | platform **125 文件 / 213 处** `from 'weifuwu'` · showcase **18 文件 / 62 处** |
 | apps 启动/构建 | showcase：`node server.ts`（esbuild 运行时编译）；platform：`node --env-file=.env server.ts` + ui esbuild 构建 + Go sandbox agent（`src/sandbox`） |
 | apps 包面 | showcase 无 package.json；platform package.json 无 deps/devDeps（仅 scripts）· node_modules 仅 `weifuwu → 仓库根` 符号链接 |
-| 根包面 | `bin: null` · `files: ["dist/","README.md","docs/"]` · 运行依赖 = `esbuild` + `graphql`（装备面） |
-| 外部 DB 驱动实态 | `postgres`/`ioredis` = **死 devDeps（0 调用点）**——specifier 全仓扫描零命中，仅 `scripts/build.mjs` external 清单残留 + ioredis 注释一条 |
+| 根包面 | `bin: null` · `files: ["dist/","README.md","docs/"]` · **deps = `esbuild` + `graphql`** · **devDeps = `@types/node@^26.5.1` + `playwright`** · peerDependencies = 无 |
+| 外部 DB 驱动实态 | `postgres`/`ioredis` **已删除**（死 devDeps——0 调用点；commit 4d03736f） |
 | 自研引擎（已在位） | PG v3：`src/server/db/postgres/{protocol,connection,pool}.ts`（SCRAM/md5/cleartext · extended query · 池）· RESP2：`src/server/db/redis/{resp,connection,subscriber}.ts`（离线队列/重连）——真实 docker 测试已覆盖 |
-| Go 资产 | `src/sandbox/`（agent.go/go.mod/main.go…——platform 容器 agent） |
-| 三方使用 | platform/showcase 仅 `playwright`（测试）+ `esbuild`（运行时编译）；框架侧另需 `postgres`/`ioredis` 驱动 |
+| Go 资产 | `src/sandbox/`（5 Go 文件——platform 容器 agent） |
+| 依赖面收敛（2026-09 前置完成） | CSS 外部件（tailwindcss/postcss/@tailwindcss/postcss：运行时支路 + 可选 peer + 测试解析器→内部 `css-parse.ts`，168 语料对账等价）· `puppeteer-core`/`@graphql-tools/schema`（零调用）· `ws`（包 + adapter 差分实现→undici 全局客户端互操作）· `@types/node` ^26 |
 
 **闭包口径**（探针 `/tmp/w7-closure.mjs`，W0 固化入库）：
 种子 = 直接使用 DOM 全局的 27 文件；**谁 import 客户端文件谁也是客户端**（传递闭包）；
@@ -109,7 +109,7 @@ src/
 | exports | `./level0` … `./level6` 七键（`.` = level6 聚合）· **旧键全部删除** |
 | bin | `weifuwu-showcase` · `weifuwu-platform`（→ `dist/level6/apps/*/cli.js`——应用启动器） |
 | files | `dist/` + `README.md` + `docs/` + 应用运行资产（public/skills 等——随 dist 打包策略定） |
-| 运行依赖 | `esbuild`（已有）· `graphql`（装备面）——**DB 驱动零外部**（自研 PG v3 / RESP2 引擎）· 死依赖删除：`postgres`/`ioredis`（devDeps + build externals 清单） |
+| 运行依赖 | `esbuild`（已有）· `graphql`（装备面）——**DB 驱动零外部**（自研 PG v3 / RESP2 引擎）· 依赖面已收敛（前置清理完成） |
 | 应用测试 | 根脚本 `test:showcase` / `test:platform`（路径指向 level6 应用目录）· docker-gated 沙盒测试保持 |
 
 ### 命名去 core（全链）
@@ -126,13 +126,20 @@ src/
 
 | 波次 | 内容 | 验收 |
 | --- | --- | --- |
-| **W0 清点与规则**（无文件移动） | 分类器改写（全库 scope 含 apps 与 Go/资产清单）：shim 位点登记（待删）、DOM 闭包固化、`src/levels.json` + baseline；脚本/命令更名去 core；**迁移重写器设计**（映射表 + 解析式 import 重写——无 shim 的前提） | 清单 100% 分类（`unknown=0`）；注入探针（未登记文件/越级依赖）= 红；`test:levels` 绿 |
+| **W0 清点与规则**（无文件移动） | ① 分类器重写：scope = 全库（`src/**` + `apps/**` 非测试 + Go 资产登记；测试随目录安置不参与约束）；输出 `src/levels.json`（`{ files: path→{level,env}, shims: path→target }`）+ baseline；② shim 位点登记（迁移时删——不再生成）；③ DOM 闭包固化（种子+闭包规则入库，非清单硬编码）；④ 脚本/命令/文档更名去 core；⑤ **迁移重写器**交付（映射表生成 + 解析式 import 重写 + dry-run 报告） | 清单 100% 分类（`unknown=0`、shim 全登记、闭包 16/55 复算一致）；注入探针（未登记文件/越级依赖）= 红；重写器 dry-run 覆盖全库 import 零未解析；`test:levels` + `audit:all` 十四线绿 |
 | **W1 框架面迁移**（原子 commit） | ① core 116 → level0..4；② 装备 → level5（含 sandbox Go）；③ 19 入口 → level6 聚合面；**全库 import 一次性重写**（src+apps+test）；旧路径删除 | `test:levels`+`test:client`+`test:server`+`test:scenario`+`test:showcase` 绿 · `tsc` 0 · `audit:levels --check` 绿（apps 此时仍用旧 specifier → 需在 W2 前保持可运行？→ **见风险表：W1/W2 合批或 W1 内先重写 apps 相对导入**） |
-| **W2 应用内化** | apps → `level6/apps/*`；package.json 解散（scripts 并入根 · node_modules 符号链接删除）；`.env` 路径、Go 构建路径、playwright 路径修正；测试命令迁根 | 平台 **507（492+15）** 绿 · showcase **336** 绿 · `audit:all` exit 0 |
-| **W3 包面开放** | 七 exports + 两个 bin（应用启动器）+ files + **死依赖删除**（`postgres`/`ioredis`——devDeps 与 build externals 双清）+ dist 构建策略（应用编译/资产）；外部安装冒烟 | `npm pack` → 临时目录安装 → `import('weifuwu/levelN')` 七键解析 + **`npx weifuwu-showcase` 起服 curl 200** + `npx weifuwu-platform` 起服（最少依赖） |
+| **W2 应用内化** | apps → `level6/apps/*`；package.json 解散（scripts 并入根 · node_modules 符号链接删除）；`.env` 路径、Go 构建路径、playwright 路径修正；测试命令迁根 | 平台 **507（352+155）** 绿 · showcase **336** 绿 · `audit:all` exit 0 |
+| **W3 包面开放** | 七 exports + 两个 bin（应用启动器）+ files（含应用资产）+ dist 构建策略（应用编译/资产——依赖面已达标：deps = esbuild + graphql）；外部安装冒烟 | `npm pack` → 临时目录安装 → `import('weifuwu/levelN')` 七键解析 + **`npx weifuwu-showcase` 起服 curl 200** + `npx weifuwu-platform` 起服（最少依赖） |
 | **W4 审计七级化 + 加锁收尾** | `audit:levels` 方向/环境/三方/规模/docs 漂移 + level0 快照；`audit:all` 接入；`docs/level.md` 生成；AGENTS/规则并入；迁移指南（外部消费者——破坏性变更说明）；计划归档 | 注入探针红；全量回归门绿；计划文件删除（git log 承接） |
 
-> W1/W2 的批次边界待 W0 重写器实测后定稿（无 shim 时 apps 的 `weifuwu` specifier 依赖 dist 构建——可能需 W1 内一并把 apps 相对导入改掉，W2 只做搬家+包解散）。
+> **迁移重写器**（W0 交付——设计要点）：
+> ① **映射表**从 `levels.json` 生成（规则投影，非手写清单）：`src/core/l0/** → src/level0/**` 等；
+> ② **import 重写**＝解析式：相对 specifier → 源文件绝对路径 → 查映射 → 新相对 specifier（保留 `.ts` 扩展与 type-only 形态）；
+> ③ 裸 `weifuwu` specifier（apps 内 275 处）= 查 exports 映射 → 新相对路径；
+> ④ newline/quote 风格保持（逐行替换非全文件重排）；
+> ⑤ dry-run 输出三桶：可重写 / 未解析（旧路径消失）/ 例外（node: / 三方）——未解析必须 0。
+>
+> W1/W2 批次边界（W0 定稿）：**W1 单原子 commit 完成全部搬家 + 全库 import 重写**（框架 + 装备 + 入口 + apps + 测试——无 shim 时中途态不可绿）；W2 只做包解散（package.json/scripts/bin/node_modules 符号链接）。
 
 ## 判负记录（可被新论证推翻）
 
@@ -142,10 +149,22 @@ src/
 - **level5 不再分层**：装备是同层兄弟——推翻条件：装备出现成链依赖且审计需要。
 - **边界争议登记制**：闭包判定争议文件逐条登记理由（预期 <5%）；>5% 重审闭包口径。
 - **不新增自研 DB 引擎**：已经是自研（PG v3 / RESP2 在 `src/server/db/**`，真实 docker 测试覆盖）——不是计划项。推翻条件：specifier 扫描发现 `postgres`/`ioredis` 真实调用（当前 = 0）或自研引擎在真实库上暴露协议缺口。
+- **CSS 解析不用外部件**：postcss 删除（测试解析器→内部 `css-parse.ts`，全 CSS 语料 168 对账等价 0 差异）——推翻条件：内部解析器在新增 CSS 语法面暴露解析缺口。
+- **WS 差分基准不保留**：`ws` 包与 adapter 删除（替代 = Autobahn 301 + native 向量 + Node 全局 WebSocket/undici 互操作）——推翻条件：需字节级双实现对账（可临时装回复跑）。
 
 ## 执行实录（边做边记）
 
-（W0 起逐波记录：探针读数/迁移文件数/回归数字/意外）
+**前置依赖清理（计划外——2026-09，为单包化铺路）**：
+- `4d03736f` postgres/ioredis 死依赖删除（自研 PG v3/RESP2 已在位；32 针对测试绿）
+- `8ca43ce0` tailwindcss/postcss/@tailwindcss/postcss 清理（`ctx.ui.css` 编译支路删；测试解析器→内部 `css-parse.ts`，postcss vs 内部 168 语料等价 0 差异；test:client 515 绿）
+- `5d34e520` puppeteer-core/@graphql-tools/schema/ws 清理（ws adapter 与 200 用例差分测试删除→undici 互操作；test:server 881+1skip 绿）
+- `796915de` @types/node ^25→^26.5.1（对齐运行时 Node v26.7.0）
+- `a5113738` peerDependencies 三件删除（幽灵 API 面）
+- 结果：deps = `esbuild` + `graphql` · devDeps = `@types/node` + `playwright`
+
+**W0（进行中）**：探针读数：src 658 非测试（116/124/19/395/4）· apps 155 非测试 + 237 测试 · Go 5。
+
+（W0 起逐波记录：迁移文件数/回归数字/意外）
 
 ## 验收标准
 
