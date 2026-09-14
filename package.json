@@ -144,7 +144,7 @@
     }
   },
   "devDependencies": {
-    "@types/node": "^25",
+    "@types/node": "^26.5.1",
     "playwright": "^1.62.1"
   },
   "keywords": [
