@@ -5,3 +5,6 @@ dist/
 .env
 src/**/*.js
 coverage/
+
+# npm pack 产物（构建物——禁入库）
+*.tgz
